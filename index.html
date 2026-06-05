@@ -1079,7 +1079,7 @@
     const n = document.getElementById('historyInput').value.length;
     const el = document.getElementById('charCount');
     el.textContent = n.toLocaleString() + ' characters';
-    el.className = 'char-count' + (n > 80000 ? ' danger' : n > 50000 ? ' warn' : '');
+    el.className = 'char-count' + (n > 140000 ? ' danger' : n > 100000 ? ' warn' : '');
   }
 
   // ── GENERATE ──
@@ -1095,7 +1095,7 @@
     if (mode === 'compress') {
       const raw = document.getElementById('historyInput').value.trim();
       if (!raw) { showError('Please paste or upload a chat history first.'); return; }
-      const truncated = raw.length > 60000 ? raw.slice(0, 60000) + '\n\n[truncated]' : raw;
+      const truncated = raw.length > 150000 ? raw.slice(0, 150000) + '\n\n[truncated]' : raw;
       prompt = compressPrompt(format, truncated);
     } else {
       const desc = document.getElementById('bDesc').value.trim();
@@ -1167,7 +1167,7 @@
       clearInterval(progInt);
       progressTrack.style.display = 'none';
       outputWrap.style.display = 'none';
-      showError('Generation failed: ' + err.message + '. Check your API key is configured.');
+      showError('Generation failed: ' + err.message);
     } finally {
       btn.disabled = false;
       spinner.style.display = 'none';
@@ -1179,7 +1179,18 @@
   function compressPrompt(fmt, history) {
     return `You are an expert AI workflow architect. Analyse this raw AI chat history and compress it into a structured continuity kernel.
 
-Extract and structure: identity (name, role, expertise, location), project details (name, domain, platform, goals, audience), current status (completed, in progress), key decisions and rationale, active pipeline (tasks/items with priority/status), communication preferences (tone, style, formatting dislikes), key data and references, open threads, workflow notes.
+Extract and structure ALL of the following sections:
+
+IDENTITY: name, role, expertise, location, handle, timezone
+PROJECT: name, domain, platform, goals, audience, key URLs
+STATUS: completed milestones, work in progress, blockers
+DECISIONS: key choices made with rationale
+PIPELINE: upcoming tasks/items with priority and status
+COMMUNICATION: tone preferences, style, formatting dislikes, feedback preferences, working rhythm
+RELATIONSHIP: how the user likes to work with AI, what they find valuable, what frustrates them, any explicit preferences about AI interaction style
+REFERENCES: key URLs, tools, data sources, credentials (non-sensitive)
+OPEN THREADS: unresolved questions, pending decisions, known issues
+WORKFLOW: tools in use, agent structure, session patterns, methodology
 
 Output format: ${fmt.toUpperCase()}
 CRITICAL: Output ONLY the raw ${fmt.toUpperCase()} — absolutely no preamble, no explanation, no markdown code fences, no backticks.
@@ -1187,6 +1198,7 @@ CRITICAL: Output ONLY the raw ${fmt.toUpperCase()} — absolutely no preamble, n
 - Mark fields needing verification: # verify
 - Include metadata block: generated date, source, format version
 - Every field must earn its place
+- The communication and relationship sections are as important as the project sections
 
 Chat history:
 ---
@@ -1197,13 +1209,25 @@ ${history}
   function buildPrompt(fmt, type, name, proj, domain, desc) {
     return `You are an expert AI workflow architect. Generate a comprehensive drop-in continuity kernel for a ${type} project.
 
-Include: identity block, project block, status block, pipeline (upcoming work with priority/status), decisions log, preferences (communication/formatting/feedback), references (URLs/tools/data), constraints and open questions, metadata (date, version, TODO markers).
+Include ALL of the following sections:
+
+IDENTITY: author name, role, expertise, location
+PROJECT: name, domain, platform, goals, audience, key URLs
+STATUS: current phase, completed milestones, active work, blockers
+PIPELINE: upcoming tasks/features with priority and status
+DECISIONS: key choices made and rationale
+COMMUNICATION: tone preferences, style, formatting preferences, feedback style, working rhythm
+RELATIONSHIP: how the user prefers to work with AI assistants — what they value, what frustrates them, interaction style preferences, level of detail expected
+REFERENCES: key URLs, tools, data sources
+CONSTRAINTS: known limitations, dependencies, open questions
+METADATA: generated date, format version, TODO markers
 
 Output format: ${fmt.toUpperCase()}
 CRITICAL: Output ONLY the raw ${fmt.toUpperCase()} — absolutely no preamble, no explanation, no markdown code fences, no backticks.
 - Descriptive placeholders: # TODO: add your X here
-- Adapt field names for a ${type} project
+- Adapt field names naturally for a ${type} project
 - Brief inline comments on each major section
+- The communication and relationship sections are mandatory — not optional
 
 Project details:
 Author: ${name||'Not specified'}
