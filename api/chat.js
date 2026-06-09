@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY_Chat;
 
     // Build contents array for Gemini
     const contents = messages.map(m => ({
