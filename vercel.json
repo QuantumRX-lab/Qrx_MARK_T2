@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/nft-forge-tv.html", "destination": "/nft-forge-tv.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
