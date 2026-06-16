@@ -1,11 +1,21 @@
 // /api/validate-key
 //
-// Validates a Lemon Squeezy licence key for the QRx NFT Forge.
-// Uses LS's own licence-key validation API rather than a custom store,
-// since LS already tracks activation count/limit per key.
+// Tentatively checks a Lemon Squeezy licence key for the QRx NFT Forge,
+// WITHOUT consuming its activation. The real, consuming check happens in
+// /api/generate at the moment of actual card generation — see that file
+// for why activation is deferred to generate-time.
 //
-// Env vars required (set in Vercel project settings):
-//   LEMONSQUEEZY_API_KEY  - LS API key (used for "activate" call, optional if just validating)
+// This endpoint exists purely to give the frontend fast feedback (green
+// border) while typing, so users aren't stuck guessing whether a key
+// looks right before they even select theme/mood/palette.
+//
+// Uses LS's /validate endpoint, which does NOT consume activation. Known
+// quirk: /validate returns "license_key not found" for keys that have
+// never been activated yet (confirmed empirically 2026-06-16), even
+// though the key is genuinely valid and unused. We treat that specific
+// case as a tentative pass rather than a rejection, since rejecting it
+// would block every legitimate first-time buyer. Genuinely malformed,
+// disabled, or expired keys are still caught correctly below.
 //
 // Expected request body: { licenceKey: string }
 // Expected response: { valid: true } or { valid: false, error: string }
@@ -27,38 +37,40 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Lemon Squeezy /activate is used here instead of /validate, because /validate
-    // can return "license_key not found" for keys that have never been activated yet
-    // (confirmed empirically against a real never-activated key on 2026-06-16).
-    // /activate both confirms the key exists and registers the activation in one call.
-    // Docs: https://docs.lemonsqueezy.com/help/licensing/license-api
-    const lsResponse = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
+    // Non-consuming check. Docs: https://docs.lemonsqueezy.com/api/license-api/validate-license-key
+    const lsResponse = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         Accept: 'application/json',
       },
-      body: new URLSearchParams({
-        license_key: licenceKey.trim(),
-        instance_name: 'qrx-forge-validation',
-      }),
+      body: new URLSearchParams({ license_key: licenceKey.trim() }),
     });
 
     const lsData = await lsResponse.json();
 
-    if (!lsResponse.ok || !lsData.activated) {
-      return res.status(200).json({ valid: false, error: lsData.error || 'Licence key not valid' });
+    if (lsData.valid) {
+      const status = lsData.license_key?.status;
+      if (status === 'disabled' || status === 'expired') {
+        return res.status(200).json({ valid: false, error: 'Licence key ' + status });
+      }
+      const usage = lsData.license_key?.activation_usage ?? 0;
+      const limit = lsData.license_key?.activation_limit ?? 1;
+      if (limit !== null && usage >= limit) {
+        return res.status(200).json({ valid: false, error: 'Licence key already used' });
+      }
+      return res.status(200).json({ valid: true });
     }
 
-    // LS reports activation_usage / activation_limit on the license_key object.
-    const meta = lsData.license_key || {};
-    const status = meta.status; // 'inactive' | 'active' | 'expired' | 'disabled'
-
-    if (status === 'disabled' || status === 'expired') {
-      return res.status(200).json({ valid: false, error: 'Licence key ' + status });
+    // Known LS quirk: a never-activated key reports "not found" here even
+    // though it's genuinely valid. Treat this specific error as a tentative
+    // pass — the real activation check happens in /api/generate.
+    if (lsData.error && /not found/i.test(lsData.error)) {
+      return res.status(200).json({ valid: true });
     }
 
-    return res.status(200).json({ valid: true });
+    // Any other rejection (malformed, wrong store, etc.) is a real failure.
+    return res.status(200).json({ valid: false, error: lsData.error || 'Licence key not valid' });
 
   } catch (err) {
     console.error('validate-key error:', err);
