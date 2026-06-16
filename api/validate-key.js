@@ -52,4 +52,16 @@ export default async function handler(req, res) {
 
     // LS reports activation_usage / activation_limit on the license_key object.
     const meta = lsData.license_key || {};
-    const status =
+    const status = meta.status; // 'inactive' | 'active' | 'expired' | 'disabled'
+
+    if (status === 'disabled' || status === 'expired') {
+      return res.status(200).json({ valid: false, error: 'Licence key ' + status });
+    }
+
+    return res.status(200).json({ valid: true });
+
+  } catch (err) {
+    console.error('validate-key error:', err);
+    return res.status(500).json({ valid: false, error: 'Validation service unavailable' });
+  }
+}
