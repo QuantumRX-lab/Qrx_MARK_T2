@@ -96,4 +96,123 @@ function buildPrompt({ theme, mood, palette, gender, issue, scene }) {
     `full bleed vertical card format, ${themeBorder} integrated into artwork,`,
     `title banner at top, series number bottom right, Series 1 #${issue}/1000, Limited Edition.`,
     `Do not include any real-world national flags, real countries, real brand logos, or real organization insignia anywhere in the image; all patches, badges, and emblems should be original fictional designs only.`,
-  ].join('
+  ].join(' ');
+}
+
+async function getNextIssueNumber() {
+  // Public forge issue numbers start at #0100 (0000-0010 reserved for founding set,
+  // 0011-0099 reserved/unused). forge_counter is atomically incremented in Vercel KV.
+  const next = await kv.incr('forge_counter');
+  const actual = next < 100 ? next + 99 : next; // safety floor in case counter wasn't pre-seeded to 99
+  return String(actual).padStart(4, '0');
+}
+
+async function callNanoBanana(prompt) {
+  const apiKey = process.env.GEMINI_API_KEY_Forge;
+  if (!apiKey) throw new Error('GEMINI_API_KEY_Forge not configured');
+
+  // Nano Banana 2 image generation model, confirmed directly from Google AI Studio's
+  // "Get code" sample on 2026-06-16. Google flags this model as not yet stable /
+  // not guaranteed production-ready — acceptable risk for this low-stakes product.
+  const model = 'gemini-3.1-flash-image';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseModalities: ['IMAGE', 'TEXT'],
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Gemini API error ${response.status}: ${errText}`);
+  }
+
+  const data = await response.json();
+
+  // Image comes back as inline base64 data in the response parts.
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  const imagePart = parts.find(p => p.inlineData && p.inlineData.data);
+
+  if (!imagePart) {
+    throw new Error('No image returned from Gemini API');
+  }
+
+  const mimeType = imagePart.inlineData.mimeType || 'image/png';
+  const buffer = Buffer.from(imagePart.inlineData.data, 'base64');
+  return { buffer, mimeType };
+}
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { theme, mood, palette, gender, licenceKey } = req.body || {};
+
+  if (!theme || !mood || !palette || !licenceKey) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const themeKey = theme.toUpperCase();
+  if (!SCENES[themeKey]) {
+    return res.status(400).json({ error: 'Unknown theme' });
+  }
+
+  try {
+    // Re-validate licence key server-side (defence in depth — never trust the client).
+    // Note: the key is already activated at this point by /api/validate-key, which
+    // calls /activate directly (since /validate alone returned "not found" for
+    // never-activated keys — confirmed empirically 2026-06-16). So this call should
+    // find the key as active and within its (now-consumed) limit.
+    const lsRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+      body: new URLSearchParams({ license_key: licenceKey.trim() }),
+    });
+    const lsData = await lsRes.json();
+    if (!lsRes.ok || !lsData.valid) {
+      return res.status(403).json({ error: 'Invalid or inactive licence key' });
+    }
+
+    const issue = await getNextIssueNumber();
+    const scenePool = SCENES[themeKey];
+    const scene = scenePool[Math.floor(Math.random() * scenePool.length)];
+
+    const prompt = buildPrompt({
+      theme: themeKey,
+      mood: mood.toUpperCase(),
+      palette: palette.toUpperCase(),
+      gender,
+      issue,
+      scene,
+    });
+
+    const { buffer, mimeType } = await callNanoBanana(prompt);
+    const ext = mimeType.includes('png') ? 'png' : 'jpg';
+    const filename = `forge/${issue}-${themeKey.toLowerCase()}-${Date.now()}.${ext}`;
+
+    const blob = await put(filename, buffer, {
+      access: 'public',
+      contentType: mimeType,
+    });
+
+    const name = `${themeKey.charAt(0) + themeKey.slice(1).toLowerCase()} Pepe`;
+
+    return res.status(200).json({
+      imageUrl: blob.url,
+      issue,
+      name,
+      scene,
+    });
+
+  } catch (err) {
+    console.error('generate error:', err);
+    return res.status(500).json({ error: 'Generation failed, please try again' });
+  }
+}
