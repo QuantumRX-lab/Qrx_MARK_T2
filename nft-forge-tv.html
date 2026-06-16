@@ -696,7 +696,7 @@
       generating.classList.add('hidden');
       idle.classList.remove('hidden');
       document.getElementById('d3').className='dot';
-      const msg = (err.message && /already used/i.test(err.message))
+      const msg = (err.message && /activation limit|already used/i.test(err.message))
         ? 'KEY ALREADY USED · BUY A NEW CODE'
         : 'FORGE FAILED · TRY AGAIN';
       document.getElementById('status-text').textContent = msg;
