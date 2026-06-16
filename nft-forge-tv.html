@@ -696,7 +696,10 @@
       generating.classList.add('hidden');
       idle.classList.remove('hidden');
       document.getElementById('d3').className='dot';
-      document.getElementById('status-text').textContent='FORGE FAILED · TRY AGAIN';
+      const msg = (err.message && /already used/i.test(err.message))
+        ? 'KEY ALREADY USED · BUY A NEW CODE'
+        : 'FORGE FAILED · TRY AGAIN';
+      document.getElementById('status-text').textContent = msg;
       document.getElementById('status-text').style.color='#FF3333';
     }
   }
