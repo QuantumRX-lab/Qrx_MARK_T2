@@ -165,19 +165,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Re-validate licence key server-side (defence in depth — never trust the client).
-    // Note: the key is already activated at this point by /api/validate-key, which
-    // calls /activate directly (since /validate alone returned "not found" for
-    // never-activated keys — confirmed empirically 2026-06-16). So this call should
-    // find the key as active and within its (now-consumed) limit.
-    const lsRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
+    // This is now the ONLY place the licence key is actually activated/consumed.
+    // /api/validate-key (called when the user types the key) is non-consuming and
+    // only gives tentative frontend feedback. Calling /activate here both confirms
+    // the key is genuinely usable AND enforces the one-time-use limit: if this key
+    // was already activated by a prior generation, LS will correctly reject this
+    // second /activate attempt once activation_usage reaches activation_limit.
+    // Docs: https://docs.lemonsqueezy.com/api/license-api/activate-license-key
+    const lsRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-      body: new URLSearchParams({ license_key: licenceKey.trim() }),
+      body: new URLSearchParams({
+        license_key: licenceKey.trim(),
+        instance_name: 'qrx-forge-generation-' + Date.now(),
+      }),
     });
     const lsData = await lsRes.json();
-    if (!lsRes.ok || !lsData.valid) {
-      return res.status(403).json({ error: 'Invalid or inactive licence key' });
+    if (!lsRes.ok || !lsData.activated) {
+      return res.status(403).json({ error: lsData.error || 'Licence key already used or invalid' });
     }
 
     const issue = await getNextIssueNumber();
