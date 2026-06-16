@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/nft-forge-tv.html", "destination": "/nft-forge-tv.html" },
+    { "source": "/lotm-forge-tv.html", "destination": "/lotm-forge-tv.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
