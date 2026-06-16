@@ -27,20 +27,26 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Lemon Squeezy licence key validation endpoint.
+    // Lemon Squeezy /activate is used here instead of /validate, because /validate
+    // can return "license_key not found" for keys that have never been activated yet
+    // (confirmed empirically against a real never-activated key on 2026-06-16).
+    // /activate both confirms the key exists and registers the activation in one call.
     // Docs: https://docs.lemonsqueezy.com/help/licensing/license-api
-    const lsResponse = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
+    const lsResponse = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         Accept: 'application/json',
       },
-      body: new URLSearchParams({ license_key: licenceKey.trim() }),
+      body: new URLSearchParams({
+        license_key: licenceKey.trim(),
+        instance_name: 'qrx-forge-validation',
+      }),
     });
 
     const lsData = await lsResponse.json();
 
-    if (!lsResponse.ok || !lsData.valid) {
+    if (!lsResponse.ok || !lsData.activated) {
       return res.status(200).json({ valid: false, error: lsData.error || 'Licence key not valid' });
     }
 
@@ -50,13 +56,6 @@ export default async function handler(req, res) {
 
     if (status === 'disabled' || status === 'expired') {
       return res.status(200).json({ valid: false, error: 'Licence key ' + status });
-    }
-
-    const usage = meta.activation_usage ?? 0;
-    const limit = meta.activation_limit ?? 1;
-
-    if (limit !== null && usage >= limit) {
-      return res.status(200).json({ valid: false, error: 'Licence key already used' });
     }
 
     return res.status(200).json({ valid: true });
