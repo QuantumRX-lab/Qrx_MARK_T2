@@ -27,7 +27,21 @@ export default async function handler(req, res) {
 
   const { licenceKey } = req.body || {};
 
-  if (!licenceKey || typeof licenceKey !== 'string' || licenceKey.trim().length < 10) {
+  if (!licenceKey || typeof licenceKey !== 'string') {
+    return res.status(400).json({ valid: false, error: 'Licence key missing' });
+  }
+
+  // FREE CODE short-circuit — see /api/generate for the actual capped
+  // enforcement (KV-counted, 100 redemptions, key forge_free_used). This
+  // check is tentative only, same as the LS path below: it tells the
+  // frontend the code is recognized, but doesn't guarantee a slot is
+  // still free. If the cap has been hit, /api/generate will still
+  // correctly reject at the point of actual generation.
+  if (licenceKey.trim().toUpperCase() === 'PEPEFREE') {
+    return res.status(200).json({ valid: true });
+  }
+
+  if (licenceKey.trim().length < 10) {
     return res.status(400).json({ valid: false, error: 'Licence key missing or too short' });
   }
 
