@@ -19,6 +19,21 @@
     background-image:radial-gradient(ellipse at center, #2a2a2a 0%, #0d0d0d 100%);
   }
 
+  /* HERO BANNER */
+  .hero-banner {
+    width:100%;
+    max-width:900px;
+    margin:0 auto 24px;
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 12px 40px rgba(0,0,0,0.6),0 0 0 1px rgba(255,215,0,0.15);
+  }
+  .hero-banner img {
+    display:block;
+    width:100%;
+    height:auto;
+  }
+
   /* TV */
   .tv-shell {
     background:linear-gradient(145deg,#c8b89a,#a0906e,#8a7a5e);
@@ -430,6 +445,12 @@
 </head>
 <body>
 
+<!-- HERO BANNER -->
+<div class="hero-banner">
+  <img src="pepe-legends-hero.png" alt="The Pepe Legends — 11 Heroes, One Legendary Collection, Series 1 Limited Edition">
+</div>
+
+
 <!-- TV -->
 <div class="tv-shell">
   <div class="tv-brand">QRx · NFT · FORGE</div>
@@ -594,7 +615,7 @@
     licenceKeyValidated = false;
     field.style.borderColor = '#333';
 
-    if (key.length < 10) {
+    if (key.length < 8) {
       updateState();
       return;
     }
