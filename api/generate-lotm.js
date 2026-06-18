@@ -255,6 +255,15 @@ export default async function handler(req, res) {
   // Squeezy discount code (like FORGE100 on Pepe Legends) — no LS
   // license key is issued or activated for this path, so it must
   // never be treated as a real licence key anywhere else in the app.
+  //
+  // PER-IP GUARD: in addition to the overall 100-redemption cap, each
+  // IP address may redeem LOTMFREE at most once. Soft deterrent only —
+  // VPNs, carrier NAT, and incognito don't change IP, so this only
+  // blocks casual repeat clicks, not a determined bypass. Stored as
+  // lotm_free_ip:<ip> with a 30-day expiry so it doesn't grow
+  // unbounded in KV. Distinct key prefix from Pepe Legends' guard so
+  // redeeming PEPEFREE doesn't block the same IP from also redeeming
+  // LOTMFREE once.
   // ─────────────────────────────────────────────────────────────
   const FREE_CODE = 'LOTMFREE';
   const FREE_CODE_LIMIT = 100;
@@ -262,12 +271,24 @@ export default async function handler(req, res) {
 
   try {
     if (isFreeCodeAttempt) {
+      const forwardedFor = req.headers['x-forwarded-for'] || '';
+      const clientIp = forwardedFor.split(',')[0].trim() || 'unknown';
+      const ipKey = `lotm_free_ip:${clientIp}`;
+
+      const alreadyRedeemed = await kv.get(ipKey);
+      if (alreadyRedeemed) {
+        return res.status(403).json({ error: 'Free code already used from this connection. Grab a licence key instead.' });
+      }
+
       // Atomic increment + check. kv.incr is atomic, so concurrent
       // requests can't both slip in under the cap.
       const usedCount = await kv.incr('lotm_free_used');
       if (usedCount > FREE_CODE_LIMIT) {
         return res.status(403).json({ error: 'Free codes for this drop have all been claimed. Grab a licence key instead.' });
       }
+
+      // Mark this IP as having redeemed, 30-day expiry (in seconds).
+      await kv.set(ipKey, '1', { ex: 60 * 60 * 24 * 30 });
       // Free code accepted — skip Lemon Squeezy activation entirely.
     } else {
       // The ONLY place a paid licence key is actually activated/consumed.
