@@ -164,25 +164,50 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Unknown theme' });
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // FREE CODE — a shared, capped giveaway code that bypasses Lemon
+  // Squeezy checkout entirely. Anyone can paste PEPEFREE into the
+  // licence key field; the first 100 redemptions succeed, the 101st
+  // onward are rejected. Cap is enforced atomically via a dedicated
+  // KV counter (forge_free_used), separate from the paid-key path and
+  // separate from forge_counter (issue numbers). This is NOT a Lemon
+  // Squeezy discount code (like FORGE100) — no LS license key is
+  // issued or activated for this path, so it must never be treated
+  // as a real licence key anywhere else in the app.
+  // ─────────────────────────────────────────────────────────────
+  const FREE_CODE = 'PEPEFREE';
+  const FREE_CODE_LIMIT = 100;
+  const isFreeCodeAttempt = licenceKey.trim().toUpperCase() === FREE_CODE;
+
   try {
-    // This is now the ONLY place the licence key is actually activated/consumed.
-    // /api/validate-key (called when the user types the key) is non-consuming and
-    // only gives tentative frontend feedback. Calling /activate here both confirms
-    // the key is genuinely usable AND enforces the one-time-use limit: if this key
-    // was already activated by a prior generation, LS will correctly reject this
-    // second /activate attempt once activation_usage reaches activation_limit.
-    // Docs: https://docs.lemonsqueezy.com/api/license-api/activate-license-key
-    const lsRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-      body: new URLSearchParams({
-        license_key: licenceKey.trim(),
-        instance_name: 'qrx-forge-generation-' + Date.now(),
-      }),
-    });
-    const lsData = await lsRes.json();
-    if (!lsRes.ok || !lsData.activated) {
-      return res.status(403).json({ error: lsData.error || 'Licence key already used or invalid' });
+    if (isFreeCodeAttempt) {
+      // Atomic increment + check. kv.incr is atomic, so concurrent
+      // requests can't both slip in under the cap.
+      const usedCount = await kv.incr('forge_free_used');
+      if (usedCount > FREE_CODE_LIMIT) {
+        return res.status(403).json({ error: 'Free codes for this drop have all been claimed. Grab a licence key instead.' });
+      }
+      // Free code accepted — skip Lemon Squeezy activation entirely.
+    } else {
+      // This is now the ONLY place the licence key is actually activated/consumed.
+      // /api/validate-key (called when the user types the key) is non-consuming and
+      // only gives tentative frontend feedback. Calling /activate here both confirms
+      // the key is genuinely usable AND enforces the one-time-use limit: if this key
+      // was already activated by a prior generation, LS will correctly reject this
+      // second /activate attempt once activation_usage reaches activation_limit.
+      // Docs: https://docs.lemonsqueezy.com/api/license-api/activate-license-key
+      const lsRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+        body: new URLSearchParams({
+          license_key: licenceKey.trim(),
+          instance_name: 'qrx-forge-generation-' + Date.now(),
+        }),
+      });
+      const lsData = await lsRes.json();
+      if (!lsRes.ok || !lsData.activated) {
+        return res.status(403).json({ error: lsData.error || 'Licence key already used or invalid' });
+      }
     }
 
     const issue = await getNextIssueNumber();
