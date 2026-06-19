@@ -1007,10 +1007,9 @@
 </div>
 
 <script>
-  // ── CONFIG ──
-  // Replace with your Gemini API key once obtained
-  // API key is handled server-side via Vercel function — never exposed in browser
   const GHOST_URL = 'https://www.quantumrx.eu';
+  // ── SECURITY: internal key must match INTERNAL_API_KEY env var in Vercel ──
+  const INTERNAL_KEY = 'qrx_k3rn3l_2026_xJ9mPqL4';
 
   let mode = 'compress', format = 'yaml', output = '';
 
@@ -1025,7 +1024,6 @@
     try { localStorage.setItem(MEMBER_KEY, 'true'); } catch {}
   }
 
-  // After generation completes, show subscribe or returning block
   function showPostGenerationBlock() {
     if (isKnownMember()) {
       document.getElementById('returningBlock').classList.add('visible');
@@ -1134,10 +1132,13 @@
     }, 400);
 
     try {
-      // Call Vercel serverless proxy — key lives in environment variables
+      // ── SECURED: x-internal-key header required by api/gemini.js ──
       const res = await fetch('/api/gemini', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-key': INTERNAL_KEY
+        },
         body: JSON.stringify({ prompt })
       });
 
@@ -1158,7 +1159,6 @@
       document.getElementById('outputStats').textContent =
         `${lines} lines · ${format.toUpperCase()} · ${new Date().toISOString().split('T')[0]}`;
 
-      // Show subscribe or returning member block after generation
       setTimeout(() => {
         showPostGenerationBlock();
       }, 600);
@@ -1256,7 +1256,6 @@ Description: ${desc}`;
     subBtnLabel.textContent = 'Subscribing…';
 
     try {
-      // Ghost frontend magic link endpoint — sends confirmation email, double opt-in
       const res = await fetch(`${GHOST_URL}/members/api/send-magic-link/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1268,9 +1267,7 @@ Description: ${desc}`;
       });
 
       if (res.status === 201 || res.ok) {
-        // Set member flag in localStorage
         setMemberFlag();
-        // Hide subscribe block, show success message
         document.getElementById('subscribeBlock').classList.remove('visible');
         const successEl = document.getElementById('subscribeSuccess');
         successEl.classList.add('visible');
