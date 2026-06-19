@@ -42,7 +42,6 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ── NAV ── */
   .nav {
     background: var(--white);
     border-bottom: 1px solid var(--border);
@@ -80,7 +79,6 @@
   }
   .nav-link:hover { color: var(--blue); }
 
-  /* ── HERO ── */
   .hero {
     background: var(--white);
     border-bottom: 1px solid var(--border);
@@ -134,14 +132,12 @@
     font-weight: 300;
   }
 
-  /* ── MAIN ── */
   .main {
     max-width: 760px;
     margin: 0 auto;
     padding: 40px 24px 80px;
   }
 
-  /* ── TABS ── */
   .tabs {
     display: flex;
     border-bottom: 2px solid var(--border);
@@ -165,7 +161,6 @@
   .tab:hover { color: var(--text); }
   .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
 
-  /* ── PANELS ── */
   .panel { display: none; }
   .panel.active { display: block; }
 
@@ -180,7 +175,6 @@
     display: block;
   }
 
-  /* ── UPLOAD ── */
   .upload-zone {
     position: relative;
     border: 2px dashed var(--border-dark);
@@ -212,12 +206,10 @@
   .upload-hint { font-size: 12px; color: var(--text-light); font-family: var(--mono); }
   .upload-success { display: none; margin-top: 8px; font-size: 12px; color: var(--green); font-family: var(--mono); font-weight: 500; }
 
-  /* ── DIVIDER ── */
   .or-divider { display: flex; align-items: center; gap: 14px; margin: 20px 0; }
   .or-line { flex: 1; height: 1px; background: var(--border); }
   .or-text { font-size: 11px; color: var(--text-xlight); font-family: var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
 
-  /* ── FORM ── */
   textarea, input, select {
     width: 100%;
     background: var(--white);
@@ -260,7 +252,6 @@
   .char-count.warn { color: var(--amber); }
   .char-count.danger { color: var(--red); }
 
-  /* ── FORMAT ROW ── */
   .format-row {
     display: flex;
     align-items: center;
@@ -274,7 +265,6 @@
   }
 
   .format-label { font-size: 12px; font-weight: 500; color: var(--text-mid); white-space: nowrap; }
-
   .format-pills { display: flex; gap: 6px; flex-wrap: wrap; }
 
   .pill {
@@ -294,7 +284,6 @@
   .pill.active { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
   .pill:not(.active):hover { border-color: var(--border-dark); color: var(--text); }
 
-  /* ── GENERATE BUTTON ── */
   .btn-generate {
     width: 100%;
     padding: 15px 24px;
@@ -340,7 +329,6 @@
     color: var(--red);
   }
 
-  /* ── OUTPUT ── */
   .output-wrap { display: none; margin-top: 32px; }
 
   .output-card {
@@ -377,9 +365,7 @@
   }
 
   .badge-dot { width: 5px; height: 5px; background: var(--green); border-radius: 50%; display: none; }
-
   .output-stats { font-size: 11px; color: var(--text-light); font-family: var(--mono); }
-
   .output-actions { display: flex; gap: 6px; }
 
   .btn-sm {
@@ -421,7 +407,6 @@
   .yc { color: var(--text-light); font-style: italic; }
   .yd { color: var(--amber); font-weight: 400; }
 
-  /* ── SUBSCRIBE CAPTURE ── */
   .subscribe-block {
     display: none;
     margin-top: 24px;
@@ -478,10 +463,7 @@
 
   @media (max-width: 560px) { .subscribe-row { grid-template-columns: 1fr; } }
 
-  .subscribe-form input {
-    font-size: 13px;
-    padding: 10px 12px;
-  }
+  .subscribe-form input { font-size: 13px; padding: 10px 12px; }
 
   .btn-subscribe {
     padding: 11px 20px;
@@ -527,7 +509,6 @@
 
   .subscribe-skip:hover { color: var(--text-mid); }
 
-  /* Success state */
   .subscribe-success {
     display: none;
     padding: 16px 20px;
@@ -539,24 +520,9 @@
 
   .subscribe-success.visible { display: flex; align-items: flex-start; gap: 12px; }
 
-  .success-icon {
-    font-size: 20px;
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-
-  .success-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--green);
-    margin-bottom: 3px;
-  }
-
-  .success-sub {
-    font-size: 12px;
-    color: var(--text-mid);
-    line-height: 1.5;
-  }
+  .success-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+  .success-title { font-size: 14px; font-weight: 600; color: var(--green); margin-bottom: 3px; }
+  .success-sub { font-size: 12px; color: var(--text-mid); line-height: 1.5; }
 
   .subscribe-error {
     display: none;
@@ -566,7 +532,6 @@
     margin-top: 6px;
   }
 
-  /* ── RETURNING MEMBER ── */
   .returning-block {
     display: none;
     margin-top: 24px;
@@ -582,7 +547,6 @@
   }
 
   .returning-block.visible { display: flex; }
-
   .returning-left { display: flex; align-items: center; gap: 12px; }
 
   .returning-tick {
@@ -597,24 +561,9 @@
     flex-shrink: 0;
   }
 
-  .returning-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 2px;
-  }
-
-  .returning-sub {
-    font-size: 12px;
-    color: var(--text-mid);
-    font-weight: 300;
-  }
-
-  .returning-links {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
+  .returning-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .returning-sub { font-size: 12px; color: var(--text-mid); font-weight: 300; }
+  .returning-links { display: flex; gap: 8px; flex-wrap: wrap; }
 
   .returning-link {
     display: inline-block;
@@ -633,7 +582,6 @@
   .returning-link.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
   .returning-link.primary:hover { background: #0044dd; }
 
-  /* ── MACK BLOCK ── */
   .mack-block {
     background: var(--white);
     border: 1px solid var(--border);
@@ -650,14 +598,7 @@
     flex-wrap: wrap;
   }
 
-  .mack-title {
-    font-family: var(--serif);
-    font-size: 20px;
-    font-weight: 400;
-    color: var(--text);
-    line-height: 1.2;
-  }
-
+  .mack-title { font-family: var(--serif); font-size: 20px; font-weight: 400; color: var(--text); line-height: 1.2; }
   .mack-title em { font-style: italic; color: var(--blue); }
 
   .mack-tag {
@@ -673,14 +614,7 @@
     white-space: nowrap;
   }
 
-  .mack-body {
-    font-size: 13px;
-    color: var(--text-mid);
-    line-height: 1.75;
-    font-weight: 300;
-    margin-bottom: 18px;
-  }
-
+  .mack-body { font-size: 13px; color: var(--text-mid); line-height: 1.75; font-weight: 300; margin-bottom: 18px; }
   .mack-body strong { color: var(--text); font-weight: 500; }
 
   .mack-pillars {
@@ -692,12 +626,7 @@
 
   @media (max-width: 560px) { .mack-pillars { grid-template-columns: 1fr; } }
 
-  .mack-pillar {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-  }
+  .mack-pillar { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
 
   .mack-pillar-label {
     font-family: var(--mono);
@@ -710,12 +639,7 @@
     display: block;
   }
 
-  .mack-pillar-text {
-    font-size: 12px;
-    color: var(--text-mid);
-    line-height: 1.5;
-    font-weight: 300;
-  }
+  .mack-pillar-text { font-size: 12px; color: var(--text-mid); line-height: 1.5; font-weight: 300; }
 
   .mack-footer-line {
     font-size: 12px;
@@ -730,15 +654,7 @@
     gap: 8px;
   }
 
-  .mack-coming-soon {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: var(--text-light);
-    font-family: var(--mono);
-    letter-spacing: 0.08em;
-  }
+  .mack-coming-soon { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-light); font-family: var(--mono); letter-spacing: 0.08em; }
 
   .mack-coming-dot {
     width: 5px; height: 5px;
@@ -747,7 +663,6 @@
     animation: blink 2s ease-in-out infinite;
   }
 
-  /* ── FOOTER ── */
   .footer {
     background: var(--white);
     border-top: 1px solid var(--border);
@@ -776,7 +691,6 @@
 </head>
 <body>
 
-<!-- NAV -->
 <nav class="nav">
   <a class="nav-logo" href="https://www.quantumrx.eu" target="_blank">
     <img src="https://storage.ghost.io/c/08/be/08be680d-f37c-44dd-98a9-d496fb40d8de/content/images/2026/06/Upscale-logo-Jun-1--2026--06_19_45-PM.png" alt="QuantumRx">
@@ -789,7 +703,6 @@
   <a class="nav-link" href="https://www.quantumrx.eu" target="_blank">← Back to QuantumRx</a>
 </nav>
 
-<!-- HERO -->
 <div class="hero">
   <div class="hero-tag">
     <div class="tag-dot"></div>
@@ -799,10 +712,8 @@
   <p class="hero-sub">Compress a chat history into a structured context kernel — or build one from scratch. Drop it into any AI session to restore full context instantly.</p>
 </div>
 
-<!-- MAIN -->
 <div class="main">
 
-  <!-- MACK FRAMEWORK BLOCK -->
   <div class="mack-block">
     <div class="mack-header">
       <div class="mack-title">MACK — <em>Multi-Agent Continuity Kernel</em></div>
@@ -842,7 +753,6 @@
     <button class="tab" onclick="setMode('build')">Build from scratch</button>
   </div>
 
-  <!-- COMPRESS PANEL -->
   <div class="panel active" id="panel-compress">
     <span class="section-label">Step 1 — Upload or paste your chat history</span>
 
@@ -868,7 +778,6 @@
     </div>
   </div>
 
-  <!-- BUILD PANEL -->
   <div class="panel" id="panel-build">
     <span class="section-label">Tell us about your project</span>
 
@@ -910,7 +819,6 @@
     </div>
   </div>
 
-  <!-- FORMAT + GENERATE -->
   <div class="format-row">
     <span class="format-label">Output format</span>
     <div class="format-pills">
@@ -927,7 +835,6 @@
 
   <div class="error-msg" id="errorMsg"></div>
 
-  <!-- OUTPUT -->
   <div class="output-wrap" id="outputWrap">
     <div class="output-card">
       <div class="output-topbar">
@@ -950,7 +857,6 @@
       <pre id="outputPre"></pre>
     </div>
 
-    <!-- SUBSCRIBE CAPTURE — shown after generation completes -->
     <div class="subscribe-block" id="subscribeBlock">
       <span class="subscribe-eyebrow">QuantumRx Intelligence</span>
       <div class="subscribe-heading">Get more practitioner <em>tools and analysis.</em></div>
@@ -968,10 +874,8 @@
         <button class="subscribe-skip" onclick="skipSubscribe()">No thanks, just the kernel</button>
       </div>
     </div>
-
   </div>
 
-  <!-- SUCCESS STATE (replaces subscribe block) -->
   <div class="subscribe-success" id="subscribeSuccess">
     <div class="success-icon">✓</div>
     <div>
@@ -980,7 +884,6 @@
     </div>
   </div>
 
-  <!-- RETURNING MEMBER STATE (shown post-generation if already subscribed) -->
   <div class="returning-block" id="returningBlock">
     <div class="returning-left">
       <div class="returning-tick">✓</div>
@@ -997,7 +900,6 @@
 
 </div>
 
-<!-- FOOTER -->
 <div class="footer">
   <div class="footer-left">
     <img src="https://storage.ghost.io/c/08/be/08be680d-f37c-44dd-98a9-d496fb40d8de/content/images/2026/06/Upscale-logo-Jun-1--2026--06_19_45-PM.png" alt="QuantumRx">
@@ -1008,21 +910,11 @@
 
 <script>
   const GHOST_URL = 'https://www.quantumrx.eu';
-  // ── SECURITY: internal key must match INTERNAL_API_KEY env var in Vercel ──
-  const INTERNAL_KEY = 'qrx_k3rn3l_2026_xJ9mPqL4';
-
   let mode = 'compress', format = 'yaml', output = '';
 
-  // ── MEMBER STATE ──
   const MEMBER_KEY = 'qrx_subscribed';
-
-  function isKnownMember() {
-    try { return localStorage.getItem(MEMBER_KEY) === 'true'; } catch { return false; }
-  }
-
-  function setMemberFlag() {
-    try { localStorage.setItem(MEMBER_KEY, 'true'); } catch {}
-  }
+  function isKnownMember() { try { return localStorage.getItem(MEMBER_KEY) === 'true'; } catch { return false; } }
+  function setMemberFlag() { try { localStorage.setItem(MEMBER_KEY, 'true'); } catch {} }
 
   function showPostGenerationBlock() {
     if (isKnownMember()) {
@@ -1034,7 +926,6 @@
     }
   }
 
-  // ── MODE / FORMAT ──
   function setMode(m) {
     mode = m;
     document.querySelectorAll('.tab').forEach((t,i) =>
@@ -1049,7 +940,6 @@
     el.classList.add('active');
   }
 
-  // ── FILE UPLOAD ──
   function handleFile(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -1080,7 +970,6 @@
     el.className = 'char-count' + (n > 140000 ? ' danger' : n > 100000 ? ' warn' : '');
   }
 
-  // ── GENERATE ──
   async function generate() {
     const btn = document.getElementById('genBtn');
     const spinner = document.getElementById('spinner');
@@ -1088,24 +977,22 @@
     document.getElementById('errorMsg').style.display = 'none';
     document.getElementById('subscribeBlock').classList.remove('visible');
 
-    let prompt;
-
+    // Build input payload — no prompt construction here, that happens server-side
+    let input;
     if (mode === 'compress') {
       const raw = document.getElementById('historyInput').value.trim();
       if (!raw) { showError('Please paste or upload a chat history first.'); return; }
-      const truncated = raw.length > 150000 ? raw.slice(0, 150000) + '\n\n[truncated]' : raw;
-      prompt = compressPrompt(format, truncated);
+      input = raw.length > 48000 ? raw.slice(0, 48000) + '\n\n[truncated]' : raw;
     } else {
       const desc = document.getElementById('bDesc').value.trim();
       if (!desc) { showError('Please describe your project first.'); return; }
-      prompt = buildPrompt(
-        format,
-        document.getElementById('bType').value,
-        document.getElementById('bName').value.trim(),
-        document.getElementById('bProject').value.trim(),
-        document.getElementById('bDomain').value.trim(),
+      input = JSON.stringify({
+        type: document.getElementById('bType').value,
+        name: document.getElementById('bName').value.trim(),
+        project: document.getElementById('bProject').value.trim(),
+        domain: document.getElementById('bDomain').value.trim(),
         desc
-      );
+      });
     }
 
     btn.disabled = true;
@@ -1132,18 +1019,13 @@
     }, 400);
 
     try {
-      // ── SECURED: x-internal-key header required by api/gemini.js ──
       const res = await fetch('/api/gemini', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-internal-key': INTERNAL_KEY
-        },
-        body: JSON.stringify({ prompt })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, format, input })
       });
 
       if (!res.ok) throw new Error(`API error ${res.status}`);
-
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
@@ -1159,9 +1041,7 @@
       document.getElementById('outputStats').textContent =
         `${lines} lines · ${format.toUpperCase()} · ${new Date().toISOString().split('T')[0]}`;
 
-      setTimeout(() => {
-        showPostGenerationBlock();
-      }, 600);
+      setTimeout(() => { showPostGenerationBlock(); }, 600);
 
     } catch (err) {
       clearInterval(progInt);
@@ -1175,69 +1055,6 @@
     }
   }
 
-  // ── PROMPTS ──
-  function compressPrompt(fmt, history) {
-    return `You are an expert AI workflow architect. Analyse this raw AI chat history and compress it into a structured continuity kernel.
-
-Extract and structure ALL of the following sections:
-
-IDENTITY: name, role, expertise, location, handle, timezone
-PROJECT: name, domain, platform, goals, audience, key URLs
-STATUS: completed milestones, work in progress, blockers
-DECISIONS: key choices made with rationale
-PIPELINE: upcoming tasks/items with priority and status
-COMMUNICATION: tone preferences, style, formatting dislikes, feedback preferences, working rhythm
-RELATIONSHIP: how the user likes to work with AI, what they find valuable, what frustrates them, any explicit preferences about AI interaction style
-REFERENCES: key URLs, tools, data sources, credentials (non-sensitive)
-OPEN THREADS: unresolved questions, pending decisions, known issues
-WORKFLOW: tools in use, agent structure, session patterns, methodology
-
-Output format: ${fmt.toUpperCase()}
-CRITICAL: Output ONLY the raw ${fmt.toUpperCase()} — absolutely no preamble, no explanation, no markdown code fences, no backticks.
-- Mark inferred fields: # inferred
-- Mark fields needing verification: # verify
-- Include metadata block: generated date, source, format version
-- Every field must earn its place
-- The communication and relationship sections are as important as the project sections
-
-Chat history:
----
-${history}
----`;
-  }
-
-  function buildPrompt(fmt, type, name, proj, domain, desc) {
-    return `You are an expert AI workflow architect. Generate a comprehensive drop-in continuity kernel for a ${type} project.
-
-Include ALL of the following sections:
-
-IDENTITY: author name, role, expertise, location
-PROJECT: name, domain, platform, goals, audience, key URLs
-STATUS: current phase, completed milestones, active work, blockers
-PIPELINE: upcoming tasks/features with priority and status
-DECISIONS: key choices made and rationale
-COMMUNICATION: tone preferences, style, formatting preferences, feedback style, working rhythm
-RELATIONSHIP: how the user prefers to work with AI assistants — what they value, what frustrates them, interaction style preferences, level of detail expected
-REFERENCES: key URLs, tools, data sources
-CONSTRAINTS: known limitations, dependencies, open questions
-METADATA: generated date, format version, TODO markers
-
-Output format: ${fmt.toUpperCase()}
-CRITICAL: Output ONLY the raw ${fmt.toUpperCase()} — absolutely no preamble, no explanation, no markdown code fences, no backticks.
-- Descriptive placeholders: # TODO: add your X here
-- Adapt field names naturally for a ${type} project
-- Brief inline comments on each major section
-- The communication and relationship sections are mandatory — not optional
-
-Project details:
-Author: ${name||'Not specified'}
-Project: ${proj||'Not specified'}
-Type: ${type}
-Domain: ${domain||'Not specified'}
-Description: ${desc}`;
-  }
-
-  // ── SUBSCRIBE → GHOST ──
   async function subscribe() {
     const name = document.getElementById('subName').value.trim();
     const email = document.getElementById('subEmail').value.trim();
@@ -1259,11 +1076,7 @@ Description: ${desc}`;
       const res = await fetch(`${GHOST_URL}/members/api/send-magic-link/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name || undefined,
-          email: email,
-          emailType: 'subscribe'
-        })
+        body: JSON.stringify({ name: name || undefined, email, emailType: 'subscribe' })
       });
 
       if (res.status === 201 || res.ok) {
@@ -1276,7 +1089,6 @@ Description: ${desc}`;
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.errors?.[0]?.message || `Error ${res.status}`);
       }
-
     } catch (err) {
       errEl.textContent = 'Something went wrong: ' + err.message + '. Please try again.';
       errEl.style.display = 'block';
@@ -1290,7 +1102,6 @@ Description: ${desc}`;
     document.getElementById('subscribeBlock').classList.remove('visible');
   }
 
-  // ── YAML HIGHLIGHT ──
   function hlYAML(text) {
     return text.split('\n').map(line => {
       if (line.trim().startsWith('#')) return `<span class="yc">${esc(line)}</span>`;
@@ -1308,7 +1119,6 @@ Description: ${desc}`;
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  // ── ACTIONS ──
   function copyOutput() {
     if (!output) return;
     const clean = output.replace(/^```[a-z]*\n?/,'').replace(/```$/,'');
