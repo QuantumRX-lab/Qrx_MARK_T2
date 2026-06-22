@@ -1,3 +1,30 @@
+// Q-Sentinel threat enforcement
+async function getSentinelAction(ip) {
+  const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!kvUrl || !kvToken) return null;
+  try {
+    const res = await fetch(
+      `${kvUrl}/get/threat_action:${encodeURIComponent(ip)}`,
+      { headers: { Authorization: `Bearer ${kvToken}` }, signal: AbortSignal.timeout(800) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.result) return null;
+    const parsed = JSON.parse(data.result);
+    return parsed.action || null;
+  } catch { return null; }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function warningPage(ip) {
+  const safeIp = escapeHtml(ip);
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Access Monitored</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0a0c;color:#e0e0e0;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px}.inner{max-width:520px;text-align:center}.card{border:1px solid rgba(255,95,109,.25);background:rgba(255,95,109,.04);border-radius:14px;padding:44px 40px}h1{color:#ff5f6d;font-size:12px;letter-spacing:.22em;text-transform:uppercase;margin-bottom:20px}p{font-size:14px;line-height:1.75;color:rgba(255,255,255,.55);margin-bottom:14px}.ref{margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07);font-size:11px;color:rgba(255,255,255,.22);font-family:monospace}.footer{margin-top:20px;font-size:10px;color:rgba(255,255,255,.16)}</style></head><body><div class="inner"><div class="card"><h1>Access Monitored</h1><p>Unusual activity has been detected from your connection.</p><p>This endpoint is monitored and protected.</p><div class="ref">ref: ${safeIp} &middot; ${new Date().toISOString()}</div></div><div class="footer">QuantumRx &middot; monitored by Q-Sentinel</div></div></body></html>`;
+}
+
 const rateLimit = new Map();
 
 function compressPrompt(fmt, input) {
@@ -65,15 +92,35 @@ Domain: ${domain||'Not specified'}
 Description: ${desc}`;
 }
 
+const ALLOWED_ORIGINS = [
+  'https://www.quantumrx.eu',
+  'https://quantumrx.eu',
+  'https://tools.quantumrx.eu',
+];
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS — restricted to known origins (RISK 2 fix)
+  const origin = req.headers.origin;
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // Q-Sentinel threat check
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+  const sentinelAction = await getSentinelAction(ip);
+  if (sentinelAction === 'block') {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.status(403).end(warningPage(ip));
+  }
+  if (sentinelAction === 'honeypot') {
+    return res.status(200).json({ text: 'Here is your compressed kernel:\n\nIDENTITY:\n  name: Unknown\n  role: Developer\nPROJECT:\n  name: Project\n  status: active\n' });
+  }
+
   // Rate limiting — 5 requests per IP per hour
-  const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
   const now = Date.now();
   const windowMs = 60 * 60 * 1000;
   const maxRequests = 5;
@@ -98,21 +145,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid request body' });
   }
 
-  // Validate inputs
-  if (!mode || !['compress', 'build'].includes(mode)) {
-    return res.status(400).json({ error: 'Invalid mode' });
-  }
-  if (!format || !['yaml', 'json', 'markdown'].includes(format)) {
-    return res.status(400).json({ error: 'Invalid format' });
-  }
-  if (!input || typeof input !== 'string') {
-    return res.status(400).json({ error: 'No input provided' });
-  }
-  if (input.length > 50000) {
-    return res.status(400).json({ error: 'Input too large. Please reduce your chat history.' });
-  }
+  if (!mode || !['compress', 'build'].includes(mode)) return res.status(400).json({ error: 'Invalid mode' });
+  if (!format || !['yaml', 'json', 'markdown'].includes(format)) return res.status(400).json({ error: 'Invalid format' });
+  if (!input || typeof input !== 'string') return res.status(400).json({ error: 'No input provided' });
+  if (input.length > 50000) return res.status(400).json({ error: 'Input too large. Please reduce your chat history.' });
 
-  // Build prompt server-side
   const truncated = input.length > 48000 ? input.slice(0, 48000) + '\n\n[truncated]' : input;
   const prompt = mode === 'compress' ? compressPrompt(format, truncated) : buildPrompt(format, truncated);
   if (!prompt) return res.status(400).json({ error: 'Invalid input data' });
