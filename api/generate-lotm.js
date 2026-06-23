@@ -1,4 +1,4 @@
-// /api/generate
+// /api/generate-lotm
 //
 // Lord of the Memes Forge generation endpoint.
 // 1. Activates the licence key with Lemon Squeezy (the ONLY consuming check —
@@ -11,8 +11,8 @@
 // 7. Returns the public image URL, issue number, and rarity tier to the frontend
 //
 // Env vars required (set in Vercel project settings):
-//   GEMINI_API_KEY_Forge      - Google AI Studio / Gemini API key, reused from the Pepe forge (no dedicated key needed)
-//   BLOB_READ_WRITE_TOKEN     - Vercel Blob (or OIDC equivalent, auto-set if Blob store is linked)
+//   GEMINI_API_KEY_Forge      - Google AI Studio / Gemini API key
+//   BLOB_READ_WRITE_TOKEN     - Vercel Blob (auto-set if Blob store is linked)
 //   KV_REST_API_URL           - Vercel KV REST URL (auto-set if KV store is linked)
 //   KV_REST_API_TOKEN         - Vercel KV REST token (auto-set if KV store is linked)
 //
@@ -21,21 +21,8 @@
 
 import { put } from '@vercel/blob';
 import { kv } from '@vercel/kv';
+import { logRequest } from './request-logger.js';
 
-// ─────────────────────────────────────────────────────────────
-// CHARACTER ARCHETYPES — 10 distinct characters, NOT direct copies
-// of any specific copyrighted meme image. Each is a generic,
-// stylized riff on a recognizable meme-culture archetype.
-//
-// `name` stays short/plain — used as the simple display label
-// wherever the API response is shown in basic UI text.
-// `title` is the epic Lord-of-the-Memes honorific — used only in
-// the card art prompt's title banner (and returned alongside name
-// for any UI that wants the flourish). Fixed per-character; does
-// NOT vary with flavor, so a Bull Market Wojak still reads
-// "THE WOJAK, the Sorrowful" even though the scene is triumphant.
-// This is a deliberate simplification — see chat notes.
-// ─────────────────────────────────────────────────────────────
 const CHARACTERS = {
   FROG: {
     name: 'The Frog',
@@ -99,10 +86,6 @@ const CHARACTERS = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────
-// FLAVOR / EVENT MODIFIERS — recurring meme-culture moments,
-// deliberately NOT tied to real current events or real entities.
-// ─────────────────────────────────────────────────────────────
 const FLAVORS = {
   BULL_MARKET: { label: 'Bull Market', detail: 'surrounded by green upward arrows and bull horns motif, triumphant pose' },
   BEAR_MARKET: { label: 'Bear Market', detail: 'surrounded by red downward arrows, weary defiant pose' },
@@ -134,16 +117,6 @@ const PALETTE_MODIFIERS = {
   NATURAL: 'natural earthy color palette, organic tones',
 };
 
-// ─────────────────────────────────────────────────────────────
-// RARITY — weighted server-side roll, cannot be influenced by the
-// client. Odds: Common 60% / Rare 25% / Epic 12% / Legendary 3%.
-// Glow descriptions upgraded to vivid, named light/material effects
-// (validated in chat testing to fix a washed-out/flat look) rather
-// than a generic "shimmer" — border material itself does NOT change
-// per tier, only the finish/glow layered on top of each character's
-// fixed border, to avoid two competing border instructions confusing
-// the image model.
-// ─────────────────────────────────────────────────────────────
 const RARITY_TIERS = [
   { label: 'COMMON', weight: 60, glow: 'plain matte card finish, no special glow, natural daylight', powerMin: 40, powerMax: 59 },
   { label: 'RARE', weight: 25, glow: 'polished silver foil shimmer across the border catching crisp cold light', powerMin: 60, powerMax: 74 },
@@ -158,12 +131,9 @@ function rollRarity() {
     if (roll < tier.weight) return tier;
     roll -= tier.weight;
   }
-  return RARITY_TIERS[0]; // fallback, should never hit
+  return RARITY_TIERS[0];
 }
 
-// Power Rating — derived from rarity tier band, server-side only,
-// cannot be influenced by the client. Reinforces rarity rather than
-// competing with it (higher tier = higher floor).
 function rollPowerRating(tier) {
   return Math.floor(Math.random() * (tier.powerMax - tier.powerMin + 1)) + tier.powerMin;
 }
@@ -193,8 +163,6 @@ async function callImageModel(prompt) {
   const apiKey = process.env.GEMINI_API_KEY_Forge;
   if (!apiKey) throw new Error('GEMINI_API_KEY_Forge not configured');
 
-  // NOTE: verify this model name is still current before relying on it —
-  // check Google AI Studio's "Get code" sample, these names change.
   const model = 'gemini-3.1-flash-image';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -216,9 +184,7 @@ async function callImageModel(prompt) {
   const parts = data?.candidates?.[0]?.content?.parts || [];
   const imagePart = parts.find(p => p.inlineData && p.inlineData.data);
 
-  if (!imagePart) {
-    throw new Error('No image returned from Gemini API');
-  }
+  if (!imagePart) throw new Error('No image returned from Gemini API');
 
   const mimeType = imagePart.inlineData.mimeType || 'image/png';
   const buffer = Buffer.from(imagePart.inlineData.data, 'base64');
@@ -230,6 +196,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Q-Sentinel threat check + detection logging
+  const ip = await logRequest(req, {
+    checkBody: true,
+    expectedFields: ['character', 'flavor', 'mood', 'palette', 'licenceKey'],
+  });
+
   const { character, flavor, mood, palette, licenceKey } = req.body || {};
 
   if (!character || !flavor || !mood || !palette || !licenceKey) {
@@ -238,33 +210,9 @@ export default async function handler(req, res) {
 
   const characterKey = character.toUpperCase();
   const flavorKey = flavor.toUpperCase();
-  if (!CHARACTERS[characterKey]) {
-    return res.status(400).json({ error: 'Unknown character' });
-  }
-  if (!FLAVORS[flavorKey]) {
-    return res.status(400).json({ error: 'Unknown flavor' });
-  }
+  if (!CHARACTERS[characterKey]) return res.status(400).json({ error: 'Unknown character' });
+  if (!FLAVORS[flavorKey]) return res.status(400).json({ error: 'Unknown flavor' });
 
-  // ─────────────────────────────────────────────────────────────
-  // FREE CODE — a shared, capped giveaway code that bypasses Lemon
-  // Squeezy checkout entirely. Anyone can paste LOTMFREE into the
-  // licence key field; the first 100 redemptions succeed, the 101st
-  // onward are rejected. Cap is enforced atomically via a dedicated
-  // KV counter (lotm_free_used), separate from the paid-key path and
-  // separate from the forge issue counter. This is NOT a Lemon
-  // Squeezy discount code (like FORGE100 on Pepe Legends) — no LS
-  // license key is issued or activated for this path, so it must
-  // never be treated as a real licence key anywhere else in the app.
-  //
-  // PER-IP GUARD: in addition to the overall 100-redemption cap, each
-  // IP address may redeem LOTMFREE at most once. Soft deterrent only —
-  // VPNs, carrier NAT, and incognito don't change IP, so this only
-  // blocks casual repeat clicks, not a determined bypass. Stored as
-  // lotm_free_ip:<ip> with a 30-day expiry so it doesn't grow
-  // unbounded in KV. Distinct key prefix from Pepe Legends' guard so
-  // redeeming PEPEFREE doesn't block the same IP from also redeeming
-  // LOTMFREE once.
-  // ─────────────────────────────────────────────────────────────
   const FREE_CODE = 'LOTMFREE';
   const FREE_CODE_LIMIT = 100;
   const isFreeCodeAttempt = licenceKey.trim().toUpperCase() === FREE_CODE;
@@ -280,19 +228,13 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Free code already used from this connection. Grab a licence key instead.' });
       }
 
-      // Atomic increment + check. kv.incr is atomic, so concurrent
-      // requests can't both slip in under the cap.
       const usedCount = await kv.incr('lotm_free_used');
       if (usedCount > FREE_CODE_LIMIT) {
         return res.status(403).json({ error: 'Free codes for this drop have all been claimed. Grab a licence key instead.' });
       }
 
-      // Mark this IP as having redeemed, 30-day expiry (in seconds).
       await kv.set(ipKey, '1', { ex: 60 * 60 * 24 * 30 });
-      // Free code accepted — skip Lemon Squeezy activation entirely.
     } else {
-      // The ONLY place a paid licence key is actually activated/consumed.
-      // See /api/validate-key for the non-consuming tentative check.
       const lsRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
@@ -307,8 +249,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // issue number (KV round-trip) has no dependency on rarity/power roll —
-    // run them concurrently to shave a little latency off the critical path.
     const [issue, rarity] = await Promise.all([
       getNextIssueNumber(),
       Promise.resolve(rollRarity()),
