@@ -20,10 +20,8 @@
 
 import { put } from '@vercel/blob';
 import { kv } from '@vercel/kv';
+import { logRequest } from './request-logger.js';
 
-// ─────────────────────────────────────────────────────────────
-// BACKGROUND SCENES — 10 per theme, picked at random per generation
-// ─────────────────────────────────────────────────────────────
 const SCENES = {
   MECHA: ['raining neon city', 'volcanic crater battlefield', 'shattered moon orbit', 'arctic ice plains', 'jungle ruins', 'burning skyscrapers', 'desert canyon', 'space station debris', 'interdimensional rift', 'coral reef abyss'],
   PORTRAIT: ['holographic gallery', 'neon mirror room', 'cosmic void', 'crystal palace', 'misty mountaintop', 'underwater cathedral', 'burning library', 'frozen throne room', 'shadow dimension', 'golden sanctum'],
@@ -37,7 +35,6 @@ const SCENES = {
   LUNAR: ['moon landing site', 'lunar crater', 'Earth rise', 'dark side of moon', 'lunar base', 'meteor storm', 'moonquake', 'ancient lunar ruins', 'rocket launch pad', 'lunar eclipse'],
 };
 
-// Theme-specific costume/prop details, matching the founding-set art direction.
 const THEME_DETAILS = {
   MECHA: 'wearing mecha armor with glowing thrusters, cyberpunk mechanical suit',
   PORTRAIT: 'close-up holographic portrait style, rainbow holographic sheen',
@@ -89,7 +86,6 @@ function buildPrompt({ theme, mood, palette, gender, issue, scene }) {
   const paletteMod = PALETTE_MODIFIERS[palette] || '';
   const genderNote = gender === 'FEM' ? 'feminine features, ' : '';
 
-  // Locked prompt formula (do not alter structure without re-testing card output quality)
   return [
     `Pepe the frog character with distinctive sad-smug expression, bulging eyes, wide mouth, classic Pepe green skin tone,`,
     `${genderNote}${themeDetail}, set in a ${scene}, ${moodMod}, ${paletteMod},`,
@@ -100,10 +96,8 @@ function buildPrompt({ theme, mood, palette, gender, issue, scene }) {
 }
 
 async function getNextIssueNumber() {
-  // Public forge issue numbers start at #0100 (0000-0010 reserved for founding set,
-  // 0011-0099 reserved/unused). forge_counter is atomically incremented in Vercel KV.
   const next = await kv.incr('forge_counter');
-  const actual = next < 100 ? next + 99 : next; // safety floor in case counter wasn't pre-seeded to 99
+  const actual = next < 100 ? next + 99 : next;
   return String(actual).padStart(4, '0');
 }
 
@@ -111,9 +105,6 @@ async function callNanoBanana(prompt) {
   const apiKey = process.env.GEMINI_API_KEY_Forge;
   if (!apiKey) throw new Error('GEMINI_API_KEY_Forge not configured');
 
-  // Nano Banana 2 image generation model, confirmed directly from Google AI Studio's
-  // "Get code" sample on 2026-06-16. Google flags this model as not yet stable /
-  // not guaranteed production-ready — acceptable risk for this low-stakes product.
   const model = 'gemini-3.1-flash-image';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -134,14 +125,10 @@ async function callNanoBanana(prompt) {
   }
 
   const data = await response.json();
-
-  // Image comes back as inline base64 data in the response parts.
   const parts = data?.candidates?.[0]?.content?.parts || [];
   const imagePart = parts.find(p => p.inlineData && p.inlineData.data);
 
-  if (!imagePart) {
-    throw new Error('No image returned from Gemini API');
-  }
+  if (!imagePart) throw new Error('No image returned from Gemini API');
 
   const mimeType = imagePart.inlineData.mimeType || 'image/png';
   const buffer = Buffer.from(imagePart.inlineData.data, 'base64');
@@ -152,6 +139,12 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Q-Sentinel threat check + detection logging
+  const ip = await logRequest(req, {
+    checkBody: true,
+    expectedFields: ['theme', 'mood', 'palette', 'licenceKey'],
+  });
 
   const { theme, mood, palette, gender, licenceKey } = req.body || {};
 
@@ -164,33 +157,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Unknown theme' });
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // FREE CODE — a shared, capped giveaway code that bypasses Lemon
-  // Squeezy checkout entirely. Anyone can paste PEPEFREE into the
-  // licence key field; the first 100 redemptions succeed, the 101st
-  // onward are rejected. Cap is enforced atomically via a dedicated
-  // KV counter (forge_free_used), separate from the paid-key path and
-  // separate from forge_counter (issue numbers). This is NOT a Lemon
-  // Squeezy discount code (like FORGE100) — no LS license key is
-  // issued or activated for this path, so it must never be treated
-  // as a real licence key anywhere else in the app.
-  //
-  // PER-IP GUARD: in addition to the overall 100-redemption cap, each
-  // IP address may redeem PEPEFREE at most once. This is a soft
-  // deterrent, not a hard guarantee — VPNs, mobile carrier NAT, and
-  // incognito mode don't change IP, so this only blocks the casual
-  // "click forge twice" case, not a determined bypass. Stored as
-  // forge_free_ip:<ip> with a 30-day expiry so the guard doesn't grow
-  // unbounded in KV forever.
-  // ─────────────────────────────────────────────────────────────
   const FREE_CODE = 'PEPEFREE';
   const FREE_CODE_LIMIT = 100;
   const isFreeCodeAttempt = licenceKey.trim().toUpperCase() === FREE_CODE;
 
   try {
     if (isFreeCodeAttempt) {
-      // Vercel sets x-forwarded-for; take the first IP in the list
-      // (the original client, before any intermediate proxies).
       const forwardedFor = req.headers['x-forwarded-for'] || '';
       const clientIp = forwardedFor.split(',')[0].trim() || 'unknown';
       const ipKey = `forge_free_ip:${clientIp}`;
@@ -200,24 +172,13 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Free code already used from this connection. Grab a licence key instead.' });
       }
 
-      // Atomic increment + check. kv.incr is atomic, so concurrent
-      // requests can't both slip in under the cap.
       const usedCount = await kv.incr('forge_free_used');
       if (usedCount > FREE_CODE_LIMIT) {
         return res.status(403).json({ error: 'Free codes for this drop have all been claimed. Grab a licence key instead.' });
       }
 
-      // Mark this IP as having redeemed, 30-day expiry (in seconds).
       await kv.set(ipKey, '1', { ex: 60 * 60 * 24 * 30 });
-      // Free code accepted — skip Lemon Squeezy activation entirely.
     } else {
-      // This is now the ONLY place the licence key is actually activated/consumed.
-      // /api/validate-key (called when the user types the key) is non-consuming and
-      // only gives tentative frontend feedback. Calling /activate here both confirms
-      // the key is genuinely usable AND enforces the one-time-use limit: if this key
-      // was already activated by a prior generation, LS will correctly reject this
-      // second /activate attempt once activation_usage reaches activation_limit.
-      // Docs: https://docs.lemonsqueezy.com/api/license-api/activate-license-key
       const lsRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
