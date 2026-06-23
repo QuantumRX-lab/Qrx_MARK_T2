@@ -35,11 +35,17 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // Debug — confirm handler is running updated code
+  console.log('[DEBUG] chat.js handler fired, x-forwarded-for:', req.headers['x-forwarded-for']);
+
   // Q-Sentinel threat check + detection logging
   const ip = await logRequest(req, {
     checkBody: true,
     expectedFields: ['messages'],
   });
+
+  console.log('[DEBUG] logRequest returned ip:', ip);
+
   const sentinelAction = await getSentinelAction(ip);
   if (sentinelAction === 'block') {
     return res.status(403).setHeader('Content-Type', 'text/html').end(warningPage(ip));
