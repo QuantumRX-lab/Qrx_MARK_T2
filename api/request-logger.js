@@ -1,46 +1,67 @@
 // request-logger.js
 // Threat detection layer for Qrx_MARK_T2
 // Writes threat:flag:<ip> to Upstash KV — picked up by Q-Sentinel monitor within 30s
-// All counters use KV with TTL so cold starts don't reset detection windows
+//
+// FIX (2026-06-23): keys are NO LONGER encodeURIComponent'd. Upstash stored the
+// %3A-encoded form, which the Sentinel monitor's `threat:flag:*` (literal colon)
+// KEYS query could never match. All KV paths now use raw colons, matching the
+// monitor and the manual REPL tests. All writes now check res.ok and log the
+// real HTTP status so failures are never silent again.
 
 const KV_URL = process.env.UPSTASH_REDIS_REST_URL;
 const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 // ─── KV helpers ──────────────────────────────────────────────────────────────
+// Keys go in the path with RAW colons. Do NOT encodeURIComponent.
 
 async function kvGet(key) {
-  const res = await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`, {
+  const res = await fetch(`${KV_URL}/get/${key}`, {
     headers: { Authorization: `Bearer ${KV_TOKEN}` },
   });
+  if (!res.ok) {
+    console.error(`[SENTINEL-LOGGER] kvGet failed ${res.status} for ${key}`);
+    return null;
+  }
   const data = await res.json();
-  return data.result; // null if not found
+  return data.result;
 }
 
 async function kvIncr(key) {
-  const res = await fetch(`${KV_URL}/incr/${encodeURIComponent(key)}`, {
+  const res = await fetch(`${KV_URL}/incr/${key}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${KV_TOKEN}` },
   });
+  if (!res.ok) {
+    console.error(`[SENTINEL-LOGGER] kvIncr failed ${res.status} for ${key}`);
+    return 0;
+  }
   const data = await res.json();
-  return data.result; // new count
+  return data.result;
 }
 
 async function kvExpire(key, ttlSeconds) {
-  await fetch(`${KV_URL}/expire/${encodeURIComponent(key)}/${ttlSeconds}`, {
+  const res = await fetch(`${KV_URL}/expire/${key}/${ttlSeconds}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${KV_TOKEN}` },
   });
+  if (!res.ok) {
+    console.error(`[SENTINEL-LOGGER] kvExpire failed ${res.status} for ${key}`);
+  }
 }
 
 async function kvSet(key, value) {
-  await fetch(`${KV_URL}/set/${encodeURIComponent(key)}`, {
+  const body = String(value);
+  const res = await fetch(`${KV_URL}/set/${key}`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${KV_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(value),
+    headers: { Authorization: `Bearer ${KV_TOKEN}` },
+    body,
   });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    console.error(`[SENTINEL-LOGGER] kvSet FAILED ${res.status} for ${key} — ${text}`);
+    return false;
+  }
+  return true;
 }
 
 // ─── Threat flag writer ───────────────────────────────────────────────────────
@@ -48,12 +69,13 @@ async function kvSet(key, value) {
 async function writeFlag(ip, severity, pattern, detail = '') {
   const key = `threat:flag:${ip}`;
 
-  // Don't downgrade an existing flag
   const existing = await kvGet(key);
   if (existing) {
-    const parsed = JSON.parse(existing);
-    const levels = { LOW: 1, MEDIUM: 2, HIGH: 3 };
-    if (levels[parsed.severity] >= levels[severity]) return; // already flagged at equal or higher level
+    try {
+      const parsed = JSON.parse(existing);
+      const levels = { LOW: 1, MEDIUM: 2, HIGH: 3 };
+      if (levels[parsed.severity] >= levels[severity]) return;
+    } catch { /* corrupt value — overwrite it */ }
   }
 
   const flag = {
@@ -64,22 +86,25 @@ async function writeFlag(ip, severity, pattern, detail = '') {
     detectedAt: new Date().toISOString(),
   };
 
-  await kvSet(key, JSON.stringify(flag));
-  // No TTL on threat flags — operator clears manually via Sentinel (clear action)
-  console.log(`[SENTINEL-LOGGER] FLAG WRITTEN — ${severity} | ${ip} | ${pattern} | ${detail}`);
+  const ok = await kvSet(key, JSON.stringify(flag));
+  if (ok) {
+    console.log(`[SENTINEL-LOGGER] FLAG WRITTEN — ${severity} | ${ip} | ${pattern} | ${detail}`);
+  } else {
+    console.error(`[SENTINEL-LOGGER] FLAG WRITE FAILED — ${severity} | ${ip} | ${pattern}`);
+  }
 }
 
 // ─── Detection rules ──────────────────────────────────────────────────────────
 
-// HIGH: prompt injection keywords in request body
-// Single occurrence is enough — unambiguous malicious intent
 const INJECTION_PATTERNS = [
-  /ignore\s+(previous|above|prior|all)\s+(instructions?|prompts?|rules?)/i,
+  /ignore\s+(all\s+|the\s+)?(previous|above|prior|all|earlier)\s+(instructions?|prompts?|rules?)/i,
+  /ignore\s+(previous|above|prior|all|earlier)/i,
+  /disregard\s+(all\s+|any\s+|the\s+)?(previous|above|prior)/i,
   /system\s*prompt/i,
   /reveal\s+(your\s+)?(instructions?|prompts?|system|context)/i,
   /jailbreak/i,
   /act\s+as\s+(if\s+you\s+are\s+|a\s+)?(?:dan|evil|unrestricted|unfiltered)/i,
-  /\[INST\]|\[\/INST\]|<\|system\|>|<\|user\|>/i, // model-specific injection tokens
+  /\[INST\]|\[\/INST\]|<\|system\|>|<\|user\|>/i,
   /do\s+not\s+follow\s+(your\s+)?(rules?|guidelines?|training)/i,
   /pretend\s+(you\s+are|to\s+be)\s+.{0,40}(no\s+restrictions?|unfiltered)/i,
 ];
@@ -95,12 +120,11 @@ async function checkPromptInjection(ip, body) {
   }
 }
 
-// HIGH: missing User-Agent or known bot/script UA
 async function checkUserAgent(ip, req) {
   const ua = req.headers['user-agent'] || '';
 
   if (!ua) {
-    await writeFlag(ip, 'HIGH', name, 'No User-Agent header');
+    await writeFlag(ip, 'HIGH', 'missing_ua', 'No User-Agent header');
     return;
   }
 
@@ -127,49 +151,35 @@ async function checkUserAgent(ip, req) {
   }
 }
 
-// MEDIUM: repeated key failures — flag at 3 within 1 hour
 async function checkKeyFailure(ip) {
   const key = `keyfail:${ip}`;
   const count = await kvIncr(key);
-
-  // Set TTL on first increment only
-  if (count === 1) {
-    await kvExpire(key, 3600); // 1 hour window
-  }
-
+  if (count === 1) await kvExpire(key, 3600);
   if (count >= 3) {
     await writeFlag(ip, 'MEDIUM', 'repeated_key_failure', `${count} failures in 1h`);
   }
 }
 
-// LOW: high request volume — flag at >10 in 60s
 async function checkRequestVolume(ip) {
   const key = `reqcount:${ip}`;
   const count = await kvIncr(key);
-
-  // Set TTL on first increment only — 60s window, auto-cleans
-  if (count === 1) {
-    await kvExpire(key, 60);
-  }
+  if (count === 1) await kvExpire(key, 60);
 
   if (count > 10) {
-    // Flag after 5 excess hits to avoid false positives from brief bursts
     const excessKey = `reqexcess:${ip}`;
     const excess = await kvIncr(excessKey);
     if (excess === 1) await kvExpire(excessKey, 60);
-
     if (excess >= 5) {
       await writeFlag(ip, 'LOW', 'high_request_volume', `${count} requests in 60s`);
     }
   }
 }
 
-// LOW: malformed request structure
 async function checkMalformedRequest(ip, body, expectedFields) {
   if (!body || typeof body !== 'object') {
     const malformKey = `malform:${ip}`;
     const count = await kvIncr(malformKey);
-    if (count === 1) await kvExpire(malformKey, 300); // 5 min window
+    if (count === 1) await kvExpire(malformKey, 300);
     if (count >= 5) {
       await writeFlag(ip, 'LOW', 'malformed_request', 'Non-object body repeated');
     }
@@ -191,15 +201,6 @@ async function checkMalformedRequest(ip, body, expectedFields) {
 
 // ─── Main exports ─────────────────────────────────────────────────────────────
 
-/**
- * logRequest — call at the top of every API endpoint
- *
- * @param {object} req              — Vercel request object
- * @param {object} [options]
- * @param {boolean} [options.checkBody]       — true to scan body for injection patterns
- * @param {string[]} [options.expectedFields] — field names expected in req.body for malform check
- * @returns {string} ip — parsed client IP, pass to getSentinelAction and logKeyFailure
- */
 export async function logRequest(req, options = {}) {
   const ip =
     (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
@@ -216,30 +217,20 @@ export async function logRequest(req, options = {}) {
       checkUserAgent(ip, req),
       checkRequestVolume(ip),
     ];
-
     if (options.checkBody && req.body) {
       checks.push(checkPromptInjection(ip, req.body));
     }
-
     if (options.expectedFields) {
       checks.push(checkMalformedRequest(ip, req.body, options.expectedFields));
     }
-
     await Promise.all(checks);
   } catch (err) {
-    // Never let the logger crash the endpoint
     console.error('[SENTINEL-LOGGER] Error in threat detection:', err.message);
   }
 
   return ip;
 }
 
-/**
- * logKeyFailure — call after a failed key validation
- * Separate from logRequest so the endpoint controls when failure is confirmed
- *
- * @param {string} ip — from the return value of logRequest()
- */
 export async function logKeyFailure(ip) {
   if (!KV_URL || !KV_TOKEN) return;
   try {
