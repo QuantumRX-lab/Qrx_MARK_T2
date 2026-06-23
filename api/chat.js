@@ -1,4 +1,6 @@
 // Q-Sentinel threat enforcement — runs before any logic
+import { logRequest } from './request-logger.js';
+
 async function getSentinelAction(ip) {
   const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
   const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -33,8 +35,11 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Q-Sentinel threat check
-  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+  // Q-Sentinel threat check + detection logging
+  const ip = await logRequest(req, {
+    checkBody: true,
+    expectedFields: ['messages'],
+  });
   const sentinelAction = await getSentinelAction(ip);
   if (sentinelAction === 'block') {
     return res.status(403).setHeader('Content-Type', 'text/html').end(warningPage(ip));
