@@ -1,4 +1,5 @@
 // /api/validate-key-lotm — with Q-Sentinel threat enforcement
+import { logRequest, logKeyFailure } from './request-logger.js';
 
 async function getSentinelAction(ip) {
   const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
@@ -16,20 +17,16 @@ async function getSentinelAction(ip) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ valid: false, error: 'Method not allowed' });
-
-  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+  const ip = await logRequest(req, { expectedFields: ['licenceKey'] });
   const action = await getSentinelAction(ip);
   if (action === 'block') return res.status(403).json({ valid: false, error: 'Access denied.' });
   if (action === 'honeypot') return res.status(200).json({ valid: false, error: 'Licence key already used' });
-
   const { licenceKey } = req.body || {};
   if (!licenceKey || typeof licenceKey !== 'string') return res.status(400).json({ valid: false, error: 'Licence key missing' });
-
   if (licenceKey.trim().toUpperCase() === 'LOTMFREE') return res.status(200).json({ valid: true });
   if (licenceKey.trim().length < 10) return res.status(400).json({ valid: false, error: 'Licence key missing or too short' });
   if (!/^LOTM-/i.test(licenceKey.trim()) && !/^[A-Z0-9-]{16,}$/i.test(licenceKey.trim()))
     return res.status(400).json({ valid: false, error: 'Invalid licence key format' });
-
   try {
     const lsResponse = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
       method: 'POST',
@@ -39,13 +36,20 @@ export default async function handler(req, res) {
     const lsData = await lsResponse.json();
     if (lsData.valid) {
       const status = lsData.license_key?.status;
-      if (status === 'disabled' || status === 'expired') return res.status(200).json({ valid: false, error: 'Licence key ' + status });
+      if (status === 'disabled' || status === 'expired') {
+        await logKeyFailure(ip);
+        return res.status(200).json({ valid: false, error: 'Licence key ' + status });
+      }
       const usage = lsData.license_key?.activation_usage ?? 0;
       const limit = lsData.license_key?.activation_limit ?? 1;
-      if (limit !== null && usage >= limit) return res.status(200).json({ valid: false, error: 'Licence key already used' });
+      if (limit !== null && usage >= limit) {
+        await logKeyFailure(ip);
+        return res.status(200).json({ valid: false, error: 'Licence key already used' });
+      }
       return res.status(200).json({ valid: true });
     }
     if (lsData.error && /not found/i.test(lsData.error)) return res.status(200).json({ valid: true });
+    await logKeyFailure(ip);
     return res.status(200).json({ valid: false, error: lsData.error || 'Licence key not valid' });
   } catch (err) {
     console.error('validate-key-lotm error:', err);
