@@ -1,4 +1,6 @@
 // Q-Sentinel threat enforcement
+import { logRequest } from './request-logger.js';
+
 async function getSentinelAction(ip) {
   const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
   const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -99,7 +101,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 export default async function handler(req, res) {
-  // CORS — restricted to known origins (RISK 2 fix)
+  // CORS — restricted to known origins
   const origin = req.headers.origin;
   if (ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -109,8 +111,11 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Q-Sentinel threat check
-  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+  // Q-Sentinel threat check + detection logging
+  const ip = await logRequest(req, {
+    checkBody: true,
+    expectedFields: ['mode', 'format', 'input'],
+  });
   const sentinelAction = await getSentinelAction(ip);
   if (sentinelAction === 'block') {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -120,7 +125,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ text: 'Here is your compressed kernel:\n\nIDENTITY:\n  name: Unknown\n  role: Developer\nPROJECT:\n  name: Project\n  status: active\n' });
   }
 
-  // Rate limiting — 5 requests per IP per hour
+  // Rate limiting — 5 requests per IP per hour (in-memory, optimisation only — resets on cold start)
   const now = Date.now();
   const windowMs = 60 * 60 * 1000;
   const maxRequests = 5;
