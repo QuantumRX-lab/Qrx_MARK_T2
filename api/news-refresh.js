@@ -257,7 +257,7 @@ ${buildList(items)}`;
     });
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-    const clean = text.replace(/```json|```/g, "").trim();
+   const jsonMatch = text.match(/\[[\s\S]*\]/); const clean = jsonMatch ? jsonMatch[0] : "[]";
     const picks = JSON.parse(clean);
     return picks
       .filter((p) => items[p.index])
@@ -293,7 +293,7 @@ ${buildList(top)}`;
     });
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-    const picks = JSON.parse(text.replace(/```json|```/g, "").trim());
+    const jsonMatch = text.match(/\[[\s\S]*\]/); const picks = JSON.parse(jsonMatch ? jsonMatch[0] : "[]");
     const byIndex = Object.fromEntries(picks.map((p) => [p.index, p.summary]));
     return top.map((it, i) => ({ ...it, summary: byIndex[i] || "" }));
   } catch {
