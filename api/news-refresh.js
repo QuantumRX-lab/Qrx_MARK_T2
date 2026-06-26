@@ -119,6 +119,58 @@ async function fetchAll(feeds) {
   return results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
 }
 
+// ---------------------------------------------------------------------------
+// ENRICH — fetch article pages to extract og:image and og:description
+// for items missing images or with short descriptions.
+// ---------------------------------------------------------------------------
+async function fetchOgData(url) {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "QuantumRx-Signals/1.0 (+https://quantumrx.eu)" },
+      signal: AbortSignal.timeout(5000),
+      redirect: "follow",
+    });
+    if (!res.ok) return {};
+    const html = await res.text();
+    const ogImg = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)?.[1]
+      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i)?.[1]
+      || "";
+    const ogDesc = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)?.[1]
+      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["']/i)?.[1]
+      || html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)?.[1]
+      || "";
+    return {
+      image: ogImg.replace(/&amp;/g, "&"),
+      description: ogDesc.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").slice(0, 600),
+    };
+  } catch {
+    return {};
+  }
+}
+
+async function enrichItems(items) {
+  const needsEnrich = items.filter(
+    (it) => !it.image || it.description.length < 30
+  );
+  if (!needsEnrich.length) return items;
+
+  // Fetch up to 20 pages in parallel, 5 at a time
+  const batch = needsEnrich.slice(0, 20);
+  const results = await Promise.allSettled(
+    batch.map((it) => fetchOgData(it.link))
+  );
+
+  results.forEach((r, i) => {
+    if (r.status !== "fulfilled" || !r.value) return;
+    const og = r.value;
+    const item = batch[i];
+    if (!item.image && og.image) item.image = og.image;
+    if (item.description.length < 30 && og.description) item.description = og.description;
+  });
+
+  return items;
+}
+
 function signalMatch(item) {
   const hay = `${item.title} ${item.description}`.toLowerCase();
   return SIGNAL_TERMS.some((t) => hay.includes(t));
@@ -255,8 +307,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
+  const apiKey = process.env.GEMINI_API_KEY_Forge;
+  if (!apiKey) return res.status(500).json({ error: "Missing GEMINI_API_KEY_Forge" });
 
   const startedAt = Date.now();
 
@@ -271,6 +323,9 @@ export default async function handler(req, res) {
   // 3. Video pool.
   const rawVideo = await fetchAll(VIDEO_FEEDS);
   const videoPool = dedupe(rawVideo);
+
+  // 3.5 Enrich: fetch og:image and og:description for items missing them.
+  await Promise.all([enrichItems(textPool), enrichItems(spacePool)]);
 
   // 4. Editorial passes.
   const [hot, all, deeptech, aimoves] = await Promise.all([
