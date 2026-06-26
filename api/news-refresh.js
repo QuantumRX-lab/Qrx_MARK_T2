@@ -71,8 +71,8 @@ function pickAttr(block, tag, attr) {
 
 function findImage(block) {
   return (
-    pickAttr(block, "media:content", "url") ||
     pickAttr(block, "media:thumbnail", "url") ||
+    pickAttr(block, "media:content", "url") ||
     pickAttr(block, "enclosure", "url") ||
     (block.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1]) ||
     ""
@@ -303,8 +303,16 @@ ${buildList(top)}`;
 
 // YouTube thumbnails are derivable from the video id in the link.
 function videoThumb(item) {
-  const id = item.link.match(/v=([\w-]+)/)?.[1];
-  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : item.image;
+  // Prefer the RSS-provided thumbnail if it's already a valid image URL
+  if (item.image && (item.image.includes('ytimg.com') || item.image.includes('.jpg') || item.image.includes('.png'))) {
+    return item.image;
+  }
+  // Generate from video ID as fallback
+  const id = item.link && (
+    item.link.match(/[?&]v=([\w-]+)/)?.[1] ||
+    item.link.match(/youtu\.be\/([\w-]+)/)?.[1]
+  );
+  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : (item.image || '');
 }
 
 // ---------------------------------------------------------------------------
