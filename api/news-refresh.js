@@ -196,7 +196,7 @@ function freshSort(items) {
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
-const VOICE = `You are the editor of QuantumRx Signals, a publication covering AI infrastructure, edge compute, connectivity, satellite systems, and emerging technology. Your readers are technical: engineers, founders, and operators. Write summaries that are direct and concrete. No hype, no filler, no adjectives like "revolutionary" or "groundbreaking". State what happened and why it matters to someone building in this space. Two sentences maximum.`;
+const VOICE = `You are the editor of QuantumRx Signals, a publication covering AI infrastructure, edge compute, connectivity, satellite systems, and emerging technology. Your readers are technical: engineers, founders, and operators. Write summaries that are direct and concrete. No hype, no filler, no adjectives like "revolutionary" or "groundbreaking". State what happened and why it matters to someone building in this space. Two sentences maximum. IMPORTANT: If the excerpt is missing, says "Comments", or is unhelpful, you MUST still write a proper two-sentence summary based on the headline alone. Never return "Comments" or a single word as a summary.`;
 
 const CATEGORY_PROMPTS = {
   hot: `Select the ${"${N}"} stories most likely to still matter in six months. Prioritise structural shifts in AI infrastructure, compute, and connectivity over daily news-cycle noise.`,
@@ -206,16 +206,31 @@ const CATEGORY_PROMPTS = {
 };
 
 function buildList(items) {
+  const junk = ["comments", "comment", ""];
   return items
     .map(
       (it, i) => {
-        const excerpt = it.description && it.description.length > 30
-          ? it.description.slice(0, 280)
-          : "(No excerpt — summarise from the headline)";
+        const desc = (it.description || "").trim();
+        const isJunk = desc.length < 30 || junk.includes(desc.toLowerCase());
+        const excerpt = isJunk
+          ? "(No excerpt available — write the summary from the headline only)"
+          : desc.slice(0, 280);
         return `[${i}] SOURCE: ${it.source}\nHEADLINE: ${it.title}\nEXCERPT: ${excerpt}`;
       }
     )
     .join("\n\n");
+}
+
+// Post-process: replace any junk summaries Gemini might return
+function cleanSummaries(items) {
+  const junk = ["comments", "comment", ""];
+  return items.map((it) => {
+    const s = (it.summary || "").trim();
+    if (junk.includes(s.toLowerCase()) || s.length < 10) {
+      it.summary = it.title;
+    }
+    return it;
+  });
 }
 
 async function geminiSelect(items, categoryPrompt, n, apiKey) {
@@ -249,10 +264,10 @@ ${buildList(items)}`;
       .map((p) => ({ ...items[p.index], summary: p.summary }))
       .slice(0, n);
   } catch {
-    // Fallback: no AI, just take freshest N with their own excerpt as summary.
+    // Fallback: no AI, just take freshest N with title or description as summary.
     return items.slice(0, n).map((it) => ({
       ...it,
-      summary: it.description.slice(0, 180),
+      summary: it.description && it.description.length > 30 ? it.description.slice(0, 180) : it.title,
     }));
   }
 }
@@ -338,7 +353,10 @@ export default async function handler(req, res) {
   const videosRaw = await summariseVideos(videoPool, 4, apiKey);
   const videos = videosRaw.map((v) => ({ ...v, image: videoThumb(v) }));
 
-  // 5. Write cache. Each value carries its own generated timestamp.
+  // 5. Clean up any junk summaries.
+  [hot, all, deeptech, aimoves, space].forEach(cleanSummaries);
+
+  // 6. Write cache. Each value carries its own generated timestamp.
   const stamp = (arr) => ({ updated: startedAt, items: arr });
   const TTL = 60 * 60 * 25; // 25h guard against a slipped cron
   await Promise.all([
