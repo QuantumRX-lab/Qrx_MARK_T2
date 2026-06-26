@@ -38,8 +38,6 @@ const VIDEO_FEEDS = [
   { name: "Google DeepMind", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCP7jMXSY2xbc3KCAE0MHQ-A" },
 ];
 
-// Keyword gate applied before any Gemini call — keeps token spend low and the
-// feed on-brand. An item must hit at least one term to survive.
 const SIGNAL_TERMS = [
   "ai", "artificial intelligence", "llm", "model", "inference", "agent", "agentic",
   "foundation model", "edge", "compute", "gpu", "chip", "semiconductor", "silicon",
@@ -49,7 +47,7 @@ const SIGNAL_TERMS = [
 ];
 
 // ---------------------------------------------------------------------------
-// RSS / ATOM PARSING  (no external deps — regex extraction over fetched XML)
+// RSS / ATOM PARSING
 // ---------------------------------------------------------------------------
 function decode(s = "") {
   return s
@@ -120,8 +118,7 @@ async function fetchAll(feeds) {
 }
 
 // ---------------------------------------------------------------------------
-// ENRICH — fetch article pages to extract og:image and og:description
-// for items missing images or with short descriptions.
+// ENRICH — fetch og:image and og:description from article pages
 // ---------------------------------------------------------------------------
 async function fetchOgData(url) {
   try {
@@ -153,13 +150,10 @@ async function enrichItems(items) {
     (it) => !it.image || it.description.length < 30
   );
   if (!needsEnrich.length) return items;
-
-  // Fetch up to 20 pages in parallel, 5 at a time
   const batch = needsEnrich.slice(0, 20);
   const results = await Promise.allSettled(
     batch.map((it) => fetchOgData(it.link))
   );
-
   results.forEach((r, i) => {
     if (r.status !== "fulfilled" || !r.value) return;
     const og = r.value;
@@ -167,7 +161,6 @@ async function enrichItems(items) {
     if (!item.image && og.image) item.image = og.image;
     if (item.description.length < 30 && og.description) item.description = og.description;
   });
-
   return items;
 }
 
@@ -191,7 +184,7 @@ function freshSort(items) {
 }
 
 // ---------------------------------------------------------------------------
-// GEMINI  — one structured pass per category. Returns selected + summarised set.
+// GEMINI
 // ---------------------------------------------------------------------------
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
@@ -208,20 +201,17 @@ const CATEGORY_PROMPTS = {
 function buildList(items) {
   const junk = ["comments", "comment", ""];
   return items
-    .map(
-      (it, i) => {
-        const desc = (it.description || "").trim();
-        const isJunk = desc.length < 30 || junk.includes(desc.toLowerCase());
-        const excerpt = isJunk
-          ? "(No excerpt available — write the summary from the headline only)"
-          : desc.slice(0, 280);
-        return `[${i}] SOURCE: ${it.source}\nHEADLINE: ${it.title}\nEXCERPT: ${excerpt}`;
-      }
-    )
+    .map((it, i) => {
+      const desc = (it.description || "").trim();
+      const isJunk = desc.length < 30 || junk.includes(desc.toLowerCase());
+      const excerpt = isJunk
+        ? "(No excerpt available — write the summary from the headline only)"
+        : desc.slice(0, 280);
+      return `[${i}] SOURCE: ${it.source}\nHEADLINE: ${it.title}\nEXCERPT: ${excerpt}`;
+    })
     .join("\n\n");
 }
 
-// Post-process: replace any junk summaries Gemini might return
 function cleanSummaries(items) {
   const junk = ["comments", "comment", ""];
   return items.map((it) => {
@@ -231,6 +221,11 @@ function cleanSummaries(items) {
     }
     return it;
   });
+}
+
+function extractJSON(text) {
+  const m = text.match(/\[[\s\S]*\]/);
+  return m ? m[0] : "[]";
 }
 
 async function geminiSelect(items, categoryPrompt, n, apiKey) {
@@ -251,20 +246,24 @@ ${buildList(items)}`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 1400 },
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 1400,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       }),
       signal: AbortSignal.timeout(30000),
     });
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-   const jsonMatch = text.match(/\[[\s\S]*\]/); const clean = jsonMatch ? jsonMatch[0] : "[]";
+    const clean = extractJSON(text);
     const picks = JSON.parse(clean);
+    if (!picks.length) throw new Error("empty");
     return picks
       .filter((p) => items[p.index])
       .map((p) => ({ ...items[p.index], summary: p.summary }))
       .slice(0, n);
   } catch {
-    // Fallback: no AI, just take freshest N with title or description as summary.
     return items.slice(0, n).map((it) => ({
       ...it,
       summary: it.description && it.description.length > 30 ? it.description.slice(0, 180) : it.title,
@@ -287,13 +286,19 @@ ${buildList(top)}`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 800 },
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 800,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       }),
       signal: AbortSignal.timeout(30000),
     });
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-    const jsonMatch = text.match(/\[[\s\S]*\]/); const picks = JSON.parse(jsonMatch ? jsonMatch[0] : "[]");
+    const clean = extractJSON(text);
+    const picks = JSON.parse(clean);
+    if (!picks.length) throw new Error("empty");
     const byIndex = Object.fromEntries(picks.map((p) => [p.index, p.summary]));
     return top.map((it, i) => ({ ...it, summary: byIndex[i] || "" }));
   } catch {
@@ -301,13 +306,10 @@ ${buildList(top)}`;
   }
 }
 
-// YouTube thumbnails are derivable from the video id in the link.
 function videoThumb(item) {
-  // Prefer the RSS-provided thumbnail if it's already a valid image URL
   if (item.image && (item.image.includes('ytimg.com') || item.image.includes('.jpg') || item.image.includes('.png'))) {
     return item.image;
   }
-  // Generate from video ID as fallback
   const id = item.link && (
     item.link.match(/[?&]v=([\w-]+)/)?.[1] ||
     item.link.match(/youtu\.be\/([\w-]+)/)?.[1]
@@ -322,7 +324,6 @@ export default async function handler(req, res) {
   const provided = req.headers["x-cron-secret"];
   const expected = process.env.CRON_SECRET;
 
-  // Sentinel: any hit on this endpoint is logged. Unauthorised hits are threats.
   await logRequest(req, "news-refresh");
 
   if (!expected || provided !== expected) {
@@ -335,22 +336,20 @@ export default async function handler(req, res) {
 
   const startedAt = Date.now();
 
-  // 1. Fetch + filter the text pool once.
+  // 1. Fetch + filter
   const rawText = await fetchAll(TEXT_FEEDS);
   const textPool = freshSort(dedupe(rawText.filter(signalMatch))).slice(0, 60);
 
-  // 2. Space pool (no signal gate — the section is the filter).
   const rawSpace = await fetchAll(SPACE_FEEDS);
   const spacePool = freshSort(dedupe(rawSpace)).slice(0, 30);
 
-  // 3. Video pool.
   const rawVideo = await fetchAll(VIDEO_FEEDS);
   const videoPool = dedupe(rawVideo);
 
-  // 3.5 Enrich: fetch og:image and og:description for items missing them.
+  // 2. Enrich missing images/descriptions
   await Promise.all([enrichItems(textPool), enrichItems(spacePool)]);
 
-  // 4. Editorial passes.
+  // 3. Editorial passes
   const [hot, all, deeptech, aimoves] = await Promise.all([
     geminiSelect(textPool, CATEGORY_PROMPTS.hot, 8, apiKey),
     geminiSelect(textPool, CATEGORY_PROMPTS.all, 12, apiKey),
@@ -361,12 +360,12 @@ export default async function handler(req, res) {
   const videosRaw = await summariseVideos(videoPool, 4, apiKey);
   const videos = videosRaw.map((v) => ({ ...v, image: videoThumb(v) }));
 
-  // 5. Clean up any junk summaries.
+  // 4. Clean junk summaries
   [hot, all, deeptech, aimoves, space].forEach(cleanSummaries);
 
-  // 6. Write cache. Each value carries its own generated timestamp.
+  // 5. Write cache
   const stamp = (arr) => ({ updated: startedAt, items: arr });
-  const TTL = 60 * 60 * 25; // 25h guard against a slipped cron
+  const TTL = 60 * 60 * 25;
   await Promise.all([
     kv.set("qrx_feed_hot", stamp(hot), { ex: TTL }),
     kv.set("qrx_feed_all", stamp(all), { ex: TTL }),
