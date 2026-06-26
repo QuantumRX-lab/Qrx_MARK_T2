@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   const key = KEYS[category];
 
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+  res.setHeader("Cache-Control", "no-cache");
 
   if (!key) {
     return res.status(400).json({ error: "Unknown category" });
