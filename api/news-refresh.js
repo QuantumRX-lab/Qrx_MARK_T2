@@ -142,7 +142,7 @@ function freshSort(items) {
 // GEMINI  — one structured pass per category. Returns selected + summarised set.
 // ---------------------------------------------------------------------------
 const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 const VOICE = `You are the editor of QuantumRx Signals, a publication covering AI infrastructure, edge compute, connectivity, satellite systems, and emerging technology. Your readers are technical: engineers, founders, and operators. Write summaries that are direct and concrete. No hype, no filler, no adjectives like "revolutionary" or "groundbreaking". State what happened and why it matters to someone building in this space. Two sentences maximum.`;
 
@@ -156,8 +156,12 @@ const CATEGORY_PROMPTS = {
 function buildList(items) {
   return items
     .map(
-      (it, i) =>
-        `[${i}] SOURCE: ${it.source}\nHEADLINE: ${it.title}\nEXCERPT: ${it.description.slice(0, 280)}`
+      (it, i) => {
+        const excerpt = it.description && it.description.length > 30
+          ? it.description.slice(0, 280)
+          : "(No excerpt — summarise from the headline)";
+        return `[${i}] SOURCE: ${it.source}\nHEADLINE: ${it.title}\nEXCERPT: ${excerpt}`;
+      }
     )
     .join("\n\n");
 }
@@ -251,7 +255,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY_Forge;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
 
   const startedAt = Date.now();
