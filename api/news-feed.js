@@ -20,7 +20,11 @@ export default async function handler(req, res) {
   const category = (req.query.category || "hot").toLowerCase();
   const key = KEYS[category];
 
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const origin = req.headers.origin || "";
+  const allowed = ["https://quantumrx.eu", "https://www.quantumrx.eu"];
+  if (allowed.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
   res.setHeader("Cache-Control", "no-cache");
 
   if (!key) {

@@ -91,7 +91,7 @@ function parseFeed(xml, sourceName) {
       link,
       description: desc.slice(0, 600),
       source: sourceName,
-      image: findImage(b),
+      image: sanitiseImageUrl(findImage(b)),
       published: pub ? new Date(pub).getTime() || Date.now() : Date.now(),
     });
   }
@@ -118,9 +118,43 @@ async function fetchAll(feeds) {
 }
 
 // ---------------------------------------------------------------------------
+// SECURITY — URL validation and output sanitisation
+// ---------------------------------------------------------------------------
+function isSafeUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+    const host = u.hostname;
+    if (host === "localhost" || host === "0.0.0.0") return false;
+    if (host.startsWith("127.") || host.startsWith("10.") || host.startsWith("192.168.")) return false;
+    if (host.startsWith("172.") && parseInt(host.split(".")[1]) >= 16 && parseInt(host.split(".")[1]) <= 31) return false;
+    if (host === "169.254.169.254") return false;
+    if (host.endsWith(".internal") || host.endsWith(".local")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function sanitiseImageUrl(url) {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:" ? url : "";
+  } catch {
+    return "";
+  }
+}
+
+function stripHtml(text) {
+  return (text || "").replace(/<[^>]+>/g, "").replace(/&[a-z]+;/gi, " ").trim();
+}
+
+// ---------------------------------------------------------------------------
 // ENRICH — fetch og:image and og:description from article pages
 // ---------------------------------------------------------------------------
 async function fetchOgData(url) {
+  if (!isSafeUrl(url)) return {};
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": "QuantumRx-Signals/1.0 (+https://quantumrx.eu)" },
@@ -137,7 +171,7 @@ async function fetchOgData(url) {
       || html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)?.[1]
       || "";
     return {
-      image: ogImg.replace(/&amp;/g, "&"),
+      image: sanitiseImageUrl(ogImg.replace(/&amp;/g, "&")),
       description: ogDesc.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").slice(0, 600),
     };
   } catch {
@@ -215,10 +249,12 @@ function buildList(items) {
 function cleanSummaries(items) {
   const junk = ["comments", "comment", ""];
   return items.map((it) => {
-    const s = (it.summary || "").trim();
+    let s = stripHtml(it.summary || "").trim();
+    s = s.replace(/https?:\/\/\S+/g, "").trim();
     if (junk.includes(s.toLowerCase()) || s.length < 10) {
-      it.summary = it.title;
+      s = it.title;
     }
+    it.summary = s;
     return it;
   });
 }
