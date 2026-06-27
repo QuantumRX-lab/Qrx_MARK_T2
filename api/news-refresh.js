@@ -59,11 +59,11 @@ const SPACE_FEEDS = [
 ];
 
 const SOCIAL_FEEDS = [
-  { name: "Reddit r/technology", url: "https://www.reddit.com/r/technology/hot.rss" },
-  { name: "Reddit r/MachineLearning", url: "https://www.reddit.com/r/MachineLearning/hot.rss" },
-  { name: "Reddit r/artificial", url: "https://www.reddit.com/r/artificial/hot.rss" },
-  { name: "Reddit r/programming", url: "https://www.reddit.com/r/programming/hot.rss" },
-  { name: "Reddit r/startups", url: "https://www.reddit.com/r/startups/hot.rss" },
+  { name: "Reddit r/technology", url: "https://old.reddit.com/r/technology/hot.rss", reddit: true },
+  { name: "Reddit r/MachineLearning", url: "https://old.reddit.com/r/MachineLearning/hot.rss", reddit: true },
+  { name: "Reddit r/artificial", url: "https://old.reddit.com/r/artificial/hot.rss", reddit: true },
+  { name: "Reddit r/programming", url: "https://old.reddit.com/r/programming/hot.rss", reddit: true },
+  { name: "Reddit r/startups", url: "https://old.reddit.com/r/startups/hot.rss", reddit: true },
   { name: "Hacker News Show", url: "https://news.ycombinator.com/showrss" },
   { name: "Dev.to", url: "https://dev.to/feed" },
   { name: "Product Hunt", url: "https://www.producthunt.com/feed" },
@@ -204,8 +204,11 @@ function parseFeed(xml, sourceName) {
 
 async function fetchFeed(feed) {
   try {
+    const ua = feed.reddit
+      ? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      : "QuantumRx-Signals/1.0 (+https://quantumrx.eu)";
     const res = await fetch(feed.url, {
-      headers: { "User-Agent": "QuantumRx-Signals/1.0 (+https://quantumrx.eu)" },
+      headers: { "User-Agent": ua },
       signal: AbortSignal.timeout(12000),
     });
     if (!res.ok) return [];
@@ -295,7 +298,7 @@ const CATEGORY_PROMPTS = {
   policy: `Select only stories about technology regulation, legislation, and governance — AI regulation, data protection, spectrum policy, antitrust, export controls, and government technology policy in the US, EU, and UK. Choose up to \${N}.`,
   energy: `Select only stories about energy infrastructure relevant to technology — data center power consumption, grid capacity, nuclear power for compute, renewable energy projects at scale, battery storage, and electricity infrastructure. Choose up to \${N}.`,
   space: `Select the \${N} strongest stories about space systems, orbital infrastructure, satellite communications, launch vehicles, and commercial space. Prioritise commercial, connectivity, and engineering angles over general interest pieces.`,
-  social: `Select the \${N} stories that the tech community is most actively engaging with right now — tools people are genuinely building with, projects gaining real traction, debates engineers care about, and launches worth paying attention to. Avoid political drama. Choose stories with genuine signal for builders and founders.`,
+  social: `Select the \${N} stories that the tech community is most actively engaging with right now — tools people are genuinely building with, projects gaining real traction, debates engineers care about, and launches worth paying attention to. IMPORTANT: You MUST include at least one story from Reddit, at least one from Hacker News Show, and at least one from Dev.to. Avoid political drama. Choose stories with genuine signal for builders and founders.`,
 };
 
 function buildList(items) {
@@ -415,6 +418,31 @@ function videoThumb(item) {
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : (item.image || "");
 }
 
+// Ensure social tab has at least one story from each major source group
+function diversifySocial(selected, pool, n) {
+  const groups = {
+    reddit: pool.filter(it => it.source.toLowerCase().includes('reddit')),
+    hn: pool.filter(it => it.source.toLowerCase().includes('hacker news')),
+    devto: pool.filter(it => it.source.toLowerCase().includes('dev.to')),
+    producthunt: pool.filter(it => it.source.toLowerCase().includes('product hunt')),
+  };
+  const result = [...selected];
+  const resultLinks = new Set(result.map(it => it.link));
+  Object.values(groups).forEach(function(items) {
+    if (!items.length) return;
+    const hasGroup = items.some(gi => resultLinks.has(gi.link));
+    if (!hasGroup) {
+      const candidate = items.find(it => !resultLinks.has(it.link));
+      if (candidate) {
+        candidate.summary = candidate.summary || candidate.description?.slice(0, 180) || candidate.title;
+        result.push(candidate);
+        resultLinks.add(candidate.link);
+      }
+    }
+  });
+  return result.slice(0, n + 4);
+}
+
 // ---------------------------------------------------------------------------
 // HANDLER
 // ---------------------------------------------------------------------------
@@ -474,10 +502,11 @@ export default async function handler(req, res) {
     geminiSelect(policyPool, CATEGORY_PROMPTS.policy, 8, apiKey),
     geminiSelect(energyPool, CATEGORY_PROMPTS.energy, 8, apiKey),
   ]);
-  const [space, social] = await Promise.all([
+  const [space, socialRaw] = await Promise.all([
     geminiSelect(spacePool, CATEGORY_PROMPTS.space, 10, apiKey),
     geminiSelect(socialPool, CATEGORY_PROMPTS.social, 8, apiKey),
   ]);
+  const social = diversifySocial(socialRaw, socialPool, 8);
   const videosRaw = await summariseVideos(videoPool, 4, apiKey);
   const videos = videosRaw.map((v) => ({ ...v, image: videoThumb(v) }));
 
