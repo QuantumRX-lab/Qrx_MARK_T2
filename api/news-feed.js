@@ -8,6 +8,7 @@ const KEYS = {
   policy:  "qrx_feed_policy",
   energy:  "qrx_feed_energy",
   space:   "qrx_feed_space",
+  social:  "qrx_feed_social",
   video:   "qrx_feed_video",
 };
 
@@ -23,14 +24,11 @@ export default async function handler(req, res) {
   }
   res.setHeader("Cache-Control", "no-cache");
 
-  if (!key) {
-    return res.status(400).json({ error: "Unknown category" });
-  }
+  if (!key) return res.status(400).json({ error: "Unknown category" });
+
   try {
     const data = await kv.get(key);
-    if (!data) {
-      return res.status(200).json({ updated: null, items: [], empty: true });
-    }
+    if (!data) return res.status(200).json({ updated: null, items: [], empty: true });
     return res.status(200).json(data);
   } catch {
     return res.status(500).json({ error: "Feed temporarily unavailable" });

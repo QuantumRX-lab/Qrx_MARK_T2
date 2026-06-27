@@ -1,7 +1,6 @@
 // /api/news-refresh.js
-// QuantumRx Signals — daily refresh engine v2
-// Tabs: What's Hot, AI Moves, Crypto, Policy, Energy + Search
-// Sections: Watch, Space & Connectivity
+// QuantumRx Signals — daily refresh engine v3
+// Tabs: What's Hot, AI Moves, Crypto, Policy, Energy, Space, Social, Search
 
 import { kv } from "@vercel/kv";
 import { logRequest, blockThreat } from "./_lib/sentinel.js";
@@ -59,6 +58,17 @@ const SPACE_FEEDS = [
   { name: "The Orbital Index", url: "https://orbitalindex.substack.com/feed" },
 ];
 
+const SOCIAL_FEEDS = [
+  { name: "Reddit r/technology", url: "https://www.reddit.com/r/technology/hot.rss" },
+  { name: "Reddit r/MachineLearning", url: "https://www.reddit.com/r/MachineLearning/hot.rss" },
+  { name: "Reddit r/artificial", url: "https://www.reddit.com/r/artificial/hot.rss" },
+  { name: "Reddit r/programming", url: "https://www.reddit.com/r/programming/hot.rss" },
+  { name: "Reddit r/startups", url: "https://www.reddit.com/r/startups/hot.rss" },
+  { name: "Hacker News Show", url: "https://news.ycombinator.com/showrss" },
+  { name: "Dev.to", url: "https://dev.to/feed" },
+  { name: "Product Hunt", url: "https://www.producthunt.com/feed" },
+];
+
 const VIDEO_FEEDS = [
   { name: "Lex Fridman", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCSHZKyawb77ixDdsGog4iWA" },
   { name: "Two Minute Papers", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCbfYPyITQ-7l4upoX8nvctg" },
@@ -92,9 +102,9 @@ const CRYPTO_TERMS = [
 const POLICY_TERMS = [
   "regulation", "legislation", "ai act", "executive order", "fcc", "spectrum",
   "data protection", "gdpr", "antitrust", "policy", "governance", "compliance",
-  "copyright", "privacy", "digital markets", "dsma", "ofcom", "ftc", "doj",
-  "european commission", "parliament", "congress", "senate", "whitehouse",
-  "cybersecurity", "national security", "export control",
+  "copyright", "privacy", "digital markets", "ofcom", "ftc", "doj",
+  "european commission", "parliament", "congress", "senate", "cybersecurity",
+  "national security", "export control",
 ];
 
 const ENERGY_TERMS = [
@@ -102,6 +112,13 @@ const ENERGY_TERMS = [
   "gigawatt", "energy infrastructure", "hydrogen", "battery storage", "transmission",
   "solar", "wind", "capacity", "megawatt", "generation", "ferc", "utility",
   "energy consumption", "cooling", "ppa", "carbon", "emissions",
+];
+
+const SOCIAL_TERMS = [
+  "ai", "tech", "software", "startup", "product", "developer", "code", "programming",
+  "machine learning", "model", "data", "cloud", "api", "open source", "github",
+  "launch", "funding", "research", "algorithm", "infrastructure", "security",
+  "privacy", "tool", "framework", "show hn", "ask hn", "built", "released",
 ];
 
 // ---------------------------------------------------------------------------
@@ -269,7 +286,7 @@ function freshSort(items) {
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
-const VOICE = `You are the editor of QuantumRx Signals, a publication covering AI infrastructure, edge compute, connectivity, satellite systems, energy infrastructure, crypto infrastructure, and technology policy. Your readers are technical: engineers, founders, and operators. Write summaries that are direct and concrete. No hype, no filler, no adjectives like "revolutionary" or "groundbreaking". State what happened and why it matters to someone building in this space. Two sentences maximum. IMPORTANT: If the excerpt is missing, says "Comments", or is unhelpful, you MUST still write a proper two-sentence summary based on the headline alone. Never return "Comments" or a single word as a summary.`;
+const VOICE = `You are the editor of QuantumRx Signals, a publication covering AI infrastructure, edge compute, connectivity, satellite systems, energy infrastructure, crypto infrastructure, technology policy, space systems, and what the tech community is talking about. Your readers are technical: engineers, founders, and operators. Write summaries that are direct and concrete. No hype, no filler, no adjectives like "revolutionary" or "groundbreaking". State what happened and why it matters to someone building in this space. Two sentences maximum. IMPORTANT: If the excerpt is missing, says "Comments", or is unhelpful, you MUST still write a proper two-sentence summary based on the headline alone. Never return "Comments" or a single word as a summary.`;
 
 const CATEGORY_PROMPTS = {
   hot: `Select the \${N} stories most likely to still matter in six months. Prioritise structural shifts in AI infrastructure, compute, and connectivity over daily news-cycle noise.`,
@@ -277,7 +294,8 @@ const CATEGORY_PROMPTS = {
   crypto: `Select only stories about blockchain and crypto infrastructure — protocols, layer 2 networks, validators, consensus mechanisms, zk proofs, DeFi rails, and on-chain systems. Exclude price speculation, market moves, and coin trading. Choose up to \${N}.`,
   policy: `Select only stories about technology regulation, legislation, and governance — AI regulation, data protection, spectrum policy, antitrust, export controls, and government technology policy in the US, EU, and UK. Choose up to \${N}.`,
   energy: `Select only stories about energy infrastructure relevant to technology — data center power consumption, grid capacity, nuclear power for compute, renewable energy projects at scale, battery storage, and electricity infrastructure. Choose up to \${N}.`,
-  space: `Select the \${N} strongest stories about space systems, orbital infrastructure, satellite communications, launch vehicles, and commercial space. Prioritise commercial and connectivity angles.`,
+  space: `Select the \${N} strongest stories about space systems, orbital infrastructure, satellite communications, launch vehicles, and commercial space. Prioritise commercial, connectivity, and engineering angles over general interest pieces.`,
+  social: `Select the \${N} stories that the tech community is most actively engaging with right now — tools people are genuinely building with, projects gaining real traction, debates engineers care about, and launches worth paying attention to. Avoid political drama. Choose stories with genuine signal for builders and founders.`,
 };
 
 function buildList(items) {
@@ -417,21 +435,23 @@ export default async function handler(req, res) {
   const startedAt = Date.now();
 
   // 1. Fetch all pools in parallel
-  const [rawText, rawCrypto, rawPolicy, rawEnergy, rawSpace, rawVideo] = await Promise.all([
+  const [rawText, rawCrypto, rawPolicy, rawEnergy, rawSpace, rawSocial, rawVideo] = await Promise.all([
     fetchAll(TEXT_FEEDS),
     fetchAll(CRYPTO_FEEDS),
     fetchAll(POLICY_FEEDS),
     fetchAll(ENERGY_FEEDS),
     fetchAll(SPACE_FEEDS),
+    fetchAll(SOCIAL_FEEDS),
     fetchAll(VIDEO_FEEDS),
   ]);
 
   // 2. Filter and dedupe
-  const textPool  = freshSort(dedupe(rawText.filter((it) => termMatch(it, SIGNAL_TERMS)))).slice(0, 60);
+  const textPool   = freshSort(dedupe(rawText.filter((it) => termMatch(it, SIGNAL_TERMS)))).slice(0, 60);
   const cryptoPool = freshSort(dedupe(rawCrypto.filter((it) => termMatch(it, CRYPTO_TERMS)))).slice(0, 40);
   const policyPool = freshSort(dedupe(rawPolicy.filter((it) => termMatch(it, POLICY_TERMS)))).slice(0, 40);
   const energyPool = freshSort(dedupe(rawEnergy.filter((it) => termMatch(it, ENERGY_TERMS)))).slice(0, 40);
   const spacePool  = freshSort(dedupe(rawSpace)).slice(0, 40);
+  const socialPool = freshSort(dedupe(rawSocial.filter((it) => termMatch(it, SOCIAL_TERMS)))).slice(0, 50);
   const videoPool  = dedupe(rawVideo);
 
   // 3. Enrich missing images/descriptions
@@ -441,9 +461,10 @@ export default async function handler(req, res) {
     enrichItems(policyPool),
     enrichItems(energyPool),
     enrichItems(spacePool),
+    enrichItems(socialPool),
   ]);
 
-  // 4. Gemini passes — run text categories in parallel, others sequentially
+  // 4. Gemini passes
   const [hot, aimoves] = await Promise.all([
     geminiSelect(textPool, CATEGORY_PROMPTS.hot, 8, apiKey),
     geminiSelect(textPool, CATEGORY_PROMPTS.aimoves, 8, apiKey),
@@ -453,23 +474,27 @@ export default async function handler(req, res) {
     geminiSelect(policyPool, CATEGORY_PROMPTS.policy, 8, apiKey),
     geminiSelect(energyPool, CATEGORY_PROMPTS.energy, 8, apiKey),
   ]);
-  const space = await geminiSelect(spacePool, CATEGORY_PROMPTS.space, 6, apiKey);
+  const [space, social] = await Promise.all([
+    geminiSelect(spacePool, CATEGORY_PROMPTS.space, 10, apiKey),
+    geminiSelect(socialPool, CATEGORY_PROMPTS.social, 8, apiKey),
+  ]);
   const videosRaw = await summariseVideos(videoPool, 4, apiKey);
   const videos = videosRaw.map((v) => ({ ...v, image: videoThumb(v) }));
 
   // 5. Clean summaries
-  [hot, aimoves, crypto, policy, energy, space].forEach(cleanSummaries);
+  [hot, aimoves, crypto, policy, energy, space, social].forEach(cleanSummaries);
 
   // 6. Write cache
   const stamp = (arr) => ({ updated: startedAt, items: arr });
   const TTL = 60 * 60 * 25;
   await Promise.all([
-    kv.set("qrx_feed_hot",    stamp(hot),     { ex: TTL }),
+    kv.set("qrx_feed_hot",     stamp(hot),     { ex: TTL }),
     kv.set("qrx_feed_aimoves", stamp(aimoves), { ex: TTL }),
     kv.set("qrx_feed_crypto",  stamp(crypto),  { ex: TTL }),
     kv.set("qrx_feed_policy",  stamp(policy),  { ex: TTL }),
     kv.set("qrx_feed_energy",  stamp(energy),  { ex: TTL }),
     kv.set("qrx_feed_space",   stamp(space),   { ex: TTL }),
+    kv.set("qrx_feed_social",  stamp(social),  { ex: TTL }),
     kv.set("qrx_feed_video",   stamp(videos),  { ex: TTL }),
   ]);
 
@@ -482,12 +507,14 @@ export default async function handler(req, res) {
       policyPool: policyPool.length,
       energyPool: energyPool.length,
       spacePool: spacePool.length,
+      socialPool: socialPool.length,
       hot: hot.length,
       aimoves: aimoves.length,
       crypto: crypto.length,
       policy: policy.length,
       energy: energy.length,
       space: space.length,
+      social: social.length,
       video: videos.length,
     },
   });
