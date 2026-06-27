@@ -1,14 +1,13 @@
 // /api/news-refresh.js
-// QuantumRx Signals — daily refresh engine.
-// Fetches open RSS feeds, filters to the QRx editorial lens, summarises via Gemini
-// in six editorial passes, and writes six cache keys to Vercel KV.
-// Protected by a shared cron secret and logged through Q-Sentinel.
+// QuantumRx Signals — daily refresh engine v2
+// Tabs: What's Hot, AI Moves, Crypto, Policy, Energy + Search
+// Sections: Watch, Space & Connectivity
 
 import { kv } from "@vercel/kv";
 import { logRequest, blockThreat } from "./_lib/sentinel.js";
 
 // ---------------------------------------------------------------------------
-// SOURCE LISTS  (all open / non-paywalled)
+// SOURCE LISTS
 // ---------------------------------------------------------------------------
 const TEXT_FEEDS = [
   { name: "Ars Technica", url: "https://feeds.arstechnica.com/arstechnica/technology-lab" },
@@ -23,12 +22,41 @@ const TEXT_FEEDS = [
   { name: "Import AI", url: "https://importai.substack.com/feed" },
 ];
 
+const CRYPTO_FEEDS = [
+  { name: "The Block", url: "https://www.theblock.co/rss/all" },
+  { name: "Blockworks", url: "https://blockworks.co/feed" },
+  { name: "Protos", url: "https://protos.com/feed/" },
+  { name: "Decrypt", url: "https://decrypt.co/feed" },
+  { name: "Ethereum Foundation", url: "https://blog.ethereum.org/feed.xml" },
+];
+
+const POLICY_FEEDS = [
+  { name: "Politico Tech", url: "https://www.politico.com/rss/technology.xml" },
+  { name: "The Register Policy", url: "https://www.theregister.com/policy/headlines.atom" },
+  { name: "EFF", url: "https://www.eff.org/rss/updates.xml" },
+  { name: "NIST", url: "https://www.nist.gov/news-events/news/rss.xml" },
+  { name: "EU Commission Digital", url: "https://digital-strategy.ec.europa.eu/en/rss.xml" },
+];
+
+const ENERGY_FEEDS = [
+  { name: "Canary Media", url: "https://www.canarymedia.com/feed" },
+  { name: "Energy Monitor", url: "https://www.energymonitor.ai/feed/" },
+  { name: "Electrek", url: "https://electrek.co/feed/" },
+  { name: "Power Magazine", url: "https://www.powermag.com/feed/" },
+  { name: "IEA", url: "https://www.iea.org/news/rss" },
+];
+
 const SPACE_FEEDS = [
   { name: "NASA", url: "https://www.nasa.gov/rss/dyn/breaking_news.rss" },
   { name: "SpaceNews", url: "https://spacenews.com/feed/" },
   { name: "NASASpaceflight", url: "https://www.nasaspaceflight.com/feed/" },
-  { name: "The Planetary Society", url: "https://www.planetary.org/feed/articles.rss" },
   { name: "Space.com", url: "https://www.space.com/feeds/all" },
+  { name: "Payload Space", url: "https://payloadspace.com/feed/" },
+  { name: "Spaceflight Now", url: "https://spaceflightnow.com/feed/" },
+  { name: "ESA News", url: "https://www.esa.int/rssfeed.xml" },
+  { name: "Parabolic Arc", url: "https://www.parabolicarc.com/feed/" },
+  { name: "Ars Technica Space", url: "https://feeds.arstechnica.com/arstechnica/space" },
+  { name: "The Orbital Index", url: "https://orbitalindex.substack.com/feed" },
 ];
 
 const VIDEO_FEEDS = [
@@ -36,8 +64,16 @@ const VIDEO_FEEDS = [
   { name: "Two Minute Papers", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCbfYPyITQ-7l4upoX8nvctg" },
   { name: "AI Explained", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCNJ1Ymd5yFuUPtn21xtRbbw" },
   { name: "Google DeepMind", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCP7jMXSY2xbc3KCAE0MHQ-A" },
+  { name: "Andrej Karpathy", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCXUPKJO5MZQMU11rgDXghSA" },
+  { name: "Yannic Kilcher", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCZHmQk67mSJgfCCTn7xBfew" },
+  { name: "Fireship", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCsBjURrPoezykLs9EqgamOA" },
+  { name: "Veritasium", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCHnyfMqiRRG1u-2MsSQLbXA" },
+  { name: "Real Engineering", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCR1IuLEqb6UEA_zQ81kwXfg" },
+  { name: "Scott Manley", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCxzC4EngIsMrPmbm6Nxvb-A" },
+  { name: "Primal Space", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCSbdgzAkFkHynC7K6YWPBSA" },
 ];
 
+// Keyword gates
 const SIGNAL_TERMS = [
   "ai", "artificial intelligence", "llm", "model", "inference", "agent", "agentic",
   "foundation model", "edge", "compute", "gpu", "chip", "semiconductor", "silicon",
@@ -46,8 +82,59 @@ const SIGNAL_TERMS = [
   "open source", "open-source", "nvidia", "openai", "anthropic", "google", "mistral",
 ];
 
+const CRYPTO_TERMS = [
+  "protocol", "layer 2", "l2", "validator", "consensus", "zk", "rollup",
+  "defi", "smart contract", "on-chain", "blockchain infrastructure", "ethereum",
+  "staking", "proof of stake", "evm", "web3 infrastructure", "cross-chain",
+  "sequencer", "bridge", "liquidity", "dao", "merkle",
+];
+
+const POLICY_TERMS = [
+  "regulation", "legislation", "ai act", "executive order", "fcc", "spectrum",
+  "data protection", "gdpr", "antitrust", "policy", "governance", "compliance",
+  "copyright", "privacy", "digital markets", "dsma", "ofcom", "ftc", "doj",
+  "european commission", "parliament", "congress", "senate", "whitehouse",
+  "cybersecurity", "national security", "export control",
+];
+
+const ENERGY_TERMS = [
+  "grid", "power", "nuclear", "data center energy", "renewable", "electricity",
+  "gigawatt", "energy infrastructure", "hydrogen", "battery storage", "transmission",
+  "solar", "wind", "capacity", "megawatt", "generation", "ferc", "utility",
+  "energy consumption", "cooling", "ppa", "carbon", "emissions",
+];
+
 // ---------------------------------------------------------------------------
-// RSS / ATOM PARSING
+// SECURITY
+// ---------------------------------------------------------------------------
+function isSafeUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+    const host = u.hostname;
+    if (host === "localhost" || host === "0.0.0.0") return false;
+    if (host.startsWith("127.") || host.startsWith("10.") || host.startsWith("192.168.")) return false;
+    if (host.startsWith("172.") && parseInt(host.split(".")[1]) >= 16 && parseInt(host.split(".")[1]) <= 31) return false;
+    if (host === "169.254.169.254") return false;
+    if (host.endsWith(".internal") || host.endsWith(".local")) return false;
+    return true;
+  } catch { return false; }
+}
+
+function sanitiseImageUrl(url) {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:" ? url : "";
+  } catch { return ""; }
+}
+
+function stripHtml(text) {
+  return (text || "").replace(/<[^>]+>/g, "").replace(/&[a-z]+;/gi, " ").trim();
+}
+
+// ---------------------------------------------------------------------------
+// RSS PARSING
 // ---------------------------------------------------------------------------
 function decode(s = "") {
   return s
@@ -107,9 +194,7 @@ async function fetchFeed(feed) {
     if (!res.ok) return [];
     const xml = await res.text();
     return parseFeed(xml, feed.name);
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 async function fetchAll(feeds) {
@@ -118,40 +203,7 @@ async function fetchAll(feeds) {
 }
 
 // ---------------------------------------------------------------------------
-// SECURITY — URL validation and output sanitisation
-// ---------------------------------------------------------------------------
-function isSafeUrl(url) {
-  try {
-    const u = new URL(url);
-    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
-    const host = u.hostname;
-    if (host === "localhost" || host === "0.0.0.0") return false;
-    if (host.startsWith("127.") || host.startsWith("10.") || host.startsWith("192.168.")) return false;
-    if (host.startsWith("172.") && parseInt(host.split(".")[1]) >= 16 && parseInt(host.split(".")[1]) <= 31) return false;
-    if (host === "169.254.169.254") return false;
-    if (host.endsWith(".internal") || host.endsWith(".local")) return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function sanitiseImageUrl(url) {
-  if (!url) return "";
-  try {
-    const u = new URL(url);
-    return u.protocol === "https:" || u.protocol === "http:" ? url : "";
-  } catch {
-    return "";
-  }
-}
-
-function stripHtml(text) {
-  return (text || "").replace(/<[^>]+>/g, "").replace(/&[a-z]+;/gi, " ").trim();
-}
-
-// ---------------------------------------------------------------------------
-// ENRICH — fetch og:image and og:description from article pages
+// ENRICH
 // ---------------------------------------------------------------------------
 async function fetchOgData(url) {
   if (!isSafeUrl(url)) return {};
@@ -174,20 +226,14 @@ async function fetchOgData(url) {
       image: sanitiseImageUrl(ogImg.replace(/&amp;/g, "&")),
       description: ogDesc.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").slice(0, 600),
     };
-  } catch {
-    return {};
-  }
+  } catch { return {}; }
 }
 
 async function enrichItems(items) {
-  const needsEnrich = items.filter(
-    (it) => !it.image || it.description.length < 30
-  );
+  const needsEnrich = items.filter((it) => !it.image || it.description.length < 30);
   if (!needsEnrich.length) return items;
   const batch = needsEnrich.slice(0, 20);
-  const results = await Promise.allSettled(
-    batch.map((it) => fetchOgData(it.link))
-  );
+  const results = await Promise.allSettled(batch.map((it) => fetchOgData(it.link)));
   results.forEach((r, i) => {
     if (r.status !== "fulfilled" || !r.value) return;
     const og = r.value;
@@ -198,9 +244,9 @@ async function enrichItems(items) {
   return items;
 }
 
-function signalMatch(item) {
+function termMatch(item, terms) {
   const hay = `${item.title} ${item.description}`.toLowerCase();
-  return SIGNAL_TERMS.some((t) => hay.includes(t));
+  return terms.some((t) => hay.includes(t));
 }
 
 function dedupe(items) {
@@ -223,13 +269,15 @@ function freshSort(items) {
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
-const VOICE = `You are the editor of QuantumRx Signals, a publication covering AI infrastructure, edge compute, connectivity, satellite systems, and emerging technology. Your readers are technical: engineers, founders, and operators. Write summaries that are direct and concrete. No hype, no filler, no adjectives like "revolutionary" or "groundbreaking". State what happened and why it matters to someone building in this space. Two sentences maximum. IMPORTANT: If the excerpt is missing, says "Comments", or is unhelpful, you MUST still write a proper two-sentence summary based on the headline alone. Never return "Comments" or a single word as a summary.`;
+const VOICE = `You are the editor of QuantumRx Signals, a publication covering AI infrastructure, edge compute, connectivity, satellite systems, energy infrastructure, crypto infrastructure, and technology policy. Your readers are technical: engineers, founders, and operators. Write summaries that are direct and concrete. No hype, no filler, no adjectives like "revolutionary" or "groundbreaking". State what happened and why it matters to someone building in this space. Two sentences maximum. IMPORTANT: If the excerpt is missing, says "Comments", or is unhelpful, you MUST still write a proper two-sentence summary based on the headline alone. Never return "Comments" or a single word as a summary.`;
 
 const CATEGORY_PROMPTS = {
-  hot: `Select the ${"${N}"} stories most likely to still matter in six months. Prioritise structural shifts in AI infrastructure, compute, and connectivity over daily news-cycle noise.`,
-  all: `Select the ${"${N}"} strongest stories across AI infrastructure, compute, connectivity, and emerging tech. Aim for breadth across topics.`,
-  deeptech: `Select only stories about semiconductors, chips, quantum, edge compute, data centers, or physical-layer connectivity. Choose up to ${"${N}"}. If fewer than ${"${N}"} qualify, return fewer.`,
-  aimoves: `Select only stories about AI model releases, AI company funding, acquisitions, or founder and lab activity. Choose up to ${"${N}"}.`,
+  hot: `Select the \${N} stories most likely to still matter in six months. Prioritise structural shifts in AI infrastructure, compute, and connectivity over daily news-cycle noise.`,
+  aimoves: `Select only stories about AI model releases, AI company funding, acquisitions, or founder and lab activity. Choose up to \${N}.`,
+  crypto: `Select only stories about blockchain and crypto infrastructure — protocols, layer 2 networks, validators, consensus mechanisms, zk proofs, DeFi rails, and on-chain systems. Exclude price speculation, market moves, and coin trading. Choose up to \${N}.`,
+  policy: `Select only stories about technology regulation, legislation, and governance — AI regulation, data protection, spectrum policy, antitrust, export controls, and government technology policy in the US, EU, and UK. Choose up to \${N}.`,
+  energy: `Select only stories about energy infrastructure relevant to technology — data center power consumption, grid capacity, nuclear power for compute, renewable energy projects at scale, battery storage, and electricity infrastructure. Choose up to \${N}.`,
+  space: `Select the \${N} strongest stories about space systems, orbital infrastructure, satellite communications, launch vehicles, and commercial space. Prioritise commercial and connectivity angles.`,
 };
 
 function buildList(items) {
@@ -251,9 +299,7 @@ function cleanSummaries(items) {
   return items.map((it) => {
     let s = stripHtml(it.summary || "").trim();
     s = s.replace(/https?:\/\/\S+/g, "").trim();
-    if (junk.includes(s.toLowerCase()) || s.length < 10) {
-      s = it.title;
-    }
+    if (junk.includes(s.toLowerCase()) || s.length < 10) s = it.title;
     it.summary = s;
     return it;
   });
@@ -292,8 +338,7 @@ ${buildList(items)}`;
     });
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-    const clean = extractJSON(text);
-    const picks = JSON.parse(clean);
+    const picks = JSON.parse(extractJSON(text));
     if (!picks.length) throw new Error("empty");
     return picks
       .filter((p) => items[p.index])
@@ -332,8 +377,7 @@ ${buildList(top)}`;
     });
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-    const clean = extractJSON(text);
-    const picks = JSON.parse(clean);
+    const picks = JSON.parse(extractJSON(text));
     if (!picks.length) throw new Error("empty");
     const byIndex = Object.fromEntries(picks.map((p) => [p.index, p.summary]));
     return top.map((it, i) => ({ ...it, summary: byIndex[i] || "" }));
@@ -343,14 +387,14 @@ ${buildList(top)}`;
 }
 
 function videoThumb(item) {
-  if (item.image && (item.image.includes('ytimg.com') || item.image.includes('.jpg') || item.image.includes('.png'))) {
+  if (item.image && (item.image.includes("ytimg.com") || item.image.includes(".jpg") || item.image.includes(".png"))) {
     return item.image;
   }
   const id = item.link && (
     item.link.match(/[?&]v=([\w-]+)/)?.[1] ||
     item.link.match(/youtu\.be\/([\w-]+)/)?.[1]
   );
-  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : (item.image || '');
+  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : (item.image || "");
 }
 
 // ---------------------------------------------------------------------------
@@ -372,43 +416,61 @@ export default async function handler(req, res) {
 
   const startedAt = Date.now();
 
-  // 1. Fetch + filter
-  const rawText = await fetchAll(TEXT_FEEDS);
-  const textPool = freshSort(dedupe(rawText.filter(signalMatch))).slice(0, 60);
+  // 1. Fetch all pools in parallel
+  const [rawText, rawCrypto, rawPolicy, rawEnergy, rawSpace, rawVideo] = await Promise.all([
+    fetchAll(TEXT_FEEDS),
+    fetchAll(CRYPTO_FEEDS),
+    fetchAll(POLICY_FEEDS),
+    fetchAll(ENERGY_FEEDS),
+    fetchAll(SPACE_FEEDS),
+    fetchAll(VIDEO_FEEDS),
+  ]);
 
-  const rawSpace = await fetchAll(SPACE_FEEDS);
-  const spacePool = freshSort(dedupe(rawSpace)).slice(0, 30);
+  // 2. Filter and dedupe
+  const textPool  = freshSort(dedupe(rawText.filter((it) => termMatch(it, SIGNAL_TERMS)))).slice(0, 60);
+  const cryptoPool = freshSort(dedupe(rawCrypto.filter((it) => termMatch(it, CRYPTO_TERMS)))).slice(0, 40);
+  const policyPool = freshSort(dedupe(rawPolicy.filter((it) => termMatch(it, POLICY_TERMS)))).slice(0, 40);
+  const energyPool = freshSort(dedupe(rawEnergy.filter((it) => termMatch(it, ENERGY_TERMS)))).slice(0, 40);
+  const spacePool  = freshSort(dedupe(rawSpace)).slice(0, 40);
+  const videoPool  = dedupe(rawVideo);
 
-  const rawVideo = await fetchAll(VIDEO_FEEDS);
-  const videoPool = dedupe(rawVideo);
+  // 3. Enrich missing images/descriptions
+  await Promise.all([
+    enrichItems(textPool),
+    enrichItems(cryptoPool),
+    enrichItems(policyPool),
+    enrichItems(energyPool),
+    enrichItems(spacePool),
+  ]);
 
-  // 2. Enrich missing images/descriptions
-  await Promise.all([enrichItems(textPool), enrichItems(spacePool)]);
-
-  // 3. Editorial passes
-  const [hot, all, deeptech, aimoves] = await Promise.all([
+  // 4. Gemini passes — run text categories in parallel, others sequentially
+  const [hot, aimoves] = await Promise.all([
     geminiSelect(textPool, CATEGORY_PROMPTS.hot, 8, apiKey),
-    geminiSelect(textPool, CATEGORY_PROMPTS.all, 12, apiKey),
-    geminiSelect(textPool, CATEGORY_PROMPTS.deeptech, 8, apiKey),
     geminiSelect(textPool, CATEGORY_PROMPTS.aimoves, 8, apiKey),
   ]);
-  const space = await geminiSelect(spacePool, CATEGORY_PROMPTS.all, 6, apiKey);
+  const [crypto, policy, energy] = await Promise.all([
+    geminiSelect(cryptoPool, CATEGORY_PROMPTS.crypto, 8, apiKey),
+    geminiSelect(policyPool, CATEGORY_PROMPTS.policy, 8, apiKey),
+    geminiSelect(energyPool, CATEGORY_PROMPTS.energy, 8, apiKey),
+  ]);
+  const space = await geminiSelect(spacePool, CATEGORY_PROMPTS.space, 6, apiKey);
   const videosRaw = await summariseVideos(videoPool, 4, apiKey);
   const videos = videosRaw.map((v) => ({ ...v, image: videoThumb(v) }));
 
-  // 4. Clean junk summaries
-  [hot, all, deeptech, aimoves, space].forEach(cleanSummaries);
+  // 5. Clean summaries
+  [hot, aimoves, crypto, policy, energy, space].forEach(cleanSummaries);
 
-  // 5. Write cache
+  // 6. Write cache
   const stamp = (arr) => ({ updated: startedAt, items: arr });
   const TTL = 60 * 60 * 25;
   await Promise.all([
-    kv.set("qrx_feed_hot", stamp(hot), { ex: TTL }),
-    kv.set("qrx_feed_all", stamp(all), { ex: TTL }),
-    kv.set("qrx_feed_deeptech", stamp(deeptech), { ex: TTL }),
+    kv.set("qrx_feed_hot",    stamp(hot),     { ex: TTL }),
     kv.set("qrx_feed_aimoves", stamp(aimoves), { ex: TTL }),
-    kv.set("qrx_feed_space", stamp(space), { ex: TTL }),
-    kv.set("qrx_feed_video", stamp(videos), { ex: TTL }),
+    kv.set("qrx_feed_crypto",  stamp(crypto),  { ex: TTL }),
+    kv.set("qrx_feed_policy",  stamp(policy),  { ex: TTL }),
+    kv.set("qrx_feed_energy",  stamp(energy),  { ex: TTL }),
+    kv.set("qrx_feed_space",   stamp(space),   { ex: TTL }),
+    kv.set("qrx_feed_video",   stamp(videos),  { ex: TTL }),
   ]);
 
   return res.status(200).json({
@@ -416,10 +478,15 @@ export default async function handler(req, res) {
     elapsedMs: Date.now() - startedAt,
     counts: {
       textPool: textPool.length,
+      cryptoPool: cryptoPool.length,
+      policyPool: policyPool.length,
+      energyPool: energyPool.length,
+      spacePool: spacePool.length,
       hot: hot.length,
-      all: all.length,
-      deeptech: deeptech.length,
       aimoves: aimoves.length,
+      crypto: crypto.length,
+      policy: policy.length,
+      energy: energy.length,
       space: space.length,
       video: videos.length,
     },
