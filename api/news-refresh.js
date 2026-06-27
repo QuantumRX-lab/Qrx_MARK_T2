@@ -59,11 +59,10 @@ const SPACE_FEEDS = [
 ];
 
 const SOCIAL_FEEDS = [
-  { name: "Reddit r/technology", url: "https://old.reddit.com/r/technology/hot.rss", reddit: true },
-  { name: "Reddit r/MachineLearning", url: "https://old.reddit.com/r/MachineLearning/hot.rss", reddit: true },
-  { name: "Reddit r/artificial", url: "https://old.reddit.com/r/artificial/hot.rss", reddit: true },
-  { name: "Reddit r/programming", url: "https://old.reddit.com/r/programming/hot.rss", reddit: true },
-  { name: "Reddit r/startups", url: "https://old.reddit.com/r/startups/hot.rss", reddit: true },
+  { name: "Lobsters", url: "https://lobste.rs/rss" },
+  { name: "Tildes", url: "https://tildes.net/~tech.rss" },
+  { name: "IndieHackers", url: "https://www.indiehackers.com/feed.xml" },
+  { name: "Changelog", url: "https://changelog.com/feed" },
   { name: "Hacker News Show", url: "https://news.ycombinator.com/showrss" },
   { name: "Dev.to", url: "https://dev.to/feed" },
   { name: "Product Hunt", url: "https://www.producthunt.com/feed" },
@@ -298,7 +297,7 @@ const CATEGORY_PROMPTS = {
   policy: `Select only stories about technology regulation, legislation, and governance — AI regulation, data protection, spectrum policy, antitrust, export controls, and government technology policy in the US, EU, and UK. Choose up to \${N}.`,
   energy: `Select only stories about energy infrastructure relevant to technology — data center power consumption, grid capacity, nuclear power for compute, renewable energy projects at scale, battery storage, and electricity infrastructure. Choose up to \${N}.`,
   space: `Select the \${N} strongest stories about space systems, orbital infrastructure, satellite communications, launch vehicles, and commercial space. Prioritise commercial, connectivity, and engineering angles over general interest pieces.`,
-  social: `Select the \${N} stories that the tech community is most actively engaging with right now — tools people are genuinely building with, projects gaining real traction, debates engineers care about, and launches worth paying attention to. IMPORTANT: You MUST include at least one story from Reddit, at least one from Hacker News Show, and at least one from Dev.to. Avoid political drama. Choose stories with genuine signal for builders and founders.`,
+  social: `Select the \${N} stories that the tech community is most actively engaging with right now — tools people are genuinely building with, projects gaining real traction, debates engineers care about, and launches worth paying attention to. IMPORTANT: You MUST include at least one story from Lobsters, at least one from Hacker News Show, and at least one from Dev.to or IndieHackers. Avoid political drama. Choose stories with genuine signal for builders and founders.`,
 };
 
 function buildList(items) {
@@ -421,10 +420,10 @@ function videoThumb(item) {
 // Ensure social tab has at least one story from each major source group
 function diversifySocial(selected, pool, n) {
   const groups = {
-    reddit: pool.filter(it => it.source.toLowerCase().includes('reddit')),
+    lobsters: pool.filter(it => it.source.toLowerCase().includes('lobsters')),
+    indiehackers: pool.filter(it => it.source.toLowerCase().includes('indiehackers')),
     hn: pool.filter(it => it.source.toLowerCase().includes('hacker news')),
     devto: pool.filter(it => it.source.toLowerCase().includes('dev.to')),
-    producthunt: pool.filter(it => it.source.toLowerCase().includes('product hunt')),
   };
   const result = [...selected];
   const resultLinks = new Set(result.map(it => it.link));
