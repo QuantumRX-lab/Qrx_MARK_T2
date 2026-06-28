@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>This Week in Tech — QuantumRx</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #f4f6f9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding: 24px 16px;
+  }
+  .qrx-wrap { max-width: 960px; margin: 0 auto; }
+
+  .qrx-header {
+    background: #0a1628;
+    border-radius: 8px 8px 0 0;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .qrx-brand { display: flex; align-items: center; gap: 10px; }
+  .qrx-brand-name { font-size: 17px; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+  .qrx-brand-name span { color: #3b82f6; }
+  .qrx-sep { color: #2a3a52; margin: 0 6px; }
+  .qrx-section { font-size: 12px; font-weight: 600; color: #94a3b8; letter-spacing: 0.08em; text-transform: uppercase; }
+  .qrx-live { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; }
+  .qrx-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; animation: blink 2s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .qrx-tabs { background: #0d1f3c; padding: 0 24px; display: flex; align-items: center; gap: 2px; border-bottom: 1px solid #1e3a5f; }
+  .qrx-tab { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; padding: 12px 14px; border: none; border-bottom: 2px solid transparent; background: none; cursor: pointer; }
+  .qrx-tab.active { color: #fff; border-bottom-color: #3b82f6; }
+
+  .qrx-content { background: #fff; border-radius: 0 0 8px 8px; border: 1px solid #e2e8f0; border-top: none; overflow: hidden; }
+
+  .qrx-title-row { padding: 20px 28px 16px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+  .qrx-page-title { font-size: 21px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-bottom: 3px; }
+  .qrx-page-meta { font-size: 12px; color: #94a3b8; }
+  .qrx-badge-live { font-size: 11px; font-weight: 600; color: #22c55e; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+
+  /* STORY LIST */
+  .qrx-story {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    border-bottom: 1px solid #f1f5f9;
+    min-height: 260px;
+  }
+  .qrx-story:last-child { border-bottom: none; }
+
+  .qrx-story-img {
+    width: 100%;
+    height: 100%;
+    min-height: 260px;
+    object-fit: cover;
+    display: block;
+    background: #e2e8f0;
+  }
+  .qrx-story-img-placeholder {
+    width: 100%;
+    min-height: 260px;
+    background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+  }
+
+  .qrx-story-body {
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid #f1f5f9;
+  }
+  .qrx-story-source { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #3b82f6; margin-bottom: 8px; }
+  .qrx-story-headline { font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.28; letter-spacing: -0.02em; margin-bottom: 10px; }
+
+  .qrx-badge-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .qrx-badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 4px; }
+  .qrx-badge-cross { background: #eff6ff; color: #1d4ed8; }
+  .qrx-badge-accel { background: #fff7ed; color: #c2410c; }
+  .qrx-badge-early { background: #f0fdf4; color: #15803d; }
+  .qrx-badge-fade  { background: #faf5ff; color: #7e22ce; }
+  .qrx-badge-stable { background: #f8fafc; color: #475569; }
+  .qrx-badge-main  { background: #fdf4ff; color: #7e22ce; }
+
+  .qrx-part { margin-bottom: 12px; }
+  .qrx-part-label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #94a3b8; margin-bottom: 3px; }
+  .qrx-part-text { font-size: 13px; line-height: 1.65; color: #334155; }
+
+  .qrx-watch { margin-top: 4px; border-left: 3px solid #3b82f6; padding: 9px 13px; background: #eff6ff; border-radius: 0 5px 5px 0; }
+  .qrx-watch-label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #3b82f6; margin-bottom: 3px; }
+  .qrx-watch-text { font-size: 12px; color: #1e40af; line-height: 1.55; }
+
+  .qrx-story-footer { margin-top: 12px; font-size: 11px; color: #94a3b8; }
+
+  /* LOADING / ERROR */
+  .qrx-loading { padding: 60px 28px; text-align: center; color: #94a3b8; font-size: 14px; }
+
+  /* ARCHIVE */
+  .qrx-archive { border-top: 1px solid #f1f5f9; padding: 14px 28px; background: #fafbfc; }
+  .qrx-archive-toggle { font-size: 12px; font-weight: 600; color: #64748b; background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; gap: 6px; }
+  .qrx-archive-toggle:hover { color: #334155; }
+  .qrx-archive-list { display: none; margin-top: 10px; flex-direction: column; gap: 6px; }
+  .qrx-archive-list.open { display: flex; }
+  .qrx-archive-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+  .qrx-archive-wk { font-size: 13px; font-weight: 500; color: #334155; }
+  .qrx-archive-count { font-size: 12px; color: #94a3b8; }
+
+  @media (max-width: 700px) {
+    .qrx-story { grid-template-columns: 1fr; }
+    .qrx-story-img, .qrx-story-img-placeholder { min-height: 200px; height: 200px; }
+    .qrx-story-body { border-left: none; border-top: 1px solid #f1f5f9; padding: 16px; }
+    .qrx-story-headline { font-size: 16px; }
+    body { padding: 0; }
+    .qrx-header { border-radius: 0; }
+    .qrx-content { border-radius: 0; border-left: none; border-right: none; }
+  }
+</style>
+</head>
+<body>
+<div class="qrx-wrap">
+
+  <div class="qrx-header">
+    <div class="qrx-brand">
+      <div class="qrx-brand-name">Quantum<span>Rx</span></div>
+      <span class="qrx-sep">/</span>
+      <span class="qrx-section">This Week in Tech</span>
+    </div>
+    <div class="qrx-live">
+      <div class="qrx-live-dot"></div>
+      <span id="live-label">Loading...</span>
+    </div>
+  </div>
+
+  <div class="qrx-tabs">
+    <button class="qrx-tab active">This week</button>
+    <button class="qrx-tab" onclick="toggleArchive()">Previous editions</button>
+  </div>
+
+  <div class="qrx-content">
+
+    <div class="qrx-title-row">
+      <div>
+        <div class="qrx-page-title" id="week-title">Loading briefing...</div>
+        <div class="qrx-page-meta" id="week-meta"></div>
+      </div>
+      <div class="qrx-badge-live">● Live</div>
+    </div>
+
+    <div id="story-list">
+      <div class="qrx-loading">Loading this week's stories...</div>
+    </div>
+
+    <div class="qrx-archive">
+      <button class="qrx-archive-toggle" onclick="toggleArchive()">
+        <span id="archive-icon">▸</span> Previous editions
+      </button>
+      <div class="qrx-archive-list" id="archive-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function maturityBadge(m) {
+  if (m === 'crossing') return { cls: 'qrx-badge-cross', text: 'Crossing mainstream' };
+  if (m === 'mainstream') return { cls: 'qrx-badge-main', text: 'Mainstream' };
+  return { cls: 'qrx-badge-early', text: 'Early signal' };
+}
+function velBadge(v) {
+  if (v === 'accelerating') return { cls: 'qrx-badge-accel', text: 'Accelerating' };
+  if (v === 'fading') return { cls: 'qrx-badge-fade', text: 'Fading' };
+  return { cls: 'qrx-badge-stable', text: 'Stable' };
+}
+
+function buildList(stories) {
+  const list = document.getElementById('story-list');
+  list.innerHTML = '';
+
+  if (!stories || stories.length === 0) {
+    list.innerHTML = '<div class="qrx-loading">No stories available. Check back Monday.</div>';
+    return;
+  }
+
+  stories.forEach(s => {
+    const mb = maturityBadge(s.media_maturity);
+    const vb = velBadge(s.velocity);
+    const item = document.createElement('div');
+    item.className = 'qrx-story';
+
+    const imgEl = s.image
+      ? `<img class="qrx-story-img" src="${s.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=qrx-story-img-placeholder>${s.category || ''}</div>'">`
+      : `<div class="qrx-story-img-placeholder">${s.category || ''}</div>`;
+
+    item.innerHTML = `
+      ${imgEl}
+      <div class="qrx-story-body">
+        <div class="qrx-story-source">${s.category || ''}</div>
+        <div class="qrx-story-headline">${s.title || ''}</div>
+        <div class="qrx-badge-row">
+          <span class="qrx-badge ${mb.cls}">${mb.text}</span>
+          <span class="qrx-badge ${vb.cls}">${vb.text}</span>
+        </div>
+        <div class="qrx-part">
+          <div class="qrx-part-label">What is it</div>
+          <div class="qrx-part-text">${s.what_is_it || ''}</div>
+        </div>
+        <div class="qrx-part">
+          <div class="qrx-part-label">Why it matters</div>
+          <div class="qrx-part-text">${s.why_it_matters || ''}</div>
+        </div>
+        <div class="qrx-watch">
+          <div class="qrx-watch-label">What could happen next</div>
+          <div class="qrx-watch-text">${s.what_next || ''}</div>
+        </div>
+        ${s.outlets ? `<div class="qrx-story-footer">${s.outlets}</div>` : ''}
+      </div>
+    `;
+    list.appendChild(item);
+  });
+}
+
+function buildArchive(archive) {
+  const list = document.getElementById('archive-list');
+  list.innerHTML = '';
+  if (!archive || archive.length === 0) {
+    list.innerHTML = '<div style="font-size:13px;color:#94a3b8;padding:8px 0;">No previous editions yet.</div>';
+    return;
+  }
+  archive.forEach(ed => {
+    const row = document.createElement('div');
+    row.className = 'qrx-archive-row';
+    row.innerHTML = `
+      <span class="qrx-archive-wk">${ed.weekLabel || 'Previous edition'}</span>
+      <span class="qrx-archive-count">${(ed.stories || []).length} stories</span>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function toggleArchive() {
+  const list = document.getElementById('archive-list');
+  const icon = document.getElementById('archive-icon');
+  const open = list.classList.contains('open');
+  list.classList.toggle('open', !open);
+  icon.textContent = open ? '▸' : '▾';
+}
+
+async function loadBriefing() {
+  try {
+    const res = await fetch('/api/weekly-feed');
+    const data = await res.json();
+
+    if (!data.current || !data.current.stories || data.current.stories.length === 0) {
+      document.getElementById('week-title').textContent = 'Coming Monday';
+      document.getElementById('week-meta').textContent = 'Next edition publishes Monday 06:00 UTC';
+      document.getElementById('live-label').textContent = 'Next edition Monday';
+      document.getElementById('story-list').innerHTML =
+        '<div class="qrx-loading">Briefing updating. Check back shortly.</div>';
+      return;
+    }
+
+    const { stories, updatedAt, weekLabel } = data.current;
+    const updated = updatedAt ? new Date(updatedAt) : null;
+    const dateStr = updated
+      ? updated.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      : '';
+
+    document.getElementById('week-title').textContent =
+      weekLabel ? `Week of ${weekLabel}` : 'This week';
+    document.getElementById('week-meta').textContent =
+      `${stories.length} stories · Updated ${dateStr} · Monitored by Q-Sentinel`;
+    document.getElementById('live-label').textContent = `Updated ${dateStr}`;
+
+    buildList(stories);
+    buildArchive(data.archive || []);
+
+  } catch (err) {
+    console.error('Failed to load briefing:', err);
+    document.getElementById('week-title').textContent = 'Failed to load';
+    document.getElementById('story-list').innerHTML =
+      '<div class="qrx-loading">Could not load briefing. Please refresh.</div>';
+  }
+}
+
+loadBriefing();
+</script>
+</body>
+</html>
