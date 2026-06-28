@@ -19,6 +19,15 @@ const CDN_CACHE_SECONDS = 300;
 const STALE_REVALIDATE_SECONDS = 60;
 
 export default async function handler(req, res) {
+  // CORS — allow quantumrx.eu Ghost pages to fetch from this Vercel endpoint
+  res.setHeader('Access-Control-Allow-Origin', 'https://www.quantumrx.eu');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
