@@ -285,20 +285,24 @@ export default async function handler(req, res) {
   }
 
   // ── SECURITY LAYER 2: Rate limit guard (12-hour minimum) ──
-  try {
-    const lastMeta = await kv.get('weekly_briefing_updated');
-    if (lastMeta?.updatedAt) {
-      const elapsed = Date.now() - new Date(lastMeta.updatedAt).getTime();
-      if (elapsed < MIN_RUN_INTERVAL_MS) {
-        const nextRunMins = Math.ceil((MIN_RUN_INTERVAL_MS - elapsed) / 60000);
-        return res.status(429).json({
-          error: 'Too soon since last refresh',
-          nextAllowedInMinutes: nextRunMins,
-        });
+  // Pass ?force=true to bypass during testing (still requires valid secret)
+  const forceRefresh = req.query?.force === 'true';
+  if (!forceRefresh) {
+    try {
+      const lastMeta = await kv.get('weekly_briefing_updated');
+      if (lastMeta?.updatedAt) {
+        const elapsed = Date.now() - new Date(lastMeta.updatedAt).getTime();
+        if (elapsed < MIN_RUN_INTERVAL_MS) {
+          const nextRunMins = Math.ceil((MIN_RUN_INTERVAL_MS - elapsed) / 60000);
+          return res.status(429).json({
+            error: 'Too soon since last refresh',
+            nextAllowedInMinutes: nextRunMins,
+          });
+        }
       }
+    } catch (err) {
+      console.warn('Rate limit KV check failed (non-fatal):', err.message);
     }
-  } catch (err) {
-    console.warn('Rate limit KV check failed (non-fatal):', err.message);
   }
 
   const apiKey = process.env.GEMINI_API_KEY_Forge;
