@@ -368,6 +368,7 @@ export default async function handler(req, res) {
     ).join('\n\n');
 
     // Step 3 — Curate top 7 via Gemini
+    // We pass the index of each article so we can look up the image after curation
     const curationResponse = await callGemini(
       `${CURATION_PROMPT}\n\nARTICLES:\n${articleList}`,
       apiKey
@@ -378,12 +379,23 @@ export default async function handler(req, res) {
       throw new Error('Gemini curation returned no articles');
     }
 
+    // Build a URL-to-image map from all articles for fast lookup
+    const imageByUrl = {};
+    allArticles.forEach(a => { if (a.link && a.image) imageByUrl[a.link] = a.image; });
+
+    // Attach images to curated articles by URL match before passing to editorial
+    curated.forEach(c => {
+      if (!c.image && c.url && imageByUrl[c.url]) {
+        c.image = imageByUrl[c.url];
+      }
+    });
+
     // Step 4 — Generate editorial briefing as structured JSON
     // Pass curated articles to the editorial prompt which returns a JSON array
     // of story objects with title, category, velocity, media_maturity, outlets,
     // what_is_it, why_it_matters, what_next fields.
     const curatedList = curated.map((a, i) =>
-      `[${i}] ${a.headline}\nSource: ${a.source}\nSummary: ${a.summary}\nVelocity signal: ${a.velocity || 'unknown'}\nMedia maturity: ${a.media_maturity || 'unknown'}\nOutlets: ${a.outlets || a.source}`
+      `[${i}] ${a.headline}\nSource: ${a.source}\nSummary: ${a.summary}\nVelocity signal: ${a.velocity || 'unknown'}\nMedia maturity: ${a.media_maturity || 'unknown'}\nOutlets: ${a.outlets || a.source}\nURL: ${a.url || ''}\nImage: ${a.image || ''}`
     ).join('\n\n');
 
     const briefingRaw = await callGemini(
