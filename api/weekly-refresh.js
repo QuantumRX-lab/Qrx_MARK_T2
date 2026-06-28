@@ -142,7 +142,7 @@ async function fetchRSS(source, tier) {
         'Accept': 'application/rss+xml, application/xml, text/xml, */*',
         'User-Agent': 'QuantumRx-Signals/1.0 (+https://quantumrx.eu)',
       },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) return [];
     const text = await res.text();
@@ -188,10 +188,10 @@ async function fetchHackerNews() {
     const ids = (await res.json()).slice(0, 20);
 
     const items = [];
-    for (const id of ids.slice(0, 15)) {
+    for (const id of ids.slice(0, 8)) {
       try {
         const itemRes = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`,
-          { signal: AbortSignal.timeout(5000) });
+          { signal: AbortSignal.timeout(3000) });
         if (!itemRes.ok) continue;
         const item = await itemRes.json();
         if (item?.url && item?.title) {
@@ -223,7 +223,7 @@ async function fetchArxiv() {
         'Accept': 'application/rss+xml, application/xml, text/xml, */*',
         'User-Agent': 'QuantumRx-Signals/1.0 (+https://quantumrx.eu)',
       },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) return [];
     const text = await res.text();
@@ -340,21 +340,17 @@ export default async function handler(req, res) {
       }
     }
 
-    // Step 1b — Tier 1 RSS sources
-    for (const source of TIER1_SOURCES) {
-      addArticles(await fetchRSS(source, 1));
-    }
-
-    // Step 1c — Tier 2 RSS sources (mainstream / financial press)
-    for (const source of TIER2_SOURCES) {
-      addArticles(await fetchRSS(source, 2));
-    }
-
-    // Step 1d — Hacker News top stories
-    addArticles(await fetchHackerNews());
-
-    // Step 1e — arXiv cs.AI latest papers
-    addArticles(await fetchArxiv());
+    // Step 1b-1e — Fetch all external sources in parallel for speed
+    const [tier1Results, tier2Results, hnResults, arxivResults] = await Promise.all([
+      Promise.all(TIER1_SOURCES.map(s => fetchRSS(s, 1))),
+      Promise.all(TIER2_SOURCES.map(s => fetchRSS(s, 2))),
+      fetchHackerNews(),
+      fetchArxiv(),
+    ]);
+    tier1Results.forEach(r => addArticles(r));
+    tier2Results.forEach(r => addArticles(r));
+    addArticles(hnResults);
+    addArticles(arxivResults);
 
     console.log(`Total articles collected: ${allArticles.length}`);
 
