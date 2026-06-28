@@ -69,7 +69,7 @@ Select the seven most significant stories. For each story note:
 - Whether it is accelerating (more coverage this week than last) or fading.
 - What wider trend it connects to.
 
-Prioritise stories that cross from tier 1 to tier 2 this week, stories that are accelerating, and stories that connect to each other. Return only a JSON array with fields: headline, summary, source, url, source_tier, velocity, media_maturity, trend_connection. Return JSON only, no preamble, no markdown.`;
+Prioritise stories that cross from tier 1 to tier 2 this week, stories that are accelerating, and stories that connect to each other. Return only a JSON array with fields: headline, summary, source, url, source_tier, velocity, media_maturity, trend_connection, image. The image field must be copied exactly from the Image field of the source article. Return JSON only, no preamble, no markdown.`;
 
 const EDITORIAL_PROMPT = `You are the editor of QuantumRx, a technology intelligence publication covering AI infrastructure, connectivity, compute, space systems, and emerging technology. You write for a broad audience that includes engineers, investors, and curious non-specialists alike.
 
@@ -402,19 +402,32 @@ export default async function handler(req, res) {
     }
 
     // Enrich stories with images from source articles
-    // Gemini doesn't reliably return image URLs so we match by title similarity
-    // against the original article pool and pull the image from there
+    // Match by URL first (most reliable), then by title keywords
     const articlePool = allArticles.filter(a => a.image);
+    const urlMap = {};
+    articlePool.forEach(a => { if (a.link) urlMap[a.link] = a.image; });
+
     stories.forEach(story => {
-      if (story.image) return; // already has one
-      const titleLower = (story.title || '').toLowerCase();
-      // Try exact or partial title match against source articles
-      const match = articlePool.find(a => {
-        const aTitle = (a.title || '').toLowerCase();
-        return aTitle.includes(titleLower.slice(0, 30)) ||
-               titleLower.includes(aTitle.slice(0, 30));
-      });
-      if (match) story.image = match.image;
+      if (story.image) return; // already has one from Gemini
+
+      // Try URL match first
+      if (story.url && urlMap[story.url]) {
+        story.image = urlMap[story.url];
+        return;
+      }
+
+      // Fall back to keyword matching on first 4 significant words of title
+      const titleWords = (story.title || '').toLowerCase()
+        .replace(/[^a-z0-9 ]/g, '').split(' ')
+        .filter(w => w.length > 3).slice(0, 4);
+
+      if (titleWords.length > 0) {
+        const match = articlePool.find(a => {
+          const aTitle = (a.title || '').toLowerCase();
+          return titleWords.filter(w => aTitle.includes(w)).length >= 2;
+        });
+        if (match) story.image = match.image;
+      }
     });
 
     // Step 5 — Archive previous week
