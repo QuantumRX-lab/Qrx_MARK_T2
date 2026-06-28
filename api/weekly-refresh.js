@@ -410,31 +410,46 @@ export default async function handler(req, res) {
     }
 
     // Enrich stories with images from source articles
-    // Match by URL first (most reliable), then by title keywords
+    // Three-tier matching: URL exact -> keyword -> category fallback
     const articlePool = allArticles.filter(a => a.image);
     const urlMap = {};
     articlePool.forEach(a => { if (a.link) urlMap[a.link] = a.image; });
 
-    stories.forEach(story => {
-      if (story.image) return; // already has one from Gemini
+    // Build category image pools for fallback
+    const categoryImages = {};
+    articlePool.forEach(a => {
+      const cat = (a.source_category || 'general').toLowerCase();
+      if (!categoryImages[cat]) categoryImages[cat] = [];
+      categoryImages[cat].push(a.image);
+    });
 
-      // Try URL match first
+    stories.forEach((story, idx) => {
+      if (story.image) return; // already has one
+
+      // Tier 1: exact URL match
       if (story.url && urlMap[story.url]) {
         story.image = urlMap[story.url];
         return;
       }
 
-      // Fall back to keyword matching on first 4 significant words of title
+      // Tier 2: keyword match on 3+ significant words
       const titleWords = (story.title || '').toLowerCase()
         .replace(/[^a-z0-9 ]/g, '').split(' ')
-        .filter(w => w.length > 3).slice(0, 4);
+        .filter(w => w.length > 3).slice(0, 5);
 
       if (titleWords.length > 0) {
         const match = articlePool.find(a => {
           const aTitle = (a.title || '').toLowerCase();
           return titleWords.filter(w => aTitle.includes(w)).length >= 2;
         });
-        if (match) story.image = match.image;
+        if (match) { story.image = match.image; return; }
+      }
+
+      // Tier 3: use any image from same category, rotating by story index
+      const cat = (story.category || '').toLowerCase();
+      const catPool = categoryImages[cat] || categoryImages['ai'] || articlePool.map(a => a.image);
+      if (catPool && catPool.length > 0) {
+        story.image = catPool[idx % catPool.length];
       }
     });
 
