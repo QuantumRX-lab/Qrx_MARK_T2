@@ -397,6 +397,22 @@ export default async function handler(req, res) {
       throw new Error('Gemini editorial returned no stories');
     }
 
+    // Enrich stories with images from source articles
+    // Gemini doesn't reliably return image URLs so we match by title similarity
+    // against the original article pool and pull the image from there
+    const articlePool = allArticles.filter(a => a.image);
+    stories.forEach(story => {
+      if (story.image) return; // already has one
+      const titleLower = (story.title || '').toLowerCase();
+      // Try exact or partial title match against source articles
+      const match = articlePool.find(a => {
+        const aTitle = (a.title || '').toLowerCase();
+        return aTitle.includes(titleLower.slice(0, 30)) ||
+               titleLower.includes(aTitle.slice(0, 30));
+      });
+      if (match) story.image = match.image;
+    });
+
     // Step 5 — Archive previous week
     const weekLabel = getWeekLabel();
     try {
