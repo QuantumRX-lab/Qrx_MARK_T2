@@ -1,6 +1,7 @@
 // request-logger.js
 // Threat detection layer for Qrx_MARK_T2
 // Writes threat:flag:<ip> to Upstash KV — picked up by Q-Sentinel monitor within 30s
+// AUTO-BLOCK: HIGH severity detections now automatically write threat_action:block
 //
 // FIX (2026-06-23): keys are NO LONGER encodeURIComponent'd. Upstash stored the
 // %3A-encoded form, which the Sentinel monitor's `threat:flag:*` (literal colon)
@@ -64,6 +65,19 @@ async function kvSet(key, value) {
   return true;
 }
 
+// ─── Auto-block writer ────────────────────────────────────────────────────────
+
+async function writeAutoBlock(ip) {
+  const key = `threat_action:${ip}`;
+  const value = JSON.stringify({ action: 'block', autoBlocked: true, blockedAt: new Date().toISOString() });
+  const ok = await kvSet(key, value);
+  if (ok) {
+    console.log(`[SENTINEL-LOGGER] AUTO-BLOCK WRITTEN — ${ip}`);
+  } else {
+    console.error(`[SENTINEL-LOGGER] AUTO-BLOCK FAILED — ${ip}`);
+  }
+}
+
 // ─── Threat flag writer ───────────────────────────────────────────────────────
 
 async function writeFlag(ip, severity, pattern, detail = '') {
@@ -89,6 +103,10 @@ async function writeFlag(ip, severity, pattern, detail = '') {
   const ok = await kvSet(key, JSON.stringify(flag));
   if (ok) {
     console.log(`[SENTINEL-LOGGER] FLAG WRITTEN — ${severity} | ${ip} | ${pattern} | ${detail}`);
+    // AUTO-BLOCK: immediately block HIGH severity detections
+    if (severity === 'HIGH') {
+      await writeAutoBlock(ip);
+    }
   } else {
     console.error(`[SENTINEL-LOGGER] FLAG WRITE FAILED — ${severity} | ${ip} | ${pattern}`);
   }
