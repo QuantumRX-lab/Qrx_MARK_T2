@@ -1,6 +1,6 @@
 // /api/news-refresh.js
-// QuantumRx Signals — daily refresh engine v3
-// Tabs: What's Hot, AI Moves, Crypto, Policy, Energy, Space, Social, Search
+// QuantumRx Signals — daily refresh engine v4
+// Tabs: What's Hot, AI Moves, Crypto, Policy, Energy, Space, Robotics, Semis, Quantum, Social, Search
 
 import { kv } from "@vercel/kv";
 import { logRequest, blockThreat } from "./_lib/sentinel.js";
@@ -58,6 +58,30 @@ const SPACE_FEEDS = [
   { name: "The Orbital Index", url: "https://orbitalindex.substack.com/feed" },
 ];
 
+const ROBOTICS_FEEDS = [
+  { name: "The Robot Report", url: "https://www.therobotreport.com/feed/" },
+  { name: "IEEE Spectrum Robotics", url: "https://spectrum.ieee.org/feeds/topic/robotics.rss" },
+  { name: "TechCrunch Robotics", url: "https://techcrunch.com/category/robotics/feed/" },
+  { name: "Robotics Business Review", url: "https://www.roboticsbusinessreview.com/feed/" },
+  { name: "MIT News Robotics", url: "https://news.mit.edu/rss/topic/robots" },
+];
+
+const SEMIS_FEEDS = [
+  { name: "SemiAnalysis", url: "https://semianalysis.com/feed" },
+  { name: "EE Times", url: "https://www.eetimes.com/feed/" },
+  { name: "Tom's Hardware", url: "https://www.tomshardware.com/feeds/all" },
+  { name: "AnySilicon", url: "https://anysilicon.com/feed/" },
+  { name: "Semiconductor Engineering", url: "https://semiengineering.com/feed/" },
+];
+
+const QUANTUM_FEEDS = [
+  { name: "Quantum Computing Report", url: "https://quantumcomputingreport.com/feed/" },
+  { name: "The Quantum Insider", url: "https://thequantuminsider.com/feed/" },
+  { name: "arXiv Quantum", url: "https://export.arxiv.org/rss/quant-ph" },
+  { name: "IBM Research Quantum", url: "https://research.ibm.com/blog/rss" },
+  { name: "Q2B Insider", url: "https://q2b.qcware.com/feed/" },
+];
+
 const SOCIAL_FEEDS = [
   { name: "Lobsters", url: "https://lobste.rs/rss" },
   { name: "Tildes", url: "https://tildes.net/~tech.rss" },
@@ -111,6 +135,31 @@ const ENERGY_TERMS = [
   "gigawatt", "energy infrastructure", "hydrogen", "battery storage", "transmission",
   "solar", "wind", "capacity", "megawatt", "generation", "ferc", "utility",
   "energy consumption", "cooling", "ppa", "carbon", "emissions",
+];
+
+const ROBOTICS_TERMS = [
+  "robot", "robotics", "autonomous", "humanoid", "bipedal", "manipulation",
+  "actuator", "end effector", "ros", "perception", "lidar", "embodied",
+  "warehouse automation", "boston dynamics", "figure", "1x", "agility",
+  "physical ai", "dexterous", "locomotion", "exoskeleton", "drone",
+  "uav", "mobile robot", "arm", "gripper", "servo",
+];
+
+const SEMIS_TERMS = [
+  "semiconductor", "chip", "wafer", "fab", "foundry", "tsmc", "samsung foundry",
+  "intel foundry", "nvidia", "amd", "arm", "risc-v", "node", "nm", "nanometer",
+  "lithography", "asml", "euv", "packaging", "hbm", "memory", "nand", "dram",
+  "silicon", "soc", "gpu", "npu", "accelerator", "export control", "chips act",
+  "supply chain", "yield", "tape out", "process node",
+];
+
+const QUANTUM_TERMS = [
+  "quantum", "qubit", "quantum computing", "quantum error correction",
+  "quantum advantage", "quantum supremacy", "superposition", "entanglement",
+  "decoherence", "quantum hardware", "photonic", "trapped ion", "superconducting",
+  "quantum algorithm", "ibm quantum", "google quantum", "ionq", "rigetti",
+  "quantum network", "quantum communication", "qkd", "quantum memory",
+  "quantum sensor", "quantum annealing",
 ];
 
 const SOCIAL_TERMS = [
@@ -288,7 +337,7 @@ function freshSort(items) {
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
-const VOICE = `You are the editor of QuantumRx Signals, a publication covering AI infrastructure, edge compute, connectivity, satellite systems, energy infrastructure, crypto infrastructure, technology policy, space systems, and what the tech community is talking about. Your readers are technical: engineers, founders, and operators. Write summaries that are direct and concrete. No hype, no filler, no adjectives like "revolutionary" or "groundbreaking". State what happened and why it matters to someone building in this space. Two sentences maximum. IMPORTANT: If the excerpt is missing, says "Comments", or is unhelpful, you MUST still write a proper two-sentence summary based on the headline alone. Never return "Comments" or a single word as a summary.`;
+const VOICE = `You are the editor of QuantumRx Signals, a publication covering AI infrastructure, edge compute, connectivity, satellite systems, energy infrastructure, crypto infrastructure, technology policy, space systems, robotics, semiconductors, quantum computing, and what the tech community is talking about. Your readers are technical: engineers, founders, and operators. Write summaries that are direct and concrete. No hype, no filler, no adjectives like "revolutionary" or "groundbreaking". State what happened and why it matters to someone building in this space. Two sentences maximum. IMPORTANT: If the excerpt is missing, says "Comments", or is unhelpful, you MUST still write a proper two-sentence summary based on the headline alone. Never return "Comments" or a single word as a summary.`;
 
 const CATEGORY_PROMPTS = {
   hot: `Select the \${N} stories most likely to still matter in six months. Prioritise structural shifts in AI infrastructure, compute, and connectivity over daily news-cycle noise.`,
@@ -297,6 +346,9 @@ const CATEGORY_PROMPTS = {
   policy: `Select only stories about technology regulation, legislation, and governance — AI regulation, data protection, spectrum policy, antitrust, export controls, and government technology policy in the US, EU, and UK. Choose up to \${N}.`,
   energy: `Select only stories about energy infrastructure relevant to technology — data center power consumption, grid capacity, nuclear power for compute, renewable energy projects at scale, battery storage, and electricity infrastructure. Choose up to \${N}.`,
   space: `Select the \${N} strongest stories about space systems, orbital infrastructure, satellite communications, launch vehicles, and commercial space. Prioritise commercial, connectivity, and engineering angles over general interest pieces.`,
+  robotics: `Select only stories about robotics and autonomous systems — humanoid robots, industrial automation, warehouse robotics, drone systems, physical AI, and robotic hardware. Exclude pure software AI stories unless they directly concern robotic systems. Choose up to \${N}.`,
+  semis: `Select only stories about semiconductors and chip infrastructure — chip design, fabrication, foundry capacity, packaging, memory, GPU and NPU architecture, export controls on chips, and the compute supply chain. Choose up to \${N}.`,
+  quantum: `Select only stories about quantum computing and quantum technology — qubit advances, error correction, quantum hardware, quantum algorithms, quantum networking, and commercial quantum developments. Choose up to \${N}.`,
   social: `Select the \${N} stories that the tech community is most actively engaging with right now — tools people are genuinely building with, projects gaining real traction, debates engineers care about, and launches worth paying attention to. IMPORTANT: You MUST include at least one story from Lobsters, at least one from Hacker News Show, and at least one from Dev.to or IndieHackers. Avoid political drama. Choose stories with genuine signal for builders and founders.`,
 };
 
@@ -417,7 +469,6 @@ function videoThumb(item) {
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : (item.image || "");
 }
 
-// Ensure social tab has at least one story from each major source group
 function diversifySocial(selected, pool, n) {
   const groups = {
     lobsters: pool.filter(it => it.source.toLowerCase().includes('lobsters')),
@@ -462,24 +513,30 @@ export default async function handler(req, res) {
   const startedAt = Date.now();
 
   // 1. Fetch all pools in parallel
-  const [rawText, rawCrypto, rawPolicy, rawEnergy, rawSpace, rawSocial, rawVideo] = await Promise.all([
+  const [rawText, rawCrypto, rawPolicy, rawEnergy, rawSpace, rawRobotics, rawSemis, rawQuantum, rawSocial, rawVideo] = await Promise.all([
     fetchAll(TEXT_FEEDS),
     fetchAll(CRYPTO_FEEDS),
     fetchAll(POLICY_FEEDS),
     fetchAll(ENERGY_FEEDS),
     fetchAll(SPACE_FEEDS),
+    fetchAll(ROBOTICS_FEEDS),
+    fetchAll(SEMIS_FEEDS),
+    fetchAll(QUANTUM_FEEDS),
     fetchAll(SOCIAL_FEEDS),
     fetchAll(VIDEO_FEEDS),
   ]);
 
   // 2. Filter and dedupe
-  const textPool   = freshSort(dedupe(rawText.filter((it) => termMatch(it, SIGNAL_TERMS)))).slice(0, 60);
-  const cryptoPool = freshSort(dedupe(rawCrypto.filter((it) => termMatch(it, CRYPTO_TERMS)))).slice(0, 40);
-  const policyPool = freshSort(dedupe(rawPolicy.filter((it) => termMatch(it, POLICY_TERMS)))).slice(0, 40);
-  const energyPool = freshSort(dedupe(rawEnergy.filter((it) => termMatch(it, ENERGY_TERMS)))).slice(0, 40);
-  const spacePool  = freshSort(dedupe(rawSpace)).slice(0, 40);
-  const socialPool = freshSort(dedupe(rawSocial.filter((it) => termMatch(it, SOCIAL_TERMS)))).slice(0, 50);
-  const videoPool  = dedupe(rawVideo);
+  const textPool     = freshSort(dedupe(rawText.filter((it) => termMatch(it, SIGNAL_TERMS)))).slice(0, 60);
+  const cryptoPool   = freshSort(dedupe(rawCrypto.filter((it) => termMatch(it, CRYPTO_TERMS)))).slice(0, 40);
+  const policyPool   = freshSort(dedupe(rawPolicy.filter((it) => termMatch(it, POLICY_TERMS)))).slice(0, 40);
+  const energyPool   = freshSort(dedupe(rawEnergy.filter((it) => termMatch(it, ENERGY_TERMS)))).slice(0, 40);
+  const spacePool    = freshSort(dedupe(rawSpace)).slice(0, 40);
+  const roboticsPool = freshSort(dedupe(rawRobotics.filter((it) => termMatch(it, ROBOTICS_TERMS)))).slice(0, 40);
+  const semisPool    = freshSort(dedupe(rawSemis.filter((it) => termMatch(it, SEMIS_TERMS)))).slice(0, 40);
+  const quantumPool  = freshSort(dedupe(rawQuantum.filter((it) => termMatch(it, QUANTUM_TERMS)))).slice(0, 40);
+  const socialPool   = freshSort(dedupe(rawSocial.filter((it) => termMatch(it, SOCIAL_TERMS)))).slice(0, 50);
+  const videoPool    = dedupe(rawVideo);
 
   // 3. Enrich missing images/descriptions
   await Promise.all([
@@ -488,6 +545,9 @@ export default async function handler(req, res) {
     enrichItems(policyPool),
     enrichItems(energyPool),
     enrichItems(spacePool),
+    enrichItems(roboticsPool),
+    enrichItems(semisPool),
+    enrichItems(quantumPool),
     enrichItems(socialPool),
   ]);
 
@@ -501,8 +561,13 @@ export default async function handler(req, res) {
     geminiSelect(policyPool, CATEGORY_PROMPTS.policy, 8, apiKey),
     geminiSelect(energyPool, CATEGORY_PROMPTS.energy, 8, apiKey),
   ]);
-  const [space, socialRaw] = await Promise.all([
+  const [space, robotics, semis, quantum] = await Promise.all([
     geminiSelect(spacePool, CATEGORY_PROMPTS.space, 10, apiKey),
+    geminiSelect(roboticsPool, CATEGORY_PROMPTS.robotics, 8, apiKey),
+    geminiSelect(semisPool, CATEGORY_PROMPTS.semis, 8, apiKey),
+    geminiSelect(quantumPool, CATEGORY_PROMPTS.quantum, 8, apiKey),
+  ]);
+  const [socialRaw] = await Promise.all([
     geminiSelect(socialPool, CATEGORY_PROMPTS.social, 8, apiKey),
   ]);
   const social = diversifySocial(socialRaw, socialPool, 8);
@@ -510,20 +575,23 @@ export default async function handler(req, res) {
   const videos = videosRaw.map((v) => ({ ...v, image: videoThumb(v) }));
 
   // 5. Clean summaries
-  [hot, aimoves, crypto, policy, energy, space, social].forEach(cleanSummaries);
+  [hot, aimoves, crypto, policy, energy, space, robotics, semis, quantum, social].forEach(cleanSummaries);
 
   // 6. Write cache
   const stamp = (arr) => ({ updated: startedAt, items: arr });
   const TTL = 60 * 60 * 25;
   await Promise.all([
-    kv.set("qrx_feed_hot",     stamp(hot),     { ex: TTL }),
-    kv.set("qrx_feed_aimoves", stamp(aimoves), { ex: TTL }),
-    kv.set("qrx_feed_crypto",  stamp(crypto),  { ex: TTL }),
-    kv.set("qrx_feed_policy",  stamp(policy),  { ex: TTL }),
-    kv.set("qrx_feed_energy",  stamp(energy),  { ex: TTL }),
-    kv.set("qrx_feed_space",   stamp(space),   { ex: TTL }),
-    kv.set("qrx_feed_social",  stamp(social),  { ex: TTL }),
-    kv.set("qrx_feed_video",   stamp(videos),  { ex: TTL }),
+    kv.set("qrx_feed_hot",      stamp(hot),      { ex: TTL }),
+    kv.set("qrx_feed_aimoves",  stamp(aimoves),  { ex: TTL }),
+    kv.set("qrx_feed_crypto",   stamp(crypto),   { ex: TTL }),
+    kv.set("qrx_feed_policy",   stamp(policy),   { ex: TTL }),
+    kv.set("qrx_feed_energy",   stamp(energy),   { ex: TTL }),
+    kv.set("qrx_feed_space",    stamp(space),    { ex: TTL }),
+    kv.set("qrx_feed_robotics", stamp(robotics), { ex: TTL }),
+    kv.set("qrx_feed_semis",    stamp(semis),    { ex: TTL }),
+    kv.set("qrx_feed_quantum",  stamp(quantum),  { ex: TTL }),
+    kv.set("qrx_feed_social",   stamp(social),   { ex: TTL }),
+    kv.set("qrx_feed_video",    stamp(videos),   { ex: TTL }),
   ]);
 
   return res.status(200).json({
@@ -535,6 +603,9 @@ export default async function handler(req, res) {
       policyPool: policyPool.length,
       energyPool: energyPool.length,
       spacePool: spacePool.length,
+      roboticsPool: roboticsPool.length,
+      semisPool: semisPool.length,
+      quantumPool: quantumPool.length,
       socialPool: socialPool.length,
       hot: hot.length,
       aimoves: aimoves.length,
@@ -542,6 +613,9 @@ export default async function handler(req, res) {
       policy: policy.length,
       energy: energy.length,
       space: space.length,
+      robotics: robotics.length,
+      semis: semis.length,
+      quantum: quantum.length,
       social: social.length,
       video: videos.length,
     },
