@@ -33,12 +33,15 @@ const SIGNALS_KV_KEYS = [
   'qrx_feed_policy',
   'qrx_feed_energy',
   'qrx_feed_space',
+  'qrx_feed_robotics',
+  'qrx_feed_semis',
+  'qrx_feed_quantum',
   'qrx_feed_social',
 ];
 
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // TIER 1 — Specialist / technical sources
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 const TIER1_SOURCES = [
   { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index', category: 'tech' },
   { name: 'MIT Technology Review', url: 'https://www.technologyreview.com/feed', category: 'tech' },
@@ -47,9 +50,9 @@ const TIER1_SOURCES = [
   { name: 'TechCrunch', url: 'https://techcrunch.com/feed', category: 'tech' },
 ];
 
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // TIER 2 — Mainstream / financial press
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 const TIER2_SOURCES = [
   { name: 'Reuters Technology', url: 'https://feeds.reuters.com/reuters/technologyNews', category: 'mainstream' },
   { name: 'BBC Technology', url: 'https://feeds.bbci.co.uk/news/technology/rss.xml', category: 'mainstream' },
@@ -58,22 +61,22 @@ const TIER2_SOURCES = [
   { name: 'Bloomberg Technology', url: 'https://feeds.bloomberg.com/technology/news.rss', category: 'financial' },
 ];
 
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // LOCKED PROMPTS
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 
 const CURATION_PROMPT = `You are given a list of technology news articles from the past seven days. Each article is tagged with a source tier: tier 1 means specialist, technical, or community sources (Hacker News, arXiv, tech press); tier 2 means mainstream or financial press (Reuters, BBC, Bloomberg, AP, Guardian).
 
-Select the seven most significant stories. For each story note:
+Select the ten most significant stories. For each story note:
 - Whether it appears only in tier 1 sources (early signal), only in tier 2 (mainstream narrative), or in both (story crossing from specialist to mainstream, highest significance).
 - Whether it is accelerating (more coverage this week than last) or fading.
 - What wider trend it connects to.
 
-Prioritise stories that cross from tier 1 to tier 2 this week, stories that are accelerating, and stories that connect to each other. Return only a JSON array with fields: headline, summary, source, url, source_tier, velocity, media_maturity, trend_connection, image. The image field must be copied exactly from the Image field of the source article. Return JSON only, no preamble, no markdown.`;
+Prioritise stories that cross from tier 1 to tier 2 this week, stories that are accelerating, and stories that connect to each other. Draw from all verticals where strong stories exist: AI, connectivity, energy, policy, space, crypto, robotics, semiconductors, and quantum computing. Return only a JSON array with fields: headline, summary, source, url, source_tier, velocity, media_maturity, trend_connection, image. The image field must be copied exactly from the Image field of the source article. Return JSON only, no preamble, no markdown.`;
 
-const EDITORIAL_PROMPT = `You are the editor of QuantumRx, a technology intelligence publication covering AI infrastructure, connectivity, compute, space systems, and emerging technology. You write for a broad audience that includes engineers, investors, and curious non-specialists alike.
+const EDITORIAL_PROMPT = `You are the editor of QuantumRx, a technology intelligence publication covering AI infrastructure, connectivity, compute, space systems, robotics, semiconductors, quantum computing, and emerging technology. You write for a broad audience that includes engineers, investors, and curious non-specialists alike.
 
-For each of the seven stories provided, write three short sections in plain, direct language that any intelligent reader can follow without a technical background:
+For each of the ten stories provided, write three short sections in plain, direct language that any intelligent reader can follow without a technical background:
 
 WHAT IS IT: one sentence explaining what actually happened, no jargon, no assumed knowledge. Write it as if explaining to a smart friend who does not work in tech.
 
@@ -88,12 +91,12 @@ Also for each story note: whether it is accelerating, stable, or fading in media
 Do not use: it is worth noting, this underscores, in conclusion, it remains to be seen, the landscape, game changer, revolutionary, unpacked, delve, or exciting developments. Do not start sentences with Additionally or Furthermore. Do not sound like an AI.
 
 Return ONLY a JSON array, no markdown, no preamble. Each element must have exactly these fields:
-{"title": "short descriptive title, 10 words max", "category": "AI | Connectivity | Energy | Policy | Space | Crypto | Research", "velocity": "accelerating | stable | fading", "media_maturity": "early | crossing | mainstream", "outlets": "comma-separated major outlets or empty string", "image": "image URL from the source article if available, or empty string", "what_is_it": "one plain-language sentence on what happened", "why_it_matters": "one to two sentences on the real consequence", "what_next": "one specific checkable sentence on what to watch"}
+{"title": "short descriptive title, 10 words max", "category": "AI | Connectivity | Energy | Policy | Space | Crypto | Robotics | Semiconductors | Quantum | Research", "velocity": "accelerating | stable | fading", "media_maturity": "early | crossing | mainstream", "outlets": "comma-separated major outlets or empty string", "image": "image URL from the source article if available, or empty string", "what_is_it": "one plain-language sentence on what happened", "why_it_matters": "one to two sentences on the real consequence", "what_next": "one specific checkable sentence on what to watch"}
 `;
 
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // HELPERS
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 
 function getWeekLabel() {
   const now = new Date();
@@ -162,7 +165,7 @@ async function fetchRSS(source, tier) {
       if (title && link) {
         items.push({
           title,
-          link,                          // use 'link' to match existing KV schema
+          link,
           description: desc || '',
           source: source.name,
           source_tier: tier,
@@ -259,9 +262,9 @@ async function fetchArxiv() {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // MAIN HANDLER
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -272,7 +275,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // ── SECURITY LAYER 1: Shared secret header check ──────────
+  // -- SECURITY LAYER 1: Shared secret header check ----------
   const secret = process.env.WEEKLY_REFRESH_SECRET;
   if (!secret) {
     console.error('WEEKLY_REFRESH_SECRET not configured');
@@ -284,8 +287,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorised' });
   }
 
-  // ── SECURITY LAYER 2: Rate limit guard (12-hour minimum) ──
-  // Pass ?force=true to bypass during testing (still requires valid secret)
+  // -- SECURITY LAYER 2: Rate limit guard (12-hour minimum) --
   const forceRefresh = req.query?.force === 'true';
   if (!forceRefresh) {
     try {
@@ -323,7 +325,6 @@ export default async function handler(req, res) {
     };
 
     // Step 1a — Pull from existing Signals KV caches
-    // Each cache is { updated: timestamp, items: [...] }
     for (const kvKey of SIGNALS_KV_KEYS) {
       try {
         const cached = await kv.get(kvKey);
@@ -340,7 +341,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Step 1b-1e — Fetch all external sources in parallel for speed
+    // Step 1b-1e — Fetch all external sources in parallel
     const [tier1Results, tier2Results, hnResults, arxivResults] = await Promise.all([
       Promise.all(TIER1_SOURCES.map(s => fetchRSS(s, 1))),
       Promise.all(TIER2_SOURCES.map(s => fetchRSS(s, 2))),
@@ -358,13 +359,12 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: `Too few articles: ${allArticles.length}` });
     }
 
-    // Step 2 — Build article list for Gemini with tier, source, and image context
+    // Step 2 — Build article list for Gemini
     const articleList = allArticles.map((a, i) =>
       `[${i}][TIER ${a.source_tier || 1}][${a.source_category || 'unknown'}] ${a.source || 'Unknown'}\nHeadline: ${a.title}\nExcerpt: ${(a.summary || a.description || '').slice(0, 300)}\nURL: ${a.link}\nImage: ${a.image || ''}`
     ).join('\n\n');
 
-    // Step 3 — Curate top 7 via Gemini
-    // We pass the index of each article so we can look up the image after curation
+    // Step 3 — Curate top 10 via Gemini
     const curationResponse = await callGemini(
       `${CURATION_PROMPT}\n\nARTICLES:\n${articleList}`,
       apiKey
@@ -375,21 +375,17 @@ export default async function handler(req, res) {
       throw new Error('Gemini curation returned no articles');
     }
 
-    // Build a URL-to-image map from all articles for fast lookup
+    // Build URL-to-image map
     const imageByUrl = {};
     allArticles.forEach(a => { if (a.link && a.image) imageByUrl[a.link] = a.image; });
 
-    // Attach images to curated articles by URL match before passing to editorial
     curated.forEach(c => {
       if (!c.image && c.url && imageByUrl[c.url]) {
         c.image = imageByUrl[c.url];
       }
     });
 
-    // Step 4 — Generate editorial briefing as structured JSON
-    // Pass curated articles to the editorial prompt which returns a JSON array
-    // of story objects with title, category, velocity, media_maturity, outlets,
-    // what_is_it, why_it_matters, what_next fields.
+    // Step 4 — Generate editorial briefing
     const curatedList = curated.map((a, i) =>
       `[${i}] ${a.headline}\nSource: ${a.source}\nSummary: ${a.summary}\nVelocity signal: ${a.velocity || 'unknown'}\nMedia maturity: ${a.media_maturity || 'unknown'}\nOutlets: ${a.outlets || a.source}\nURL: ${a.url || ''}\nImage: ${a.image || ''}`
     ).join('\n\n');
@@ -403,19 +399,16 @@ export default async function handler(req, res) {
       throw new Error('Gemini returned empty editorial response');
     }
 
-    // Parse the JSON array of story objects
     const stories = extractJSON(briefingRaw);
     if (!stories || stories.length === 0) {
       throw new Error('Gemini editorial returned no stories');
     }
 
-    // Enrich stories with images from source articles
-    // Three-tier matching: URL exact -> keyword -> category fallback
+    // Enrich stories with images
     const articlePool = allArticles.filter(a => a.image);
     const urlMap = {};
     articlePool.forEach(a => { if (a.link) urlMap[a.link] = a.image; });
 
-    // Build category image pools for fallback
     const categoryImages = {};
     articlePool.forEach(a => {
       const cat = (a.source_category || 'general').toLowerCase();
@@ -424,15 +417,13 @@ export default async function handler(req, res) {
     });
 
     stories.forEach((story, idx) => {
-      if (story.image) return; // already has one
+      if (story.image) return;
 
-      // Tier 1: exact URL match
       if (story.url && urlMap[story.url]) {
         story.image = urlMap[story.url];
         return;
       }
 
-      // Tier 2: keyword match on 3+ significant words
       const titleWords = (story.title || '').toLowerCase()
         .replace(/[^a-z0-9 ]/g, '').split(' ')
         .filter(w => w.length > 3).slice(0, 5);
@@ -445,7 +436,6 @@ export default async function handler(req, res) {
         if (match) { story.image = match.image; return; }
       }
 
-      // Tier 3: use any image from same category, rotating by story index
       const cat = (story.category || '').toLowerCase();
       const catPool = categoryImages[cat] || categoryImages['ai'] || articlePool.map(a => a.image);
       if (catPool && catPool.length > 0) {
@@ -469,7 +459,7 @@ export default async function handler(req, res) {
       console.error('Archive step failed (non-fatal):', err.message);
     }
 
-    // Step 6 — Store current briefing as structured story array
+    // Step 6 — Store current briefing
     await kv.set('weekly_briefing_current', stories);
     await kv.set('weekly_briefing_updated', {
       updatedAt: new Date().toISOString(),
