@@ -1,6 +1,7 @@
 // /api/news-refresh.js
-// QuantumRx Signals — daily refresh engine v4
+// QuantumRx Signals — daily refresh engine v5
 // Tabs: What's Hot, AI Moves, Crypto, Policy, Energy, Space, Robotics, Semis, Quantum, Social, Search
+// Watch: 4 videos, one per vertical group, diversified
 
 import { kv } from "@vercel/kv";
 import { logRequest, blockThreat } from "./_lib/sentinel.js";
@@ -92,21 +93,52 @@ const SOCIAL_FEEDS = [
   { name: "Product Hunt", url: "https://www.producthunt.com/feed" },
 ];
 
-const VIDEO_FEEDS = [
-  { name: "Lex Fridman", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCSHZKyawb77ixDdsGog4iWA" },
-  { name: "Two Minute Papers", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCbfYPyITQ-7l4upoX8nvctg" },
-  { name: "AI Explained", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCNJ1Ymd5yFuUPtn21xtRbbw" },
-  { name: "Google DeepMind", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCP7jMXSY2xbc3KCAE0MHQ-A" },
-  { name: "Andrej Karpathy", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCXUPKJO5MZQMU11rgDXghSA" },
-  { name: "Yannic Kilcher", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCZHmQk67mSJgfCCTn7xBfew" },
-  { name: "Fireship", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCsBjURrPoezykLs9EqgamOA" },
-  { name: "Veritasium", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCHnyfMqiRRG1u-2MsSQLbXA" },
-  { name: "Real Engineering", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCR1IuLEqb6UEA_zQ81kwXfg" },
-  { name: "Scott Manley", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCxzC4EngIsMrPmbm6Nxvb-A" },
-  { name: "Primal Space", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCSbdgzAkFkHynC7K6YWPBSA" },
+// VIDEO FEEDS — grouped by vertical, biased toward short-form channels
+// One video selected per group, 4 total Watch cards
+const VIDEO_GROUPS = [
+  {
+    vertical: "ai",
+    feeds: [
+      { name: "Fireship", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCsBjURrPoezykLs9EqgamOA" },
+      { name: "Two Minute Papers", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCbfYPyITQ-7l4upoX8nvctg" },
+      { name: "AI Explained", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCNJ1Ymd5yFuUPtn21xtRbbw" },
+      { name: "Yannic Kilcher", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCZHmQk67mSJgfCCTn7xBfew" },
+      { name: "Andrej Karpathy", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCXUPKJO5MZQMU11rgDXghSA" },
+    ],
+  },
+  {
+    vertical: "robotics",
+    feeds: [
+      { name: "Boston Dynamics", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UC7vVhkEfw4nOGp8TyDk7RcQ" },
+      { name: "Simone Giertz", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UC3KEoMzNz8eYnwBC34RaKCQ" },
+    ],
+  },
+  {
+    vertical: "semis",
+    feeds: [
+      { name: "Asianometry", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UC6gxBBmEOFPE3MpYs9aBstQ" },
+      { name: "Branch Education", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCZFipeZtQM5CKUjx6grh54g" },
+    ],
+  },
+  {
+    vertical: "quantum",
+    feeds: [
+      { name: "IBM Technology", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCKWaEZ-_VweaEx1j62do_vQ" },
+      { name: "Quanta Magazine", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCTpmmkp1E4nmZqWPS-Sd5eA" },
+    ],
+  },
+  {
+    vertical: "space",
+    feeds: [
+      { name: "Scott Manley", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCxzC4EngIsMrPmbm6Nxvb-A" },
+      { name: "Real Engineering", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCR1IuLEqb6UEA_zQ81kwXfg" },
+    ],
+  },
 ];
 
-// Keyword gates
+// ---------------------------------------------------------------------------
+// KEYWORD GATES
+// ---------------------------------------------------------------------------
 const SIGNAL_TERMS = [
   "ai", "artificial intelligence", "llm", "model", "inference", "agent", "agentic",
   "foundation model", "edge", "compute", "gpu", "chip", "semiconductor", "silicon",
@@ -424,15 +456,14 @@ ${buildList(items)}`;
   }
 }
 
-async function summariseVideos(items, n, apiKey) {
-  const top = freshSort(items).slice(0, n);
-  if (!top.length) return [];
+async function summariseVideos(items, apiKey) {
+  if (!items.length) return [];
   const prompt = `${VOICE}
 
 For each video below, write a single sentence describing what it covers, for a technical reader deciding whether to watch. Return ONLY a JSON array: [{"index": <n>, "summary": "<one sentence>"}]
 
 VIDEOS:
-${buildList(top)}`;
+${buildList(items)}`;
   try {
     const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
       method: "POST",
@@ -452,9 +483,9 @@ ${buildList(top)}`;
     const picks = JSON.parse(extractJSON(text));
     if (!picks.length) throw new Error("empty");
     const byIndex = Object.fromEntries(picks.map((p) => [p.index, p.summary]));
-    return top.map((it, i) => ({ ...it, summary: byIndex[i] || "" }));
+    return items.map((it, i) => ({ ...it, summary: byIndex[i] || "" }));
   } catch {
-    return top.map((it) => ({ ...it, summary: "" }));
+    return items.map((it) => ({ ...it, summary: "" }));
   }
 }
 
@@ -467,6 +498,21 @@ function videoThumb(item) {
     item.link.match(/youtu\.be\/([\w-]+)/)?.[1]
   );
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : (item.image || "");
+}
+
+// Pick one video per vertical group, 4 total
+// Each group fetches all its feeds, picks the most recent item
+async function pickDiverseVideos(n) {
+  const selected = [];
+  for (const group of VIDEO_GROUPS) {
+    if (selected.length >= n) break;
+    const raw = await fetchAll(group.feeds);
+    const items = freshSort(dedupe(raw));
+    if (items.length > 0) {
+      selected.push({ ...items[0], vertical: group.vertical });
+    }
+  }
+  return selected;
 }
 
 function diversifySocial(selected, pool, n) {
@@ -513,7 +559,7 @@ export default async function handler(req, res) {
   const startedAt = Date.now();
 
   // 1. Fetch all pools in parallel
-  const [rawText, rawCrypto, rawPolicy, rawEnergy, rawSpace, rawRobotics, rawSemis, rawQuantum, rawSocial, rawVideo] = await Promise.all([
+  const [rawText, rawCrypto, rawPolicy, rawEnergy, rawSpace, rawRobotics, rawSemis, rawQuantum, rawSocial] = await Promise.all([
     fetchAll(TEXT_FEEDS),
     fetchAll(CRYPTO_FEEDS),
     fetchAll(POLICY_FEEDS),
@@ -523,7 +569,6 @@ export default async function handler(req, res) {
     fetchAll(SEMIS_FEEDS),
     fetchAll(QUANTUM_FEEDS),
     fetchAll(SOCIAL_FEEDS),
-    fetchAll(VIDEO_FEEDS),
   ]);
 
   // 2. Filter and dedupe
@@ -536,7 +581,6 @@ export default async function handler(req, res) {
   const semisPool    = freshSort(dedupe(rawSemis.filter((it) => termMatch(it, SEMIS_TERMS)))).slice(0, 40);
   const quantumPool  = freshSort(dedupe(rawQuantum.filter((it) => termMatch(it, QUANTUM_TERMS)))).slice(0, 40);
   const socialPool   = freshSort(dedupe(rawSocial.filter((it) => termMatch(it, SOCIAL_TERMS)))).slice(0, 50);
-  const videoPool    = dedupe(rawVideo);
 
   // 3. Enrich missing images/descriptions
   await Promise.all([
@@ -571,13 +615,16 @@ export default async function handler(req, res) {
     geminiSelect(socialPool, CATEGORY_PROMPTS.social, 8, apiKey),
   ]);
   const social = diversifySocial(socialRaw, socialPool, 8);
-  const videosRaw = await summariseVideos(videoPool, 4, apiKey);
-  const videos = videosRaw.map((v) => ({ ...v, image: videoThumb(v) }));
 
-  // 5. Clean summaries
+  // 5. Videos — one per vertical group, 4 total
+  const rawVideos = await pickDiverseVideos(4);
+  const summarisedVideos = await summariseVideos(rawVideos, apiKey);
+  const videos = summarisedVideos.map((v) => ({ ...v, image: videoThumb(v) }));
+
+  // 6. Clean summaries
   [hot, aimoves, crypto, policy, energy, space, robotics, semis, quantum, social].forEach(cleanSummaries);
 
-  // 6. Write cache
+  // 7. Write cache
   const stamp = (arr) => ({ updated: startedAt, items: arr });
   const TTL = 60 * 60 * 25;
   await Promise.all([
