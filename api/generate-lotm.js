@@ -1,14 +1,23 @@
 // /api/generate-lotm
 //
 // Lord of the Memes Forge generation endpoint.
-// 1. Activates the licence key with Lemon Squeezy (the ONLY consuming check —
-//    see /api/validate-key for why activation is deferred to generate-time)
-// 2. Rolls a weighted rarity tier server-side (cannot be manipulated by the client)
-// 3. Builds the prompt: locked formula + character archetype + flavor + mood + palette
-// 4. Calls the Gemini image model to generate the card
-// 5. Stores the result to Vercel Blob
-// 6. Atomically increments the Vercel KV issue counter (lotm_counter)
-// 7. Returns the public image URL, issue number, and rarity tier to the frontend
+// 1. Checks Q-Sentinel threat_action for the requesting IP, blocks if flagged
+// 2. Activates the licence key with Lemon Squeezy (the ONLY consuming check —
+//    see /api/validate-key-lotm for why activation is deferred to generate-time)
+// 3. Rolls a weighted rarity tier server-side (cannot be manipulated by the client)
+// 4. Builds the prompt: locked formula + character archetype + flavor + mood + palette
+// 5. Calls the Gemini image model to generate the card
+// 6. Stores the result to Vercel Blob
+// 7. Atomically increments the Vercel KV issue counter (lotm_counter)
+// 8. Returns the public image URL, issue number, and rarity tier to the frontend
+//
+// FIX (2026-06-30): free-code per-IP guard was a separate get-then-set, vulnerable
+// to a race condition where concurrent requests from the same IP could all pass
+// the check before any of them finished writing the lock. Replaced with an atomic
+// kv.set(..., { nx: true }) so only one request can ever claim the IP slot.
+//
+// Also added Sentinel threat_action check at the top of the handler — IPs already
+// blocked by Q-Sentinel on another endpoint are now blocked here too.
 //
 // Env vars required (set in Vercel project settings):
 //   GEMINI_API_KEY_Forge      - Google AI Studio / Gemini API key
@@ -191,6 +200,37 @@ async function callImageModel(prompt) {
   return { buffer, mimeType };
 }
 
+async function getSentinelAction(ip) {
+  const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!kvUrl || !kvToken) return null;
+  try {
+    const res = await fetch(
+      `${kvUrl}/get/threat_action:${encodeURIComponent(ip)}`,
+      { headers: { Authorization: `Bearer ${kvToken}` }, signal: AbortSignal.timeout(800) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.result) return null;
+    let parsed;
+    try {
+      parsed = JSON.parse(data.result);
+    } catch {
+      return null;
+    }
+    if (parsed.action) return parsed.action;
+    if (parsed.value) {
+      try {
+        const inner = JSON.parse(parsed.value);
+        return inner.action || null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  } catch { return null; }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -201,6 +241,12 @@ export default async function handler(req, res) {
     checkBody: true,
     expectedFields: ['character', 'flavor', 'mood', 'palette', 'licenceKey'],
   });
+
+  // Block IPs already flagged by Q-Sentinel, regardless of which endpoint flagged them
+  const sentinelAction = await getSentinelAction(ip);
+  if (sentinelAction === 'block') {
+    return res.status(403).json({ error: 'Access temporarily restricted from this connection.' });
+  }
 
   const { character, flavor, mood, palette, licenceKey } = req.body || {};
 
@@ -219,12 +265,13 @@ export default async function handler(req, res) {
 
   try {
     if (isFreeCodeAttempt) {
-      const forwardedFor = req.headers['x-forwarded-for'] || '';
-      const clientIp = forwardedFor.split(',')[0].trim() || 'unknown';
-      const ipKey = `lotm_free_ip:${clientIp}`;
+      const ipKey = `lotm_free_ip:${ip}`;
 
-      const alreadyRedeemed = await kv.get(ipKey);
-      if (alreadyRedeemed) {
+      // ATOMIC claim — nx: true means "only set if key does not already exist".
+      // Closes the race condition that allowed concurrent requests from the same
+      // IP to all pass the check before any write landed.
+      const claimed = await kv.set(ipKey, '1', { ex: 60 * 60 * 24 * 30, nx: true });
+      if (!claimed) {
         return res.status(403).json({ error: 'Free code already used from this connection. Grab a licence key instead.' });
       }
 
@@ -232,8 +279,6 @@ export default async function handler(req, res) {
       if (usedCount > FREE_CODE_LIMIT) {
         return res.status(403).json({ error: 'Free codes for this drop have all been claimed. Grab a licence key instead.' });
       }
-
-      await kv.set(ipKey, '1', { ex: 60 * 60 * 24 * 30 });
     } else {
       const lsRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
         method: 'POST',
