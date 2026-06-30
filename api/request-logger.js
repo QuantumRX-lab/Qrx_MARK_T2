@@ -84,31 +84,41 @@ async function writeFlag(ip, severity, pattern, detail = '') {
   const key = `threat:flag:${ip}`;
 
   const existing = await kvGet(key);
+  let shouldWriteFlag = true;
   if (existing) {
     try {
       const parsed = JSON.parse(existing);
       const levels = { LOW: 1, MEDIUM: 2, HIGH: 3 };
-      if (levels[parsed.severity] >= levels[severity]) return;
+      if (levels[parsed.severity] >= levels[severity]) shouldWriteFlag = false;
     } catch { /* corrupt value — overwrite it */ }
   }
 
-  const flag = {
-    ip,
-    severity,
-    pattern,
-    detail,
-    detectedAt: new Date().toISOString(),
-  };
+  if (shouldWriteFlag) {
+    const flag = {
+      ip,
+      severity,
+      pattern,
+      detail,
+      detectedAt: new Date().toISOString(),
+    };
 
-  const ok = await kvSet(key, JSON.stringify(flag));
-  if (ok) {
-    console.log(`[SENTINEL-LOGGER] FLAG WRITTEN — ${severity} | ${ip} | ${pattern} | ${detail}`);
-    // AUTO-BLOCK: immediately block HIGH severity detections
-    if (severity === 'HIGH') {
-      await writeAutoBlock(ip);
+    const ok = await kvSet(key, JSON.stringify(flag));
+    if (ok) {
+      console.log(`[SENTINEL-LOGGER] FLAG WRITTEN — ${severity} | ${ip} | ${pattern} | ${detail}`);
+    } else {
+      console.error(`[SENTINEL-LOGGER] FLAG WRITE FAILED — ${severity} | ${ip} | ${pattern}`);
     }
   } else {
-    console.error(`[SENTINEL-LOGGER] FLAG WRITE FAILED — ${severity} | ${ip} | ${pattern}`);
+    console.log(`[SENTINEL-LOGGER] FLAG SKIPPED (existing flag same or higher severity) — ${severity} | ${ip} | ${pattern}`);
+  }
+
+  // AUTO-BLOCK: fires on every HIGH severity detection, independent of whether
+  // the flag record itself needed (re)writing. This was the actual bug — the
+  // dedup check above used to gate the auto-block call too, meaning a repeat
+  // HIGH severity hit on an IP that already had a HIGH flag never re-triggered
+  // the block, even if the block itself had since been manually cleared.
+  if (severity === 'HIGH') {
+    await writeAutoBlock(ip);
   }
 }
 
