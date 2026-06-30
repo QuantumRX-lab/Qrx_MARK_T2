@@ -1,12 +1,22 @@
 // /api/generate
 //
 // Core QRx NFT Forge generation endpoint.
-// 1. Validates the licence key is still good (re-checks LS, defence in depth)
-// 2. Builds the prompt: locked formula + theme + mood + palette + gender + random scene
-// 3. Calls Nano Banana 2 (Gemini 2.5/2.0 Flash Image) to generate the card
-// 4. Stores the result to Vercel Blob
-// 5. Atomically increments the Vercel KV issue counter (forge_counter)
-// 6. Returns the public image URL + issue number to the frontend
+// 1. Checks Q-Sentinel threat_action for the requesting IP, blocks if flagged
+// 2. Validates the licence key is still good (re-checks LS, defence in depth)
+// 3. Builds the prompt: locked formula + theme + mood + palette + gender + random scene
+// 4. Calls Nano Banana 2 (Gemini 2.5/2.0 Flash Image) to generate the card
+// 5. Stores the result to Vercel Blob
+// 6. Atomically increments the Vercel KV issue counter (forge_counter)
+// 7. Returns the public image URL + issue number to the frontend
+//
+// FIX (2026-06-30): free-code per-IP guard was a separate get-then-set, vulnerable
+// to a race condition where concurrent requests from the same IP could all pass
+// the check before any of them finished writing the lock. Replaced with an atomic
+// kv.set(..., { nx: true }) so only one request can ever claim the IP slot.
+//
+// Also added Sentinel threat_action check at the top of the handler — IPs already
+// blocked by Q-Sentinel (e.g. for prompt injection on /api/chat) are now blocked
+// here too, rather than only on the chat endpoint.
 //
 // Env vars required (set in Vercel project settings):
 //   GEMINI_API_KEY_Forge       - Google AI Studio / Gemini API key, dedicated to the NFT forge image generation
@@ -135,6 +145,38 @@ async function callNanoBanana(prompt) {
   return { buffer, mimeType };
 }
 
+async function getSentinelAction(ip) {
+  const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!kvUrl || !kvToken) return null;
+  try {
+    const res = await fetch(
+      `${kvUrl}/get/threat_action:${encodeURIComponent(ip)}`,
+      { headers: { Authorization: `Bearer ${kvToken}` }, signal: AbortSignal.timeout(800) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.result) return null;
+    let parsed;
+    try {
+      parsed = JSON.parse(data.result);
+    } catch {
+      return null;
+    }
+    // Handle both the clean shape and the double-wrapped shape seen in manual writes
+    if (parsed.action) return parsed.action;
+    if (parsed.value) {
+      try {
+        const inner = JSON.parse(parsed.value);
+        return inner.action || null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  } catch { return null; }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -145,6 +187,16 @@ export default async function handler(req, res) {
     checkBody: true,
     expectedFields: ['theme', 'mood', 'palette', 'licenceKey'],
   });
+
+  // Block IPs already flagged by Q-Sentinel, regardless of which endpoint flagged them
+  const sentinelAction = await getSentinelAction(ip);
+  if (sentinelAction === 'block') {
+    return res.status(403).json({ error: 'Access temporarily restricted from this connection.' });
+  }
+  if (sentinelAction === 'honeypot') {
+    // Let it through but it will hit the normal free-code limit logic below,
+    // wasting the attacker's time without revealing detection
+  }
 
   const { theme, mood, palette, gender, licenceKey } = req.body || {};
 
@@ -163,12 +215,14 @@ export default async function handler(req, res) {
 
   try {
     if (isFreeCodeAttempt) {
-      const forwardedFor = req.headers['x-forwarded-for'] || '';
-      const clientIp = forwardedFor.split(',')[0].trim() || 'unknown';
-      const ipKey = `forge_free_ip:${clientIp}`;
+      const ipKey = `forge_free_ip:${ip}`;
 
-      const alreadyRedeemed = await kv.get(ipKey);
-      if (alreadyRedeemed) {
+      // ATOMIC claim — nx: true means "only set if key does not already exist".
+      // Returns null if the key was already there, meaning someone else claimed
+      // it first. This closes the race condition where concurrent requests from
+      // the same IP could all read "not redeemed" before any write landed.
+      const claimed = await kv.set(ipKey, '1', { ex: 60 * 60 * 24 * 30, nx: true });
+      if (!claimed) {
         return res.status(403).json({ error: 'Free code already used from this connection. Grab a licence key instead.' });
       }
 
@@ -176,8 +230,6 @@ export default async function handler(req, res) {
       if (usedCount > FREE_CODE_LIMIT) {
         return res.status(403).json({ error: 'Free codes for this drop have all been claimed. Grab a licence key instead.' });
       }
-
-      await kv.set(ipKey, '1', { ex: 60 * 60 * 24 * 30 });
     } else {
       const lsRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
         method: 'POST',
