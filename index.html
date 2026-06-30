@@ -327,6 +327,7 @@
     border-radius: var(--radius);
     font-size: 13px;
     color: var(--red);
+    line-height: 1.6;
   }
 
   .output-wrap { display: none; margin-top: 32px; }
@@ -1025,6 +1026,14 @@
         body: JSON.stringify({ mode, format, input })
       });
 
+      if (res.status === 403) {
+        const html = await res.text();
+        clearInterval(progInt);
+        progressTrack.style.display = 'none';
+        outputWrap.style.display = 'none';
+        showBlockedNotice(html);
+        return;
+      }
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -1053,6 +1062,12 @@
       spinner.style.display = 'none';
       btnLabel.textContent = 'Generate kernel';
     }
+  }
+
+  function showBlockedNotice() {
+    const el = document.getElementById('errorMsg');
+    el.innerHTML = '<strong>Access temporarily restricted.</strong> Unusual activity has been detected from your connection. This endpoint is monitored and protected — if you believe this is an error, normal access will resume automatically.';
+    el.style.display = 'block';
   }
 
   async function subscribe() {
