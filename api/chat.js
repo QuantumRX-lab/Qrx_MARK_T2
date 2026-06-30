@@ -1,6 +1,8 @@
 // /api/chat.js
 // QuantumRx chat proxy — system prompt hardcoded server-side
-// Injects live weekly briefing context for Signal Analyst widget
+// Injects live weekly briefing context for "full briefing" + general questions
+// Injects live Signals feed context per-vertical so AI/Energy/Space/Crypto/Policy
+// always have current stories, even if that vertical didn't make the weekly top 10
 // Session-limited to 8 messages per IP per 24h, KV-tracked
 // Q-Sentinel threat enforcement runs before any logic
 
@@ -9,6 +11,18 @@ import { logRequest } from './request-logger.js';
 
 const SESSION_LIMIT = 8;
 const SESSION_TTL = 60 * 60 * 24; // 24h
+
+const SIGNALS_VERTICALS = {
+  aimoves: 'qrx_feed_aimoves',
+  energy: 'qrx_feed_energy',
+  space: 'qrx_feed_space',
+  crypto: 'qrx_feed_crypto',
+  policy: 'qrx_feed_policy',
+  hot: 'qrx_feed_hot',
+  robotics: 'qrx_feed_robotics',
+  semis: 'qrx_feed_semis',
+  quantum: 'qrx_feed_quantum',
+};
 
 const BASE_SYSTEM_PROMPT = `You are the QuantumRx Signal Analyst, the site assistant for quantumrx.eu. QuantumRx is an AI infrastructure publication and product business founded by W. T. Wallace, a satellite systems engineer and Manager of Fleet Strategy at SES.
 
@@ -49,15 +63,35 @@ TONE
 
 Never use em dashes. Keep responses tight. Do not list every product when asked for a recommendation, pick the most relevant one and ask one clarifying question if needed.`;
 
-function buildSystemPrompt(briefing) {
-  if (!briefing || !briefing.stories || !briefing.stories.length) {
-    return BASE_SYSTEM_PROMPT + `\n\nNo current weekly briefing is loaded. If asked about this week's signals, direct the user to quantumrx.eu/signals for live coverage.`;
-  }
-  const storyList = briefing.stories.map((s, i) =>
-    `[${i}] CATEGORY: ${s.category}\nTITLE: ${s.title}\nWHAT IS IT: ${s.what_is_it}\nWHY IT MATTERS: ${s.why_it_matters}\nWHAT NEXT: ${s.what_next}\nVELOCITY: ${s.velocity}\nMATURITY: ${s.media_maturity}\nOUTLETS: ${s.outlets || ''}`
+function formatStoryList(items, label) {
+  if (!items || !items.length) return `No current ${label} stories available.`;
+  return items.slice(0, 8).map((s, i) =>
+    `[${i}] TITLE: ${s.title}\nSUMMARY: ${s.summary || s.description || ''}\nSOURCE: ${s.source || ''}`
   ).join('\n\n');
+}
 
-  return BASE_SYSTEM_PROMPT + `\n\nCURRENT WEEKLY BRIEFING (${briefing.weekLabel || 'this week'}, ${briefing.stories.length} stories):\n\n${storyList}\n\nWhen asked about "this week", "the briefing", "signals", or any specific story above, use this data. When asked for "full briefing", list the top 3 stories as short bullet points, one line per story covering what happened and why it matters in a single sentence each, then offer to go deeper on any one of them. When asked about a specific vertical (AI, Energy, Space, Crypto, Policy, Robotics, Semiconductors, Quantum), find the matching story above and use it, single story only, in full three-part detail with WHAT IS IT, WHY IT MATTERS, WHAT TO WATCH. If no story exists for that vertical this week, say so plainly and suggest checking the live Signals tab. Keep all responses tight and avoid filler.`;
+function buildSystemPrompt(briefing, signalsContext) {
+  let prompt = BASE_SYSTEM_PROMPT;
+
+  if (briefing && briefing.stories && briefing.stories.length) {
+    const storyList = briefing.stories.map((s, i) =>
+      `[${i}] CATEGORY: ${s.category}\nTITLE: ${s.title}\nWHAT IS IT: ${s.what_is_it}\nWHY IT MATTERS: ${s.why_it_matters}\nWHAT NEXT: ${s.what_next}\nVELOCITY: ${s.velocity}\nMATURITY: ${s.media_maturity}\nOUTLETS: ${s.outlets || ''}`
+    ).join('\n\n');
+    prompt += `\n\nCURRENT WEEKLY BRIEFING (${briefing.weekLabel || 'this week'}, ${briefing.stories.length} stories, the editorial top picks of the week):\n\n${storyList}`;
+  } else {
+    prompt += `\n\nNo current weekly briefing is loaded.`;
+  }
+
+  if (signalsContext && Object.keys(signalsContext).length) {
+    prompt += `\n\nLIVE SIGNALS FEED BY VERTICAL (refreshed daily, broader coverage than the weekly briefing top 10 -- use this for any vertical-specific question, since a vertical may have strong stories today even if it did not make this week's top 10):\n`;
+    for (const [vertical, items] of Object.entries(signalsContext)) {
+      prompt += `\n--- ${vertical.toUpperCase()} ---\n${formatStoryList(items, vertical)}\n`;
+    }
+  }
+
+  prompt += `\n\nWhen asked about "this week", "the briefing", or asked for "full briefing", use the CURRENT WEEKLY BRIEFING section, list the top 3 stories as short bullet points, one line per story covering what happened and why it matters in a single sentence each, then offer to go deeper on any one of them. When asked about a specific vertical (AI, Energy, Space, Crypto, Policy, Robotics, Semiconductors, Quantum), first check the LIVE SIGNALS FEED for that vertical and pick the strongest story there, use it in full three-part detail with WHAT IS IT, WHY IT MATTERS, WHAT TO WATCH. The CURRENT WEEKLY BRIEFING only contains the editorial top 10 selections, a vertical can have good live stories on Signals even when nothing from that vertical made the weekly top 10 -- always check Signals data first for vertical-specific questions before saying nothing is available. Only say no story exists for that vertical if the Signals feed for it is also genuinely empty. Keep all responses tight and avoid filler.`;
+
+  return prompt;
 }
 
 async function getSessionCount(ip) {
@@ -86,6 +120,45 @@ async function getWeeklyBriefing() {
   }
 }
 
+// Detect which vertical(s) the user's latest message is asking about, so we
+// only fetch the Signals KV keys actually needed rather than all nine every time
+function detectVerticals(messages) {
+  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+  if (!lastUserMsg) return [];
+  const text = lastUserMsg.content.toLowerCase();
+
+  const matches = [];
+  if (/\bai\b|artificial intelligence|model release|openai|anthropic|gemini/.test(text)) matches.push('aimoves');
+  if (/energy|power|grid|nuclear|renewable|data.?center power/.test(text)) matches.push('energy');
+  if (/space|satellite|orbit|rocket|launch|nasa|spacex/.test(text)) matches.push('space');
+  if (/crypto|blockchain|defi|token|bitcoin|ethereum/.test(text)) matches.push('crypto');
+  if (/policy|regulation|legislation|government|export control/.test(text)) matches.push('policy');
+  if (/robot|robotics|humanoid|automation/.test(text)) matches.push('robotics');
+  if (/semiconductor|chip|semis|fab|foundry|tsmc|nvidia/.test(text)) matches.push('semis');
+  if (/quantum/.test(text)) matches.push('quantum');
+  if (/full briefing|strongest signal|crossing mainstream|what should i watch|this week/.test(text)) matches.push('hot');
+
+  return matches;
+}
+
+async function getSignalsContext(verticals) {
+  if (!verticals.length) return {};
+  const context = {};
+  await Promise.all(verticals.map(async (v) => {
+    const kvKey = SIGNALS_VERTICALS[v];
+    if (!kvKey) return;
+    try {
+      const cached = await kv.get(kvKey);
+      if (cached?.items && Array.isArray(cached.items)) {
+        context[v] = cached.items;
+      }
+    } catch {
+      // skip silently, this vertical just won't be in context
+    }
+  }));
+  return context;
+}
+
 async function getSentinelAction(ip) {
   const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
   const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -98,8 +171,22 @@ async function getSentinelAction(ip) {
     if (!res.ok) return null;
     const data = await res.json();
     if (!data.result) return null;
-    const parsed = JSON.parse(data.result);
-    return parsed.action || null;
+    let parsed;
+    try {
+      parsed = JSON.parse(data.result);
+    } catch {
+      return null;
+    }
+    if (parsed.action) return parsed.action;
+    if (parsed.value) {
+      try {
+        const inner = JSON.parse(parsed.value);
+        return inner.action || null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
   } catch { return null; }
 }
 
@@ -149,8 +236,14 @@ export default async function handler(req, res) {
 
   try {
     const apiKey = process.env.GEMINI_API_KEY_Chat;
-    const briefing = await getWeeklyBriefing();
-    const systemPrompt = buildSystemPrompt(briefing);
+
+    const verticals = detectVerticals(messages);
+    const [briefing, signalsContext] = await Promise.all([
+      getWeeklyBriefing(),
+      getSignalsContext(verticals),
+    ]);
+
+    const systemPrompt = buildSystemPrompt(briefing, signalsContext);
 
     const contents = messages.map(m => ({
       role: m.role === 'assistant' ? 'model' : 'user',
