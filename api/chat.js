@@ -57,7 +57,7 @@ function buildSystemPrompt(briefing) {
     `[${i}] CATEGORY: ${s.category}\nTITLE: ${s.title}\nWHAT IS IT: ${s.what_is_it}\nWHY IT MATTERS: ${s.why_it_matters}\nWHAT NEXT: ${s.what_next}\nVELOCITY: ${s.velocity}\nMATURITY: ${s.media_maturity}\nOUTLETS: ${s.outlets || ''}`
   ).join('\n\n');
 
-  return BASE_SYSTEM_PROMPT + `\n\nCURRENT WEEKLY BRIEFING (${briefing.weekLabel || 'this week'}, ${briefing.stories.length} stories):\n\n${storyList}\n\nWhen asked about "this week", "the briefing", "signals", or any specific story above, use this data. When asked for "full briefing", cover the top 3 stories by velocity and significance, then offer to go deeper on any of them or cover the remaining stories. When asked about a specific vertical (AI, Energy, Space, Crypto, Policy, Robotics, Semiconductors, Quantum), find the matching story above and use it. If no story exists for that vertical this week, say so plainly and suggest checking the live Signals tab.`;
+  return BASE_SYSTEM_PROMPT + `\n\nCURRENT WEEKLY BRIEFING (${briefing.weekLabel || 'this week'}, ${briefing.stories.length} stories):\n\n${storyList}\n\nWhen asked about "this week", "the briefing", "signals", or any specific story above, use this data. When asked for "full briefing", list the top 3 stories as short bullet points, one line per story covering what happened and why it matters in a single sentence each, then offer to go deeper on any one of them. When asked about a specific vertical (AI, Energy, Space, Crypto, Policy, Robotics, Semiconductors, Quantum), find the matching story above and use it, single story only, in full three-part detail with WHAT IS IT, WHY IT MATTERS, WHAT TO WATCH. If no story exists for that vertical this week, say so plainly and suggest checking the live Signals tab. Keep all responses tight and avoid filler.`;
 }
 
 async function getSessionCount(ip) {
@@ -165,7 +165,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents,
-          generationConfig: { maxOutputTokens: 1024, temperature: 0.7 }
+          generationConfig: { maxOutputTokens: 2048, temperature: 0.7 }
         })
       }
     );
