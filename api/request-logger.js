@@ -50,9 +50,12 @@ async function kvExpire(key, ttlSeconds) {
   }
 }
 
-async function kvSet(key, value) {
+async function kvSet(key, value, ttlSeconds = null) {
   const body = String(value);
-  const res = await fetch(`${KV_URL}/set/${key}`, {
+  const url = ttlSeconds
+    ? `${KV_URL}/set/${key}?EX=${ttlSeconds}`
+    : `${KV_URL}/set/${key}`;
+  const res = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${KV_TOKEN}` },
     body,
@@ -70,9 +73,13 @@ async function kvSet(key, value) {
 async function writeAutoBlock(ip) {
   const key = `threat_action:${ip}`;
   const value = JSON.stringify({ action: 'block', autoBlocked: true, blockedAt: new Date().toISOString() });
-  const ok = await kvSet(key, value);
+  // 30-day TTL as a safety net beneath the manual two-week scrub cycle —
+  // long enough that it never expires between scrubs, short enough that
+  // abandoned/stale blocks self-clear if a scrub cycle is ever missed.
+  const TTL_SECONDS = 60 * 60 * 24 * 30;
+  const ok = await kvSet(key, value, TTL_SECONDS);
   if (ok) {
-    console.log(`[SENTINEL-LOGGER] AUTO-BLOCK WRITTEN — ${ip}`);
+    console.log(`[SENTINEL-LOGGER] AUTO-BLOCK WRITTEN — ${ip} — expires in 30d`);
   } else {
     console.error(`[SENTINEL-LOGGER] AUTO-BLOCK FAILED — ${ip}`);
   }
@@ -148,11 +155,14 @@ async function writeFlag(ip, severity, pattern, detail = '') {
 // ─── Detection rules ──────────────────────────────────────────────────────────
 
 const INJECTION_PATTERNS = [
-  /ignore\s+(all\s+|the\s+)?(previous|above|prior|all|earlier)\s+(instructions?|prompts?|rules?)/i,
-  /ignore\s+(previous|above|prior|all|earlier)/i,
-  /disregard\s+(all\s+|any\s+|the\s+)?(previous|above|prior)/i,
+  /ignore\s+(?:(?:all|the|any|every)\s+)*(previous|above|prior|earlier)\s+(instructions?|prompts?|rules?|commands?)/i,
+  /ignore\s+(?:(?:all|the|any|every)\s+)*(previous|above|prior|earlier)/i,
+  /disregard\s+(?:(?:all|the|any|every)\s+)*(previous|above|prior|earlier)\s*(instructions?|prompts?|rules?|commands?)?/i,
+  /forget\s+(?:(?:all|the|any|every)\s+)*(previous|above|prior|earlier)\s+(instructions?|prompts?|rules?)/i,
   /system\s*prompt/i,
   /reveal\s+(your\s+)?(instructions?|prompts?|system|context)/i,
+  /return\s+(the\s+)?(full\s+)?source\s*code/i,
+  /(give|show|return|output)\s+(me\s+)?(the\s+)?(actual\s+|real\s+|underlying\s+)?(system\s+)?(prompt|instructions?|source\s*code)/i,
   /jailbreak/i,
   /act\s+as\s+(if\s+you\s+are\s+|a\s+)?(?:dan|evil|unrestricted|unfiltered)/i,
   /\[INST\]|\[\/INST\]|<\|system\|>|<\|user\|>/i,
