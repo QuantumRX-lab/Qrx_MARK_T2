@@ -84,22 +84,31 @@ async function writeFlag(ip, severity, pattern, detail = '') {
   const key = `threat:flag:${ip}`;
 
   const existing = await kvGet(key);
-  let shouldWriteFlag = true;
+  let existingParsed = null;
+  let shouldWriteFullRecord = true;
   if (existing) {
     try {
-      const parsed = JSON.parse(existing);
+      existingParsed = JSON.parse(existing);
       const levels = { LOW: 1, MEDIUM: 2, HIGH: 3 };
-      if (levels[parsed.severity] >= levels[severity]) shouldWriteFlag = false;
+      if (levels[existingParsed.severity] >= levels[severity]) shouldWriteFullRecord = false;
     } catch { /* corrupt value — overwrite it */ }
   }
 
-  if (shouldWriteFlag) {
+  // detectedAt must always reflect the most recent detection event, even when
+  // the full record write is skipped due to severity dedup. Without this,
+  // a repeat HIGH attack on an IP with a pre-existing HIGH flag would never
+  // update the timestamp, which silently breaks monitor.js's freshness check
+  // (seenIdFor builds its id from key + detectedAt) — the monitor would keep
+  // treating a brand new attack as something it already alerted on years ago.
+  const now = new Date().toISOString();
+
+  if (shouldWriteFullRecord) {
     const flag = {
       ip,
       severity,
       pattern,
       detail,
-      detectedAt: new Date().toISOString(),
+      detectedAt: now,
     };
 
     const ok = await kvSet(key, JSON.stringify(flag));
@@ -108,8 +117,22 @@ async function writeFlag(ip, severity, pattern, detail = '') {
     } else {
       console.error(`[SENTINEL-LOGGER] FLAG WRITE FAILED — ${severity} | ${ip} | ${pattern}`);
     }
-  } else {
-    console.log(`[SENTINEL-LOGGER] FLAG SKIPPED (existing flag same or higher severity) — ${severity} | ${ip} | ${pattern}`);
+  } else if (existingParsed) {
+    // Severity didn't escalate, but this is still a genuinely new detection
+    // event — refresh detectedAt (and detail/pattern, in case they changed)
+    // on the existing record rather than silently dropping the update.
+    const refreshed = {
+      ...existingParsed,
+      pattern,
+      detail,
+      detectedAt: now,
+    };
+    const ok = await kvSet(key, JSON.stringify(refreshed));
+    if (ok) {
+      console.log(`[SENTINEL-LOGGER] FLAG REFRESHED (same/lower severity, new detection event) — ${severity} | ${ip} | ${pattern}`);
+    } else {
+      console.error(`[SENTINEL-LOGGER] FLAG REFRESH FAILED — ${severity} | ${ip} | ${pattern}`);
+    }
   }
 
   // AUTO-BLOCK: fires on every HIGH severity detection, independent of whether
