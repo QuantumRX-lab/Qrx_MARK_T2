@@ -456,6 +456,64 @@ ${buildList(items)}`;
   }
 }
 
+// Second Gemini pass: generate three-part editorial card per story.
+// Runs on the already-selected stories from geminiSelect.
+// Adds what_is_it, why_it_matters, what_to_watch fields to each story object.
+// Cost: ~$0.15/month at Gemini 2.5 Flash pricing across all verticals.
+async function geminiEditorialCards(stories, apiKey) {
+  if (!stories.length) return stories;
+
+  const list = stories
+    .map((s, i) => `[${i}] TITLE: ${s.title}\nSUMMARY: ${s.summary || s.description || ''}`)
+    .join('\n\n');
+
+  const prompt = `You are the editor of QuantumRx Signals. For each story below, write a three-part editorial card in the voice of a sharp technical analyst. No hype, no filler. Direct and concrete.
+
+For each story return:
+- what_is_it: One sentence. What happened or what is this. State the fact.
+- why_it_matters: One to two sentences. Why this is significant for engineers, founders, or operators in this space.
+- what_to_watch: One sentence. The specific thing to watch next. Make it a concrete, checkable signal.
+
+Return ONLY a JSON array, no markdown, no preamble:
+[{"index": <number>, "what_is_it": "...", "why_it_matters": "...", "what_to_watch": "..."}]
+
+STORIES:
+${list}`;
+
+  try {
+    const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 2000,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+    const cards = JSON.parse(extractJSON(text));
+    const byIndex = Object.fromEntries(cards.map((c) => [c.index, c]));
+    return stories.map((s, i) => {
+      const card = byIndex[i];
+      if (!card) return s;
+      return {
+        ...s,
+        what_is_it: card.what_is_it || '',
+        why_it_matters: card.why_it_matters || '',
+        what_to_watch: card.what_to_watch || '',
+      };
+    });
+  } catch {
+    // Fail gracefully — stories still have summary field as fallback
+    return stories;
+  }
+}
+
 async function summariseVideos(items, apiKey) {
   if (!items.length) return [];
   const prompt = `${VOICE}
@@ -624,21 +682,40 @@ export default async function handler(req, res) {
   // 6. Clean summaries
   [hot, aimoves, crypto, policy, energy, space, robotics, semis, quantum, social].forEach(cleanSummaries);
 
+  // 6b. Editorial card pass — adds what_is_it, why_it_matters, what_to_watch to each story
+  // Run in batches to avoid hitting rate limits
+  const [hotC, aimovesC] = await Promise.all([
+    geminiEditorialCards(hot, apiKey),
+    geminiEditorialCards(aimoves, apiKey),
+  ]);
+  const [cryptoC, policyC, energyC] = await Promise.all([
+    geminiEditorialCards(crypto, apiKey),
+    geminiEditorialCards(policy, apiKey),
+    geminiEditorialCards(energy, apiKey),
+  ]);
+  const [spaceC, roboticsC, semisC, quantumC, socialC] = await Promise.all([
+    geminiEditorialCards(space, apiKey),
+    geminiEditorialCards(robotics, apiKey),
+    geminiEditorialCards(semis, apiKey),
+    geminiEditorialCards(quantum, apiKey),
+    geminiEditorialCards(social, apiKey),
+  ]);
+
   // 7. Write cache
   const stamp = (arr) => ({ updated: startedAt, items: arr });
   const TTL = 60 * 60 * 25;
   await Promise.all([
-    kv.set("qrx_feed_hot",      stamp(hot),      { ex: TTL }),
-    kv.set("qrx_feed_aimoves",  stamp(aimoves),  { ex: TTL }),
-    kv.set("qrx_feed_crypto",   stamp(crypto),   { ex: TTL }),
-    kv.set("qrx_feed_policy",   stamp(policy),   { ex: TTL }),
-    kv.set("qrx_feed_energy",   stamp(energy),   { ex: TTL }),
-    kv.set("qrx_feed_space",    stamp(space),    { ex: TTL }),
-    kv.set("qrx_feed_robotics", stamp(robotics), { ex: TTL }),
-    kv.set("qrx_feed_semis",    stamp(semis),    { ex: TTL }),
-    kv.set("qrx_feed_quantum",  stamp(quantum),  { ex: TTL }),
-    kv.set("qrx_feed_social",   stamp(social),   { ex: TTL }),
-    kv.set("qrx_feed_video",    stamp(videos),   { ex: TTL }),
+    kv.set("qrx_feed_hot",      stamp(hotC),      { ex: TTL }),
+    kv.set("qrx_feed_aimoves",  stamp(aimovesC),  { ex: TTL }),
+    kv.set("qrx_feed_crypto",   stamp(cryptoC),   { ex: TTL }),
+    kv.set("qrx_feed_policy",   stamp(policyC),   { ex: TTL }),
+    kv.set("qrx_feed_energy",   stamp(energyC),   { ex: TTL }),
+    kv.set("qrx_feed_space",    stamp(spaceC),    { ex: TTL }),
+    kv.set("qrx_feed_robotics", stamp(roboticsC), { ex: TTL }),
+    kv.set("qrx_feed_semis",    stamp(semisC),    { ex: TTL }),
+    kv.set("qrx_feed_quantum",  stamp(quantumC),  { ex: TTL }),
+    kv.set("qrx_feed_social",   stamp(socialC),   { ex: TTL }),
+    kv.set("qrx_feed_video",    stamp(videos),    { ex: TTL }),
   ]);
 
   return res.status(200).json({
