@@ -46,8 +46,12 @@ function buildWav(pcmBase64) {
 }
 
 export default async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', 'https://quantumrx.eu');
+  // CORS — allow both www and non-www
+  const origin = req.headers.origin || '';
+  const allowed = ['https://quantumrx.eu', 'https://www.quantumrx.eu'];
+  if (allowed.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
