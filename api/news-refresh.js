@@ -456,6 +456,40 @@ ${buildList(items)}`;
   }
 }
 
+// Post-selection source deduplication.
+// Ensures no single news source appears more than once in the final selection.
+// If a duplicate source is found, it's replaced with the next highest-ranked
+// story from the original pool that hasn't been selected yet and has a unique source.
+function diversifyBySource(selected, pool, maxPerSource = 1) {
+  const usedSources = new Set();
+  const result = [];
+  const fallbackPool = [...pool].filter(
+    (it) => !selected.find((s) => s.url === it.url)
+  );
+
+  for (const story of selected) {
+    const src = (story.source || '').toLowerCase().trim();
+    if (!usedSources.has(src)) {
+      usedSources.add(src);
+      result.push(story);
+    } else {
+      // Find next story from pool with a unique source
+      const idx = fallbackPool.findIndex(
+        (it) => !usedSources.has((it.source || '').toLowerCase().trim())
+      );
+      if (idx !== -1) {
+        const replacement = fallbackPool.splice(idx, 1)[0];
+        usedSources.add((replacement.source || '').toLowerCase().trim());
+        result.push({ ...replacement, summary: replacement.description || replacement.title || '' });
+      } else {
+        // No unique source available, keep the duplicate rather than shrink the list
+        result.push(story);
+      }
+    }
+  }
+  return result;
+}
+
 // Second Gemini pass: generate three-part editorial card per story.
 // Runs on the already-selected stories from geminiSelect.
 // Adds what_is_it, why_it_matters, what_to_watch fields to each story object.
@@ -674,31 +708,43 @@ export default async function handler(req, res) {
   ]);
   const social = diversifySocial(socialRaw, socialPool, 8);
 
+  // 4b. Source deduplication — no single outlet appears more than once per vertical
+  const hotD      = diversifyBySource(hot,      textPool);
+  const aimovesD  = diversifyBySource(aimoves,  textPool);
+  const cryptoD   = diversifyBySource(crypto,   cryptoPool);
+  const policyD   = diversifyBySource(policy,   policyPool);
+  const energyD   = diversifyBySource(energy,   energyPool);
+  const spaceD    = diversifyBySource(space,     spacePool);
+  const roboticsD = diversifyBySource(robotics, roboticsPool);
+  const semisD    = diversifyBySource(semis,    semisPool);
+  const quantumD  = diversifyBySource(quantum,  quantumPool);
+  const socialD   = diversifyBySource(social,   socialPool);
+
   // 5. Videos — one per vertical group, 4 total
   const rawVideos = await pickDiverseVideos(4);
   const summarisedVideos = await summariseVideos(rawVideos, apiKey);
   const videos = summarisedVideos.map((v) => ({ ...v, image: videoThumb(v) }));
 
   // 6. Clean summaries
-  [hot, aimoves, crypto, policy, energy, space, robotics, semis, quantum, social].forEach(cleanSummaries);
+  [hotD, aimovesD, cryptoD, policyD, energyD, spaceD, roboticsD, semisD, quantumD, socialD].forEach(cleanSummaries);
 
   // 6b. Editorial card pass — adds what_is_it, why_it_matters, what_to_watch to each story
   // Run in batches to avoid hitting rate limits
   const [hotC, aimovesC] = await Promise.all([
-    geminiEditorialCards(hot, apiKey),
-    geminiEditorialCards(aimoves, apiKey),
+    geminiEditorialCards(hotD, apiKey),
+    geminiEditorialCards(aimovesD, apiKey),
   ]);
   const [cryptoC, policyC, energyC] = await Promise.all([
-    geminiEditorialCards(crypto, apiKey),
-    geminiEditorialCards(policy, apiKey),
-    geminiEditorialCards(energy, apiKey),
+    geminiEditorialCards(cryptoD, apiKey),
+    geminiEditorialCards(policyD, apiKey),
+    geminiEditorialCards(energyD, apiKey),
   ]);
   const [spaceC, roboticsC, semisC, quantumC, socialC] = await Promise.all([
-    geminiEditorialCards(space, apiKey),
-    geminiEditorialCards(robotics, apiKey),
-    geminiEditorialCards(semis, apiKey),
-    geminiEditorialCards(quantum, apiKey),
-    geminiEditorialCards(social, apiKey),
+    geminiEditorialCards(spaceD, apiKey),
+    geminiEditorialCards(roboticsD, apiKey),
+    geminiEditorialCards(semisD, apiKey),
+    geminiEditorialCards(quantumD, apiKey),
+    geminiEditorialCards(socialD, apiKey),
   ]);
 
   // 7. Write cache
