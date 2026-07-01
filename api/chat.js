@@ -70,7 +70,7 @@ function formatStoryList(items, label) {
   ).join('\n\n');
 }
 
-function buildSystemPrompt(briefing, signalsContext) {
+function buildSystemPrompt(briefing, signalsContext, pageContext) {
   let prompt = BASE_SYSTEM_PROMPT;
 
   if (briefing && briefing.stories && briefing.stories.length) {
@@ -89,7 +89,11 @@ function buildSystemPrompt(briefing, signalsContext) {
     }
   }
 
-  prompt += `\n\nWhen asked about "this week", "the briefing", or asked for "full briefing", use the CURRENT WEEKLY BRIEFING section, list the top 3 stories as short bullet points, one line per story covering what happened and why it matters in a single sentence each, then offer to go deeper on any one of them. When asked about a specific vertical (AI, Energy, Space, Crypto, Policy, Robotics, Semiconductors, Quantum), first check the LIVE SIGNALS FEED for that vertical and pick the strongest story there, use it in full three-part detail with WHAT IS IT, WHY IT MATTERS, WHAT TO WATCH. The CURRENT WEEKLY BRIEFING only contains the editorial top 10 selections, a vertical can have good live stories on Signals even when nothing from that vertical made the weekly top 10 -- always check Signals data first for vertical-specific questions before saying nothing is available. Only say no story exists for that vertical if the Signals feed for it is also genuinely empty. Keep all responses tight and avoid filler.`;
+  if (pageContext) {
+    prompt += `\n\n${pageContext}`;
+  }
+
+  prompt += `\n\nWhen asked about "this week", "the briefing", or asked for "full briefing", use the CURRENT WEEKLY BRIEFING section, list the top 3 stories as short bullet points, one line per story covering what happened and why it matters in a single sentence each, then offer to go deeper on any one of them. When asked about a specific vertical (AI, Energy, Space, Crypto, Policy, Robotics, Semiconductors, Quantum), first check the LIVE SIGNALS FEED for that vertical and pick the strongest story there, use it in full three-part detail with WHAT IS IT, WHY IT MATTERS, WHAT TO WATCH. The CURRENT WEEKLY BRIEFING only contains the editorial top 10 selections, a vertical can have good live stories on Signals even when nothing from that vertical made the weekly top 10 -- always check Signals data first for vertical-specific questions before saying nothing is available. Only say no story exists for that vertical if the Signals feed for it is also genuinely empty. If PAGE CONTEXT is provided, prioritise answering questions about that specific page or article first. Keep all responses tight and avoid filler.`;
 
   return prompt;
 }
@@ -229,7 +233,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ content: [{ type: 'text', text: LIMIT_REACHED_TEXT }], limitReached: true });
   }
 
-  const { messages } = req.body;
+  const { messages, pageContext } = req.body;
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'Invalid request' });
   }
@@ -243,7 +247,7 @@ export default async function handler(req, res) {
       getSignalsContext(verticals),
     ]);
 
-    const systemPrompt = buildSystemPrompt(briefing, signalsContext);
+    const systemPrompt = buildSystemPrompt(briefing, signalsContext, pageContext || null);
 
     const contents = messages.map(m => ({
       role: m.role === 'assistant' ? 'model' : 'user',
