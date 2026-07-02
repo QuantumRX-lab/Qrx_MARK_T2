@@ -1,92 +1,86 @@
-// /api/weekly-feed
-//
-// Serves the current weekly briefing and last 3 archived editions
-// to the this-week-in-tech Ghost card frontend.
-//
-// Current briefing is stored as a JSON array of story objects, each with:
-//   title, category, velocity, media_maturity, outlets,
-//   what_is_it, why_it_matters, what_next
-//
-// Returns:
-//   {
-//     current: { stories: [...], updatedAt, weekLabel },
-//     archive: [ { weekLabel, stories: [...], updatedAt } ]
-//   }
+// api/weekly-feed.js
+import { kv } from "@vercel/kv";
+import { logRequest } from "./_lib/sentinel.js";
 
-import { kv } from '@vercel/kv';
+const ALLOWED_ORIGINS = ["https://quantumrx.eu", "https://www.quantumrx.eu"];
 
-const CDN_CACHE_SECONDS = 300;
-const STALE_REVALIDATE_SECONDS = 60;
+function getIP(req) {
+  return (req.headers["x-forwarded-for"] || "").split(",")[0].trim()
+    || req.socket?.remoteAddress || "unknown";
+}
+
+async function isBlocked(ip) {
+  const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!kvUrl || !kvToken) return false;
+  try {
+    const res = await fetch(
+      `${kvUrl}/get/threat_action:${encodeURIComponent(ip)}`,
+      { headers: { Authorization: `Bearer ${kvToken}` }, signal: AbortSignal.timeout(800) }
+    );
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (!data.result) return false;
+    const parsed = JSON.parse(data.result);
+    return parsed.action === "block";
+  } catch { return false; }
+}
+
+async function writeBlock(ip, endpoint) {
+  const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!kvUrl || !kvToken) return;
+  const ttl = 60 * 60 * 24 * 30;
+  const now = new Date().toISOString();
+  try {
+    // Write auto-block
+    const blockVal = JSON.stringify({ action: "block", autoBlocked: true, blockedAt: now, reason: endpoint });
+    await fetch(`${kvUrl}/set/threat_action:${encodeURIComponent(ip)}?EX=${ttl}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${kvToken}` },
+      body: blockVal,
+    });
+    // Write Sentinel flag so monitor.js fires terminal alert
+    const flagVal = JSON.stringify({ ip, severity: "HIGH", pattern: "bad_origin", detail: endpoint, detectedAt: now });
+    await fetch(`${kvUrl}/set/threat:flag:${encodeURIComponent(ip)}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${kvToken}` },
+      body: flagVal,
+    });
+    console.log(`[SENTINEL] AUTO-BLOCK + FLAG — ${ip} — ${endpoint}`);
+  } catch (err) {
+    console.error(`[SENTINEL] writeBlock failed — ${ip} —`, err.message);
+  }
+}
 
 export default async function handler(req, res) {
-  // CORS — allow quantumrx.eu Ghost pages to fetch from this Vercel endpoint
-  res.setHeader('Access-Control-Allow-Origin', 'https://www.quantumrx.eu');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  const ip = getIP(req);
+  await logRequest(req, "weekly-feed");
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  if (await isBlocked(ip)) {
+    return res.status(403).json({ error: "Access monitored" });
   }
 
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  const origin = req.headers.origin || "";
+
+  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+    await writeBlock(ip, "weekly-feed:bad-origin");
+    return res.status(403).json({ error: "Forbidden" });
   }
+
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  if (req.method === "OPTIONS") return res.status(200).end();
+  res.setHeader("Cache-Control", "no-cache");
 
   try {
-    const stories = await kv.get('weekly_briefing_current');
-    const meta = await kv.get('weekly_briefing_updated');
-
-    if (!stories || !Array.isArray(stories) || stories.length === 0) {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-      return res.status(200).json({
-        current: null,
-        archive: [],
-        message: 'Briefing updating, check back shortly',
-      });
-    }
-
-    const etag = meta?.updatedAt
-      ? `"${Buffer.from(meta.updatedAt).toString('base64')}"`
-      : null;
-
-    res.setHeader(
-      'Cache-Control',
-      `public, s-maxage=${CDN_CACHE_SECONDS}, stale-while-revalidate=${STALE_REVALIDATE_SECONDS}`
-    );
-    if (etag) res.setHeader('ETag', etag);
-
-    if (etag && req.headers['if-none-match'] === etag) {
-      return res.status(304).end();
-    }
-
-    // Fetch last 3 archived editions
-    const archive = [];
-    const now = new Date();
-    for (let i = 1; i <= 3; i++) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i * 7);
-      const year = d.getFullYear();
-      const start = new Date(year, 0, 1);
-      const week = Math.ceil(((d - start) / 86400000 + start.getDay() + 1) / 7);
-      const key = `weekly_briefing_archive_${year}-W${String(week).padStart(2, '0')}`;
-      try {
-        const archived = await kv.get(key);
-        if (archived) archive.push(archived);
-      } catch { /* archive entry doesn't exist yet */ }
-    }
-
-    return res.status(200).json({
-      current: {
-        stories,
-        updatedAt: meta?.updatedAt || null,
-        weekLabel: meta?.weekLabel || null,
-      },
-      archive,
-    });
-
-  } catch (err) {
-    console.error('weekly-feed error:', err);
-    res.setHeader('Cache-Control', 'no-store');
-    return res.status(500).json({ error: 'Failed to fetch weekly briefing' });
+    const current = await kv.get("weekly_briefing_current");
+    const previous = await kv.get("weekly_briefing_previous").catch(() => null);
+    return res.status(200).json({ current: current || null, previous: previous || null });
+  } catch {
+    return res.status(500).json({ error: "Weekly feed temporarily unavailable" });
   }
 }
