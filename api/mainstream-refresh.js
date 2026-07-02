@@ -231,8 +231,13 @@ export default async function handler(req, res) {
   // 3. Sort by recency
   const sorted = [...dedupedItems].sort((a, b) => b.published - a.published);
 
-  // 3b. Enrich missing images via OG fetch (batch of 20, stories without images)
-  const needsImg = sorted.filter((it) => !it.image).slice(0, 20);
+  // 3b. Enrich missing images via OG fetch
+  // Also re-fetch for known hotlink-blocking domains (Guardian, Reuters etc)
+  const hotlinkBlocked = ['theguardian.com', 'reuters.com', 'bbc.co.uk', 'bbc.com'];
+  const needsImg = sorted.filter((it) => {
+    if (!it.image) return true;
+    try { return hotlinkBlocked.some((d) => new URL(it.image).hostname.includes(d)); } catch { return false; }
+  }).slice(0, 25);
   if (needsImg.length) {
     const imgResults = await Promise.allSettled(needsImg.map((it) => fetchOgImage(it.url)));
     imgResults.forEach((r, i) => {
