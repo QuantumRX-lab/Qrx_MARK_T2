@@ -23,21 +23,83 @@ const FEEDS = [
 const UA = "QuantumRx-Mainstream/1.0 (+https://quantumrx.eu)";
 const TTL = 60 * 60 * 25;
 
+function isSafeUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+    const host = u.hostname;
+    if (host === "localhost" || host === "0.0.0.0") return false;
+    if (host.startsWith("127.") || host.startsWith("10.") || host.startsWith("192.168.")) return false;
+    if (host === "169.254.169.254") return false;
+    if (host.endsWith(".internal") || host.endsWith(".local")) return false;
+    return true;
+  } catch { return false; }
+}
+
+function sanitiseImageUrl(url) {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:" ? url : "";
+  } catch { return ""; }
+}
+
+function decode(s = "") {
+  return s
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ").replace(/<[^>]+>/g, "").trim();
+}
+
+function pickTag(block, tag) {
+  const m = block.match(new RegExp("<" + tag + "[^>]*>([\\s\\S]*?)<\\/" + tag + ">", "i"));
+  return m ? m[1] : "";
+}
+
+function pickAttr(block, tag, attr) {
+  const m = block.match(new RegExp("<" + tag + "[^>]*\\b" + attr + "=[\"']([^\"']+)[\"']", "i"));
+  return m ? m[1] : "";
+}
+
+function findImage(block) {
+  return (
+    pickAttr(block, "media:thumbnail", "url") ||
+    pickAttr(block, "media:content", "url") ||
+    pickAttr(block, "enclosure", "url") ||
+    (block.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] ||
+    ""
+  );
+}
+
+async function fetchOgImage(url) {
+  if (!isSafeUrl(url)) return "";
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": UA },
+      signal: AbortSignal.timeout(5000),
+      redirect: "follow",
+    });
+    if (!res.ok) return "";
+    const html = await res.text();
+    const ogImg =
+      (html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) || [])[1] ||
+      (html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i) || [])[1] ||
+      "";
+    return sanitiseImageUrl(ogImg.replace(/&amp;/g, "&"));
+  } catch { return ""; }
+}
+
 // ── XML parser ────────────────────────────────────────────────────────────────
 function parseXML(xml, source, dot) {
   const items = [];
   const entries = [...xml.matchAll(/<(?:item|entry)[^>]*>([\s\S]*?)<\/(?:item|entry)>/gi)];
   for (const entry of entries.slice(0, 15)) {
     const block = entry[1];
-    const get = (tag) => {
-      const m = block.match(new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, "i"));
-      return m ? m[1].replace(/<[^>]+>/g, "").trim() : "";
-    };
-    const link = block.match(/<link[^>]*href="([^"]+)"/i)?.[1] ||
-                 block.match(/<link[^>]*>([^<]+)<\/link>/i)?.[1] || "";
-    const title = get("title");
-    const description = get("description") || get("summary") || get("content");
-    const pubDate = get("pubDate") || get("published") || get("updated");
+    const title = decode(pickTag(block, "title"));
+    const link = decode(pickTag(block, "link")) || pickAttr(block, "link", "href");
+    const description = decode(pickTag(block, "description") || pickTag(block, "summary") || pickTag(block, "content"));
+    const pubDate = decode(pickTag(block, "pubDate") || pickTag(block, "published") || pickTag(block, "updated"));
     if (!title || title.length < 10) continue;
     items.push({
       title: title.slice(0, 200),
@@ -46,7 +108,7 @@ function parseXML(xml, source, dot) {
       source,
       dot,
       published: pubDate ? new Date(pubDate).getTime() : Date.now(),
-      image: null,
+      image: sanitiseImageUrl(findImage(block)),
     });
   }
   return items;
@@ -164,6 +226,15 @@ export default async function handler(req, res) {
 
   // 3. Sort by recency
   const sorted = [...dedupedItems].sort((a, b) => b.published - a.published);
+
+  // 3b. Enrich missing images via OG fetch (batch of 20, stories without images)
+  const needsImg = sorted.filter((it) => !it.image).slice(0, 20);
+  if (needsImg.length) {
+    const imgResults = await Promise.allSettled(needsImg.map((it) => fetchOgImage(it.url)));
+    imgResults.forEach((r, i) => {
+      if (r.status === "fulfilled" && r.value) needsImg[i].image = r.value;
+    });
+  }
 
   // 4. Gemini select + summarise
   const stories = await geminiSelectAndSummarise(sorted, apiKey);
