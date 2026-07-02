@@ -1,7 +1,7 @@
 // api/mainstream-refresh.js
 // QuantumRx Mainstream — daily refresh engine
 // Sources: BBC Tech, Reuters, Guardian Tech, Wired, The Verge, Ars Technica, MIT Tech Review, The Register
-// Selects top 8 stories across all sources, generates 4-bullet summary per story
+// Selects best 2 stories per outlet (16 total), generates 4-bullet summary per story
 // Writes to KV as qrx_mainstream with 25h TTL
 
 import { kv } from "@vercel/kv";
@@ -137,16 +137,17 @@ async function fetchFeed(feed) {
   }
 }
 
-// ── Gemini: select top 8 stories and generate 4-bullet summaries ──────────────
-async function geminiSelectAndSummarise(items, apiKey) {
+// ── Gemini: select best 2 stories from one outlet's pool ─────────────────────
+async function geminiSelectOutlet(items, source, apiKey) {
   if (!items.length) return [];
 
-  const list = items
-    .slice(0, 40)
-    .map((it, i) => `[${i}] SOURCE: ${it.source}\nTITLE: ${it.title}\nEXCERPT: ${it.description.slice(0, 200)}`)
+  // Take up to 8 most recent from this outlet for Gemini to pick from
+  const pool = items.slice(0, 8);
+  const list = pool
+    .map((it, i) => `[${i}] TITLE: ${it.title}\nEXCERPT: ${it.description.slice(0, 200)}`)
     .join("\n\n");
 
-  const prompt = `You are the editor of QuantumRx, a serious tech intelligence publication. From the stories below, select the 8 most significant for a technically literate audience. Prioritise genuine news impact, policy implications, infrastructure shifts, and major company moves. Avoid opinion pieces, listicles, and consumer how-to content.
+  const prompt = `You are the editor of QuantumRx. From these ${source} stories, select the 2 most significant for a technically literate audience. Prioritise genuine news impact, policy implications, infrastructure shifts, and major company moves. Avoid opinion pieces, listicles, and consumer how-to content.
 
 For each selected story return exactly 4 bullet points covering:
 1. What happened (the concrete fact)
@@ -170,25 +171,25 @@ ${list}`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 3000,
+          maxOutputTokens: 1500,
           thinkingConfig: { thinkingBudget: 0 },
         },
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(20000),
     });
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
     const picks = JSON.parse(extractJSON(text));
 
     return picks
-      .filter((p) => items[p.index] && Array.isArray(p.bullets) && p.bullets.length)
+      .filter((p) => pool[p.index] && Array.isArray(p.bullets) && p.bullets.length)
       .map((p) => ({
-        ...items[p.index],
+        ...pool[p.index],
         bullets: p.bullets.slice(0, 4),
       }))
-      .slice(0, 8);
+      .slice(0, 2);
   } catch {
-    return items.slice(0, 8).map((it) => ({
+    return pool.slice(0, 2).map((it) => ({
       ...it,
       bullets: [it.description.slice(0, 120) || it.title],
     }));
@@ -236,8 +237,21 @@ export default async function handler(req, res) {
     });
   }
 
-  // 4. Gemini select + summarise
-  const stories = await geminiSelectAndSummarise(sorted, apiKey);
+  // 4. Per-outlet Gemini selection — 2 best stories per outlet
+  // Group items by source first
+  const bySource = {};
+  FEEDS.forEach(function(feed) { bySource[feed.source] = []; });
+  sorted.forEach(function(it) {
+    if (bySource[it.source]) bySource[it.source].push(it);
+  });
+
+  // Run all 8 outlets in parallel
+  const outletResults = await Promise.all(
+    FEEDS.map((feed) => geminiSelectOutlet(bySource[feed.source] || [], feed.source, apiKey))
+  );
+
+  // Flatten — 2 stories per outlet = 16 total, ordered by outlet then recency
+  const stories = outletResults.flat();
 
   // 5. Write to KV
   await kv.set("qrx_mainstream", {
@@ -254,6 +268,7 @@ export default async function handler(req, res) {
       fetched: allItems.length,
       deduped: dedupedItems.length,
       selected: stories.length,
+      perOutlet: 2,
     },
   });
 }
