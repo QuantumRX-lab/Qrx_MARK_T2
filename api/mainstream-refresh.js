@@ -150,7 +150,7 @@ async function geminiSelectOutlet(items, source, apiKey) {
     .map((it, i) => `[${i}] TITLE: ${it.title}\nEXCERPT: ${it.description.slice(0, 200)}`)
     .join("\n\n");
 
-  const prompt = `You are the editor of QuantumRx. From these ${source} stories, select the 2 most significant for a technically literate audience. Prioritise genuine news impact, policy implications, infrastructure shifts, and major company moves. Avoid opinion pieces, listicles, and consumer how-to content.
+  const prompt = `You are the editor of QuantumRx. From these ${source} stories, select the 2 most significant for a technically literate audience. Prioritise genuine news impact, policy implications, infrastructure shifts, and major company moves. Avoid opinion pieces, listicles, consumer how-to content, promo codes, discount offers, coupon articles, affiliate marketing content, and anything that is not genuine tech news.
 
 For each selected story return exactly 4 bullet points covering:
 1. What happened (the concrete fact)
