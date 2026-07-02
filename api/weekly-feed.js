@@ -77,9 +77,28 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-cache");
 
   try {
-    const current = await kv.get("weekly_briefing_current");
-    const previous = await kv.get("weekly_briefing_previous").catch(() => null);
-    return res.status(200).json({ current: current || null, previous: previous || null });
+    const stories = await kv.get("weekly_briefing_current");
+    const meta = await kv.get("weekly_briefing_updated").catch(() => null);
+
+    if (!stories || !stories.length) {
+      return res.status(200).json({ current: null, previous: null });
+    }
+
+    // Wrap into the shape the This Week page expects:
+    // data.current = { stories, weekLabel, updatedAt, storyCount }
+    const current = {
+      stories,
+      weekLabel: meta?.weekLabel || null,
+      updatedAt: meta?.updatedAt || null,
+      storyCount: stories.length,
+    };
+
+    // Previous edition
+    const prevMeta = meta?.weekLabel
+      ? await kv.get(`weekly_briefing_archive_${meta.weekLabel}`).catch(() => null)
+      : null;
+
+    return res.status(200).json({ current, previous: prevMeta || null });
   } catch {
     return res.status(500).json({ error: "Weekly feed temporarily unavailable" });
   }
