@@ -238,7 +238,11 @@ function decode(s = "") {
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
     .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#x27;/g, "'")
-    .replace(/&nbsp;/g, " ").replace(/<[^>]+>/g, "").trim();
+    .replace(/&nbsp;/g, " ")
+    // Numeric entities — common in news headlines
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/<[^>]+>/g, "").trim();
 }
 
 function pick(block, tag) {

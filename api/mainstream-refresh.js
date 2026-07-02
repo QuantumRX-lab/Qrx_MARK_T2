@@ -1,7 +1,7 @@
 // api/mainstream-refresh.js
 // QuantumRx Mainstream — daily refresh engine
 // Sources: BBC Tech, Reuters, Guardian Tech, Wired, The Verge, Ars Technica, MIT Tech Review, The Register
-// Selects top 8 stories across all sources, generates 4-bullet summary per story
+// Selects best 2 stories per outlet (16 total), generates 4-bullet summary per story
 // Writes to KV as qrx_mainstream with 25h TTL
 
 import { kv } from "@vercel/kv";
@@ -23,21 +23,86 @@ const FEEDS = [
 const UA = "QuantumRx-Mainstream/1.0 (+https://quantumrx.eu)";
 const TTL = 60 * 60 * 25;
 
+function isSafeUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+    const host = u.hostname;
+    if (host === "localhost" || host === "0.0.0.0") return false;
+    if (host.startsWith("127.") || host.startsWith("10.") || host.startsWith("192.168.")) return false;
+    if (host === "169.254.169.254") return false;
+    if (host.endsWith(".internal") || host.endsWith(".local")) return false;
+    return true;
+  } catch { return false; }
+}
+
+function sanitiseImageUrl(url) {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:" ? url : "";
+  } catch { return ""; }
+}
+
+function decode(s = "") {
+  return s
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/<[^>]+>/g, "").trim();
+}
+
+function pickTag(block, tag) {
+  const m = block.match(new RegExp("<" + tag + "[^>]*>([\\s\\S]*?)<\\/" + tag + ">", "i"));
+  return m ? m[1] : "";
+}
+
+function pickAttr(block, tag, attr) {
+  const m = block.match(new RegExp("<" + tag + "[^>]*\\b" + attr + "=[\"']([^\"']+)[\"']", "i"));
+  return m ? m[1] : "";
+}
+
+function findImage(block) {
+  return (
+    pickAttr(block, "media:thumbnail", "url") ||
+    pickAttr(block, "media:content", "url") ||
+    pickAttr(block, "enclosure", "url") ||
+    (block.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] ||
+    ""
+  );
+}
+
+async function fetchOgImage(url) {
+  if (!isSafeUrl(url)) return "";
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": UA },
+      signal: AbortSignal.timeout(5000),
+      redirect: "follow",
+    });
+    if (!res.ok) return "";
+    const html = await res.text();
+    const ogImg =
+      (html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) || [])[1] ||
+      (html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i) || [])[1] ||
+      "";
+    return sanitiseImageUrl(ogImg.replace(/&amp;/g, "&"));
+  } catch { return ""; }
+}
+
 // ── XML parser ────────────────────────────────────────────────────────────────
 function parseXML(xml, source, dot) {
   const items = [];
   const entries = [...xml.matchAll(/<(?:item|entry)[^>]*>([\s\S]*?)<\/(?:item|entry)>/gi)];
   for (const entry of entries.slice(0, 15)) {
     const block = entry[1];
-    const get = (tag) => {
-      const m = block.match(new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, "i"));
-      return m ? m[1].replace(/<[^>]+>/g, "").trim() : "";
-    };
-    const link = block.match(/<link[^>]*href="([^"]+)"/i)?.[1] ||
-                 block.match(/<link[^>]*>([^<]+)<\/link>/i)?.[1] || "";
-    const title = get("title");
-    const description = get("description") || get("summary") || get("content");
-    const pubDate = get("pubDate") || get("published") || get("updated");
+    const title = decode(pickTag(block, "title"));
+    const link = decode(pickTag(block, "link")) || pickAttr(block, "link", "href");
+    const description = decode(pickTag(block, "description") || pickTag(block, "summary") || pickTag(block, "content"));
+    const pubDate = decode(pickTag(block, "pubDate") || pickTag(block, "published") || pickTag(block, "updated"));
     if (!title || title.length < 10) continue;
     items.push({
       title: title.slice(0, 200),
@@ -46,7 +111,7 @@ function parseXML(xml, source, dot) {
       source,
       dot,
       published: pubDate ? new Date(pubDate).getTime() : Date.now(),
-      image: null,
+      image: sanitiseImageUrl(findImage(block)),
     });
   }
   return items;
@@ -75,16 +140,17 @@ async function fetchFeed(feed) {
   }
 }
 
-// ── Gemini: select top 8 stories and generate 4-bullet summaries ──────────────
-async function geminiSelectAndSummarise(items, apiKey) {
+// ── Gemini: select best 2 stories from one outlet's pool ─────────────────────
+async function geminiSelectOutlet(items, source, apiKey) {
   if (!items.length) return [];
 
-  const list = items
-    .slice(0, 40)
-    .map((it, i) => `[${i}] SOURCE: ${it.source}\nTITLE: ${it.title}\nEXCERPT: ${it.description.slice(0, 200)}`)
+  // Take up to 8 most recent from this outlet for Gemini to pick from
+  const pool = items.slice(0, 8);
+  const list = pool
+    .map((it, i) => `[${i}] TITLE: ${it.title}\nEXCERPT: ${it.description.slice(0, 200)}`)
     .join("\n\n");
 
-  const prompt = `You are the editor of QuantumRx, a serious tech intelligence publication. From the stories below, select the 8 most significant for a technically literate audience. Prioritise genuine news impact, policy implications, infrastructure shifts, and major company moves. Avoid opinion pieces, listicles, and consumer how-to content.
+  const prompt = `You are the editor of QuantumRx. From these ${source} stories, select the 2 most significant for a technically literate audience. Prioritise genuine news impact, policy implications, infrastructure shifts, and major company moves. Avoid opinion pieces, listicles, consumer how-to content, promo codes, discount offers, coupon articles, affiliate marketing content, and anything that is not genuine tech news.
 
 For each selected story return exactly 4 bullet points covering:
 1. What happened (the concrete fact)
@@ -108,25 +174,25 @@ ${list}`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 3000,
+          maxOutputTokens: 1500,
           thinkingConfig: { thinkingBudget: 0 },
         },
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(20000),
     });
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
     const picks = JSON.parse(extractJSON(text));
 
     return picks
-      .filter((p) => items[p.index] && Array.isArray(p.bullets) && p.bullets.length)
+      .filter((p) => pool[p.index] && Array.isArray(p.bullets) && p.bullets.length)
       .map((p) => ({
-        ...items[p.index],
+        ...pool[p.index],
         bullets: p.bullets.slice(0, 4),
       }))
-      .slice(0, 8);
+      .slice(0, 2);
   } catch {
-    return items.slice(0, 8).map((it) => ({
+    return pool.slice(0, 2).map((it) => ({
       ...it,
       bullets: [it.description.slice(0, 120) || it.title],
     }));
@@ -165,8 +231,35 @@ export default async function handler(req, res) {
   // 3. Sort by recency
   const sorted = [...dedupedItems].sort((a, b) => b.published - a.published);
 
-  // 4. Gemini select + summarise
-  const stories = await geminiSelectAndSummarise(sorted, apiKey);
+  // 3b. Enrich missing images via OG fetch
+  // Also re-fetch for known hotlink-blocking domains (Guardian, Reuters etc)
+  const hotlinkBlocked = ['theguardian.com', 'reuters.com', 'bbc.co.uk', 'bbc.com'];
+  const needsImg = sorted.filter((it) => {
+    if (!it.image) return true;
+    try { return hotlinkBlocked.some((d) => new URL(it.image).hostname.includes(d)); } catch { return false; }
+  }).slice(0, 25);
+  if (needsImg.length) {
+    const imgResults = await Promise.allSettled(needsImg.map((it) => fetchOgImage(it.url)));
+    imgResults.forEach((r, i) => {
+      if (r.status === "fulfilled" && r.value) needsImg[i].image = r.value;
+    });
+  }
+
+  // 4. Per-outlet Gemini selection — 2 best stories per outlet
+  // Group items by source first
+  const bySource = {};
+  FEEDS.forEach(function(feed) { bySource[feed.source] = []; });
+  sorted.forEach(function(it) {
+    if (bySource[it.source]) bySource[it.source].push(it);
+  });
+
+  // Run all 8 outlets in parallel
+  const outletResults = await Promise.all(
+    FEEDS.map((feed) => geminiSelectOutlet(bySource[feed.source] || [], feed.source, apiKey))
+  );
+
+  // Flatten — 2 stories per outlet = 16 total, ordered by outlet then recency
+  const stories = outletResults.flat();
 
   // 5. Write to KV
   await kv.set("qrx_mainstream", {
@@ -183,6 +276,7 @@ export default async function handler(req, res) {
       fetched: allItems.length,
       deduped: dedupedItems.length,
       selected: stories.length,
+      perOutlet: 2,
     },
   });
 }
