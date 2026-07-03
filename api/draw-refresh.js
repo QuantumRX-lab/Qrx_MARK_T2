@@ -24,6 +24,12 @@ const MAIN_FEEDS = [
   { url: "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf",source: "AllAfrica",              dot: "#2e7d32" },
   { url: "https://feeds.npr.org/1001/rss.xml",                             source: "NPR News",               dot: "#005288" },
   { url: "https://api.axios.com/feed/",                                    source: "Axios",                  dot: "#ff6d00" },
+  { url: "http://rss.cnn.com/rss/edition.rss",                            source: "CNN",                    dot: "#cc0000" },
+  { url: "https://feeds.nbcnews.com/nbcnews/public/news",                 source: "NBC News",               dot: "#0b3a8e" },
+  { url: "https://www.dailymail.co.uk/articles.rss",                      source: "Daily Mail",             dot: "#004db3" },
+  { url: "https://abcnews.go.com/abcnews/topstories",                     source: "ABC News",               dot: "#004db3" },
+  { url: "https://www.cbsnews.com/latest/rss/main",                       source: "CBS News",               dot: "#304ffe" },
+  { url: "https://moxie.foxnews.com/google-publisher/latest.xml",         source: "Fox News",               dot: "#003366" },
 ];
 
 const FINANCE_FEEDS = [
