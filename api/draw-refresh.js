@@ -22,6 +22,8 @@ const MAIN_FEEDS = [
   { url: "https://timesofindia.indiatimes.com/rssfeeds/296589292.cms",    source: "Times of India",         dot: "#e57c00" },
   { url: "https://www.france24.com/en/rss",                               source: "France 24",              dot: "#003f87" },
   { url: "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf",source: "AllAfrica",              dot: "#2e7d32" },
+  { url: "https://feeds.npr.org/1001/rss.xml",                             source: "NPR News",               dot: "#005288" },
+  { url: "https://api.axios.com/feed/",                                    source: "Axios",                  dot: "#ff6d00" },
 ];
 
 const FINANCE_FEEDS = [
@@ -35,6 +37,8 @@ const FINANCE_FEEDS = [
   { url: "https://seekingalpha.com/market_currents.xml",                  source: "Seeking Alpha",          dot: "#1a8754" },
   { url: "https://www.investopedia.com/feedbuilder/feed/getfeed/?feedName=investopedia-term-of-the-day", source: "Investopedia", dot: "#00529b" },
   { url: "https://feeds.bloomberg.com/markets/news.rss",                  source: "Bloomberg",              dot: "#1a1a1a" },
+  { url: "https://www.businessinsider.com/rss",                           source: "Business Insider",        dot: "#1a1a1a" },
+  { url: "https://fortune.com/feed/",                                     source: "Fortune",                 dot: "#d4a017" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
