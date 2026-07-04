@@ -1,14 +1,21 @@
 // api/weekly-feed.js
+// v2 CHANGE: dropped the auto-block on Origin mismatch for this endpoint.
+// This is a public, read-only GET serving already-public briefing data —
+// no cost per call, nothing confidential to protect. A 30-day auto-block
+// on Origin mismatch is too severe a penalty for what is often just a
+// legitimate non-browser client (API testing tools, direct URL access,
+// local dev) rather than actual abuse. CORS header behavior is unchanged;
+// only the writeBlock-on-mismatch behavior is removed. Origin mismatches
+// are still logged (visible via logRequest) for visibility without a
+// punitive lockout. isBlocked() is kept — genuine flagged IPs (from other
+// endpoints, or manually) are still refused here.
 import { kv } from "@vercel/kv";
 import { logRequest } from "./_lib/sentinel.js";
-
 const ALLOWED_ORIGINS = ["https://quantumrx.eu", "https://www.quantumrx.eu"];
-
 function getIP(req) {
   return (req.headers["x-forwarded-for"] || "").split(",")[0].trim()
     || req.socket?.remoteAddress || "unknown";
 }
-
 async function isBlocked(ip) {
   const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
   const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -25,65 +32,31 @@ async function isBlocked(ip) {
     return parsed.action === "block";
   } catch { return false; }
 }
-
-async function writeBlock(ip, endpoint) {
-  const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!kvUrl || !kvToken) return;
-  const ttl = 60 * 60 * 24 * 30;
-  const now = new Date().toISOString();
-  try {
-    // Write auto-block
-    const blockVal = JSON.stringify({ action: "block", autoBlocked: true, blockedAt: now, reason: endpoint });
-    await fetch(`${kvUrl}/set/threat_action:${encodeURIComponent(ip)}?EX=${ttl}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${kvToken}` },
-      body: blockVal,
-    });
-    // Write Sentinel flag so monitor.js fires terminal alert
-    const flagVal = JSON.stringify({ ip, severity: "HIGH", pattern: "bad_origin", detail: endpoint, detectedAt: now });
-    await fetch(`${kvUrl}/set/threat:flag:${encodeURIComponent(ip)}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${kvToken}` },
-      body: flagVal,
-    });
-    console.log(`[SENTINEL] AUTO-BLOCK + FLAG — ${ip} — ${endpoint}`);
-  } catch (err) {
-    console.error(`[SENTINEL] writeBlock failed — ${ip} —`, err.message);
-  }
-}
-
 export default async function handler(req, res) {
   const ip = getIP(req);
   await logRequest(req, "weekly-feed");
-
   if (await isBlocked(ip)) {
     return res.status(403).json({ error: "Access monitored" });
   }
-
   const origin = req.headers.origin || "";
-
   if (origin && !ALLOWED_ORIGINS.includes(origin)) {
-    await writeBlock(ip, "weekly-feed:bad-origin");
-    return res.status(403).json({ error: "Forbidden" });
-  }
-
-  if (origin) {
+    // Mismatch noted via logRequest above — no block, no 403. This is a
+    // public read endpoint; an unexpected Origin isn't treated as a threat
+    // here. Fall through and serve the request normally, just without
+    // setting CORS headers for that origin below.
+  } else if (origin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
   }
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   if (req.method === "OPTIONS") return res.status(200).end();
   res.setHeader("Cache-Control", "no-cache");
-
   try {
     const stories = await kv.get("weekly_briefing_current");
     const meta = await kv.get("weekly_briefing_updated").catch(() => null);
-
     if (!stories || !stories.length) {
       return res.status(200).json({ current: null, previous: null });
     }
-
     // Wrap into the shape the This Week page expects:
     // data.current = { stories, weekLabel, updatedAt, storyCount }
     const current = {
@@ -92,12 +65,10 @@ export default async function handler(req, res) {
       updatedAt: meta?.updatedAt || null,
       storyCount: stories.length,
     };
-
     // Previous edition
     const prevMeta = meta?.weekLabel
       ? await kv.get(`weekly_briefing_archive_${meta.weekLabel}`).catch(() => null)
       : null;
-
     return res.status(200).json({ current, previous: prevMeta || null });
   } catch {
     return res.status(500).json({ error: "Weekly feed temporarily unavailable" });
