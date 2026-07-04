@@ -9,7 +9,11 @@ async function getIpThreatAction(ip) {
   if (!KV_URL || !KV_TOKEN) return null;
   try {
     const res = await fetch(
-      `${KV_URL}/get/threat_action:${encodeURIComponent(ip)}`,
+      // NOTE: threat_action keys are written with a RAW ip (see writeAutoBlock
+      // in request-logger.js) — do NOT encodeURIComponent here, it silently
+      // breaks lookups for IPv6 addresses (colons get percent-encoded on read
+      // but not on write, so the keys never match and blocks never enforce).
+      `${KV_URL}/get/threat_action:${ip}`,
       {
         headers: { Authorization: `Bearer ${KV_TOKEN}` },
         signal: AbortSignal.timeout(800),

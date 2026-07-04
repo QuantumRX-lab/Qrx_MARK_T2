@@ -151,7 +151,9 @@ async function getSentinelAction(ip) {
   if (!kvUrl || !kvToken) return null;
   try {
     const res = await fetch(
-      `${kvUrl}/get/threat_action:${encodeURIComponent(ip)}`,
+      // Raw ip — must match writeAutoBlock() in request-logger.js. Encoding
+      // here breaks the key match for IPv6 addresses.
+      `${kvUrl}/get/threat_action:${ip}`,
       { headers: { Authorization: `Bearer ${kvToken}` }, signal: AbortSignal.timeout(800) }
     );
     if (!res.ok) return null;
@@ -193,10 +195,11 @@ export default async function handler(req, res) {
   if (sentinelAction === 'block') {
     return res.status(403).json({ error: 'Access temporarily restricted from this connection.' });
   }
-  if (sentinelAction === 'honeypot') {
-    // Let it through but it will hit the normal free-code limit logic below,
-    // wasting the attacker's time without revealing detection
-  }
+  // No 'honeypot' branch here: middleware.js already intercepts every
+  // /api/* request at the edge and answers honeypot-flagged IPs directly
+  // with its own canned response (see honeypotResponse() in middleware.js) —
+  // this handler is never invoked for those requests, so any per-endpoint
+  // honeypot handling here would be unreachable.
 
   const { theme, mood, palette, gender, licenceKey } = req.body || {};
 

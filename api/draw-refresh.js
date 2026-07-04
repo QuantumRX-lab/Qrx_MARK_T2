@@ -54,7 +54,10 @@ function isSafeUrl(url) {
     if (!["https:", "http:"].includes(u.protocol)) return false;
     const h = u.hostname;
     if (["localhost", "0.0.0.0"].includes(h)) return false;
-    if (h.startsWith("127.") || h.startsWith("192.168.") || h === "169.254.169.254") return false;
+    if (h.startsWith("127.") || h.startsWith("10.") || h.startsWith("192.168.")) return false;
+    if (h.startsWith("172.") && parseInt(h.split(".")[1]) >= 16 && parseInt(h.split(".")[1]) <= 31) return false;
+    if (h === "169.254.169.254") return false;
+    if (h.endsWith(".internal") || h.endsWith(".local")) return false;
     return true;
   } catch { return false; }
 }

@@ -30,6 +30,7 @@ function isSafeUrl(url) {
     const host = u.hostname;
     if (host === "localhost" || host === "0.0.0.0") return false;
     if (host.startsWith("127.") || host.startsWith("10.") || host.startsWith("192.168.")) return false;
+    if (host.startsWith("172.") && parseInt(host.split(".")[1]) >= 16 && parseInt(host.split(".")[1]) <= 31) return false;
     if (host === "169.254.169.254") return false;
     if (host.endsWith(".internal") || host.endsWith(".local")) return false;
     return true;

@@ -6,9 +6,33 @@
 
 import { kv } from "@vercel/kv";
 
+const KV_URL = process.env.UPSTASH_REDIS_REST_URL;
+const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+
 function clientIp(req) {
   const fwd = req.headers["x-forwarded-for"];
   return (Array.isArray(fwd) ? fwd[0] : fwd || "").split(",")[0].trim() || "unknown";
+}
+
+// Checks the shared threat_action:<ip> record written by writeAutoBlock() in
+// request-logger.js. Raw ip — do NOT encodeURIComponent, it breaks the key
+// match for IPv6 addresses (see the same note across every other reader).
+export async function getSentinelAction(req) {
+  if (!KV_URL || !KV_TOKEN) return null;
+  const ip = clientIp(req);
+  try {
+    const res = await fetch(`${KV_URL}/get/threat_action:${ip}`, {
+      headers: { Authorization: `Bearer ${KV_TOKEN}` },
+      signal: AbortSignal.timeout(800),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.result) return null;
+    const parsed = JSON.parse(data.result);
+    return parsed.action || null;
+  } catch {
+    return null;
+  }
 }
 
 // Standard request log. Fires on every protected-endpoint hit.

@@ -4,7 +4,7 @@
 // Returns a WAV audio file from the story card text
 // Voice: Kore (clear, authoritative, suits news delivery)
 
-import { logRequest, blockThreat } from './_lib/sentinel.js';
+import { logRequest, getSentinelAction } from './_lib/sentinel.js';
 
 const GEMINI_TTS_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent';
 
@@ -59,7 +59,7 @@ export default async function handler(req, res) {
 
   await logRequest(req, 'tts');
 
-  const action = await import('./_lib/sentinel.js').then(m => m.getSentinelAction?.(req) ?? null).catch(() => null);
+  const action = await getSentinelAction(req);
   if (action === 'block') {
     return res.status(403).json({ error: 'Access monitored' });
   }

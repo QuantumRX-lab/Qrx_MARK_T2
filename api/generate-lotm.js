@@ -206,7 +206,9 @@ async function getSentinelAction(ip) {
   if (!kvUrl || !kvToken) return null;
   try {
     const res = await fetch(
-      `${kvUrl}/get/threat_action:${encodeURIComponent(ip)}`,
+      // Raw ip — must match writeAutoBlock() in request-logger.js. Encoding
+      // here breaks the key match for IPv6 addresses.
+      `${kvUrl}/get/threat_action:${ip}`,
       { headers: { Authorization: `Bearer ${kvToken}` }, signal: AbortSignal.timeout(800) }
     );
     if (!res.ok) return null;
