@@ -1,10 +1,13 @@
 // /api/news-refresh.js
-// QuantumRx Signals — daily refresh engine v5
+// QuantumRx Signals — daily refresh engine v6
 // Tabs: What's Hot, AI Moves, Crypto, Policy, Energy, Space, Robotics, Semis, Quantum, Social, Search
 // Watch: 4 videos, one per vertical group, diversified
+// v6 CHANGES: removed blockThreat import (does not exist in sentinel.js — was causing
+// a module load failure, same bug as the earlier live incident). Added hot_take field
+// to editorial card generation.
 
 import { kv } from "@vercel/kv";
-import { logRequest, blockThreat } from "./_lib/sentinel.js";
+import { logRequest } from "./_lib/sentinel.js";
 
 // ---------------------------------------------------------------------------
 // SOURCE LISTS
@@ -494,10 +497,9 @@ function diversifyBySource(selected, pool, maxPerSource = 1) {
   return result;
 }
 
-// Second Gemini pass: generate three-part editorial card per story.
-// Runs on the already-selected stories from geminiSelect.
-// Adds what_is_it, why_it_matters, what_to_watch fields to each story object.
-// Cost: ~$0.15/month at Gemini 2.5 Flash pricing across all verticals.
+// Second Gemini pass: generate editorial card per story (what_is_it, why_it_matters,
+// what_to_watch, hot_take). Runs on the already-selected stories from geminiSelect.
+// Cost: ~$0.15-0.20/month at Gemini 2.5 Flash pricing across all verticals.
 async function geminiEditorialCards(stories, apiKey) {
   if (!stories.length) return stories;
 
@@ -505,15 +507,16 @@ async function geminiEditorialCards(stories, apiKey) {
     .map((s, i) => `[${i}] TITLE: ${s.title}\nSUMMARY: ${s.summary || s.description || ''}`)
     .join('\n\n');
 
-  const prompt = `You are the editor of QuantumRx Signals. For each story below, write a three-part editorial card in the voice of a sharp technical analyst. No hype, no filler. Direct and concrete.
+  const prompt = `You are the editor of QuantumRx Signals. For each story below, write an editorial card in the voice of a sharp technical analyst. No hype, no filler. Direct and concrete.
 
 For each story return:
 - what_is_it: One sentence. What happened or what is this. State the fact.
 - why_it_matters: One to two sentences. Why this is significant for engineers, founders, or operators in this space.
 - what_to_watch: One sentence. The specific thing to watch next. Make it a concrete, checkable signal.
+- hot_take: One sentence of genuine editorial opinion on this story. This is QuantumRx's own take, not a summary of the news. Let the tone fit the story itself — skeptical of hype, bullish on something underrated, dismissive of a non-event, or a sharp prediction. Vary the angle story to story rather than repeating the same posture. Never hedge with phrases like "some say", "it remains to be seen", or "only time will tell".
 
 Return ONLY a JSON array, no markdown, no preamble:
-[{"index": <number>, "what_is_it": "...", "why_it_matters": "...", "what_to_watch": "..."}]
+[{"index": <number>, "what_is_it": "...", "why_it_matters": "...", "what_to_watch": "...", "hot_take": "..."}]
 
 STORIES:
 ${list}`;
@@ -525,8 +528,8 @@ ${list}`;
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 2000,
+          temperature: 0.5,
+          maxOutputTokens: 2400,
           thinkingConfig: { thinkingBudget: 0 },
         },
       }),
@@ -544,6 +547,7 @@ ${list}`;
         what_is_it: card.what_is_it || '',
         why_it_matters: card.why_it_matters || '',
         what_to_watch: card.what_to_watch || '',
+        hot_take: card.hot_take || '',
       };
     });
   } catch {
@@ -645,7 +649,6 @@ export default async function handler(req, res) {
   await logRequest(req, "news-refresh");
 
   if (!expected || provided !== expected) {
-    await blockThreat(req, "news-refresh", "missing-or-invalid-cron-secret");
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -732,7 +735,7 @@ export default async function handler(req, res) {
   // 6. Clean summaries
   [hotD, aimovesD, cryptoD, policyD, energyD, spaceD, roboticsD, semisD, quantumD, socialD].forEach(cleanSummaries);
 
-  // 6b. Editorial card pass — adds what_is_it, why_it_matters, what_to_watch to each story
+  // 6b. Editorial card pass — adds what_is_it, why_it_matters, what_to_watch, hot_take to each story
   // Run in batches to avoid hitting rate limits
   const [hotC, aimovesC] = await Promise.all([
     geminiEditorialCards(hotD, apiKey),
