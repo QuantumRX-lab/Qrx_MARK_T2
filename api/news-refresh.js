@@ -2,12 +2,12 @@
 // QuantumRx Signals — daily refresh engine v6
 // Tabs: What's Hot, AI Moves, Crypto, Policy, Energy, Space, Robotics, Semis, Quantum, Social, Search
 // Watch: 4 videos, one per vertical group, diversified
-// v6 CHANGES: removed blockThreat import (does not exist in sentinel.js — was causing
-// a module load failure, same bug as the earlier live incident). Added hot_take field
-// to editorial card generation.
+// v6 CHANGES: added hot_take field to editorial card generation. (Earlier v6 draft
+// incorrectly removed the blockThreat import based on a different sentinel module —
+// this _lib/sentinel.js correctly exports blockThreat, reverted, no change needed here.)
 
 import { kv } from "@vercel/kv";
-import { logRequest } from "./_lib/sentinel.js";
+import { logRequest, blockThreat } from "./_lib/sentinel.js";
 
 // ---------------------------------------------------------------------------
 // SOURCE LISTS
@@ -649,6 +649,7 @@ export default async function handler(req, res) {
   await logRequest(req, "news-refresh");
 
   if (!expected || provided !== expected) {
+    await blockThreat(req, "news-refresh", "missing-or-invalid-cron-secret");
     return res.status(401).json({ error: "Unauthorized" });
   }
 
