@@ -1,13 +1,20 @@
+// api/news-feed.js
+// v2 CHANGE: dropped the auto-block on Origin mismatch. This is a public,
+// read-only GET serving already-public Signals data, and it's the endpoint
+// the chat widget itself calls on every vertical tap — meaning real visitor
+// browsers hit this constantly with whatever Origin their session happens
+// to carry. A 30-day auto-block on mismatch (shared via threat_action:<ip>
+// with chat.js and weekly-feed.js) is too severe here: one edge-case Origin
+// locks a real visitor out of the chat widget too, not just this endpoint.
+// isBlocked() is kept — genuinely flagged IPs are still refused. Origin
+// mismatches are logged via logRequest for visibility, not auto-blocked.
 import { kv } from "@vercel/kv";
 import { logRequest } from "./_lib/sentinel.js";
-
 const ALLOWED_ORIGINS = ["https://quantumrx.eu", "https://www.quantumrx.eu"];
-
 function getIP(req) {
   return (req.headers["x-forwarded-for"] || "").split(",")[0].trim()
     || req.socket?.remoteAddress || "unknown";
 }
-
 async function isBlocked(ip) {
   const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
   const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -24,34 +31,6 @@ async function isBlocked(ip) {
     return parsed.action === "block";
   } catch { return false; }
 }
-
-async function writeBlock(ip, endpoint) {
-  const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!kvUrl || !kvToken) return;
-  const ttl = 60 * 60 * 24 * 30;
-  const now = new Date().toISOString();
-  try {
-    // Write auto-block
-    const blockVal = JSON.stringify({ action: "block", autoBlocked: true, blockedAt: now, reason: endpoint });
-    await fetch(`${kvUrl}/set/threat_action:${encodeURIComponent(ip)}?EX=${ttl}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${kvToken}` },
-      body: blockVal,
-    });
-    // Write Sentinel flag so monitor.js fires terminal alert
-    const flagVal = JSON.stringify({ ip, severity: "HIGH", pattern: "bad_origin", detail: endpoint, detectedAt: now });
-    await fetch(`${kvUrl}/set/threat:flag:${encodeURIComponent(ip)}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${kvToken}` },
-      body: flagVal,
-    });
-    console.log(`[SENTINEL] AUTO-BLOCK + FLAG — ${ip} — ${endpoint}`);
-  } catch (err) {
-    console.error(`[SENTINEL] writeBlock failed — ${ip} —`, err.message);
-  }
-}
-
 const KEYS = {
   hot:      "qrx_feed_hot",
   aimoves:  "qrx_feed_aimoves",
@@ -65,36 +44,27 @@ const KEYS = {
   social:   "qrx_feed_social",
   video:    "qrx_feed_video",
 };
-
 export default async function handler(req, res) {
   const ip = getIP(req);
   await logRequest(req, "news-feed");
-
   // Block already-blocked IPs
   if (await isBlocked(ip)) {
     return res.status(403).json({ error: "Access monitored" });
   }
-
   const origin = req.headers.origin || "";
-
-  // Block requests from unknown origins, allow no-origin (server calls, cron)
-  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
-    await writeBlock(ip, "news-feed:bad-origin");
-    return res.status(403).json({ error: "Forbidden" });
-  }
-
-  if (origin) {
+  // Origin mismatch is logged above via logRequest, not blocked — this is
+  // public read data, no cost per call, and the widget itself is the main
+  // caller of this endpoint. Only set CORS headers for a known-good origin.
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
   }
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   if (req.method === "OPTIONS") return res.status(200).end();
   res.setHeader("Cache-Control", "no-cache");
-
   const tab = (req.query.tab || req.query.category || "hot").toLowerCase();
   const key = KEYS[tab];
   if (!key) return res.status(400).json({ error: "Unknown category" });
-
   try {
     const data = await kv.get(key);
     if (!data) return res.status(200).json({ updated: null, items: [], empty: true });
