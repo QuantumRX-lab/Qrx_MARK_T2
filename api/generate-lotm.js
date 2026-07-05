@@ -30,7 +30,7 @@
 
 import { put } from '@vercel/blob';
 import { kv } from '@vercel/kv';
-import { logRequest } from './request-logger.js';
+import { logRequest, logKeyFailure } from './request-logger.js';
 
 const CHARACTERS = {
   FROG: {
@@ -292,6 +292,11 @@ export default async function handler(req, res) {
       });
       const lsData = await lsRes.json();
       if (!lsRes.ok || !lsData.activated) {
+        // Feeds the same repeated_key_failure signal validate-key-lotm.js
+        // already feeds, so brute-forcing licence keys directly against this
+        // endpoint (skipping /api/validate-key-lotm) still accumulates
+        // toward detection.
+        await logKeyFailure(ip);
         return res.status(403).json({ error: lsData.error || 'Licence key already used or invalid' });
       }
     }

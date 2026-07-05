@@ -45,6 +45,18 @@ function sanitiseImageUrl(url) {
   } catch { return ""; }
 }
 
+// Story links are rendered as <a href> downstream with only HTML-entity
+// escaping, not scheme validation — reject anything that isn't plain
+// http(s) so a feed can't smuggle a javascript: link through to a click.
+function sanitiseLink(url) {
+  if (!url) return "";
+  const trimmed = url.trim();
+  try {
+    const u = new URL(trimmed);
+    return u.protocol === "https:" || u.protocol === "http:" ? trimmed : "";
+  } catch { return ""; }
+}
+
 function decode(s = "") {
   return s
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
@@ -101,14 +113,14 @@ function parseXML(xml, source, dot) {
   for (const entry of entries.slice(0, 15)) {
     const block = entry[1];
     const title = decode(pickTag(block, "title"));
-    const link = decode(pickTag(block, "link")) || pickAttr(block, "link", "href");
+    const link = sanitiseLink(decode(pickTag(block, "link")) || pickAttr(block, "link", "href"));
     const description = decode(pickTag(block, "description") || pickTag(block, "summary") || pickTag(block, "content"));
     const pubDate = decode(pickTag(block, "pubDate") || pickTag(block, "published") || pickTag(block, "updated"));
-    if (!title || title.length < 10) continue;
+    if (!title || title.length < 10 || !link) continue;
     items.push({
       title: title.slice(0, 200),
       description: description.slice(0, 400),
-      url: link.trim(),
+      url: link,
       source,
       dot,
       published: pubDate ? new Date(pubDate).getTime() : Date.now(),

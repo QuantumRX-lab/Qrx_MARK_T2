@@ -229,6 +229,20 @@ function sanitiseImageUrl(url) {
   } catch { return ""; }
 }
 
+// Story links are rendered as <a href> in every downstream embed (Ghost
+// Signals page etc.) with only HTML-entity escaping, not scheme validation —
+// a feed returning a javascript: link would otherwise pass through untouched
+// and execute in the visitor's session on click. Reject anything that isn't
+// plain http(s), same as the image sanitiser above.
+function sanitiseLink(url) {
+  if (!url) return "";
+  const trimmed = url.trim();
+  try {
+    const u = new URL(trimmed);
+    return u.protocol === "https:" || u.protocol === "http:" ? trimmed : "";
+  } catch { return ""; }
+}
+
 function stripHtml(text) {
   return (text || "").replace(/<[^>]+>/g, "").replace(/&[a-z]+;/gi, " ").trim();
 }
@@ -273,7 +287,7 @@ function parseFeed(xml, sourceName) {
   const blocks = xml.match(/<item[\s\S]*?<\/item>/gi) || xml.match(/<entry[\s\S]*?<\/entry>/gi) || [];
   for (const b of blocks) {
     const title = decode(pick(b, "title"));
-    let link = decode(pick(b, "link")) || pickAttr(b, "link", "href");
+    let link = sanitiseLink(decode(pick(b, "link")) || pickAttr(b, "link", "href"));
     const desc = decode(pick(b, "description") || pick(b, "summary") || pick(b, "content"));
     const pub = decode(pick(b, "pubDate") || pick(b, "published") || pick(b, "updated"));
     if (!title || !link) continue;

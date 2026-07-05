@@ -114,6 +114,18 @@ function extractJSON(text) {
   return null;
 }
 
+// Article links end up rendered as <a href> downstream with only
+// HTML-entity escaping, not scheme validation — reject anything that
+// isn't plain http(s) so a feed can't smuggle a javascript: link through.
+function sanitiseLink(url) {
+  if (!url) return "";
+  const trimmed = String(url).trim();
+  try {
+    const u = new URL(trimmed);
+    return u.protocol === "https:" || u.protocol === "http:" ? trimmed : "";
+  } catch { return ""; }
+}
+
 async function callGemini(prompt, apiKey) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
@@ -157,8 +169,8 @@ async function fetchRSS(source, tier) {
       const block = match[1];
       const title = (block.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) ||
                      block.match(/<title>(.*?)<\/title>/))?.[1]?.trim();
-      const link = (block.match(/<link>(.*?)<\/link>/) ||
-                    block.match(/<guid>(.*?)<\/guid>/))?.[1]?.trim();
+      const link = sanitiseLink((block.match(/<link>(.*?)<\/link>/) ||
+                    block.match(/<guid>(.*?)<\/guid>/))?.[1]?.trim());
       const desc = (block.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/) ||
                     block.match(/<description>(.*?)<\/description>/))?.[1]
                     ?.replace(/<[^>]+>/g, '')?.slice(0, 400)?.trim();
@@ -197,10 +209,11 @@ async function fetchHackerNews() {
           { signal: AbortSignal.timeout(3000) });
         if (!itemRes.ok) continue;
         const item = await itemRes.json();
-        if (item?.url && item?.title) {
+        const hnLink = sanitiseLink(item?.url);
+        if (hnLink && item?.title) {
           items.push({
             title: item.title,
-            link: item.url,
+            link: hnLink,
             description: `${item.score || 0} points, ${item.descendants || 0} comments on Hacker News`,
             source: 'Hacker News',
             source_tier: 1,
@@ -238,7 +251,7 @@ async function fetchArxiv() {
       const entry = match[1];
       const title = entry.match(/<title>([\s\S]*?)<\/title>/)?.[1]
         ?.replace(/<[^>]+>/g, '')?.trim();
-      const link = entry.match(/<id>(.*?)<\/id>/)?.[1]?.trim();
+      const link = sanitiseLink(entry.match(/<id>(.*?)<\/id>/)?.[1]?.trim());
       const summary = entry.match(/<summary>([\s\S]*?)<\/summary>/)?.[1]
         ?.replace(/<[^>]+>/g, '')?.slice(0, 400)?.trim();
       if (title && link) {

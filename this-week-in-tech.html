@@ -254,7 +254,7 @@ function toggleArchive() {
 
 async function loadBriefing() {
   try {
-    const res = await fetch('/api/weekly-feed');
+    const res = await fetch('https://forge.quantumrx.eu/api/weekly-feed');
     const data = await res.json();
 
     if (!data.current || !data.current.stories || data.current.stories.length === 0) {

@@ -111,14 +111,17 @@ function parseXML(xml, feed) {
   for (const entry of entries.slice(0, 12)) {
     const block = entry[1];
     const title = decode(pickTag(block, "title"));
-    const link = decode(pickTag(block, "link")) || pickAttr(block, "link", "href");
+    // Rendered as <a href> downstream with only HTML-entity escaping, not
+    // scheme validation — sanitiseUrl() rejects anything but plain http(s)
+    // so a feed can't smuggle a javascript: link through to a click.
+    const link = sanitiseUrl(decode(pickTag(block, "link")) || pickAttr(block, "link", "href"));
     const description = decode(pickTag(block, "description") || pickTag(block, "summary") || pickTag(block, "content"));
     const pubDate = decode(pickTag(block, "pubDate") || pickTag(block, "published") || pickTag(block, "updated"));
-    if (!title || title.length < 8) continue;
+    if (!title || title.length < 8 || !link) continue;
     items.push({
       title: title.slice(0, 200),
       description: description.slice(0, 400),
-      url: link.trim(),
+      url: link,
       source: feed.source,
       dot: feed.dot,
       published: pubDate ? new Date(pubDate).getTime() : Date.now(),

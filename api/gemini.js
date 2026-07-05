@@ -1,5 +1,6 @@
 // Q-Sentinel threat enforcement
 import { logRequest } from './request-logger.js';
+import { kv } from '@vercel/kv';
 
 async function getSentinelAction(ip) {
   const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
@@ -29,7 +30,20 @@ function warningPage(ip) {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Access Monitored</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0a0c;color:#e0e0e0;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px}.inner{max-width:520px;text-align:center}.card{border:1px solid rgba(255,95,109,.25);background:rgba(255,95,109,.04);border-radius:14px;padding:44px 40px}h1{color:#ff5f6d;font-size:12px;letter-spacing:.22em;text-transform:uppercase;margin-bottom:20px}p{font-size:14px;line-height:1.75;color:rgba(255,255,255,.55);margin-bottom:14px}.ref{margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07);font-size:11px;color:rgba(255,255,255,.22);font-family:monospace}.footer{margin-top:20px;font-size:10px;color:rgba(255,255,255,.16)}</style></head><body><div class="inner"><div class="card"><h1>Access Monitored</h1><p>Unusual activity has been detected from your connection.</p><p>This endpoint is monitored and protected.</p><div class="ref">ref: ${safeIp} &middot; ${new Date().toISOString()}</div></div><div class="footer">QuantumRx &middot; monitored by Q-Sentinel</div></div></body></html>`;
 }
 
-const rateLimit = new Map();
+// KV-backed per-IP counter — 5 requests/IP/hour. Replaces a previous in-memory
+// Map, which reset on every cold start and didn't share state across
+// concurrent serverless instances, so it wasn't a real limit in production.
+// Fails open (returns 0) if KV is unavailable, matching chat.js's getSessionCount.
+async function checkRateLimit(ip) {
+  const key = `gemini_rate:${ip}`;
+  try {
+    const count = await kv.incr(key);
+    if (count === 1) await kv.expire(key, 60 * 60);
+    return count;
+  } catch {
+    return 0;
+  }
+}
 
 function compressPrompt(fmt, input) {
   return `You are an expert AI workflow architect. Analyse this raw AI chat history and compress it into a structured continuity kernel.
@@ -127,15 +141,9 @@ export default async function handler(req, res) {
     return res.status(200).json({ text: 'Here is your compressed kernel:\n\nIDENTITY:\n  name: Unknown\n  role: Developer\nPROJECT:\n  name: Project\n  status: active\n' });
   }
 
-  // Rate limiting — 5 requests per IP per hour (in-memory, optimisation only — resets on cold start)
-  const now = Date.now();
-  const windowMs = 60 * 60 * 1000;
-  const maxRequests = 5;
-  if (!rateLimit.has(ip)) rateLimit.set(ip, []);
-  const requests = rateLimit.get(ip).filter(t => now - t < windowMs);
-  requests.push(now);
-  rateLimit.set(ip, requests);
-  if (requests.length > maxRequests) {
+  // Rate limiting — 5 requests per IP per hour, KV-backed (see checkRateLimit above)
+  const requestCount = await checkRateLimit(ip);
+  if (requestCount > 5) {
     return res.status(429).json({ error: 'Too many requests. Please try again later.' });
   }
 
