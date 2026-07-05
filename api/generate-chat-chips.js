@@ -82,6 +82,7 @@ CRITICAL RULES:
 - Each question must reference which story index numbers ground it (1 to 3 stories per question).
 - Each question must be tagged with exactly one response format: comparative (who's winning/losing/ahead), speculative (what could go wrong / what happens if / biggest obstacle or risk), synthesis (connecting multiple stories, what's getting outsized attention), single_story (about one specific story in depth), or weekly_recap (a broad overview question).
 - Prefer variety: do not generate 8 questions all in the same format or all about the same vertical.
+- This must parse as valid JSON. Do not use straight double quotes ("") inside any question or label text — rephrase to avoid quoting a name or term, or use single quotes instead. Do not include literal newlines inside a string value.
 
 Return ONLY a JSON array, no other text, no markdown code fences, in exactly this shape:
 
@@ -103,7 +104,11 @@ async function callGemini(prompt) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 2048, temperature: 0.8 },
+        // Raised from 2048 — 8 chip objects with grounding indices left
+        // little headroom, and hitting the cap mid-string produces
+        // exactly the "Unterminated string in JSON" failure this was
+        // seen throwing.
+        generationConfig: { maxOutputTokens: 4096, temperature: 0.8 },
       }),
     }
   );
@@ -112,10 +117,34 @@ async function callGemini(prompt) {
   return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
+// If the model's output was truncated (hit the token cap mid-string) or a
+// later object got malformed (e.g. an unescaped quote inside a question),
+// JSON.parse fails on the whole array even though earlier chips in it were
+// fine. Recover by cutting back to the last complete top-level object and
+// closing the array there, rather than discarding a good batch over one bad
+// tail entry. Returns null if nothing recoverable is found.
+function tryRepairTruncatedArray(text) {
+  const lastBrace = text.lastIndexOf('}');
+  if (lastBrace === -1) return null;
+  const truncated = text.slice(0, lastBrace + 1) + ']';
+  try {
+    return JSON.parse(truncated);
+  } catch {
+    return null;
+  }
+}
+
 function parseGeneratedChips(rawText, stories) {
   // Strip markdown code fences if the model added them despite instructions
   const cleaned = rawText.replace(/```json\s*|```\s*/g, '').trim();
-  const parsed = JSON.parse(cleaned); // let this throw — caller decides what to do on failure
+
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (err) {
+    parsed = tryRepairTruncatedArray(cleaned);
+    if (!parsed) throw err; // genuinely unrecoverable — let the caller's catch handle it
+  }
 
   if (!Array.isArray(parsed) || !parsed.length) {
     throw new Error('Generated chips were not a valid non-empty array');
