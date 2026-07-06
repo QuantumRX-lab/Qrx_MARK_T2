@@ -114,6 +114,20 @@ function extractJSON(text) {
   return null;
 }
 
+// RSS/Atom titles and descriptions frequently carry HTML entities
+// (apostrophes, ampersands, quotes) that this file previously left
+// undecoded — the raw entity text (e.g. literal "&apos;") would then get
+// re-escaped on render downstream and show up as visible garbage instead
+// of the punctuation it represents.
+function decodeEntities(s = "") {
+  return String(s)
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#x27;/g, "'").replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
 // Article links end up rendered as <a href> downstream with only
 // HTML-entity escaping, not scheme validation — reject anything that
 // isn't plain http(s) so a feed can't smuggle a javascript: link through.
@@ -167,13 +181,13 @@ async function fetchRSS(source, tier) {
     let match;
     while ((match = itemRegex.exec(text)) !== null && items.length < 8) {
       const block = match[1];
-      const title = (block.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) ||
-                     block.match(/<title>(.*?)<\/title>/))?.[1]?.trim();
+      const title = decodeEntities((block.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) ||
+                     block.match(/<title>(.*?)<\/title>/))?.[1]?.trim());
       const link = sanitiseLink((block.match(/<link>(.*?)<\/link>/) ||
                     block.match(/<guid>(.*?)<\/guid>/))?.[1]?.trim());
-      const desc = (block.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/) ||
+      const desc = decodeEntities((block.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/) ||
                     block.match(/<description>(.*?)<\/description>/))?.[1]
-                    ?.replace(/<[^>]+>/g, '')?.slice(0, 400)?.trim();
+                    ?.replace(/<[^>]+>/g, '')?.slice(0, 400)?.trim());
       if (title && link) {
         items.push({
           title,
@@ -249,11 +263,11 @@ async function fetchArxiv() {
     let match;
     while ((match = entryRegex.exec(text)) !== null && items.length < 10) {
       const entry = match[1];
-      const title = entry.match(/<title>([\s\S]*?)<\/title>/)?.[1]
-        ?.replace(/<[^>]+>/g, '')?.trim();
+      const title = decodeEntities(entry.match(/<title>([\s\S]*?)<\/title>/)?.[1]
+        ?.replace(/<[^>]+>/g, '')?.trim());
       const link = sanitiseLink(entry.match(/<id>(.*?)<\/id>/)?.[1]?.trim());
-      const summary = entry.match(/<summary>([\s\S]*?)<\/summary>/)?.[1]
-        ?.replace(/<[^>]+>/g, '')?.slice(0, 400)?.trim();
+      const summary = decodeEntities(entry.match(/<summary>([\s\S]*?)<\/summary>/)?.[1]
+        ?.replace(/<[^>]+>/g, '')?.slice(0, 400)?.trim());
       if (title && link) {
         items.push({
           title,

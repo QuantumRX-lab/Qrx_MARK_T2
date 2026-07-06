@@ -254,7 +254,7 @@ function decode(s = "") {
   return s
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
     .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#x27;/g, "'")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#x27;/g, "'").replace(/&apos;/g, "'")
     .replace(/&nbsp;/g, " ")
     // Numeric entities — common in news headlines
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
