@@ -567,7 +567,15 @@
         state.cleared.add(state.level);
         state.totalPoints = typeof data.totalPoints === 'number' ? data.totalPoints : (state.totalPoints + data.pointsAwarded);
         el.totalPointsEl.textContent = state.totalPoints;
-        renderBulbGrid();
+        // Auto-advance to the next level on a win, so clearing one flows
+        // straight into the next challenge. Without this, the level only
+        // ever changed via a manual bulb click — repeating an easy prompt
+        // on an already-solved level just kept winning it forever with no
+        // progression at all.
+        if (state.level < LEVELS.length) {
+          state.level = state.level + 1;
+        }
+        renderAll();
       } else {
         await termResult('fail', 0);
         setTauntInsult();
