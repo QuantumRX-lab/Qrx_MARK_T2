@@ -161,6 +161,24 @@ async function fetchOgImage(url) {
   } catch { return ""; }
 }
 
+// Cross-check that the model's returned index actually points at the story
+// its bullets describe. Gemini occasionally writes a coherent set of bullets
+// about one story but tags them with a different story's index — the code
+// has no way to know this from the index alone, since pool[p.index] always
+// resolves to SOME real story. Asking the model to also echo the title, then
+// requiring it to roughly match the pool item at that index, turns a
+// confidently-wrong pairing into a dropped pick instead.
+function titlesRoughlyMatch(a, b) {
+  if (!a || !b) return false;
+  const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3);
+  const wordsA = normalize(a);
+  const wordsB = normalize(b);
+  if (!wordsA.length || !wordsB.length) return false;
+  const setB = new Set(wordsB);
+  const overlap = wordsA.filter((w) => setB.has(w)).length;
+  return overlap / Math.min(wordsA.length, wordsB.length) >= 0.4;
+}
+
 // ── Gemini selection ──────────────────────────────────────────────────────────
 async function geminiSelectOutlet(items, source, tab, apiKey) {
   if (!items.length) return [];
@@ -178,11 +196,11 @@ async function geminiSelectOutlet(items, source, tab, apiKey) {
 
 For each story return exactly 3 bullet points:
 1. What happened — the concrete fact in one sentence
-2. Why it matters — the global significance in one sentence  
+2. Why it matters — the global significance in one sentence
 3. What to watch — one specific checkable signal
 
-Return ONLY a JSON array, no markdown:
-[{"index": <number>, "bullets": ["...", "...", "..."]}]
+Return ONLY a JSON array, no markdown. "title" must be copied EXACTLY from the TITLE of the story at that index, not paraphrased — it's used to verify the index is correct:
+[{"index": <number>, "title": "<exact story title>", "bullets": ["...", "...", "..."]}]
 
 STORIES:
 ${list}`;
@@ -201,7 +219,7 @@ ${list}`;
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
     const picks = JSON.parse(extractJSON(text));
     return picks
-      .filter(p => pool[p.index] && Array.isArray(p.bullets) && p.bullets.length)
+      .filter(p => pool[p.index] && Array.isArray(p.bullets) && p.bullets.length && titlesRoughlyMatch(p.title, pool[p.index].title))
       .map(p => ({ ...pool[p.index], bullets: p.bullets.slice(0, 3) }))
       .slice(0, 3);
   } catch {
