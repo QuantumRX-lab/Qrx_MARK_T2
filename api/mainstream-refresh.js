@@ -181,13 +181,15 @@ async function geminiSelectOutlet(items, source, apiKey) {
   // (e.g. a policy piece from three weeks ago beating a same-day story),
   // which then sits in the daily top-16 looking stale next to everything
   // else. Only fall back to the full (older) list if an outlet genuinely
-  // has nothing recent, so an outlet is never left with fewer than 2 picks.
+  // has NOTHING recent at all — a quiet outlet with just one fresh story
+  // should surface that one story, not reach back for a second stale one
+  // just to fill a quota.
   const MAX_AGE_MS = 4 * 24 * 60 * 60 * 1000;
   const cutoff = Date.now() - MAX_AGE_MS;
   const recent = items.filter((it) => it.published >= cutoff);
 
   // Take up to 8 most recent from this outlet for Gemini to pick from
-  const pool = (recent.length >= 2 ? recent : items).slice(0, 8);
+  const pool = (recent.length ? recent : items).slice(0, 8);
   const list = pool
     .map((it, i) => `[${i}] TITLE: ${it.title}\nEXCERPT: ${it.description.slice(0, 200)}`)
     .join("\n\n");

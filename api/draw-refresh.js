@@ -192,7 +192,7 @@ async function geminiSelectOutlet(items, source, tab, apiKey) {
   const cutoff = Date.now() - MAX_AGE_MS;
   const recent = items.filter((it) => it.published >= cutoff);
 
-  const pool = (recent.length >= 3 ? recent : items).slice(0, 10);
+  const pool = (recent.length ? recent : items).slice(0, 10);
   const list = pool.map((it, i) =>
     `[${i}] TITLE: ${it.title}\nEXCERPT: ${it.description.slice(0, 200)}`
   ).join("\n\n");
