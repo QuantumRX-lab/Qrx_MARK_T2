@@ -3,6 +3,7 @@
     { "source": "/nft-forge-tv.html", "destination": "/nft-forge-tv.html" },
     { "source": "/lotm-forge-tv.html", "destination": "/lotm-forge-tv.html" },
     { "source": "/break-the-sentinel.html", "destination": "/break-the-sentinel.html" },
+    { "source": "/products.html", "destination": "/products.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
