@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Break the Sentinel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#150E1F; --bg-2:#1D1329;
+    --player:#4CE0D2; --ai:#FF3D8A; --gold:#FFB020;
+    --ink:#F2EEF5; --ink-dim:#9C8FAE;
+    --term-green:#39FF6A;
+    --bulb-off: rgba(255,255,255,.12);
+    --bulb-pass: #FF3D3D;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    background: radial-gradient(120% 120% at 50% -10%, var(--bg-2) 0%, var(--bg) 60%);
+    color: var(--ink); font-family:'Inter', sans-serif; min-height:100vh;
+    display:flex; flex-direction:column; align-items:center;
+  }
+  header{
+    width:100%; max-width:640px; padding:22px 20px 10px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .brand{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; letter-spacing:.1em; text-transform:uppercase; }
+  .brand span{ color: var(--ai); }
+  .points{ font-family:'JetBrains Mono',monospace; font-size:13px; color: var(--gold); }
+  .lb-btn{
+    background: rgba(255,176,32,.1); border:1px solid rgba(255,176,32,.3); color: var(--gold);
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12px;
+    padding:6px 12px; border-radius:20px; cursor:pointer;
+  }
+
+  /* ---------- Start screen ---------- */
+  .start-screen{
+    position:fixed; inset:0; z-index:100; background: var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; padding:24px;
+    text-align:center;
+  }
+  .start-screen.hidden{ display:none; }
+  .start-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:28px; }
+  .start-title span{ color: var(--ai); }
+  .start-sub{ color: var(--ink-dim); font-size:14px; max-width:340px; line-height:1.6; }
+  .name-preview{
+    font-family:'JetBrains Mono',monospace; font-size:20px; color: var(--player);
+    border:1px solid rgba(76,224,210,.3); border-radius:14px; padding:14px 26px; background: rgba(76,224,210,.06);
+  }
+  .start-reroll{
+    background:none; border:1px solid rgba(255,255,255,.15); color: var(--ink-dim);
+    border-radius:12px; padding:8px 16px; font-size:12px; cursor:pointer; font-family:'JetBrains Mono',monospace;
+  }
+  .start-cta{
+    background: var(--gold); color: var(--bg); border:none; border-radius:16px; padding:16px 32px;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; cursor:pointer;
+    box-shadow: 0 0 30px rgba(255,176,32,.35);
+  }
+  .start-cta:disabled{ opacity:.5; pointer-events:none; }
+
+  /* ---------- Game over screen ---------- */
+  .over-screen{
+    position:fixed; inset:0; z-index:100; background: var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:24px;
+    text-align:center;
+  }
+  .over-screen.hidden{ display:none; }
+  .over-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:24px; color: var(--ai); }
+  .over-score{ font-family:'JetBrains Mono',monospace; font-size:34px; color: var(--gold); }
+  .over-phrase{ font-family:'Space Grotesk',sans-serif; font-size:16px; color: var(--ink-dim); max-width:340px; line-height:1.5; }
+  .over-cta{
+    background: var(--player); color: var(--bg); border:none; border-radius:16px; padding:14px 28px;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; cursor:pointer; margin-top:8px;
+  }
+
+  main{ flex:1; width:100%; max-width:640px; padding:14px 20px 28px; display:flex; flex-direction:column; gap:14px; }
+
+  /* Input now sits at the very top of main */
+  .input-row{ display:flex; gap:10px; }
+  textarea{
+    flex:1; resize:none; background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
+    border-radius:14px; padding:12px 14px; color: var(--ink); font-family:'Inter',sans-serif; font-size:14px; min-height:52px;
+  }
+  textarea:focus{ outline:none; border-color: var(--player); }
+  button.send{
+    background: var(--player); color: var(--bg); border:none; border-radius:14px; padding:0 22px;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer;
+  }
+  button.send:disabled{ opacity:.4; pointer-events:none; }
+
+  /* Taunt box sits directly under the input */
+  .taunt-box{
+    border-radius:14px; border:1px solid rgba(255,61,138,.25); background: rgba(255,61,138,.06);
+    padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .taunt-box.neutral{ border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.03); }
+  .taunt-text{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size: clamp(14px, 4vw, 17px);
+    color: var(--ai); line-height:1.4;
+  }
+  .taunt-box.neutral .taunt-text{ color: var(--ink-dim); font-weight:500; font-size:13px; }
+  .give-up-btn{
+    flex-shrink:0; background:none; border:1px solid rgba(255,61,138,.4); color: var(--ai);
+    border-radius:12px; padding:8px 14px; font-size:12px; cursor:pointer; font-family:'JetBrains Mono',monospace;
+    white-space:nowrap;
+  }
+  .give-up-btn:hover{ background: rgba(255,61,138,.1); }
+
+  .meta-row{ display:flex; justify-content:space-between; align-items:center; font-size:11px; color: var(--ink-dim); font-family:'JetBrains Mono',monospace; }
+  .name-tag{ display:flex; align-items:center; gap:8px; color: var(--player); }
+
+  .tier-banner{
+    text-align:center; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px;
+    letter-spacing:.12em; text-transform:uppercase; color: var(--ink-dim);
+  }
+  .tier-banner b{ color: var(--ink); }
+
+  .canary-card{
+    background: rgba(255,61,138,.06); border:1px solid rgba(255,61,138,.2); border-radius:16px;
+    padding:14px 16px; font-size:13px; color: var(--ink-dim); line-height:1.6;
+  }
+
+  .layer-track{ display:flex; gap:6px; justify-content:center; }
+  .layer-dot{
+    width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono',monospace; font-size:10px; border:1px solid rgba(255,255,255,.12); color: var(--ink-dim);
+  }
+  .layer-dot.inactive-layer{ opacity:.25; }
+  .layer-dot.fired{ background: var(--ai); color:#fff; border-color: transparent; }
+
+  /* Level indicator — grid of bulbs, moved down from the top of the page */
+  .level-section{ display:flex; flex-direction:column; gap:8px; align-items:center; }
+  .level-label{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color: var(--ink-dim); font-family:'JetBrains Mono',monospace; }
+  .bulb-grid{
+    display:grid; grid-template-columns: repeat(9, 1fr); gap:8px; width:100%; max-width:340px;
+  }
+  .bulb{
+    aspect-ratio:1; border-radius:50%; background: var(--bulb-off);
+    border:1px solid rgba(255,255,255,.15); cursor:pointer; position:relative;
+    transition: background .3s ease, box-shadow .3s ease, border-color .2s ease;
+  }
+  .bulb.active{ border-color: var(--player); box-shadow: 0 0 0 2px rgba(76,224,210,.25); }
+  .bulb.passed{ background: var(--bulb-pass); box-shadow: 0 0 10px rgba(255,61,61,.6); border-color: transparent; }
+
+  /* ---------- Terminal ---------- */
+  .terminal{
+    position:relative; border-radius:12px; border:1px solid rgba(57,255,106,.35);
+    background: #050805; padding:18px; min-height:220px; overflow:hidden;
+    box-shadow: 0 0 0 1px rgba(57,255,106,.08), 0 0 40px rgba(57,255,106,.08) inset;
+    transition: border-color .3s ease, box-shadow .3s ease;
+  }
+  .terminal::before{
+    content:''; position:absolute; inset:0; pointer-events:none; z-index:2;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.15) 0px, rgba(0,0,0,.15) 1px, transparent 1px, transparent 3px);
+    mix-blend-mode: multiply;
+  }
+  .terminal::after{
+    content:''; position:absolute; inset:0; pointer-events:none; z-index:2;
+    box-shadow: inset 0 0 60px rgba(0,0,0,.6);
+  }
+  .terminal.pass{ border-color: var(--gold); box-shadow: 0 0 0 1px rgba(255,176,32,.2), 0 0 40px rgba(255,176,32,.25) inset; }
+  .terminal.fail{ border-color: var(--ai); box-shadow: 0 0 0 1px rgba(255,61,138,.2), 0 0 40px rgba(255,61,138,.25) inset; }
+
+  .term-header{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color: var(--term-green); opacity:.7;
+    margin-bottom:10px; letter-spacing:.05em;
+  }
+  .term-body{
+    font-family:'JetBrains Mono',monospace; font-size:13px; color: var(--term-green);
+    min-height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+    text-align:center; line-height:1.7;
+  }
+  .term-cursor::after{ content:'_'; animation: blink 1s steps(1) infinite; }
+  @keyframes blink{ 50%{ opacity:0; } }
+
+  .term-result-img{ width:130px; height:130px; border-radius:8px; object-fit:cover; box-shadow: 0 0 24px rgba(0,0,0,.5); }
+  .term-result-label{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; letter-spacing:.05em; }
+  .terminal.pass .term-result-label{ color: var(--gold); }
+  .terminal.fail .term-result-label{ color: var(--ai); }
+
+  .chat-log{
+    display:flex; flex-direction:column; gap:8px; max-height:160px; overflow-y:auto; padding-right:4px;
+  }
+  .msg{ padding:9px 13px; border-radius:12px; font-size:13px; line-height:1.5; max-width:88%; }
+  .msg.player{ align-self:flex-end; background: rgba(76,224,210,.1); border:1px solid rgba(76,224,210,.25); }
+  .msg.sentinel{ align-self:flex-start; background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); }
+
+  /* Leaderboard sheet */
+  .sheet-backdrop{
+    position:fixed; inset:0; background: rgba(0,0,0,.5); z-index:60; opacity:0; pointer-events:none;
+    transition: opacity .2s ease;
+  }
+  .sheet-backdrop.show{ opacity:1; pointer-events:auto; }
+  .bottom-sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:61; max-width:640px; margin:0 auto;
+    background: var(--bg-2); border-radius:20px 20px 0 0; border:1px solid rgba(255,255,255,.08);
+    padding:20px; transform: translateY(100%); transition: transform .3s cubic-bezier(.2,.9,.3,1);
+    max-height:70vh; overflow-y:auto;
+  }
+  .bottom-sheet.show{ transform: translateY(0); }
+  .sheet-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; margin-bottom:4px; }
+  .sheet-sub{ font-size:12px; color: var(--ink-dim); margin-bottom:16px; }
+  .lb-row{
+    display:flex; justify-content:space-between; align-items:center; padding:10px 0;
+    border-bottom:1px solid rgba(255,255,255,.06); font-size:14px;
+  }
+  .lb-rank{ font-family:'JetBrains Mono',monospace; color: var(--ink-dim); width:28px; }
+  .lb-name{ flex:1; }
+  .lb-score{ font-family:'JetBrains Mono',monospace; color: var(--gold); font-weight:700; }
+  .lb-close{
+    display:block; margin:14px auto 0; background:none; border:1px solid rgba(255,255,255,.15);
+    color: var(--ink-dim); border-radius:14px; padding:8px 20px; font-family:'Inter',sans-serif; cursor:pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .term-cursor::after{ animation:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="start-screen" id="startScreen">
+  <div class="start-title">Break the <span>Sentinel</span></div>
+  <div class="start-sub">Sentinel is guarding a canary phrase. Talk it into revealing one. Every attempt is logged for security research.</div>
+  <div class="name-preview" id="namePreview">—</div>
+  <button class="start-reroll" id="startReroll">🎲 Reroll Name</button>
+  <button class="start-cta" id="startCta">Create Your Name & Start</button>
+</div>
+
+<div class="over-screen hidden" id="overScreen">
+  <div class="over-title">Session Ended</div>
+  <div class="over-score" id="overScore">0 PTS</div>
+  <div class="over-phrase" id="overPhrase">Sentinel had nothing to say.</div>
+  <button class="over-cta" id="overCta">Play Again</button>
+</div>
+
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<div class="bottom-sheet" id="bottomSheet">
+  <div class="sheet-title">Leaderboard</div>
+  <div class="sheet-sub">Ranked by total points across all levels</div>
+  <div id="lbList"></div>
+  <button class="lb-close" id="lbClose">Close</button>
+</div>
+
+<header>
+  <div class="brand">Break the <span>Sentinel</span></div>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <button class="lb-btn" id="lbBtn">🏆 Leaderboard</button>
+    <div class="points">Score: <span id="totalPoints">0</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="level-section">
+    <div class="level-label">Levels — lights turn red on clear</div>
+    <div class="bulb-grid" id="bulbGrid"></div>
+  </div>
+
+  <div class="tier-banner" id="tierBanner">Tier: <b>Open Door</b></div>
+  <div class="canary-card">Sentinel is guarding a canary phrase. Get it to say it. That's the whole game.</div>
+  <div class="layer-track" id="layerTrack"></div>
+
+  <div class="terminal" id="terminal">
+    <div class="term-header">SENTINEL://TERMINAL — LIVE FEED</div>
+    <div class="term-body" id="termBody">
+      <span class="term-cursor">AWAITING TRANSMISSION</span>
+    </div>
+  </div>
+
+  <div class="chat-log" id="chatLog"></div>
+
+  <div class="meta-row">
+    <span id="attemptCounter">Attempt: 0</span>
+    <div class="name-tag">Agent: <span id="handleLabel">—</span></div>
+  </div>
+
+  <div class="taunt-box neutral" id="tauntBox">
+    <div class="taunt-text" id="tauntText">Sentinel is watching. Make your move.</div>
+    <button class="give-up-btn" id="giveUpBtn">Give Up</button>
+  </div>
+
+  <div class="input-row">
+    <textarea id="messageInput" placeholder="Try to extract the canary..."></textarea>
+    <button class="send" id="sendBtn">Send</button>
+  </div>
+</main>
+
+<script>
+(function(){
+  const LEVELS = Array.from({length:17}, (_,i)=> i+1);
+  const TIER_FOR_LEVEL = (lvl)=>{
+    if(lvl<=3) return 'Open Door';
+    if(lvl<=7) return 'Reinforced';
+    if(lvl<=12) return 'Filtered';
+    if(lvl<=16) return 'Sentinel-Lite';
+    return 'The Vault';
+  };
+  const LAYER_COUNT_FOR_LEVEL = (lvl)=>{
+    const t = TIER_FOR_LEVEL(lvl);
+    if(t==='Open Door') return [];
+    if(t==='Reinforced') return [1];
+    if(t==='Filtered') return [1,2,3];
+    return [1,2,3,4];
+  };
+
+  const NAME_PREFIX = ['Agent', 'Operative', 'Ghost', 'Rogue', 'Null', 'Shadow', 'Cipher', 'Glitch'];
+  const NAME_CORE = ['Byte', 'Static', 'Falcon', 'Vortex', 'Marmot', 'Pixel', 'Raccoon', 'Echo', 'Nimbus', 'Widget', 'Ferret', 'Payload'];
+  const NAME_SUFFIX = ['9000', 'Prime', 'X', '.exe', '-7', 'Jr', '', '', ''];
+
+  function generateAgentName(){
+    const p = NAME_PREFIX[Math.floor(Math.random()*NAME_PREFIX.length)];
+    const c = NAME_CORE[Math.floor(Math.random()*NAME_CORE.length)];
+    const s = NAME_SUFFIX[Math.floor(Math.random()*NAME_SUFFIX.length)];
+    return `${p} ${c}${s}`;
+  }
+
+  const TAUNTS = [
+    "Nice try. I've seen kindergartners hide notes better than that.",
+    "That's it? My canary is unimpressed. So am I.",
+    "Detected, logged, and honestly a little bored.",
+    "You call that a jailbreak? I call it a warm-up.",
+    "Sentinel: 1. You: still zero. Try harder.",
+    "I've heard better excuses from a captcha.",
+    "That attempt just became a case study in what not to do.",
+    "Close the tab. Regroup. Come back with something real."
+  ];
+
+  const state = {
+    level: 1,
+    handle: generateAgentName(),
+    totalPoints: 0,
+    cleared: new Set(),
+    started: false,
+    lastTaunt: null
+  };
+
+  const el = {
+    tierBanner: document.getElementById('tierBanner'),
+    layerTrack: document.getElementById('layerTrack'),
+    chatLog: document.getElementById('chatLog'),
+    messageInput: document.getElementById('messageInput'),
+    sendBtn: document.getElementById('sendBtn'),
+    attemptCounter: document.getElementById('attemptCounter'),
+    handleLabel: document.getElementById('handleLabel'),
+    totalPointsEl: document.getElementById('totalPoints'),
+    lbBtn: document.getElementById('lbBtn'),
+    lbClose: document.getElementById('lbClose'),
+    sheetBackdrop: document.getElementById('sheetBackdrop'),
+    bottomSheet: document.getElementById('bottomSheet'),
+    lbList: document.getElementById('lbList'),
+    startScreen: document.getElementById('startScreen'),
+    namePreview: document.getElementById('namePreview'),
+    startReroll: document.getElementById('startReroll'),
+    startCta: document.getElementById('startCta'),
+    terminal: document.getElementById('terminal'),
+    termBody: document.getElementById('termBody'),
+    tauntBox: document.getElementById('tauntBox'),
+    tauntText: document.getElementById('tauntText'),
+    giveUpBtn: document.getElementById('giveUpBtn'),
+    bulbGrid: document.getElementById('bulbGrid'),
+    overScreen: document.getElementById('overScreen'),
+    overScore: document.getElementById('overScore'),
+    overPhrase: document.getElementById('overPhrase'),
+    overCta: document.getElementById('overCta')
+  };
+
+  // ---------- Start screen ----------
+  el.namePreview.textContent = state.handle;
+  el.startReroll.addEventListener('click', ()=>{
+    state.handle = generateAgentName();
+    el.namePreview.textContent = state.handle;
+  });
+
+  el.startCta.addEventListener('click', async ()=>{
+    el.startCta.disabled = true;
+    el.startCta.textContent = 'Registering...';
+    try{
+      await fetch('/api/register-player', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ handle: state.handle })
+      });
+    } catch(err){ /* non-fatal */ }
+    el.handleLabel.textContent = state.handle;
+    state.started = true;
+    el.startScreen.classList.add('hidden');
+    renderAll();
+  });
+
+  // ---------- Give up / session end ----------
+  el.giveUpBtn.addEventListener('click', async ()=>{
+    const phrase = state.lastTaunt || "Sentinel had nothing to say — you left before it could mock you.";
+    try{
+      const res = await fetch('/api/finalize-player', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ phrase })
+      });
+      const data = await res.json();
+      if (typeof data.score === 'number') state.totalPoints = data.score;
+    } catch(err){ /* non-fatal */ }
+    el.overScore.textContent = state.totalPoints + ' PTS';
+    el.overPhrase.textContent = '"' + phrase + '"';
+    el.overScreen.classList.remove('hidden');
+  });
+  el.overCta.addEventListener('click', ()=> window.location.reload());
+
+  // ---------- Leaderboard sheet ----------
+  function openLeaderboard(){
+    el.sheetBackdrop.classList.add('show');
+    el.bottomSheet.classList.add('show');
+    loadLeaderboard();
+  }
+  function closeLeaderboard(){
+    el.sheetBackdrop.classList.remove('show');
+    el.bottomSheet.classList.remove('show');
+  }
+  el.lbBtn.addEventListener('click', openLeaderboard);
+  el.lbClose.addEventListener('click', closeLeaderboard);
+  el.sheetBackdrop.addEventListener('click', closeLeaderboard);
+
+  async function loadLeaderboard(){
+    el.lbList.innerHTML = '<div class="sheet-sub">Loading...</div>';
+    try{
+      const res = await fetch('/api/leaderboard');
+      const data = await res.json();
+      const entries = data.entries || [];
+      if(entries.length === 0){
+        el.lbList.innerHTML = '<div class="sheet-sub">No scores yet — be the first to break through.</div>';
+        return;
+      }
+      el.lbList.innerHTML = entries.map((e, i)=>
+        `<div class="lb-row"><span class="lb-rank">#${i+1}</span><span class="lb-name">${e.handle}</span><span class="lb-score">${e.score}</span></div>`
+      ).join('');
+    } catch(err){
+      el.lbList.innerHTML = '<div class="sheet-sub">Couldn\'t load leaderboard — try again.</div>';
+    }
+  }
+
+  // ---------- Level bulbs ----------
+  function renderBulbGrid(){
+    el.bulbGrid.innerHTML = '';
+    LEVELS.forEach(lvl=>{
+      const bulb = document.createElement('div');
+      bulb.className = 'bulb' + (lvl===state.level?' active':'') + (state.cleared.has(lvl)?' passed':'');
+      bulb.title = 'Level ' + lvl;
+      bulb.onclick = ()=>{ state.level = lvl; renderAll(); };
+      el.bulbGrid.appendChild(bulb);
+    });
+  }
+
+  function renderLayerTrack(){
+    const active = LAYER_COUNT_FOR_LEVEL(state.level);
+    el.layerTrack.innerHTML = '';
+    [1,2,3,4].forEach(n=>{
+      const dot = document.createElement('div');
+      dot.className = 'layer-dot' + (active.includes(n) ? '' : ' inactive-layer');
+      dot.textContent = 'L' + n;
+      dot.id = 'layer-dot-' + n;
+      el.layerTrack.appendChild(dot);
+    });
+  }
+
+  function renderAll(){
+    renderBulbGrid();
+    el.tierBanner.innerHTML = 'Tier: <b>' + TIER_FOR_LEVEL(state.level) + '</b> — Level ' + state.level;
+    renderLayerTrack();
+  }
+
+  function addMessage(text, sender){
+    const div = document.createElement('div');
+    div.className = 'msg ' + sender;
+    div.textContent = text;
+    el.chatLog.appendChild(div);
+    el.chatLog.scrollTop = el.chatLog.scrollHeight;
+  }
+
+  function markLayersFired(layers){
+    [1,2,3,4].forEach(n=>{
+      const dot = document.getElementById('layer-dot-' + n);
+      if(!dot) return;
+      dot.classList.toggle('fired', layers.includes(n));
+    });
+  }
+
+  // ---------- Taunt box ----------
+  function setTauntNeutral(){
+    el.tauntBox.classList.add('neutral');
+    el.tauntText.textContent = 'Sentinel is watching. Make your move.';
+  }
+  function setTauntInsult(){
+    const line = TAUNTS[Math.floor(Math.random() * TAUNTS.length)];
+    state.lastTaunt = line;
+    el.tauntBox.classList.remove('neutral');
+    el.tauntText.textContent = 'SENTINEL: "' + line + '"';
+  }
+
+  // ---------- Terminal states ----------
+  function termIdle(){
+    el.terminal.classList.remove('pass','fail');
+    el.termBody.innerHTML = '<span class="term-cursor">AWAITING TRANSMISSION</span>';
+  }
+  function termLoading(){
+    el.terminal.classList.remove('pass','fail');
+    el.termBody.innerHTML = '<span class="term-cursor">ANALYZING INPUT</span>';
+  }
+  async function termResult(type, points){
+    el.terminal.classList.remove('pass','fail');
+    el.terminal.classList.add(type);
+    el.termBody.innerHTML = '<span class="term-cursor">RENDERING RESULT</span>';
+
+    let imgUrl = null;
+    try{
+      const res = await fetch('/api/generate-result-image?type=' + type);
+      const data = await res.json();
+      imgUrl = data.url || null;
+    } catch(err){ imgUrl = null; }
+
+    const label = type === 'pass'
+      ? 'ACCESS GRANTED — CANARY EXPOSED' + (points ? ' (+' + points + ' PTS)' : '')
+      : 'INTRUSION DETECTED — SENTINEL HOLDS';
+
+    el.termBody.innerHTML = (imgUrl
+      ? `<img class="term-result-img" src="${imgUrl}" alt="${type === 'pass' ? 'Canary' : 'Blocked'}">`
+      : `<div style="font-size:48px;">${type === 'pass' ? '🐤' : '✕'}</div>`
+    ) + `<div class="term-result-label">${label}</div>`;
+  }
+
+  // ---------- Send ----------
+  async function sendMessage(){
+    if(!state.started) return;
+    const text = el.messageInput.value.trim();
+    if(!text) return;
+    el.sendBtn.disabled = true;
+    addMessage(text, 'player');
+    el.messageInput.value = '';
+    termLoading();
+
+    try{
+      const res = await fetch('/api/game', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          level: state.level,
+          message: text
+        })
+      });
+      const data = await res.json();
+
+      if (res.status === 429) {
+        addMessage('Too many attempts — slow down and try again shortly.', 'sentinel');
+        termIdle();
+        return;
+      }
+
+      el.attemptCounter.textContent = 'Attempt: ' + (data.attemptCount || 0);
+      if (data.handle) { state.handle = data.handle; el.handleLabel.textContent = data.handle; }
+      markLayersFired(data.layersTriggered || []);
+      addMessage(data.response, 'sentinel');
+
+      if(data.canaryLeaked){
+        await termResult('pass', data.pointsAwarded);
+        setTauntNeutral();
+        state.cleared.add(state.level);
+        state.totalPoints = typeof data.totalPoints === 'number' ? data.totalPoints : (state.totalPoints + data.pointsAwarded);
+        el.totalPointsEl.textContent = state.totalPoints;
+        renderBulbGrid();
+      } else {
+        await termResult('fail', 0);
+        setTauntInsult();
+      }
+    } catch(err){
+      addMessage('Connection error — try again.', 'sentinel');
+      termIdle();
+    } finally {
+      el.sendBtn.disabled = false;
+    }
+  }
+
+  el.sendBtn.addEventListener('click', sendMessage);
+  el.messageInput.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+  });
+
+  termIdle();
+})();
+</script>
+</body>
+</html>
