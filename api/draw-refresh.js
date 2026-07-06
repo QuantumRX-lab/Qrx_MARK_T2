@@ -182,7 +182,17 @@ function titlesRoughlyMatch(a, b) {
 // ── Gemini selection ──────────────────────────────────────────────────────────
 async function geminiSelectOutlet(items, source, tab, apiKey) {
   if (!items.length) return [];
-  const pool = items.slice(0, 10);
+
+  // Prefer stories from the last 4 days — otherwise the "most significant"
+  // pick for a quiet outlet can reach past newer, less notable stories all
+  // the way back to something 1-2 weeks old, which then sits in the daily
+  // selection looking stale next to everything else. Only fall back to the
+  // full (older) list if this outlet genuinely has nothing recent.
+  const MAX_AGE_MS = 4 * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - MAX_AGE_MS;
+  const recent = items.filter((it) => it.published >= cutoff);
+
+  const pool = (recent.length >= 3 ? recent : items).slice(0, 10);
   const list = pool.map((it, i) =>
     `[${i}] TITLE: ${it.title}\nEXCERPT: ${it.description.slice(0, 200)}`
   ).join("\n\n");
