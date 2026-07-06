@@ -463,16 +463,17 @@ export default async function handler(req, res) {
       const previousMeta = await kv.get('weekly_briefing_updated');
       if (previous) {
         const archivedLabel = previousMeta?.weekLabel || 'unknown';
+        // weekly-feed.js finds every currently-retained edition by
+        // scanning for this key pattern directly (kv.keys("weekly_briefing_archive_*")),
+        // so writing this one archive entry is the only step needed —
+        // the rolling "previous editions" history builds up automatically,
+        // one entry per refresh, with older ones dropping off once their
+        // own TTL below expires.
         await kv.set(
           `weekly_briefing_archive_${archivedLabel}`,
           { stories: previous, weekLabel: previousMeta?.weekLabel, updatedAt: previousMeta?.updatedAt },
           { ex: 60 * 60 * 24 * 21 }
         );
-        // Pointer so weekly-feed.js can find "the edition right before
-        // this one" directly, rather than guessing a week label from the
-        // NEW current meta (a different week, which would look up a key
-        // that was never written and always resolve to null).
-        await kv.set('weekly_briefing_previous_label', archivedLabel, { ex: 60 * 60 * 24 * 21 });
       }
     } catch (err) {
       console.error('Archive step failed (non-fatal):', err.message);

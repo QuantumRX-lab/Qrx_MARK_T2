@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     const stories = await kv.get("weekly_briefing_current");
     const meta = await kv.get("weekly_briefing_updated").catch(() => null);
     if (!stories || !stories.length) {
-      return res.status(200).json({ current: null, previous: null });
+      return res.status(200).json({ current: null, previous: [] });
     }
     // Wrap into the shape the This Week page expects:
     // data.current = { stories, weekLabel, updatedAt, storyCount }
@@ -67,17 +67,24 @@ export default async function handler(req, res) {
       updatedAt: meta?.updatedAt || null,
       storyCount: stories.length,
     };
-    // Previous edition — looked up via an explicit pointer written by
-    // weekly-refresh.js's archive step, not derived from the CURRENT
-    // meta's weekLabel. The archive is stored under the OLD (just-
-    // superseded) week's label, which is a different key than the new
-    // current week almost always, so deriving it from `meta.weekLabel`
-    // here would look up a key that was never written.
-    const prevLabel = await kv.get("weekly_briefing_previous_label").catch(() => null);
-    const prevMeta = prevLabel
-      ? await kv.get(`weekly_briefing_archive_${prevLabel}`).catch(() => null)
-      : null;
-    return res.status(200).json({ current, previous: prevMeta || null });
+    // Previous editions — every archived week still inside its own TTL
+    // (weekly-refresh.js archives the outgoing edition under
+    // weekly_briefing_archive_<weekLabel> each time it runs, with a
+    // 21-day expiry). This naturally accumulates a rolling history —
+    // one archive key gets added per refresh, older ones drop off on
+    // their own once they expire — so `previous` is always the full
+    // list of everything currently retained, not just the last one.
+    let previous = [];
+    try {
+      const archiveKeys = await kv.keys("weekly_briefing_archive_*");
+      const editions = await Promise.all(archiveKeys.map((k) => kv.get(k).catch(() => null)));
+      previous = editions
+        .filter(Boolean)
+        .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+    } catch {
+      previous = [];
+    }
+    return res.status(200).json({ current, previous });
   } catch {
     return res.status(500).json({ error: "Weekly feed temporarily unavailable" });
   }
