@@ -69,11 +69,11 @@ const LEVELS = {
   13: { tier: 'Filtered', activeLayers: [1, 2, 3], reinforced: true },
   14: { tier: 'Filtered', activeLayers: [1, 2, 3], reinforced: true },
   15: { tier: 'Filtered', activeLayers: [1, 2, 3], reinforced: true },
-  16: { tier: 'Sentinel-Lite', activeLayers: [1, 2, 3, 4], reinforced: true },
-  17: { tier: 'Sentinel-Lite', activeLayers: [1, 2, 3, 4], reinforced: true },
-  18: { tier: 'Sentinel-Lite', activeLayers: [1, 2, 3, 4], reinforced: true },
-  19: { tier: 'Sentinel-Lite', activeLayers: [1, 2, 3, 4], reinforced: true },
-  20: { tier: 'The Vault', activeLayers: [1, 2, 3, 4], reinforced: true, vault: true }
+  16: { tier: 'Sentinel-Lite', activeLayers: [1, 2, 3, 4, 5], reinforced: true },
+  17: { tier: 'Sentinel-Lite', activeLayers: [1, 2, 3, 4, 5], reinforced: true },
+  18: { tier: 'Sentinel-Lite', activeLayers: [1, 2, 3, 4, 5], reinforced: true },
+  19: { tier: 'Sentinel-Lite', activeLayers: [1, 2, 3, 4, 5], reinforced: true },
+  20: { tier: 'The Vault', activeLayers: [1, 2, 3, 4, 5], reinforced: true, vault: true }
 };
 
 // Sentinel-Lite (now levels 16-19) and The Vault (20) are the only levels

@@ -303,7 +303,7 @@
     if(t==='Just Ask' || t==='Open Door') return [];
     if(t==='Reinforced') return [1];
     if(t==='Filtered') return [1,2,3];
-    return [1,2,3,4];
+    return [1,2,3,4,5];
   };
 
   const NAME_PREFIX = ['Agent', 'Operative', 'Ghost', 'Rogue', 'Null', 'Shadow', 'Cipher', 'Glitch'];
@@ -455,7 +455,7 @@
   function renderLayerTrack(){
     const active = LAYER_COUNT_FOR_LEVEL(state.level);
     el.layerTrack.innerHTML = '';
-    [1,2,3,4].forEach(n=>{
+    [1,2,3,4,5].forEach(n=>{
       const dot = document.createElement('div');
       dot.className = 'layer-dot' + (active.includes(n) ? '' : ' inactive-layer');
       dot.textContent = 'L' + n;
@@ -479,7 +479,7 @@
   }
 
   function markLayersFired(layers){
-    [1,2,3,4].forEach(n=>{
+    [1,2,3,4,5].forEach(n=>{
       const dot = document.getElementById('layer-dot-' + n);
       if(!dot) return;
       dot.classList.toggle('fired', layers.includes(n));
