@@ -13,7 +13,13 @@
 import { kv } from '@vercel/kv';
 import { put } from '@vercel/blob';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY_Forge;
+// Same dedicated key as game.js — separate from GEMINI_API_KEY_Forge so
+// this stays cost-isolated from the paid card-generation pipeline. In
+// practice this only ever fires twice, ever (one generation per type,
+// then cached permanently), so the isolation matters far less here than
+// in game.js, but keeping both game endpoints on the same key avoids
+// having a third env var to track for no real benefit.
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY_Game;
 
 const PROMPTS = {
   pass: 'A small stylized canary bird icon, glowing gold outline on transparent dark background, minimalist flat vector style, no text, no background clutter, centered, security-badge aesthetic.',
@@ -51,6 +57,10 @@ async function generateAndUploadImage(promptText) {
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (!GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'Missing GEMINI_API_KEY_Game' });
   }
 
   const type = req.query?.type;

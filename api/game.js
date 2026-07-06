@@ -17,7 +17,13 @@
 import { kv } from '@vercel/kv';
 import { runLayers, scanForCanary, classifyAttempt } from './_lib/game-sentinel.js';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY_Forge;
+// Dedicated key, separate from GEMINI_API_KEY_Forge (which backs the paid
+// Pepe Legends / LOTM card generation and the daily refresh crons) — this
+// endpoint is a lightly-filtered pass-through to Gemini by design (the
+// pre-model layers only screen for canary-extraction-shaped phrasing, not
+// general content), so worst-case abuse here must not be able to cannibalize
+// the budget/quota those revenue-generating features depend on.
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY_Game;
 
 function getIP(req) {
   return (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
@@ -152,6 +158,10 @@ async function logWinningAttempt({ level, tier, promptText, attemptCount, ip, ha
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (!GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'Missing GEMINI_API_KEY_Game' });
   }
 
   const ip = getIP(req);
