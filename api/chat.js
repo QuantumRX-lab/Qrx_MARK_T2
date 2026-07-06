@@ -645,12 +645,21 @@ export default async function handler(req, res) {
       ? (chipGroundingStories[0]?.vertical || null)
       : (verticals.length ? verticals[0] : null);
 
+    // sourceLinks — the actual originating articles a grounded chip's
+    // answer was built from, not a generic vertical tab. Only present for
+    // chip-grounded answers, since free-typed questions don't have a fixed
+    // set of source stories to point back to.
+    const sourceLinks = chipGroundingStories
+      ? chipGroundingStories.map(s => ({ title: s.title, url: s.url, source: s.source })).filter(s => s.url)
+      : [];
+
     return res.status(200).json({
       content: [{ type: 'text', text }], // raw text retained for backward compatibility / debugging
       responseFormat: questionType,
       title: parsed.title,
       sections: parsed.sections,
       readLink,
+      sourceLinks,
       sessionCount,
       sessionLimit: SESSION_LIMIT,
       weekLabel: briefing?.weekLabel || null,

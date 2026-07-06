@@ -19,8 +19,8 @@ const ALLOWED_ORIGINS = ['https://www.quantumrx.eu', 'https://quantumrx.eu'];
 // which is fine, since their question text already matches the
 // weekly_recap pattern in classifyQuestion() on its own.
 const BOOTSTRAP_CHIPS = [
-  { id: "bootstrap_0", question: "What should I watch this week?", label: "What should I watch?" },
-  { id: "bootstrap_1", question: "What's crossing mainstream this week?", label: "Crossing mainstream?" },
+  { id: "bootstrap_0", question: "What should I watch this week?", label: "What should I watch?", vertical: null },
+  { id: "bootstrap_1", question: "What's crossing mainstream this week?", label: "Crossing mainstream?", vertical: null },
 ];
 
 async function isBlocked(ip) {
@@ -48,8 +48,11 @@ function getIP(req) {
 // question — never the grounding data or response format. Those are looked
 // up server-side by chat.js from the chip's id, so there's nothing here for
 // a client to tamper with and hand back as "authoritative" grounding.
+// `vertical` is safe to expose: it's a single category label, not story
+// content, and the widget uses it to sort chips by page relevance.
 function publicShape(chip) {
-  return { id: chip.id, question: chip.question, label: chip.label };
+  const vertical = (chip.groundedStories && chip.groundedStories[0] && chip.groundedStories[0].vertical) || null;
+  return { id: chip.id, question: chip.question, label: chip.label, vertical };
 }
 
 export default async function handler(req, res) {
