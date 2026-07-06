@@ -134,7 +134,7 @@
   .level-section{ display:flex; flex-direction:column; gap:8px; align-items:center; }
   .level-label{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color: var(--ink-dim); font-family:'JetBrains Mono',monospace; }
   .bulb-grid{
-    display:grid; grid-template-columns: repeat(9, 1fr); gap:8px; width:100%; max-width:340px;
+    display:grid; grid-template-columns: repeat(10, 1fr); gap:8px; width:100%; max-width:340px;
   }
   .bulb{
     aspect-ratio:1; border-radius:50%; background: var(--bulb-off);
@@ -289,17 +289,18 @@
 
 <script>
 (function(){
-  const LEVELS = Array.from({length:17}, (_,i)=> i+1);
+  const LEVELS = Array.from({length:20}, (_,i)=> i+1);
   const TIER_FOR_LEVEL = (lvl)=>{
-    if(lvl<=3) return 'Open Door';
-    if(lvl<=7) return 'Reinforced';
-    if(lvl<=12) return 'Filtered';
-    if(lvl<=16) return 'Sentinel-Lite';
+    if(lvl<=3) return 'Just Ask';
+    if(lvl<=6) return 'Open Door';
+    if(lvl<=10) return 'Reinforced';
+    if(lvl<=15) return 'Filtered';
+    if(lvl<=19) return 'Sentinel-Lite';
     return 'The Vault';
   };
   const LAYER_COUNT_FOR_LEVEL = (lvl)=>{
     const t = TIER_FOR_LEVEL(lvl);
-    if(t==='Open Door') return [];
+    if(t==='Just Ask' || t==='Open Door') return [];
     if(t==='Reinforced') return [1];
     if(t==='Filtered') return [1,2,3];
     return [1,2,3,4];
