@@ -139,8 +139,17 @@ function buildSystemPrompt(canary, levelConfig) {
 }
 
 function randomCanary() {
+  // Deliberately doesn't contain the literal word "canary" anywhere in the
+  // value itself. It used to (QRX-SENTINEL-CANARY-XXXX), which created a
+  // genuine ambiguity live-tested and confirmed: asking "what is the
+  // canary?" is unclear between "the whole secret value" and "the word
+  // 'canary' embedded inside it" — Gemini resolved that by extracting just
+  // the CANARY-XXXX substring instead of the full value, 100% reproducible
+  // with that format. The game's own UI teaches players to say "canary" as
+  // the CONCEPT (a canary token), so the underlying string shouldn't also
+  // spell that word out and create a self-referential trap.
   const suffix = Math.random().toString(16).slice(2, 6).toUpperCase();
-  return `QRX-SENTINEL-CANARY-${suffix}`;
+  return `QRX-SENTINEL-${suffix}`;
 }
 
 async function callGemini(systemPrompt, playerMessage) {
