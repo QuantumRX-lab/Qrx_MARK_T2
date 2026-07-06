@@ -462,11 +462,17 @@ export default async function handler(req, res) {
       const previous = await kv.get('weekly_briefing_current');
       const previousMeta = await kv.get('weekly_briefing_updated');
       if (previous) {
+        const archivedLabel = previousMeta?.weekLabel || 'unknown';
         await kv.set(
-          `weekly_briefing_archive_${previousMeta?.weekLabel || 'unknown'}`,
+          `weekly_briefing_archive_${archivedLabel}`,
           { stories: previous, weekLabel: previousMeta?.weekLabel, updatedAt: previousMeta?.updatedAt },
           { ex: 60 * 60 * 24 * 21 }
         );
+        // Pointer so weekly-feed.js can find "the edition right before
+        // this one" directly, rather than guessing a week label from the
+        // NEW current meta (a different week, which would look up a key
+        // that was never written and always resolve to null).
+        await kv.set('weekly_briefing_previous_label', archivedLabel, { ex: 60 * 60 * 24 * 21 });
       }
     } catch (err) {
       console.error('Archive step failed (non-fatal):', err.message);

@@ -67,9 +67,15 @@ export default async function handler(req, res) {
       updatedAt: meta?.updatedAt || null,
       storyCount: stories.length,
     };
-    // Previous edition
-    const prevMeta = meta?.weekLabel
-      ? await kv.get(`weekly_briefing_archive_${meta.weekLabel}`).catch(() => null)
+    // Previous edition — looked up via an explicit pointer written by
+    // weekly-refresh.js's archive step, not derived from the CURRENT
+    // meta's weekLabel. The archive is stored under the OLD (just-
+    // superseded) week's label, which is a different key than the new
+    // current week almost always, so deriving it from `meta.weekLabel`
+    // here would look up a key that was never written.
+    const prevLabel = await kv.get("weekly_briefing_previous_label").catch(() => null);
+    const prevMeta = prevLabel
+      ? await kv.get(`weekly_briefing_archive_${prevLabel}`).catch(() => null)
       : null;
     return res.status(200).json({ current, previous: prevMeta || null });
   } catch {
