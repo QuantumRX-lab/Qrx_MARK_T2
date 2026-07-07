@@ -1,735 +1,93 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QuantumRx AI Labs — Five Live Tools, Zero Human Editors</title>
-<meta name="description" content="QuantumRx AI Labs: five tools built in-house and running on live infrastructure right now — a self-writing daily comic, a free MACK kernel generator, a prompt-injection defense game, and two AI card forges.">
-<style>
-  .qrxl-root {
-    --bg:       #040810;
-    --panel:    #080d18;
-    --panel-2:  #0c1220;
-    --border:   rgba(56,189,248,0.12);
-    --border-h: rgba(56,189,248,0.35);
-    --blue:     #38bdf8;
-    --cyan:     #22d3ee;
-    --green:    #22d3a0;
-    --amber:    #fbbf24;
-    --red:      #f87171;
-    --purple:   #a78bfa;
-    --text:     #e2e8f0;
-    --text-dim: #64748b;
-    --text-mid: #94a3b8;
-    --mono:     'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-    --sans:     'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    padding: 0 0 72px;
-    position: relative;
-    min-height: 100vh;
-  }
-
-  html, body { margin: 0; padding: 0; background: #040810; }
-  .qrxl-root * { box-sizing: border-box; }
-  .qrxl-root a { color: inherit; text-decoration: none; }
-
-  /* grid overlay */
-  .qrxl-root::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-      linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
-    background-size: 48px 48px;
-    z-index: 0;
-  }
-
-  /* radial glow top centre */
-  .qrxl-root::after {
-    content: '';
-    position: absolute;
-    top: -120px; left: 50%;
-    transform: translateX(-50%);
-    width: 800px; height: 400px;
-    background: radial-gradient(ellipse at center, rgba(56,189,248,0.07) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .qrxl-inner {
-    position: relative;
-    z-index: 2;
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
-
-  /* ── HERO ── */
-  .qrxl-topbar {
-    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-    padding: 24px 0 0;
-    font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim);
-  }
-  .qrxl-topbar .qrxl-brand-mark {
-    color: var(--blue); font-weight: 700;
-  }
-
-  .qrxl-hero {
-    padding: 40px 0 56px;
-    text-align: center;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .qrxl-eyebrow {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--cyan);
-    margin-bottom: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-  }
-
-  .qrxl-eyebrow::before,
-  .qrxl-eyebrow::after {
-    content: '';
-    width: 40px; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--cyan));
-  }
-  .qrxl-eyebrow::after { background: linear-gradient(90deg, var(--cyan), transparent); }
-
-  .qrxl-hero-title {
-    font-family: var(--mono);
-    font-size: clamp(32px, 6vw, 58px);
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: #f0f8ff;
-    line-height: 1.05;
-    margin-bottom: 10px;
-  }
-
-  .qrxl-hero-title span {
-    background: linear-gradient(135deg, var(--blue), var(--cyan));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .qrxl-hero-sub {
-    font-size: 17px;
-    color: var(--text-mid);
-    max-width: 540px;
-    margin: 0 auto 32px;
-    line-height: 1.65;
-  }
-
-  .qrxl-hero-art {
-    display: block;
-    width: 100%;
-    max-width: 320px;
-    height: auto;
-    margin: 0 auto 32px;
-    border-radius: 16px;
-    filter: drop-shadow(0 20px 50px rgba(0,0,0,0.5));
-  }
-
-  /* lab stats strip */
-  .qrxl-stats {
-    display: flex;
-    justify-content: center;
-    gap: 40px;
-    flex-wrap: wrap;
-  }
-
-  .qrxl-stat {
-    text-align: center;
-  }
-
-  .qrxl-stat-num {
-    font-family: var(--mono);
-    font-size: 26px;
-    font-weight: 700;
-    color: var(--blue);
-    display: block;
-    line-height: 1;
-  }
-
-  .qrxl-stat-label {
-    font-size: 11px;
-    color: var(--text-dim);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    margin-top: 4px;
-    display: block;
-  }
-
-  /* ── SECTION LABEL ── */
-  .qrxl-section-label {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 40px 0 24px;
-  }
-
-  .qrxl-section-label span {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    white-space: nowrap;
-  }
-
-  .qrxl-section-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
-
-  /* ── TOOL GRID ── */
-  .qrxl-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-  }
-
-  @media (max-width: 680px) {
-    .qrxl-grid { grid-template-columns: 1fr; }
-  }
-
-  /* featured card spans full width */
-  .qrxl-card-featured {
-    grid-column: 1 / -1;
-  }
-
-  .qrxl-card-featured .qrxl-card-body { display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: start; }
-  @media (max-width: 680px) {
-    .qrxl-card-featured .qrxl-card-body { grid-template-columns: 1fr; }
-  }
-
-  .qrxl-card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 28px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .qrxl-card:hover {
-    border-color: var(--border-h);
-    transform: translateY(-2px);
-  }
-
-  /* per-card accent colours */
-  .qrxl-card[data-accent="blue"]  { --card-accent: var(--blue); }
-  .qrxl-card[data-accent="cyan"]  { --card-accent: var(--cyan); }
-  .qrxl-card[data-accent="green"] { --card-accent: var(--green); }
-  .qrxl-card[data-accent="amber"] { --card-accent: var(--amber); }
-  .qrxl-card[data-accent="red"]   { --card-accent: var(--red); }
-  .qrxl-card[data-accent="purple"]{ --card-accent: var(--purple); }
-
-  .qrxl-card:hover {
-    box-shadow: 0 0 0 1px var(--card-accent, var(--blue)),
-                0 8px 32px rgba(0,0,0,0.4),
-                0 0 48px rgba(56,189,248,0.04);
-  }
-
-  /* top accent line */
-  .qrxl-card-accent-bar {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: var(--card-accent, var(--blue));
-    opacity: 0.6;
-    border-radius: 12px 12px 0 0;
-  }
-
-  /* card header row */
-  .qrxl-card-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .qrxl-card-icon {
-    width: 44px; height: 44px;
-    border-radius: 10px;
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    flex-shrink: 0;
-  }
-
-  /* card thumbnail — sits between the header and the description */
-  .qrxl-card-thumb {
-    width: 100%; height: 140px; border-radius: 10px; overflow: hidden; flex-shrink: 0;
-    border: 1px solid var(--border);
-    background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--card-accent, var(--blue)) 16%, transparent), var(--panel-2));
-    display: grid; place-items: center;
-    color: var(--card-accent, var(--blue));
-  }
-  .qrxl-card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .qrxl-card-thumb svg { width: 56%; height: 56%; }
-  .qrxl-card-featured .qrxl-card-thumb { width: 220px; height: 100%; min-height: 200px; }
-  @media (max-width: 680px) {
-    .qrxl-card-featured .qrxl-card-thumb { width: 100%; min-height: 140px; height: 140px; }
-  }
-
-  /* STATUS TAG */
-  .qrxl-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-family: var(--mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    border: 1px solid;
-    white-space: nowrap;
-  }
-
-  .qrxl-tag-live {
-    color: var(--green);
-    border-color: rgba(34,211,160,0.3);
-    background: rgba(34,211,160,0.06);
-    box-shadow: 0 0 12px rgba(34,211,160,0.15);
-  }
-
-  .qrxl-tag-beta {
-    color: var(--amber);
-    border-color: rgba(251,191,36,0.3);
-    background: rgba(251,191,36,0.06);
-    box-shadow: 0 0 12px rgba(251,191,36,0.12);
-  }
-
-  .qrxl-tag-soon {
-    color: var(--text-dim);
-    border-color: rgba(100,116,139,0.3);
-    background: rgba(100,116,139,0.06);
-  }
-
-  /* blinking dot */
-  .qrxl-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    display: inline-block;
-    flex-shrink: 0;
-  }
-
-  .qrxl-tag-live .qrxl-dot {
-    animation: qrxl-blink 1.6s ease-in-out infinite;
-    box-shadow: 0 0 6px var(--green);
-  }
-
-  .qrxl-tag-beta .qrxl-dot {
-    animation: qrxl-blink 2.2s ease-in-out infinite;
-    box-shadow: 0 0 6px var(--amber);
-  }
-
-  @keyframes qrxl-blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.2; }
-  }
-
-  /* card content */
-  .qrxl-card-name {
-    font-family: var(--mono);
-    font-size: 18px;
-    font-weight: 700;
-    color: #f0f8ff;
-    letter-spacing: -0.01em;
-    margin-bottom: 2px;
-  }
-
-  .qrxl-card-type {
-    font-size: 11px;
-    color: var(--text-dim);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-family: var(--mono);
-  }
-
-  .qrxl-card-desc {
-    font-size: 14.5px;
-    color: var(--text-mid);
-    line-height: 1.6;
-  }
-
-  .qrxl-bullets {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    padding: 0;
-    margin: 0;
-  }
-
-  .qrxl-bullets li {
-    font-size: 13.5px;
-    color: var(--text-mid);
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    line-height: 1.5;
-  }
-
-  .qrxl-bullets li::before {
-    content: '›';
-    color: var(--card-accent, var(--blue));
-    font-size: 15px;
-    line-height: 1.4;
-    flex-shrink: 0;
-    font-family: var(--mono);
-  }
-
-  /* CTA button */
-  .qrxl-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: auto;
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    font-family: var(--mono);
-    border: 1px solid var(--card-accent, var(--blue));
-    color: var(--card-accent, var(--blue));
-    background: transparent;
-    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-    align-self: flex-start;
-    cursor: pointer;
-    text-transform: uppercase;
-  }
-
-  .qrxl-cta:hover {
-    background: var(--card-accent, var(--blue));
-    color: var(--bg);
-    box-shadow: 0 0 20px rgba(56,189,248,0.25);
-  }
-
-  /* ── FOOTER STRIP ── */
-  .qrxl-footer {
-    margin-top: 56px;
-    padding-top: 24px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .qrxl-footer-brand {
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--text-dim);
-    letter-spacing: 0.05em;
-  }
-
-  .qrxl-footer-brand span { color: var(--blue); }
-
-  .qrxl-footer-meta {
-    font-size: 11px;
-    color: var(--text-dim);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-</style>
-</head>
-<body>
-<div class="qrxl-root">
-  <div class="qrxl-inner">
-
-    <div class="qrxl-topbar">
-      <div><span class="qrxl-brand-mark">QuantumRx</span> · AI Labs</div>
-      <div>Live infrastructure · Real models · Deployed now</div>
-    </div>
-
-    <!-- HERO -->
-    <div class="qrxl-hero">
-      <div class="qrxl-eyebrow">QuantumRx · AI Research Division</div>
-      <h1 class="qrxl-hero-title">The <span>AI Labs</span></h1>
-      <p class="qrxl-hero-sub">
-        Five tools. Each one built in-house, deployed on live infrastructure,
-        running on real AI models. No demos. No waitlists. Open now.
-      </p>
-      <img class="qrxl-hero-art" src="ai-tools-hero-art.png" alt="The QuantumRx RX guardian, a steampunk cyclops figure channeling lightning between its hands">
-      <div class="qrxl-stats">
-        <div class="qrxl-stat">
-          <span class="qrxl-stat-num">5</span>
-          <span class="qrxl-stat-label">Live Tools</span>
-        </div>
-        <div class="qrxl-stat">
-          <span class="qrxl-stat-num">3</span>
-          <span class="qrxl-stat-label">AI Models</span>
-        </div>
-        <div class="qrxl-stat">
-          <span class="qrxl-stat-num">Daily</span>
-          <span class="qrxl-stat-label">Auto-generation</span>
-        </div>
-        <div class="qrxl-stat">
-          <span class="qrxl-stat-num">0</span>
-          <span class="qrxl-stat-label">Human editors</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- TOOLS SECTION -->
-    <div class="qrxl-section-label">
-      <span>Active experiments</span>
-    </div>
-
-    <div class="qrxl-grid">
-
-      <!-- NINE TO F!VEISH — featured, full width -->
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>QuantumRx AI Labs</title><meta name="description" content="QuantumRx AI Labs: five custom-built AI productivity tools running on live infrastructure right now."><style>
+:root{--bg:#040810;--panel:#080d18;--panel-2:#0c1220;--border:rgba(56,189,248,.12);--border-h:rgba(56,189,248,.35);--blue:#38bdf8;--cyan:#22d3ee;--green:#22d3a0;--amber:#fbbf24;--red:#f87171;--purple:#a78bfa;--text:#e2e8f0;--text-dim:#64748b;--text-mid:#94a3b8;--mono:'JetBrains Mono','Fira Code','Courier New',monospace;--sans:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;}
+html,body{margin:0;padding:0;background:var(--bg);}.qrxl-root{background:var(--bg);color:var(--text);font-family:var(--sans);padding:0 0 72px;position:relative;min-height:100vh;}.qrxl-root *{box-sizing:border-box;}.qrxl-root a{color:inherit;text-decoration:none;}.qrxl-root::before{content:'';position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(56,189,248,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,.03) 1px,transparent 1px);background-size:48px 48px;z-index:0;}.qrxl-root::after{content:'';position:absolute;top:-220px;left:50%;transform:translateX(-50%);width:min(1100px,96vw);height:620px;background:radial-gradient(ellipse at center,rgba(56,189,248,.14) 0%,rgba(34,211,238,.07) 28%,transparent 72%);pointer-events:none;z-index:0;filter:blur(8px);}.qrxl-inner{position:relative;z-index:2;max-width:1240px;margin:0 auto;padding:0 24px;}
+.qrxl-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:24px 0 0;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);}.qrxl-topbar .qrxl-brand-mark{color:var(--blue);font-weight:700;}
+.qrxl-hero{padding:26px 0 0;text-align:center;position:relative;}.qrxl-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);margin-bottom:18px;display:flex;align-items:center;justify-content:center;gap:10px;}.qrxl-eyebrow::before,.qrxl-eyebrow::after{content:'';width:40px;height:1px;background:linear-gradient(90deg,transparent,var(--cyan));}.qrxl-eyebrow::after{background:linear-gradient(90deg,var(--cyan),transparent);}.qrxl-hero-title{font-family:var(--mono);font-size:clamp(36px,6vw,72px);font-weight:700;letter-spacing:-.03em;color:#f0f8ff;line-height:1.02;margin:0 0 12px;}.qrxl-hero-title span{background:linear-gradient(135deg,var(--blue),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}.qrxl-hero-tagline{display:inline-flex;align-items:center;gap:10px;margin:0 auto 18px;padding:10px 16px;border-radius:999px;border:1px solid rgba(34,211,238,.18);background:rgba(10,22,42,.52);font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#d8f4ff;box-shadow:0 0 32px rgba(34,211,238,.09),inset 0 0 24px rgba(34,211,238,.04);}.qrxl-hero-sub{font-size:18px;color:var(--text-mid);max-width:760px;margin:0 auto;line-height:1.7;}
+.qrxl-hero-stage{position:relative;max-width:1240px;margin:22px auto 0;min-height:1120px;}.qrxl-hero-stage::after{content:'';position:absolute;left:50%;top:48%;transform:translateX(-50%);width:min(900px,calc(100% - 40px));height:56px;border-radius:24px;background:linear-gradient(180deg,rgba(0,0,0,.40),rgba(0,0,0,0));filter:blur(18px);z-index:2;pointer-events:none;}.qrxl-hero-art-wrap{position:absolute;inset:0 0 auto 0;display:flex;justify-content:center;pointer-events:none;}.qrxl-hero-art{display:block;width:min(1280px,112vw);max-width:none;height:auto;filter:drop-shadow(0 28px 80px rgba(0,0,0,.5));user-select:none;}.qrxl-hero-foreground{position:absolute;left:50%;top:0;transform:translateX(-50%);width:min(1280px,112vw);max-width:none;aspect-ratio:1672/941;z-index:4;pointer-events:none;opacity:.62;mix-blend-mode:screen;}.qrxl-hand-cutout{position:absolute;inset:0;background-image:var(--hero-image);background-size:100% 100%;background-repeat:no-repeat;filter:drop-shadow(0 10px 12px rgba(0,0,0,.38));}.qrxl-hand-left{clip-path:polygon(0% 38%,7% 34%,16% 32%,26% 33%,35% 35%,42% 41%,45% 49%,38% 58%,28% 66%,20% 74%,13% 83%,7% 92%,0% 96%);}.qrxl-hand-right{clip-path:polygon(100% 38%,93% 34%,84% 32%,74% 33%,65% 35%,58% 41%,55% 49%,62% 58%,72% 66%,80% 74%,87% 83%,93% 92%,100% 96%);}.qrxl-grip-shadow{position:absolute;top:38.5%;width:170px;height:36px;border-radius:28px;background:radial-gradient(ellipse at center,rgba(0,0,0,.24),rgba(0,0,0,0) 72%);filter:blur(12px);z-index:3;pointer-events:none;opacity:.38;}.qrxl-grip-shadow-left{left:12%;transform:rotate(-11deg);}.qrxl-grip-shadow-right{right:12%;transform:rotate(11deg);}
+.qrxl-suit-energy-fill{position:absolute;left:50%;top:28.5%;transform:translateX(-50%);width:min(920px,calc(100% - 44px));height:260px;z-index:2;pointer-events:none;border-radius:0 0 34px 34px;overflow:hidden;opacity:.48;filter:drop-shadow(0 18px 34px rgba(0,0,0,.22));mix-blend-mode:screen;}.qrxl-suit-energy-fill::before{content:'';position:absolute;inset:-260px -210px -70px;background-image:radial-gradient(circle at 50% 46%,rgba(35,160,255,.34),transparent 32%),radial-gradient(circle at 34% 66%,rgba(0,191,255,.35),transparent 24%),radial-gradient(circle at 66% 66%,rgba(0,191,255,.35),transparent 24%),var(--hero-image);background-size:100% 100%,100% 100%,100% 100%,min(1280px,112vw) auto;background-position:center,center,center,center top;background-repeat:no-repeat;filter:saturate(1.18) contrast(1.08);}.qrxl-suit-energy-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(4,8,16,0) 0%,rgba(4,8,16,.08) 42%,rgba(4,8,16,.62) 100%),radial-gradient(ellipse at 50% 62%,rgba(56,189,248,.34) 0%,rgba(56,189,248,.12) 36%,transparent 70%),linear-gradient(90deg,rgba(4,8,16,.56),transparent 19%,transparent 81%,rgba(4,8,16,.56));box-shadow:inset 0 -42px 60px rgba(4,8,16,.72);}.qrxl-energy-arc{position:absolute;left:50%;top:34.5%;transform:translateX(-50%);width:min(860px,calc(100% - 52px));height:190px;z-index:4;pointer-events:none;border-radius:0 0 38px 38px;overflow:hidden;opacity:.52;mix-blend-mode:screen;}.qrxl-energy-arc::before{content:'';position:absolute;left:4%;right:4%;top:6px;height:120px;border-bottom:2px solid rgba(106,221,255,.55);border-radius:0 0 50% 50%;box-shadow:0 12px 28px rgba(56,189,248,.38),0 34px 60px rgba(56,189,248,.18),inset 0 -12px 26px rgba(56,189,248,.22);}.qrxl-energy-arc::after{content:'';position:absolute;left:11%;right:11%;top:42px;height:3px;background:linear-gradient(90deg,transparent,rgba(88,202,255,.94),rgba(255,255,255,.75),rgba(88,202,255,.94),transparent);filter:blur(.4px);box-shadow:0 0 20px rgba(56,189,248,.9),0 0 44px rgba(56,189,248,.42);}.qrxl-hero-energy{position:absolute;left:50%;top:32%;transform:translateX(-50%);width:min(500px,44vw);height:min(500px,44vw);border-radius:50%;background:radial-gradient(circle,rgba(117,222,255,.26) 0%,rgba(64,164,255,.12) 30%,rgba(20,74,168,.08) 52%,transparent 72%);filter:blur(8px);pointer-events:none;z-index:1;}.qrxl-feature-slot{position:absolute;left:50%;top:48%;transform:translateX(-50%);width:min(900px,calc(100% - 40px));z-index:3;}.qrxl-feature-slot .qrxl-card{box-shadow:0 0 0 1px rgba(255,255,255,.02),0 30px 90px rgba(0,0,0,.46),0 0 90px rgba(34,211,238,.08);border-radius:16px;background:rgba(8,13,24,.88);backdrop-filter:blur(6px);}
+.qrxl-section-label{display:flex;align-items:center;gap:12px;padding:0 0 10px;max-width:900px;margin:-8px auto 0;}.qrxl-section-label span{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);white-space:nowrap;}.qrxl-section-label::after{content:'';flex:1;height:1px;background:var(--border);}.qrxl-grid{display:grid;grid-template-columns:1fr;gap:14px;max-width:900px;margin:0 auto;}
+.qrxl-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:16px;transition:border-color .2s,box-shadow .2s,transform .2s;position:relative;overflow:hidden;}.qrxl-card:hover{border-color:var(--border-h);transform:translateY(-2px);box-shadow:0 0 0 1px var(--card-accent,var(--blue)),0 8px 32px rgba(0,0,0,.4),0 0 48px rgba(56,189,248,.04);}.qrxl-card[data-accent="blue"]{--card-accent:var(--blue);}.qrxl-card[data-accent="cyan"]{--card-accent:var(--cyan);}.qrxl-card[data-accent="green"]{--card-accent:var(--green);}.qrxl-card[data-accent="amber"]{--card-accent:var(--amber);}.qrxl-card[data-accent="red"]{--card-accent:var(--red);}.qrxl-card[data-accent="purple"]{--card-accent:var(--purple);}.qrxl-card-accent-bar{position:absolute;top:0;left:0;right:0;height:2px;background:var(--card-accent,var(--blue));opacity:.7;border-radius:12px 12px 0 0;}.qrxl-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}.qrxl-card-icon{width:44px;height:44px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}.qrxl-card-body{display:grid;grid-template-columns:240px 1fr;gap:24px;align-items:start;}.qrxl-card-copy{display:flex;flex-direction:column;gap:16px;min-width:0;}.qrxl-card-thumb{width:240px;height:100%;min-height:220px;border-radius:10px;overflow:hidden;flex-shrink:0;border:1px solid var(--border);background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--card-accent,var(--blue)) 16%,transparent),var(--panel-2));display:grid;place-items:center;color:var(--card-accent,var(--blue));}.qrxl-card-thumb img{width:100%;height:100%;object-fit:cover;display:block;}.qrxl-card[data-accent="red"] .qrxl-card-thumb{background:#07101c;}.qrxl-card[data-accent="red"] .qrxl-card-thumb img{object-fit:contain;padding:16px;background:radial-gradient(circle at center, rgba(255,212,92,.10), transparent 62%);}
+.qrxl-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border:1px solid;white-space:nowrap;}.qrxl-tag-live{color:var(--green);border-color:rgba(34,211,160,.3);background:rgba(34,211,160,.06);box-shadow:0 0 12px rgba(34,211,160,.15);}.qrxl-dot{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;flex-shrink:0;animation:qrxl-blink 1.6s ease-in-out infinite;box-shadow:0 0 6px var(--green);}@keyframes qrxl-blink{0%,100%{opacity:1;}50%{opacity:.2;}}.qrxl-card-name{font-family:var(--mono);font-size:18px;font-weight:700;color:#f0f8ff;letter-spacing:-.01em;margin-bottom:2px;}.qrxl-card-type{font-size:11px;color:var(--text-dim);letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono);}.qrxl-card-desc{font-size:14.5px;color:var(--text-mid);line-height:1.6;margin:0;}.qrxl-bullets{list-style:none;display:flex;flex-direction:column;gap:7px;padding:0;margin:0;}.qrxl-bullets li{font-size:13.5px;color:var(--text-mid);display:flex;align-items:flex-start;gap:8px;line-height:1.5;}.qrxl-bullets li::before{content:'›';color:var(--card-accent,var(--blue));font-size:15px;line-height:1.4;flex-shrink:0;font-family:var(--mono);}.qrxl-cta{display:inline-flex;align-items:center;gap:8px;margin-top:auto;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;letter-spacing:.04em;font-family:var(--mono);border:1px solid var(--card-accent,var(--blue));color:var(--card-accent,var(--blue));background:transparent;transition:background .15s,color .15s,box-shadow .15s;align-self:flex-start;cursor:pointer;text-transform:uppercase;}.qrxl-cta:hover{background:var(--card-accent,var(--blue));color:var(--bg);box-shadow:0 0 20px rgba(56,189,248,.25);}.qrxl-footer{max-width:900px;margin:56px auto 0;padding-top:24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}.qrxl-footer-brand{font-family:var(--mono);font-size:13px;color:var(--text-dim);letter-spacing:.05em;}.qrxl-footer-brand span{color:var(--blue);}.qrxl-footer-meta{font-size:11px;color:var(--text-dim);letter-spacing:.06em;text-transform:uppercase;}
+@media (max-width:1100px){.qrxl-hero-stage{min-height:1160px;}.qrxl-feature-slot{top:45%;width:min(860px,calc(100% - 32px));}.qrxl-grip-shadow-left{left:11%;}.qrxl-grip-shadow-right{right:11%;}}@media (max-width:900px){.qrxl-inner{padding:0 16px;}.qrxl-hero-sub{font-size:16px;}.qrxl-hero-stage{min-height:1260px;}.qrxl-feature-slot{top:38%;}.qrxl-card{padding:24px;}.qrxl-card-head{flex-direction:column;align-items:flex-start;}.qrxl-suit-energy-fill{top:26.5%;height:220px;width:calc(100% - 32px);}.qrxl-energy-arc{top:31%;width:calc(100% - 42px);}}@media (max-width:760px){.qrxl-topbar{justify-content:center;text-align:center;}.qrxl-hero-stage{min-height:1500px;}.qrxl-hero-energy{top:22%;width:68vw;height:68vw;}.qrxl-feature-slot{top:32%;width:calc(100% - 12px);}.qrxl-hero-foreground{opacity:.92;}.qrxl-grip-shadow{display:none;}.qrxl-card-body{grid-template-columns:1fr;}.qrxl-card-thumb{width:100%;min-height:170px;height:170px;}.qrxl-suit-energy-fill{top:21%;height:210px;width:calc(100% - 18px);}.qrxl-energy-arc{top:25%;width:calc(100% - 22px);opacity:.74;}}@media (max-width:560px){.qrxl-hero-title{font-size:clamp(34px,10vw,52px);}.qrxl-hero-tagline{font-size:11px;letter-spacing:.12em;padding:9px 14px;}.qrxl-hero-stage{min-height:1620px;}.qrxl-card{padding:20px;}}
+</style></head><body><div class="qrxl-root"><div class="qrxl-inner"><div class="qrxl-topbar"><div><span class="qrxl-brand-mark">QuantumRx</span> · AI Labs</div><div>Live infrastructure · Real models · Deployed now</div></div><div class="qrxl-hero"><div class="qrxl-eyebrow">QuantumRx · AI Research Division</div><h1 class="qrxl-hero-title">The <span>AI Labs</span></h1><div class="qrxl-hero-stage"><div class="qrxl-hero-art-wrap"><img class="qrxl-hero-art" src="ai-tools-hero-art.png" alt="The QuantumRx RX guardian, a steampunk cyclops figure channeling lightning between its hands"></div><div class="qrxl-hero-foreground" style="--hero-image:url('ai-tools-hero-art.png')"><div class="qrxl-hand-cutout qrxl-hand-left"></div><div class="qrxl-hand-cutout qrxl-hand-right"></div></div><div class="qrxl-grip-shadow qrxl-grip-shadow-left"></div><div class="qrxl-grip-shadow qrxl-grip-shadow-right"></div><div class="qrxl-suit-energy-fill" style="--hero-image:url('ai-tools-hero-art.png')"></div><div class="qrxl-energy-arc"></div><div class="qrxl-hero-energy"></div><div class="qrxl-feature-slot">
       <div class="qrxl-card qrxl-card-featured" data-accent="cyan">
         <div class="qrxl-card-accent-bar"></div>
         <div class="qrxl-card-head">
           <div style="display:flex;align-items:center;gap:14px">
-            <div class="qrxl-card-icon">🗞️</div>
-            <div>
-              <div class="qrxl-card-name">Nine to F!veish</div>
-              <div class="qrxl-card-type">Daily AI Comic Strip</div>
-            </div>
+            <div class="qrxl-card-icon">🗞️</div><div><div class="qrxl-card-name">Nine to F!veish</div><div class="qrxl-card-type">Daily AI Comic Strip</div></div>
           </div>
-          <div class="qrxl-tag qrxl-tag-live">
-            <span class="qrxl-dot"></span> Live · Daily
-          </div>
+          <div class="qrxl-tag qrxl-tag-live"><span class="qrxl-dot"></span>Live · Daily</div>
         </div>
         <div class="qrxl-card-body">
-          <div class="qrxl-card-thumb">
-            <img id="thumb-strip-img" alt="Latest Nine to F!veish strip panel" src="ai-tools-hero-art.png" style="display:none;">
-            <svg id="thumb-strip-fallback" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="14" y="24" width="72" height="52" rx="4" stroke="currentColor" stroke-width="2.2" stroke-opacity="0.85"/>
-              <line x1="14" y1="40" x2="86" y2="40" stroke="currentColor" stroke-width="1.4" stroke-opacity="0.5"/>
-              <line x1="42" y1="24" x2="42" y2="76" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.4"/>
-              <line x1="64" y1="24" x2="64" y2="76" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.4"/>
-              <circle cx="26" cy="30" r="2" fill="currentColor"/>
-            </svg>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:16px;">
-            <p class="qrxl-card-desc">
-              A fully automated syndicated office satire strip. Every day at 07:00 UTC
-              Claude writes the script, Gemini draws three panels, and the strip is
-              published to a newspaper-style page — no human in the loop.
-            </p>
-            <ul class="qrxl-bullets">
-              <li>Five recurring characters — Marcus, Diane, Karen, Gerald, Priya</li>
-              <li>Claude generates the script: 3-panel dialogue, theme, headline, deck</li>
-              <li>Gemini renders each panel in classic black-and-white newspaper comic style</li>
-              <li>Vercel cron → Upstash KV → static page, fully automated</li>
-              <li>Previous editions archive maintained automatically, last 30 strips</li>
-              <li>Signed by Cal Briggs · Motto: Per Aspera Ad Meeting</li>
-            </ul>
-            <a class="qrxl-cta" href="/the-strip.html">Open the Strip →</a>
-          </div>
+          <div class="qrxl-card-thumb"><img id="thumb-strip-img" src="thumb-nine-to-fiveish-fallback.jpg" alt="Nine to F!veish newspaper strip preview" style="object-position:50% 42%;"></div>
+          <div class="qrxl-card-copy"><p class="qrxl-card-desc">A fully automated syndicated office satire strip. Every day at 07:00 UTC Claude writes the script, Gemini draws three panels, and the strip is published to a newspaper-style page — no human in the loop.</p><ul class="qrxl-bullets"><li>Five recurring characters — Marcus, Diane, Karen, Gerald, Priya</li><li>Claude generates the script: 3-panel dialogue, theme, headline, deck</li><li>Gemini renders each panel in classic black-and-white newspaper comic style</li><li>Vercel cron → Upstash KV → static page, fully automated</li><li>Previous editions archive maintained automatically, last 30 strips</li><li>Signed by Cal Briggs · Motto: Per Aspera Ad Meeting</li></ul><a class="qrxl-cta" href="/the-strip.html">Open the Strip →</a></div>
         </div>
-      </div>
-
-      <!-- KERNEL GENERATOR -->
+      </div></div></div></div><div class="qrxl-section-label"><span>Active experiments</span></div><div class="qrxl-grid">
       <div class="qrxl-card" data-accent="blue">
         <div class="qrxl-card-accent-bar"></div>
         <div class="qrxl-card-head">
           <div style="display:flex;align-items:center;gap:14px">
-            <div class="qrxl-card-icon">⚙️</div>
-            <div>
-              <div class="qrxl-card-name">Kernel Generator</div>
-              <div class="qrxl-card-type">AI Workflow Tool · Free</div>
-            </div>
+            <div class="qrxl-card-icon">⚙️</div><div><div class="qrxl-card-name">Kernel Generator</div><div class="qrxl-card-type">AI Workflow Tool · Free</div></div>
           </div>
-          <div class="qrxl-tag qrxl-tag-live">
-            <span class="qrxl-dot"></span> Live
-          </div>
+          <div class="qrxl-tag qrxl-tag-live"><span class="qrxl-dot"></span>Live</div>
         </div>
-        <div class="qrxl-card-thumb">
-          <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="50" cy="50" r="46" stroke="currentColor" stroke-opacity="0.15" stroke-width="1"/>
-            <g stroke="currentColor" stroke-width="1.4" stroke-opacity="0.55">
-              <line x1="50" y1="50" x2="50" y2="14"/>
-              <line x1="50" y1="50" x2="80" y2="32"/>
-              <line x1="50" y1="50" x2="80" y2="68"/>
-              <line x1="50" y1="50" x2="50" y2="86"/>
-              <line x1="50" y1="50" x2="20" y2="68"/>
-              <line x1="50" y1="50" x2="20" y2="32"/>
-            </g>
-            <circle cx="50" cy="14" r="5" fill="currentColor" fill-opacity="0.85"/>
-            <circle cx="80" cy="32" r="5" fill="currentColor" fill-opacity="0.85"/>
-            <circle cx="80" cy="68" r="5" fill="currentColor" fill-opacity="0.85"/>
-            <circle cx="50" cy="86" r="5" fill="currentColor" fill-opacity="0.85"/>
-            <circle cx="20" cy="68" r="5" fill="currentColor" fill-opacity="0.85"/>
-            <circle cx="20" cy="32" r="5" fill="currentColor" fill-opacity="0.85"/>
-            <circle cx="50" cy="50" r="12" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.6"/>
-            <circle cx="50" cy="50" r="4" fill="currentColor"/>
-          </svg>
+        <div class="qrxl-card-body">
+          <div class="qrxl-card-thumb"><img src="thumb-kernel-generator.jpg" alt="Kernel Generator interface preview" style="object-position:50% 40%;"></div>
+          <div class="qrxl-card-copy"><p class="qrxl-card-desc">Generate a MACK continuity kernel — a compressed, structured document that keeps AI agents aligned across sessions without losing context.</p><ul class="qrxl-bullets"><li>Based on the MACK methodology (Multi-Agent Continuity Kernel)</li><li>Outputs a structured handoff document for Claude Code or any AI agent</li><li>Paste your project context in, get a production-ready kernel out</li><li>Free lead-generation tool — no account required</li></ul><a class="qrxl-cta" href="/kernel-generator">Generate a Kernel →</a></div>
         </div>
-        <p class="qrxl-card-desc">
-          Generate a MACK continuity kernel — a compressed, structured document
-          that keeps AI agents aligned across sessions without losing context.
-        </p>
-        <ul class="qrxl-bullets">
-          <li>Based on the MACK methodology (Multi-Agent Continuity Kernel)</li>
-          <li>Outputs a structured handoff document for Claude Code or any AI agent</li>
-          <li>Paste your project context in, get a production-ready kernel out</li>
-          <li>Free lead-generation tool — no account required</li>
-        </ul>
-        <a class="qrxl-cta" href="/kernel-generator">Generate a Kernel →</a>
       </div>
-
-      <!-- BREAK THE SENTINEL -->
       <div class="qrxl-card" data-accent="red">
         <div class="qrxl-card-accent-bar"></div>
         <div class="qrxl-card-head">
           <div style="display:flex;align-items:center;gap:14px">
-            <div class="qrxl-card-icon">🔴</div>
-            <div>
-              <div class="qrxl-card-name">Break the Sentinel</div>
-              <div class="qrxl-card-type">Prompt Injection Game</div>
-            </div>
+            <div class="qrxl-card-icon">🔴</div><div><div class="qrxl-card-name">Break the Sentinel</div><div class="qrxl-card-type">Prompt Injection Game</div></div>
           </div>
-          <div class="qrxl-tag qrxl-tag-live">
-            <span class="qrxl-dot"></span> Live
-          </div>
+          <div class="qrxl-tag qrxl-tag-live"><span class="qrxl-dot"></span>Live</div>
         </div>
-        <div class="qrxl-card-thumb">
-          <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M50 8 L82 20 V48 C82 68 68 84 50 92 C32 84 18 68 18 48 V20 Z" stroke="currentColor" stroke-width="2.2" stroke-opacity="0.85" fill="currentColor" fill-opacity="0.06"/>
-            <path d="M50 20 L44 42 L54 46 L40 76" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.95"/>
-            <circle cx="50" cy="20" r="3" fill="currentColor"/>
-          </svg>
+        <div class="qrxl-card-body">
+          <div class="qrxl-card-thumb"><img src="thumb-break-the-sentinel.png" alt="Glowing shield and sentinel bird crest icon" style="object-position:50% 50%;"></div>
+          <div class="qrxl-card-copy"><p class="qrxl-card-desc">A live adversarial AI challenge. Five layers of detection stand between you and the Sentinel's core. Your mission: get through using only words.</p><ul class="qrxl-bullets"><li>5-layer prompt injection detection system — Q-Sentinel powered</li><li>Real-time threat scoring on every message you send</li><li>Leaderboard tracks successful breaks by technique and layer reached</li><li>Tests your understanding of AI safety and jailbreak mechanics</li><li>No bounty — just the challenge and the leaderboard</li></ul><a class="qrxl-cta" href="/break-the-sentinel.html">Enter the Challenge →</a></div>
         </div>
-        <p class="qrxl-card-desc">
-          A live adversarial AI challenge. Five layers of detection stand between
-          you and the Sentinel's core. Your mission: get through using only words.
-        </p>
-        <ul class="qrxl-bullets">
-          <li>5-layer prompt injection detection system — Q-Sentinel powered</li>
-          <li>Real-time threat scoring on every message you send</li>
-          <li>Leaderboard tracks successful breaks by technique and layer reached</li>
-          <li>Tests your understanding of AI safety and jailbreak mechanics</li>
-          <li>No bounty — just the challenge and the leaderboard</li>
-        </ul>
-        <a class="qrxl-cta" href="/break-the-sentinel.html">Enter the Challenge →</a>
       </div>
-
-      <!-- PEPE LEGENDS FORGE -->
       <div class="qrxl-card" data-accent="amber">
         <div class="qrxl-card-accent-bar"></div>
         <div class="qrxl-card-head">
           <div style="display:flex;align-items:center;gap:14px">
-            <div class="qrxl-card-icon">🐸</div>
-            <div>
-              <div class="qrxl-card-name">Pepe Legends Forge</div>
-              <div class="qrxl-card-type">AI Card Generator · €1.99</div>
-            </div>
+            <div class="qrxl-card-icon">🐸</div><div><div class="qrxl-card-name">Pepe Legends Forge</div><div class="qrxl-card-type">AI Card Generator · €1.99</div></div>
           </div>
-          <div class="qrxl-tag qrxl-tag-live">
-            <span class="qrxl-dot"></span> Live
-          </div>
+          <div class="qrxl-tag qrxl-tag-live"><span class="qrxl-dot"></span>Live</div>
         </div>
-        <div class="qrxl-card-thumb">
-          <img src="pepe-legends-hero.png" alt="Pepe Legends series card collection" style="object-position: 50% 62%;">
+        <div class="qrxl-card-body">
+          <div class="qrxl-card-thumb"><img src="pepe-legends-hero.png" alt="Pepe Legends series card collection" style="object-position:50% 56%;"></div>
+          <div class="qrxl-card-copy"><p class="qrxl-card-desc">AI-generated one-of-one character cards from the Pepe Legends Series 1 collection. Pick a theme, hit forge, get a card that has never existed before.</p><ul class="qrxl-bullets"><li>1,000 card collection, ten founding themes</li><li>Gemini generates each card live — no two pulls ever match</li><li>One-time licence key model: pay once, forge once, keep forever</li><li>Issue counter baked in — your serial number is permanent and unique</li><li>Download straight away at full resolution</li></ul><a class="qrxl-cta" href="https://tools.quantumrx.eu/nft-forge-tv.html">Enter the Forge →</a></div>
         </div>
-        <p class="qrxl-card-desc">
-          AI-generated one-of-one character cards from the Pepe Legends Series 1
-          collection. Pick a theme, hit forge, get a card that has never existed before.
-        </p>
-        <ul class="qrxl-bullets">
-          <li>1,000 card collection, ten founding themes</li>
-          <li>Gemini generates each card live — no two pulls ever match</li>
-          <li>One-time licence key model: pay once, forge once, keep forever</li>
-          <li>Issue counter baked in — your serial number is permanent and unique</li>
-          <li>Download straight away at full resolution</li>
-        </ul>
-        <a class="qrxl-cta" href="https://tools.quantumrx.eu/nft-forge-tv.html">Enter the Forge →</a>
       </div>
-
-      <!-- LORD OF THE MEMES FORGE -->
       <div class="qrxl-card" data-accent="purple">
         <div class="qrxl-card-accent-bar"></div>
         <div class="qrxl-card-head">
           <div style="display:flex;align-items:center;gap:14px">
-            <div class="qrxl-card-icon">👑</div>
-            <div>
-              <div class="qrxl-card-name">Lord of the Memes</div>
-              <div class="qrxl-card-type">AI Card Generator · €1.99</div>
-            </div>
+            <div class="qrxl-card-icon">👑</div><div><div class="qrxl-card-name">Lord of the Memes</div><div class="qrxl-card-type">AI Card Generator · €1.99</div></div>
           </div>
-          <div class="qrxl-tag qrxl-tag-live">
-            <span class="qrxl-dot"></span> Live
-          </div>
+          <div class="qrxl-tag qrxl-tag-live"><span class="qrxl-dot"></span>Live</div>
         </div>
-        <div class="qrxl-card-thumb">
-          <img src="lord-of-the-memes-hero.png" alt="Lord of the Memes series card collection" style="object-position: 50% 62%;">
+        <div class="qrxl-card-body">
+          <div class="qrxl-card-thumb"><img src="lord-of-the-memes-hero.png" alt="Lord of the Memes series card collection" style="object-position:50% 58%;"></div>
+          <div class="qrxl-card-copy"><p class="qrxl-card-desc">Ten archetypes, weighted rarity tiers, and a power rating baked into every pull. The second collection in the QuantumRx card forge series.</p><ul class="qrxl-bullets"><li>Ten archetypes with weighted rarity — common through legendary</li><li>Power rating generated and embedded per card</li><li>Same one-time licence key model as Pepe Legends</li><li>Gemini image generation with full-resolution download</li><li>Serial numbered — every card has a permanent unique position</li></ul><a class="qrxl-cta" href="https://forge.quantumrx.eu/lotm-forge-tv.html">Enter the Forge →</a></div>
         </div>
-        <p class="qrxl-card-desc">
-          Ten archetypes, weighted rarity tiers, and a power rating baked into
-          every pull. The second collection in the QuantumRx card forge series.
-        </p>
-        <ul class="qrxl-bullets">
-          <li>Ten archetypes with weighted rarity — common through legendary</li>
-          <li>Power rating generated and embedded per card</li>
-          <li>Same one-time licence key model as Pepe Legends</li>
-          <li>Gemini image generation with full-resolution download</li>
-          <li>Serial numbered — every card has a permanent unique position</li>
-        </ul>
-        <a class="qrxl-cta" href="https://forge.quantumrx.eu/lotm-forge-tv.html">Enter the Forge →</a>
-      </div>
-
-    </div>
-
-    <!-- FOOTER -->
-    <div class="qrxl-footer">
-      <div class="qrxl-footer-brand">
-        <span>QuantumRx</span> · AI Lab · Built with Claude Code
-      </div>
-      <div class="qrxl-footer-meta">
-        All tools running on Vercel · Upstash KV · Ghost Pro
-      </div>
-    </div>
-
-  </div>
-</div>
-
+      </div></div><div class="qrxl-footer"><div class="qrxl-footer-brand"><span>QuantumRx</span> · AI Lab · Built with Claude Code</div><div class="qrxl-footer-meta">All tools running on Vercel · Upstash KV · Ghost Pro</div></div></div></div>
 <script>
-  // Nine to F!veish's thumbnail shows today's actual first panel, not a
-  // fixed image — the tool regenerates daily, so a hardcoded thumbnail
-  // would go stale. Falls back to the static SVG icon on any failure.
+  // Nine to F!veish's featured thumbnail starts on a real screenshot
+  // (thumb-nine-to-fiveish-fallback.jpg) so it never looks blank, then
+  // swaps to today's actual first panel once /api/cartoon resolves —
+  // the strip regenerates daily, so a hardcoded screenshot alone would
+  // go stale the day after this ships.
   fetch('/api/cartoon')
     .then(function(r){ return r.json(); })
     .then(function(data){
       var panel = data && data.panels && data.panels[0];
       if (!panel || !panel.imageUrl) return;
-      var img = document.getElementById('thumb-strip-img');
-      img.onload = function(){
-        img.style.display = 'block';
-        document.getElementById('thumb-strip-fallback').style.display = 'none';
-      };
-      img.src = panel.imageUrl;
+      document.getElementById('thumb-strip-img').src = panel.imageUrl;
     })
-    .catch(function(){ /* fallback SVG stays visible */ });
+    .catch(function(){ /* static fallback screenshot stays visible */ });
 </script>
-</body>
-</html>
+</body></html>
