@@ -1211,6 +1211,8 @@
 .qrx-sa .hdr-title span { color: #38bdf8; }
 .qrx-sa .hdr-pill { display: flex; align-items: center; gap: 5px; background: rgba(34,211,160,0.07); border: 1px solid rgba(34,211,160,0.18); padding: 3px 9px; border-radius: 20px; font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; color: #22d3a0; flex-shrink: 0; }
 .qrx-sa .hdr-pill-dot { width: 5px; height: 5px; border-radius: 50%; background: #22d3a0; box-shadow: 0 0 5px rgba(34,211,160,0.8); animation: qrxsa-blink 2.5s ease-in-out infinite; }
+.qrx-sa .hdr-close-x { background: none; border: none; color: #5a7a9a; font-size: 22px; line-height: 1; cursor: pointer; padding: 0; margin-left: 6px; flex-shrink: 0; transition: color 0.15s; }
+.qrx-sa .hdr-close-x:hover { color: #f0f4ff; }
 @keyframes qrxsa-blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 .qrx-sa .ctx-bar { padding: 6px 16px; background: rgba(26,86,219,0.04); border-bottom: 1px solid rgba(26,86,219,0.07); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
 .qrx-sa .ctx-label { font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; color: #1a3050; }
@@ -1345,6 +1347,7 @@
       </div>
       <div class="hdr-center"><div class="hdr-title">QRx <span>Signal Analyst</span></div></div>
       <div class="hdr-pill"><div class="hdr-pill-dot"></div>Live</div>
+      <button class="hdr-close-x" id="qrx-close-x" aria-label="Close">&times;</button>
     </div>
 
     <div class="ctx-bar">
@@ -1414,6 +1417,10 @@
 
   document.getElementById('qrx-btn').addEventListener('click', togglePanel);
   document.getElementById('qrx-close').addEventListener('click', function(e){
+    e.stopPropagation();
+    closePanel();
+  });
+  document.getElementById('qrx-close-x').addEventListener('click', function(e){
     e.stopPropagation();
     closePanel();
   });
