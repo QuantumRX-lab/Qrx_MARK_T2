@@ -1,18 +1,21 @@
 // api/cartoon-refresh.js
 // POST /api/cartoon-refresh — daily cron, 07:00 UTC
 //
-// Nine to F!veish pipeline: Claude writes today's 3-panel script, Gemini
-// generates one image per panel, results are written to KV. No Ghost
-// Admin API involved — the Ghost/Vercel page for this strip is a static
-// shell that fetches fresh data client-side from api/cartoon.js on every
-// load, same pattern as every other feed page in this project. That
-// means there is nothing here to "patch" server-side; the page is
-// already fresh the moment KV is updated.
+// Nine to F!veish pipeline: Gemini (text) writes today's 3-panel script,
+// then Gemini (image) generates one image per panel, results are written
+// to KV. No Ghost Admin API involved — the Ghost/Vercel page for this
+// strip is a static shell that fetches fresh data client-side from
+// api/cartoon.js on every load, same pattern as every other feed page in
+// this project. That means there is nothing here to "patch" server-side;
+// the page is already fresh the moment KV is updated.
 //
 // Model choices deliberately differ from the original spec, which named
 // models that don't exist / aren't confirmed working in this project:
-//   - Script generation: claude-sonnet-5 (spec said claude-sonnet-4-6,
-//     not a real model id).
+//   - Script generation: gemini-2.5-flash (spec said claude-sonnet-4-6 /
+//     Anthropic — there's no Anthropic API key provisioned for this
+//     project, so script generation uses the same Gemini text model
+//     already confirmed working in mainstream-refresh.js / news-refresh.js
+//     for structured-JSON generation, via a separate call from image gen).
 //   - Image generation: gemini-3.1-flash-image with responseModalities
 //     ['IMAGE','TEXT'] (spec suggested imagen-3.0-generate-001 or
 //     gemini-2.0-flash-preview-image-generation — neither matches the
@@ -29,13 +32,14 @@ import { put } from '@vercel/blob';
 import { logRequest, blockThreat } from './_lib/sentinel.js';
 import { buildScriptSystemPrompt, IMAGE_PROMPT_SUFFIX } from './_lib/cartoon-prompt.js';
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 // Matches the existing convention for content-refresh pipelines in this
 // repo (mainstream-refresh.js, news-refresh.js, draw-refresh.js,
 // weekly-refresh.js all use this same key) rather than the spec's
 // generic GEMINI_API_KEY, which isn't an env var this project actually
-// has configured.
+// has configured. Used for both the script-writing call and the
+// per-panel image calls below — two separate requests, same key.
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY_Forge;
+const GEMINI_TEXT_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 const ARCHIVE_RETENTION = 90; // kv.index keeps this many dates; api/cartoon.js's ?archive=true slices to the last 30 of these
 
@@ -48,41 +52,44 @@ function extractJSON(text) {
 }
 
 async function generateScript(issueNumber) {
-  if (!ANTHROPIC_API_KEY) throw new Error('Missing ANTHROPIC_API_KEY');
+  if (!GEMINI_API_KEY) throw new Error('Missing GEMINI_API_KEY_Forge');
 
-  const systemPrompt = buildScriptSystemPrompt(issueNumber);
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  // Same prompt content as before, just folded into a single text prompt
+  // instead of a system+user message pair — this endpoint has no
+  // separate "system" role, matching the pattern already used by
+  // mainstream-refresh.js / news-refresh.js for structured JSON output.
+  const prompt = buildScriptSystemPrompt(issueNumber) + "\n\nWrite today's strip now.";
+
+  const res = await fetch(`${GEMINI_TEXT_URL}?key=${GEMINI_API_KEY}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-5',
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: "Write today's strip." }]
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.8,
+        maxOutputTokens: 2048,
+        thinkingConfig: { thinkingBudget: 0 }
+      }
     }),
     signal: AbortSignal.timeout(30000)
   });
 
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(`Claude API error: ${res.status} ${JSON.stringify(data).slice(0, 500)}`);
+    throw new Error(`Gemini API error: ${res.status} ${JSON.stringify(data).slice(0, 500)}`);
   }
 
-  const text = data?.content?.[0]?.text || '';
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   const json = extractJSON(text);
   let script;
   try {
     script = JSON.parse(json);
   } catch {
-    throw new Error(`Claude returned invalid JSON: ${text.slice(0, 500)}`);
+    throw new Error(`Gemini returned invalid JSON: ${text.slice(0, 500)}`);
   }
 
   if (!script.title || !Array.isArray(script.panels) || script.panels.length !== 3) {
-    throw new Error('Claude script missing title or does not have exactly 3 panels');
+    throw new Error('Script missing title or does not have exactly 3 panels');
   }
   return script;
 }
@@ -130,8 +137,8 @@ export default async function handler(req, res) {
   const today = new Date().toISOString().slice(0, 10);
 
   try {
-    // Server owns the authoritative sequential counter — Claude is only
-    // told what number to print, never trusted to track it itself.
+    // Server owns the authoritative sequential counter — the model is
+    // only told what number to print, never trusted to track it itself.
     const issueNumber = await kv.incr('cartoon:counter');
 
     const script = await generateScript(issueNumber);
