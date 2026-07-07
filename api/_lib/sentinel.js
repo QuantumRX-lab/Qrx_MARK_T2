@@ -11,7 +11,13 @@ const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 function clientIp(req) {
   const fwd = req.headers["x-forwarded-for"];
-  return (Array.isArray(fwd) ? fwd[0] : fwd || "").split(",")[0].trim() || "unknown";
+  const fromHeader = (Array.isArray(fwd) ? fwd[0] : fwd || "").split(",")[0].trim();
+  // Must match request-logger.js's fallback chain exactly — that file falls
+  // back to req.socket.remoteAddress before "unknown". This function used to
+  // skip straight to "unknown", so any XFF-less request would write/read
+  // threat_action under a different key depending on which of the two IP
+  // helpers handled it, silently breaking the block for that request.
+  return fromHeader || req.socket?.remoteAddress || "unknown";
 }
 
 // Checks the shared threat_action:<ip> record written by writeAutoBlock() in

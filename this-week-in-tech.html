@@ -168,6 +168,26 @@
 </div>
 
 <script>
+function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+function safeImg(url) {
+  if (!url) return '';
+  try { var u = new URL(url); return (u.protocol === 'https:' || u.protocol === 'http:') ? url : ''; }
+  catch (e) { return ''; }
+}
+// Replaces a broken/failed story image with the placeholder block, without
+// building an onerror="" attribute string containing dynamic data (the old
+// approach embedded s.category inside an inline JS-in-HTML-attribute string,
+// a second, subtler injection vector even when the value itself is escaped).
+document.addEventListener('error', function (e) {
+  var t = e.target;
+  if (t && t.tagName === 'IMG' && t.getAttribute('data-fallback') === '1') {
+    var ph = document.createElement('div');
+    ph.className = 'qrx-story-img-placeholder';
+    ph.textContent = t.getAttribute('data-category') || '';
+    t.replaceWith(ph);
+  }
+}, true);
+
 function maturityBadge(m) {
   if (m === 'crossing') return { cls: 'qrx-badge-cross', text: 'Crossing mainstream' };
   if (m === 'mainstream') return { cls: 'qrx-badge-main', text: 'Mainstream' };
@@ -194,32 +214,33 @@ function buildList(stories) {
     const item = document.createElement('div');
     item.className = 'qrx-story';
 
-    const imgEl = s.image
-      ? `<img class="qrx-story-img" src="${s.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=qrx-story-img-placeholder>${s.category || ''}</div>'">`
-      : `<div class="qrx-story-img-placeholder">${s.category || ''}</div>`;
+    const safeImageUrl = safeImg(s.image);
+    const imgEl = safeImageUrl
+      ? `<img class="qrx-story-img" src="${esc(safeImageUrl)}" alt="" loading="lazy" data-fallback="1" data-category="${esc(s.category || '')}">`
+      : `<div class="qrx-story-img-placeholder">${esc(s.category || '')}</div>`;
 
     item.innerHTML = `
       ${imgEl}
       <div class="qrx-story-body">
-        <div class="qrx-story-source">${s.category || ''}</div>
-        <div class="qrx-story-headline">${s.title || ''}</div>
+        <div class="qrx-story-source">${esc(s.category || '')}</div>
+        <div class="qrx-story-headline">${esc(s.title || '')}</div>
         <div class="qrx-badge-row">
           <span class="qrx-badge ${mb.cls}">${mb.text}</span>
           <span class="qrx-badge ${vb.cls}">${vb.text}</span>
         </div>
         <div class="qrx-part">
           <div class="qrx-part-label">What is it</div>
-          <div class="qrx-part-text">${s.what_is_it || ''}</div>
+          <div class="qrx-part-text">${esc(s.what_is_it || '')}</div>
         </div>
         <div class="qrx-part">
           <div class="qrx-part-label">Why it matters</div>
-          <div class="qrx-part-text">${s.why_it_matters || ''}</div>
+          <div class="qrx-part-text">${esc(s.why_it_matters || '')}</div>
         </div>
         <div class="qrx-watch">
           <div class="qrx-watch-label">What could happen next</div>
-          <div class="qrx-watch-text">${s.what_next || ''}</div>
+          <div class="qrx-watch-text">${esc(s.what_next || '')}</div>
         </div>
-        ${s.outlets ? `<div class="qrx-story-footer">${s.outlets}</div>` : ''}
+        ${s.outlets ? `<div class="qrx-story-footer">${esc(s.outlets)}</div>` : ''}
       </div>
     `;
     list.appendChild(item);
@@ -237,7 +258,7 @@ function buildArchive(archive) {
     const row = document.createElement('div');
     row.className = 'qrx-archive-row';
     row.innerHTML = `
-      <span class="qrx-archive-wk">${ed.weekLabel || 'Previous edition'}</span>
+      <span class="qrx-archive-wk">${esc(ed.weekLabel || 'Previous edition')}</span>
       <span class="qrx-archive-count">${(ed.stories || []).length} stories</span>
     `;
     list.appendChild(row);
@@ -279,7 +300,11 @@ async function loadBriefing() {
     document.getElementById('live-label').textContent = `Updated ${dateStr}`;
 
     buildList(stories);
-    buildArchive(data.archive || []);
+    // api/weekly-feed.js returns the archive list under `previous`, not
+    // `archive` (that field never existed — this was found already fixed
+    // on the Ghost-hosted copy of this widget but not here, so "Previous
+    // editions" was silently always empty on this page).
+    buildArchive(data.previous || []);
 
   } catch (err) {
     console.error('Failed to load briefing:', err);

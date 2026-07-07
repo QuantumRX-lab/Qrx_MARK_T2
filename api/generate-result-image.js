@@ -69,11 +69,30 @@ export default async function handler(req, res) {
   }
 
   const cacheKey = `game-image:${type}`;
+  const lockKey = `game-image-lock:${type}`;
 
   try {
     const cached = await kv.get(cacheKey);
     if (cached) {
       return res.status(200).json({ url: cached, cached: true });
+    }
+
+    // Atomic claim — same pattern as the free-code claim in generate.js.
+    // Without this, every request that arrives while the cache is still
+    // empty (only possible before the very first successful generation
+    // for this type, but real on a fresh deploy or right after a cache
+    // clear) independently sees cached=null and triggers its own paid
+    // Gemini call + Blob upload, instead of exactly one.
+    const claimed = await kv.set(lockKey, '1', { ex: 30, nx: true });
+    if (!claimed) {
+      // Someone else is already generating this — poll briefly for their
+      // result rather than generating a redundant copy ourselves.
+      for (let i = 0; i < 8; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        const nowCached = await kv.get(cacheKey);
+        if (nowCached) return res.status(200).json({ url: nowCached, cached: true });
+      }
+      return res.status(503).json({ error: 'Image generation in progress, try again shortly' });
     }
 
     const url = await generateAndUploadImage(PROMPTS[type]);

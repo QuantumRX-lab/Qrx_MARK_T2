@@ -44,6 +44,9 @@ export default async function handler(req, res) {
   }
 
   const day = req.query?.day || yesterdayUTC();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    return res.status(400).json({ error: 'day must be YYYY-MM-DD' });
+  }
   const listKey = `sentinel-log-day:${day}`;
   const candidateKey = `game:sentinel-candidates:${day}`;
 

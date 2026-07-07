@@ -303,13 +303,24 @@ export default async function handler(req, res) {
   }
 
   // -- SECURITY LAYER 1: Shared secret header check ----------
+  // This endpoint historically used its own header/secret pair
+  // (x-refresh-secret / WEEKLY_REFRESH_SECRET) instead of the
+  // x-cron-secret / CRON_SECRET pattern every other *-refresh.js
+  // endpoint uses — kept working as-is since an external trigger
+  // (Railway) already depends on the exact header name. Also accepting
+  // the standard x-cron-secret/CRON_SECRET here means a future
+  // consolidation of the *-refresh.js auth checks onto the common
+  // pattern won't silently leave this one unauthenticated.
   const secret = process.env.WEEKLY_REFRESH_SECRET;
-  if (!secret) {
-    console.error('WEEKLY_REFRESH_SECRET not configured');
+  const cronSecret = process.env.CRON_SECRET;
+  if (!secret && !cronSecret) {
+    console.error('WEEKLY_REFRESH_SECRET / CRON_SECRET not configured');
     return res.status(500).json({ error: 'Server misconfiguration: secret not set' });
   }
   const incomingSecret = req.headers['x-refresh-secret'];
-  if (!incomingSecret || incomingSecret !== secret) {
+  const incomingCronSecret = req.headers['x-cron-secret'];
+  const authorised = (secret && incomingSecret === secret) || (cronSecret && incomingCronSecret === cronSecret);
+  if (!authorised) {
     console.warn('Unauthorised weekly-refresh attempt from:', req.headers['x-forwarded-for'] || 'unknown');
     return res.status(401).json({ error: 'Unauthorised' });
   }

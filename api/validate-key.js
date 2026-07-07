@@ -50,7 +50,13 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({ valid: true });
     }
-    if (lsData.error && /not found/i.test(lsData.error)) return res.status(200).json({ valid: true });
+    // A "not found" key is not valid — this used to return valid:true for
+    // that case, which meant any string just matching the format check
+    // above (16+ alnum/dash chars) would show as a valid key in the UI as
+    // long as it didn't correspond to a real order. Actual card generation
+    // was never affected (generate.js's own /activate call always rejects
+    // it there), but the pre-flight check falsely told the visitor their
+    // key was good.
     await logKeyFailure(ip);
     return res.status(200).json({ valid: false, error: lsData.error || 'Licence key not valid' });
   } catch (err) {

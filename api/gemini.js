@@ -147,8 +147,16 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too many requests. Please try again later.' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
+  // Was process.env.GEMINI_API_KEY — the one endpoint in the repo not
+  // following the per-feature key convention every other Gemini-calling
+  // endpoint uses (GEMINI_API_KEY_Forge/_Chat/_Game). cartoon-refresh.js
+  // even has its own comment confirming the generic GEMINI_API_KEY isn't
+  // an env var this project actually provisions, so this was either
+  // silently broken (var never set) or drawing against an untracked
+  // budget (if left over from earlier scaffolding). Needs a real
+  // GEMINI_API_KEY_Kernel value set in Vercel before this works again.
+  const apiKey = process.env.GEMINI_API_KEY_Kernel;
+  if (!apiKey) return res.status(500).json({ error: 'Missing GEMINI_API_KEY_Kernel' });
 
   let mode, format, input;
   try {
