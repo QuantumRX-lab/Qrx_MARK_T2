@@ -5,6 +5,7 @@
     { "source": "/break-the-sentinel.html", "destination": "/break-the-sentinel.html" },
     { "source": "/products.html", "destination": "/products.html" },
     { "source": "/the-strip.html", "destination": "/the-strip.html" },
+    { "source": "/ai-labs.html", "destination": "/ai-labs.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "crons": [
