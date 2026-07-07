@@ -655,4 +655,33 @@ html,body{margin:0;padding:0;background:var(--bg);}.qrxl-root{background:var(--b
 })();
 </script>
 
+<script>
+(function(){
+  // .qrxl-hero-stage has no in-flow children (the hero art, hand-cutout
+  // effect, and the featured card are all position:absolute so they
+  // don't contribute to auto height), so its height is whatever
+  // min-height says — that value was a manual guess per breakpoint
+  // (1120/1160/1260/1500/1620px) sized generously to guarantee the
+  // featured card never gets clipped by the next section. "Generous"
+  // means there's often a large empty gap below the card instead.
+  // Measuring the card's actual rendered bottom edge and sizing the
+  // stage to match removes the guesswork entirely.
+  function fitHeroStageToFeaturedCard() {
+    var stage = document.querySelector('.qrxl-hero-stage');
+    var card = document.querySelector('.qrxl-feature-slot .qrxl-card');
+    if (!stage || !card) return;
+    var stageRect = stage.getBoundingClientRect();
+    var cardRect = card.getBoundingClientRect();
+    if (cardRect.height === 0) return; // not rendered yet
+    var margin = 40;
+    var neededHeight = (cardRect.bottom - stageRect.top) + margin;
+    stage.style.minHeight = Math.round(neededHeight) + 'px';
+  }
+  document.addEventListener('DOMContentLoaded', fitHeroStageToFeaturedCard);
+  window.addEventListener('resize', fitHeroStageToFeaturedCard);
+  window.addEventListener('load', fitHeroStageToFeaturedCard);
+  setTimeout(fitHeroStageToFeaturedCard, 300);
+})();
+</script>
+
 </body></html>
