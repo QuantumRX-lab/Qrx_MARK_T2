@@ -3,450 +3,715 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QuantumRx AI Labs — Live Tools Built and Running in Production</title>
-<meta name="description" content="QuantumRx AI Labs: a live console of production AI tools — a self-writing daily comic, a prompt-injection defense game, and two AI card forges. Nothing here is a demo.">
+<title>QuantumRx AI Labs — Five Live Tools, Zero Human Editors</title>
+<meta name="description" content="QuantumRx AI Labs: five tools built in-house and running on live infrastructure right now — a self-writing daily comic, a free MACK kernel generator, a prompt-injection defense game, and two AI card forges.">
 <style>
-  :root {
-    --bg:#040817;
-    --bg-2:#071126;
-    --panel:rgba(8,16,34,0.78);
-    --panel-2:rgba(9,20,42,0.92);
-    --line:rgba(86,168,255,0.18);
-    --line-strong:rgba(118,197,255,0.42);
-    --text:#edf5ff;
-    --text-mid:#adc6e4;
-    --text-dim:#7190b4;
-    --blue:#56b4ff;
-    --cyan:#4fe2ff;
-    --green:#35e38f;
-    --amber:#f7c14c;
-    --red:#ff6d77;
-    --purple:#b58cff;
-    --shadow:0 24px 80px rgba(0,0,0,0.42);
-    --mono:'JetBrains Mono','Fira Code','IBM Plex Mono','Courier New',monospace;
-    --sans:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { min-height: 100%; }
-  body {
-    font-family: var(--sans);
+  .qrxl-root {
+    --bg:       #040810;
+    --panel:    #080d18;
+    --panel-2:  #0c1220;
+    --border:   rgba(56,189,248,0.12);
+    --border-h: rgba(56,189,248,0.35);
+    --blue:     #38bdf8;
+    --cyan:     #22d3ee;
+    --green:    #22d3a0;
+    --amber:    #fbbf24;
+    --red:      #f87171;
+    --purple:   #a78bfa;
+    --text:     #e2e8f0;
+    --text-dim: #64748b;
+    --text-mid: #94a3b8;
+    --mono:     'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    --sans:     'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
     color: var(--text);
-    background:
-      radial-gradient(circle at 50% 0%, rgba(51,136,255,0.17), transparent 26%),
-      radial-gradient(circle at 20% 20%, rgba(79,226,255,0.08), transparent 22%),
-      radial-gradient(circle at 80% 15%, rgba(181,140,255,0.08), transparent 22%),
-      linear-gradient(180deg, #031126 0%, #040817 35%, #060b16 100%);
-    overflow-x: hidden;
-  }
-  body::before {
-    content:''; position: fixed; inset: 0; pointer-events: none;
-    background-image:
-      linear-gradient(rgba(86,180,255,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(86,180,255,0.04) 1px, transparent 1px);
-    background-size: 52px 52px; opacity: .5; z-index: 0;
-  }
-
-  a { color: inherit; text-decoration: none; }
-
-  .page { position: relative; z-index: 1; min-height: 100vh; }
-
-  .hero-shell {
+    font-family: var(--sans);
+    padding: 0 0 72px;
     position: relative;
-    padding: 28px 20px 120px;
     min-height: 100vh;
+  }
+
+  html, body { margin: 0; padding: 0; background: #040810; }
+  .qrxl-root * { box-sizing: border-box; }
+  .qrxl-root a { color: inherit; text-decoration: none; }
+
+  /* grid overlay */
+  .qrxl-root::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    z-index: 0;
+  }
+
+  /* radial glow top centre */
+  .qrxl-root::after {
+    content: '';
+    position: absolute;
+    top: -120px; left: 50%;
+    transform: translateX(-50%);
+    width: 800px; height: 400px;
+    background: radial-gradient(ellipse at center, rgba(56,189,248,0.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .qrxl-inner {
+    position: relative;
+    z-index: 2;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ── HERO ── */
+  .qrxl-topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding: 24px 0 0;
+    font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim);
+  }
+  .qrxl-topbar .qrxl-brand-mark {
+    color: var(--blue); font-weight: 700;
+  }
+
+  .qrxl-hero {
+    padding: 40px 0 56px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .qrxl-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .qrxl-eyebrow::before,
+  .qrxl-eyebrow::after {
+    content: '';
+    width: 40px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan));
+  }
+  .qrxl-eyebrow::after { background: linear-gradient(90deg, var(--cyan), transparent); }
+
+  .qrxl-hero-title {
+    font-family: var(--mono);
+    font-size: clamp(32px, 6vw, 58px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #f0f8ff;
+    line-height: 1.05;
+    margin-bottom: 10px;
+  }
+
+  .qrxl-hero-title span {
+    background: linear-gradient(135deg, var(--blue), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .qrxl-hero-sub {
+    font-size: 17px;
+    color: var(--text-mid);
+    max-width: 540px;
+    margin: 0 auto 32px;
+    line-height: 1.65;
+  }
+
+  .qrxl-hero-art {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    margin: 0 auto 32px;
+    border-radius: 16px;
+    filter: drop-shadow(0 20px 50px rgba(0,0,0,0.5));
+  }
+
+  /* lab stats strip */
+  .qrxl-stats {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+
+  .qrxl-stat {
+    text-align: center;
+  }
+
+  .qrxl-stat-num {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--blue);
+    display: block;
+    line-height: 1;
+  }
+
+  .qrxl-stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* ── SECTION LABEL ── */
+  .qrxl-section-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 40px 0 24px;
+  }
+
+  .qrxl-section-label span {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .qrxl-section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── TOOL GRID ── */
+  .qrxl-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  @media (max-width: 680px) {
+    .qrxl-grid { grid-template-columns: 1fr; }
+  }
+
+  /* featured card spans full width */
+  .qrxl-card-featured {
+    grid-column: 1 / -1;
+  }
+
+  .qrxl-card-featured .qrxl-card-body { display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 680px) {
+    .qrxl-card-featured .qrxl-card-body { grid-template-columns: 1fr; }
+  }
+
+  .qrxl-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    position: relative;
     overflow: hidden;
   }
 
-  .hero-topbar {
-    max-width: 1480px; margin: 0 auto 20px;
-    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-    padding: 0 8px;
-  }
-  .brand {
-    display: inline-flex; align-items: center; gap: 12px;
-    font-family: var(--mono); letter-spacing: .14em; text-transform: uppercase; font-size: 12px; color: var(--text-mid);
-  }
-  .brand-mark {
-    width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
-    border: 1px solid rgba(86,180,255,0.24); background: rgba(8,20,44,0.75);
-    box-shadow: 0 0 22px rgba(86,180,255,0.12) inset;
-    font-weight: 700; color: var(--blue);
-  }
-  .top-note { font-size: 12px; color: var(--text-dim); letter-spacing: .08em; text-transform: uppercase; font-family: var(--mono); }
-
-  .hero-inner {
-    max-width: 1540px; margin: 0 auto; position: relative;
+  .qrxl-card:hover {
+    border-color: var(--border-h);
+    transform: translateY(-2px);
   }
 
-  .hero-copy {
-    position: relative; z-index: 5;
-    text-align: center;
-    max-width: 900px; margin: 0 auto 18px;
-  }
-  .hero-eyebrow {
-    display: inline-flex; align-items: center; gap: 12px;
-    font-family: var(--mono); font-size: 11px; letter-spacing: .24em; text-transform: uppercase;
-    color: var(--cyan); margin-bottom: 18px;
-  }
-  .hero-eyebrow::before, .hero-eyebrow::after {
-    content:''; width: 44px; height: 1px; background: linear-gradient(90deg, transparent, var(--cyan));
-  }
-  .hero-eyebrow::after { background: linear-gradient(90deg, var(--cyan), transparent); }
-  .hero-title {
-    font-family: var(--mono); font-size: clamp(34px, 6vw, 72px); line-height: 1.02; letter-spacing: -.04em;
-    margin-bottom: 16px; color: #f3f8ff;
-    text-shadow: 0 4px 32px rgba(0,0,0,.45);
-  }
-  .hero-title span {
-    background: linear-gradient(135deg, #b9dfff 0%, var(--cyan) 45%, var(--blue) 100%);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-  }
-  .hero-sub {
-    max-width: 760px; margin: 0 auto; color: var(--text-mid); line-height: 1.72; font-size: 17px;
+  /* per-card accent colours */
+  .qrxl-card[data-accent="blue"]  { --card-accent: var(--blue); }
+  .qrxl-card[data-accent="cyan"]  { --card-accent: var(--cyan); }
+  .qrxl-card[data-accent="green"] { --card-accent: var(--green); }
+  .qrxl-card[data-accent="amber"] { --card-accent: var(--amber); }
+  .qrxl-card[data-accent="red"]   { --card-accent: var(--red); }
+  .qrxl-card[data-accent="purple"]{ --card-accent: var(--purple); }
+
+  .qrxl-card:hover {
+    box-shadow: 0 0 0 1px var(--card-accent, var(--blue)),
+                0 8px 32px rgba(0,0,0,0.4),
+                0 0 48px rgba(56,189,248,0.04);
   }
 
-  .hero-stage {
-    position: relative; max-width: 1500px; margin: 28px auto 0; min-height: 980px;
+  /* top accent line */
+  .qrxl-card-accent-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--card-accent, var(--blue));
+    opacity: 0.6;
+    border-radius: 12px 12px 0 0;
   }
 
-  .hero-art {
-    width: 100%; display: block; height: auto; position: relative; z-index: 1;
-    filter: drop-shadow(0 28px 70px rgba(0,0,0,0.44));
-    user-select: none; pointer-events: none;
+  /* card header row */
+  .qrxl-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
   }
 
-  .energy-well {
-    position: absolute; left: 50%; top: 46.5%; transform: translateX(-50%);
-    width: min(660px, 58vw); height: 560px; z-index: 4;
-    pointer-events: none;
-    background:
-      radial-gradient(circle at 50% 28%, rgba(86,180,255,0.22), transparent 26%),
-      radial-gradient(circle at 50% 42%, rgba(79,226,255,0.18), transparent 38%),
-      linear-gradient(180deg, rgba(15,43,89,0.04), rgba(5,14,29,0));
-    filter: blur(8px);
+  .qrxl-card-icon {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
   }
 
-  .tool-column {
-    position: absolute; left: 50%; top: 44%; transform: translateX(-50%); z-index: 6;
-    width: min(760px, calc(100vw - 40px));
-  }
-
-  .drop-lines {
-    position: absolute; left: 50%; top: -76px; transform: translateX(-50%);
-    width: min(420px, 72%); height: 110px; pointer-events: none; opacity: .95;
-  }
-  .drop-lines::before, .drop-lines::after, .drop-lines .center-line {
-    content:''; position: absolute; top: 0; width: 1px; height: 100%;
-    background: linear-gradient(180deg, rgba(86,180,255,0) 0%, rgba(86,180,255,.95) 30%, rgba(79,226,255,.2) 100%);
-    box-shadow: 0 0 12px rgba(86,180,255,.35);
-  }
-  .drop-lines::before { left: 12%; transform: rotate(9deg); transform-origin: top; }
-  .drop-lines::after { right: 12%; transform: rotate(-9deg); transform-origin: top; }
-  .drop-lines .center-line { left: 50%; transform: translateX(-50%); }
-
-  .tool-stack { display: grid; gap: 20px; }
-
-  .tool-card {
-    --accent: var(--blue);
-    position: relative; overflow: hidden;
-    background: linear-gradient(180deg, rgba(7,17,37,0.88), rgba(6,13,28,0.93));
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(86,180,255,0.16);
-    border-radius: 18px;
-    padding: 26px 26px 24px;
-    box-shadow: 0 16px 50px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.03);
-    transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
-  }
-  .tool-card:hover {
-    transform: translateY(-3px);
-    border-color: color-mix(in srgb, var(--accent) 55%, white 6%);
-    box-shadow: 0 22px 64px rgba(0,0,0,0.36), 0 0 0 1px rgba(255,255,255,0.02), 0 0 34px color-mix(in srgb, var(--accent) 16%, transparent);
-  }
-  .tool-card-topline { position:absolute; inset:0 0 auto 0; height: 2px; background: var(--accent); opacity: .75; }
-  .tool-card::after {
-    content:''; position:absolute; right:-80px; top:-80px; width: 200px; height: 200px; border-radius:50%;
-    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%);
-    pointer-events:none;
-  }
-  .featured { border-color: rgba(79,226,255,0.28); }
-
-  .accent-blue { --accent: var(--blue); }
-  .accent-cyan { --accent: var(--cyan); }
-  .accent-red { --accent: var(--red); }
-  .accent-amber { --accent: var(--amber); }
-  .accent-purple { --accent: var(--purple); }
-
-  .tool-head { display:flex; align-items:flex-start; justify-content:space-between; gap: 16px; margin-bottom: 18px; }
-  .tool-id-wrap { display:flex; align-items:flex-start; gap: 14px; min-width: 0; }
-  .tool-icon {
-    width: 48px; height: 48px; border-radius: 14px; display:grid; place-items:center; flex-shrink:0;
-    background: rgba(12,25,53,0.92); border: 1px solid rgba(86,180,255,.16); font-size: 24px;
-    box-shadow: inset 0 0 18px rgba(86,180,255,.08);
-  }
-  .tool-name { font-family: var(--mono); font-size: 19px; font-weight: 700; color: #f2f8ff; letter-spacing: -.02em; }
-  .tool-type { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); margin-top: 4px; }
-
-  .tool-tag {
-    display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
-    padding: 6px 12px; border-radius: 999px; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700;
-    border:1px solid rgba(255,255,255,.12); color: var(--green); background: rgba(53,227,143,.07);
-    box-shadow: 0 0 16px rgba(53,227,143,.10);
-  }
-  .tag-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; animation: blink 1.9s ease-in-out infinite; }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
-
-  /* Thumbnail + content row: image sits beside the description, per card */
-  .tool-body { display:grid; grid-template-columns: 168px 1fr; gap: 20px; align-items: start; }
-  .tool-thumb {
-    width: 168px; height: 168px; border-radius: 14px; overflow: hidden; flex-shrink: 0;
-    border: 1px solid rgba(255,255,255,0.08);
-    background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--accent) 16%, transparent), rgba(6,14,30,0.75));
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02), 0 10px 30px rgba(0,0,0,0.3);
+  /* card thumbnail — sits between the header and the description */
+  .qrxl-card-thumb {
+    width: 100%; height: 140px; border-radius: 10px; overflow: hidden; flex-shrink: 0;
+    border: 1px solid var(--border);
+    background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--card-accent, var(--blue)) 16%, transparent), var(--panel-2));
     display: grid; place-items: center;
-    color: var(--accent);
+    color: var(--card-accent, var(--blue));
   }
-  .tool-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .tool-thumb svg { width: 68%; height: 68%; }
-  .tool-content { min-width: 0; display: flex; flex-direction: column; }
-
-  .tool-desc { color: var(--text-mid); line-height: 1.65; font-size: 14.8px; margin-bottom: 16px; }
-  .tool-bullets { list-style:none; display:grid; gap:8px; margin-bottom: 18px; }
-  .tool-bullets li { color: var(--text-mid); font-size: 13.7px; line-height: 1.52; display:flex; gap:9px; align-items:flex-start; }
-  .tool-bullets li::before { content:'›'; color: var(--accent); font-family: var(--mono); font-size: 16px; line-height: 1.3; }
-
-  .tool-cta {
-    display:inline-flex; align-items:center; gap:8px; align-self:flex-start;
-    border: 1px solid color-mix(in srgb, var(--accent) 78%, transparent);
-    color: var(--accent); padding: 11px 18px; border-radius: 12px; font-family: var(--mono);
-    font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
-    transition: .18s ease;
-    background: rgba(255,255,255,0);
-  }
-  .tool-cta:hover {
-    background: var(--accent); color: #05101f; box-shadow: 0 0 26px color-mix(in srgb, var(--accent) 26%, transparent);
+  .qrxl-card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .qrxl-card-thumb svg { width: 56%; height: 56%; }
+  .qrxl-card-featured .qrxl-card-thumb { width: 220px; height: 100%; min-height: 200px; }
+  @media (max-width: 680px) {
+    .qrxl-card-featured .qrxl-card-thumb { width: 100%; min-height: 140px; height: 140px; }
   }
 
-  .footer-panel {
-    max-width: 1440px; margin: 70px auto 0; padding: 0 24px 34px;
+  /* STATUS TAG */
+  .qrxl-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border: 1px solid;
+    white-space: nowrap;
   }
-  .footer-strip {
-    border-top: 1px solid var(--line); padding-top: 24px;
-    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
-  }
-  .footer-brand, .footer-meta { font-family: var(--mono); font-size: 12px; color: var(--text-dim); letter-spacing: .08em; text-transform: uppercase; }
-  .footer-brand span { color: var(--blue); }
 
-  @media (max-width: 1100px) {
-    .hero-stage { min-height: 1080px; }
-    .tool-column { top: 42%; width: min(800px, calc(100vw - 30px)); }
+  .qrxl-tag-live {
+    color: var(--green);
+    border-color: rgba(34,211,160,0.3);
+    background: rgba(34,211,160,0.06);
+    box-shadow: 0 0 12px rgba(34,211,160,0.15);
   }
-  @media (max-width: 860px) {
-    .hero-shell { padding-bottom: 90px; }
-    .hero-sub { font-size: 15px; }
-    .hero-stage { min-height: 1500px; }
-    .tool-column { top: 37%; width: calc(100vw - 24px); }
-    .drop-lines { top: -58px; height: 88px; }
-    .tool-card { padding: 20px 18px; border-radius: 16px; }
-    .tool-head { flex-direction: column; }
-    .tool-body { grid-template-columns: 1fr; }
-    .tool-thumb { width: 100%; height: 160px; }
+
+  .qrxl-tag-beta {
+    color: var(--amber);
+    border-color: rgba(251,191,36,0.3);
+    background: rgba(251,191,36,0.06);
+    box-shadow: 0 0 12px rgba(251,191,36,0.12);
   }
-  @media (max-width: 560px) {
-    .hero-topbar { justify-content: center; text-align:center; }
-    .hero-stage { min-height: 1620px; }
-    .hero-copy { margin-bottom: 8px; }
-    .hero-title { font-size: clamp(30px, 10vw, 46px); }
-    .tool-name { font-size: 17px; }
-    .tool-desc { font-size: 14px; }
+
+  .qrxl-tag-soon {
+    color: var(--text-dim);
+    border-color: rgba(100,116,139,0.3);
+    background: rgba(100,116,139,0.06);
+  }
+
+  /* blinking dot */
+  .qrxl-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .qrxl-tag-live .qrxl-dot {
+    animation: qrxl-blink 1.6s ease-in-out infinite;
+    box-shadow: 0 0 6px var(--green);
+  }
+
+  .qrxl-tag-beta .qrxl-dot {
+    animation: qrxl-blink 2.2s ease-in-out infinite;
+    box-shadow: 0 0 6px var(--amber);
+  }
+
+  @keyframes qrxl-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  /* card content */
+  .qrxl-card-name {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: #f0f8ff;
+    letter-spacing: -0.01em;
+    margin-bottom: 2px;
+  }
+
+  .qrxl-card-type {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-family: var(--mono);
+  }
+
+  .qrxl-card-desc {
+    font-size: 14.5px;
+    color: var(--text-mid);
+    line-height: 1.6;
+  }
+
+  .qrxl-bullets {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 0;
+    margin: 0;
+  }
+
+  .qrxl-bullets li {
+    font-size: 13.5px;
+    color: var(--text-mid);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.5;
+  }
+
+  .qrxl-bullets li::before {
+    content: '›';
+    color: var(--card-accent, var(--blue));
+    font-size: 15px;
+    line-height: 1.4;
+    flex-shrink: 0;
+    font-family: var(--mono);
+  }
+
+  /* CTA button */
+  .qrxl-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    font-family: var(--mono);
+    border: 1px solid var(--card-accent, var(--blue));
+    color: var(--card-accent, var(--blue));
+    background: transparent;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    align-self: flex-start;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+
+  .qrxl-cta:hover {
+    background: var(--card-accent, var(--blue));
+    color: var(--bg);
+    box-shadow: 0 0 20px rgba(56,189,248,0.25);
+  }
+
+  /* ── FOOTER STRIP ── */
+  .qrxl-footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .qrxl-footer-brand {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .qrxl-footer-brand span { color: var(--blue); }
+
+  .qrxl-footer-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 </style>
 </head>
 <body>
-  <div class="page">
-    <section class="hero-shell">
-      <div class="hero-topbar">
-        <div class="brand"><div class="brand-mark">RX</div> QuantumRx · AI Tools</div>
-        <div class="top-note">Live infrastructure · Real models · Deployed now</div>
-      </div>
+<div class="qrxl-root">
+  <div class="qrxl-inner">
 
-      <div class="hero-inner">
-        <div class="hero-copy">
-          <div class="hero-eyebrow">QuantumRx · AI Labs</div>
-          <h1 class="hero-title">Not a demo. <span>A live console.</span></h1>
-          <p class="hero-sub">Five tools built by QuantumRx, running in production right now: a comic strip that writes and draws itself daily, a prompt-injection defense you can try to break, and two AI card forges. Pick one below and use it.</p>
+    <div class="qrxl-topbar">
+      <div><span class="qrxl-brand-mark">QuantumRx</span> · AI Labs</div>
+      <div>Live infrastructure · Real models · Deployed now</div>
+    </div>
+
+    <!-- HERO -->
+    <div class="qrxl-hero">
+      <div class="qrxl-eyebrow">QuantumRx · AI Research Division</div>
+      <h1 class="qrxl-hero-title">The <span>AI Labs</span></h1>
+      <p class="qrxl-hero-sub">
+        Five tools. Each one built in-house, deployed on live infrastructure,
+        running on real AI models. No demos. No waitlists. Open now.
+      </p>
+      <img class="qrxl-hero-art" src="ai-tools-hero-art.png" alt="The QuantumRx RX guardian, a steampunk cyclops figure channeling lightning between its hands">
+      <div class="qrxl-stats">
+        <div class="qrxl-stat">
+          <span class="qrxl-stat-num">5</span>
+          <span class="qrxl-stat-label">Live Tools</span>
         </div>
+        <div class="qrxl-stat">
+          <span class="qrxl-stat-num">3</span>
+          <span class="qrxl-stat-label">AI Models</span>
+        </div>
+        <div class="qrxl-stat">
+          <span class="qrxl-stat-num">Daily</span>
+          <span class="qrxl-stat-label">Auto-generation</span>
+        </div>
+        <div class="qrxl-stat">
+          <span class="qrxl-stat-num">0</span>
+          <span class="qrxl-stat-label">Human editors</span>
+        </div>
+      </div>
+    </div>
 
-        <div class="hero-stage">
-          <img class="hero-art" src="ai-tools-hero-art.png" alt="The QuantumRx RX guardian, a steampunk cyclops figure channeling lightning between its hands">
-          <div class="energy-well"></div>
+    <!-- TOOLS SECTION -->
+    <div class="qrxl-section-label">
+      <span>Active experiments</span>
+    </div>
 
-          <div class="tool-column">
-            <div class="drop-lines"><div class="center-line"></div></div>
-            <div class="tool-stack">
+    <div class="qrxl-grid">
 
-          <article class="tool-card accent-cyan featured">
-            <div class="tool-card-topline"></div>
-            <div class="tool-head">
-              <div class="tool-id-wrap">
-                <div class="tool-icon">🗞️</div>
-                <div>
-                  <div class="tool-name">Nine to F!veish</div>
-                  <div class="tool-type">Daily AI Comic Strip</div>
-                </div>
-              </div>
-              <div class="tool-tag live"><span class="tag-dot"></span>Live · Daily</div>
+      <!-- NINE TO F!VEISH — featured, full width -->
+      <div class="qrxl-card qrxl-card-featured" data-accent="cyan">
+        <div class="qrxl-card-accent-bar"></div>
+        <div class="qrxl-card-head">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div class="qrxl-card-icon">🗞️</div>
+            <div>
+              <div class="qrxl-card-name">Nine to F!veish</div>
+              <div class="qrxl-card-type">Daily AI Comic Strip</div>
             </div>
-            <div class="tool-body">
-              <div class="tool-thumb">
-                <img id="thumb-strip-img" alt="Latest Nine to F!veish strip panel" src="ai-tools-hero-art.png" style="display:none;">
-                <svg id="thumb-strip-fallback" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="14" y="24" width="72" height="52" rx="4" stroke="currentColor" stroke-width="2.2" stroke-opacity="0.85"/>
-                  <line x1="14" y1="40" x2="86" y2="40" stroke="currentColor" stroke-width="1.4" stroke-opacity="0.5"/>
-                  <line x1="42" y1="24" x2="42" y2="76" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.4"/>
-                  <line x1="64" y1="24" x2="64" y2="76" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.4"/>
-                  <circle cx="26" cy="30" r="2" fill="currentColor"/>
-                </svg>
-              </div>
-              <div class="tool-content">
-                <p class="tool-desc">A fully automated syndicated office satire strip that writes, renders, and publishes itself every morning.</p>
-                <ul class="tool-bullets"><li>Writes the script, headline, and deck automatically.</li><li>Gemini renders each strip in black-and-white newspaper comic style.</li><li>Runs on an automated daily pipeline, 07:00 UTC.</li><li>Archive of previous editions maintained automatically.</li></ul>
-                <a class="tool-cta" href="/the-strip.html">Open the Strip <span>→</span></a>
-              </div>
-            </div>
-          </article>
-
-          <article class="tool-card accent-blue">
-            <div class="tool-card-topline"></div>
-            <div class="tool-head">
-              <div class="tool-id-wrap">
-                <div class="tool-icon">⚙️</div>
-                <div>
-                  <div class="tool-name">Kernel Generator</div>
-                  <div class="tool-type">AI Workflow Tool · Free</div>
-                </div>
-              </div>
-              <div class="tool-tag live"><span class="tag-dot"></span>Live</div>
-            </div>
-            <div class="tool-body">
-              <div class="tool-thumb">
-                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="50" cy="50" r="46" stroke="currentColor" stroke-opacity="0.15" stroke-width="1"/>
-                  <g stroke="currentColor" stroke-width="1.4" stroke-opacity="0.55">
-                    <line x1="50" y1="50" x2="50" y2="14"/>
-                    <line x1="50" y1="50" x2="80" y2="32"/>
-                    <line x1="50" y1="50" x2="80" y2="68"/>
-                    <line x1="50" y1="50" x2="50" y2="86"/>
-                    <line x1="50" y1="50" x2="20" y2="68"/>
-                    <line x1="50" y1="50" x2="20" y2="32"/>
-                  </g>
-                  <circle cx="50" cy="14" r="5" fill="currentColor" fill-opacity="0.85"/>
-                  <circle cx="80" cy="32" r="5" fill="currentColor" fill-opacity="0.85"/>
-                  <circle cx="80" cy="68" r="5" fill="currentColor" fill-opacity="0.85"/>
-                  <circle cx="50" cy="86" r="5" fill="currentColor" fill-opacity="0.85"/>
-                  <circle cx="20" cy="68" r="5" fill="currentColor" fill-opacity="0.85"/>
-                  <circle cx="20" cy="32" r="5" fill="currentColor" fill-opacity="0.85"/>
-                  <circle cx="50" cy="50" r="12" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.6"/>
-                  <circle cx="50" cy="50" r="4" fill="currentColor"/>
-                </svg>
-              </div>
-              <div class="tool-content">
-                <p class="tool-desc">Generate a structured MACK continuity kernel to keep AI agents aligned across long-running projects.</p>
-                <ul class="tool-bullets"><li>Built around the MACK methodology.</li><li>Outputs a structured handoff document for any AI agent workflow.</li><li>Free to use with no account required.</li></ul>
-                <a class="tool-cta" href="/kernel-generator">Generate a Kernel <span>→</span></a>
-              </div>
-            </div>
-          </article>
-
-          <article class="tool-card accent-red">
-            <div class="tool-card-topline"></div>
-            <div class="tool-head">
-              <div class="tool-id-wrap">
-                <div class="tool-icon">🔴</div>
-                <div>
-                  <div class="tool-name">Break the Sentinel</div>
-                  <div class="tool-type">Prompt Injection Game</div>
-                </div>
-              </div>
-              <div class="tool-tag live"><span class="tag-dot"></span>Live</div>
-            </div>
-            <div class="tool-body">
-              <div class="tool-thumb">
-                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M50 8 L82 20 V48 C82 68 68 84 50 92 C32 84 18 68 18 48 V20 Z" stroke="currentColor" stroke-width="2.2" stroke-opacity="0.85" fill="currentColor" fill-opacity="0.06"/>
-                  <path d="M50 20 L44 42 L54 46 L40 76" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.95"/>
-                  <circle cx="50" cy="20" r="3" fill="currentColor"/>
-                </svg>
-              </div>
-              <div class="tool-content">
-                <p class="tool-desc">A live adversarial AI challenge where players try to bypass a multi-layer prompt injection defense.</p>
-                <ul class="tool-bullets"><li>Five-layer prompt injection detection system.</li><li>Real-time threat scoring on every attempt.</li><li>Leaderboard tracks successful breaks and tactics.</li></ul>
-                <a class="tool-cta" href="/break-the-sentinel.html">Enter the Challenge <span>→</span></a>
-              </div>
-            </div>
-          </article>
-
-          <article class="tool-card accent-amber">
-            <div class="tool-card-topline"></div>
-            <div class="tool-head">
-              <div class="tool-id-wrap">
-                <div class="tool-icon">🐸</div>
-                <div>
-                  <div class="tool-name">Pepe Legends Forge</div>
-                  <div class="tool-type">AI Card Generator · €1.99</div>
-                </div>
-              </div>
-              <div class="tool-tag live"><span class="tag-dot"></span>Live</div>
-            </div>
-            <div class="tool-body">
-              <div class="tool-thumb">
-                <img src="pepe-legends-hero.png" alt="Pepe Legends series card collection" style="object-position: 50% 62%;">
-              </div>
-              <div class="tool-content">
-                <p class="tool-desc">Generate one-of-one cards from the Pepe Legends collection with unique issue numbering and instant download.</p>
-                <ul class="tool-bullets"><li>Ten founding themes across a 1,000-card collection.</li><li>Every card is generated live and remains unique.</li><li>One-time licence key model with permanent serial number.</li></ul>
-                <a class="tool-cta" href="https://tools.quantumrx.eu/nft-forge-tv.html">Enter the Forge <span>→</span></a>
-              </div>
-            </div>
-          </article>
-
-          <article class="tool-card accent-purple">
-            <div class="tool-card-topline"></div>
-            <div class="tool-head">
-              <div class="tool-id-wrap">
-                <div class="tool-icon">👑</div>
-                <div>
-                  <div class="tool-name">Lord of the Memes</div>
-                  <div class="tool-type">AI Card Generator · €1.99</div>
-                </div>
-              </div>
-              <div class="tool-tag live"><span class="tag-dot"></span>Live</div>
-            </div>
-            <div class="tool-body">
-              <div class="tool-thumb">
-                <img src="lord-of-the-memes-hero.png" alt="Lord of the Memes series card collection" style="object-position: 50% 62%;">
-              </div>
-              <div class="tool-content">
-                <p class="tool-desc">A second collectible AI card forge featuring meme archetypes, rarity tiers, and power ratings in every pull.</p>
-                <ul class="tool-bullets"><li>Ten archetypes with weighted rarity tiers.</li><li>Power rating generated and embedded per card.</li><li>Full-resolution download with unique serial numbering.</li></ul>
-                <a class="tool-cta" href="https://forge.quantumrx.eu/lotm-forge-tv.html">Enter the Forge <span>→</span></a>
-              </div>
-            </div>
-          </article>
-
-            </div>
+          </div>
+          <div class="qrxl-tag qrxl-tag-live">
+            <span class="qrxl-dot"></span> Live · Daily
+          </div>
+        </div>
+        <div class="qrxl-card-body">
+          <div class="qrxl-card-thumb">
+            <img id="thumb-strip-img" alt="Latest Nine to F!veish strip panel" src="ai-tools-hero-art.png" style="display:none;">
+            <svg id="thumb-strip-fallback" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="14" y="24" width="72" height="52" rx="4" stroke="currentColor" stroke-width="2.2" stroke-opacity="0.85"/>
+              <line x1="14" y1="40" x2="86" y2="40" stroke="currentColor" stroke-width="1.4" stroke-opacity="0.5"/>
+              <line x1="42" y1="24" x2="42" y2="76" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.4"/>
+              <line x1="64" y1="24" x2="64" y2="76" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.4"/>
+              <circle cx="26" cy="30" r="2" fill="currentColor"/>
+            </svg>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <p class="qrxl-card-desc">
+              A fully automated syndicated office satire strip. Every day at 07:00 UTC
+              Claude writes the script, Gemini draws three panels, and the strip is
+              published to a newspaper-style page — no human in the loop.
+            </p>
+            <ul class="qrxl-bullets">
+              <li>Five recurring characters — Marcus, Diane, Karen, Gerald, Priya</li>
+              <li>Claude generates the script: 3-panel dialogue, theme, headline, deck</li>
+              <li>Gemini renders each panel in classic black-and-white newspaper comic style</li>
+              <li>Vercel cron → Upstash KV → static page, fully automated</li>
+              <li>Previous editions archive maintained automatically, last 30 strips</li>
+              <li>Signed by Cal Briggs · Motto: Per Aspera Ad Meeting</li>
+            </ul>
+            <a class="qrxl-cta" href="/the-strip.html">Open the Strip →</a>
           </div>
         </div>
       </div>
-    </section>
 
-    <section class="footer-panel">
-      <div class="footer-strip">
-        <div class="footer-brand"><span>QuantumRx</span> · AI Lab · Built with Claude Code</div>
-        <div class="footer-meta">Vercel · Upstash KV · Ghost Pro</div>
+      <!-- KERNEL GENERATOR -->
+      <div class="qrxl-card" data-accent="blue">
+        <div class="qrxl-card-accent-bar"></div>
+        <div class="qrxl-card-head">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div class="qrxl-card-icon">⚙️</div>
+            <div>
+              <div class="qrxl-card-name">Kernel Generator</div>
+              <div class="qrxl-card-type">AI Workflow Tool · Free</div>
+            </div>
+          </div>
+          <div class="qrxl-tag qrxl-tag-live">
+            <span class="qrxl-dot"></span> Live
+          </div>
+        </div>
+        <div class="qrxl-card-thumb">
+          <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="46" stroke="currentColor" stroke-opacity="0.15" stroke-width="1"/>
+            <g stroke="currentColor" stroke-width="1.4" stroke-opacity="0.55">
+              <line x1="50" y1="50" x2="50" y2="14"/>
+              <line x1="50" y1="50" x2="80" y2="32"/>
+              <line x1="50" y1="50" x2="80" y2="68"/>
+              <line x1="50" y1="50" x2="50" y2="86"/>
+              <line x1="50" y1="50" x2="20" y2="68"/>
+              <line x1="50" y1="50" x2="20" y2="32"/>
+            </g>
+            <circle cx="50" cy="14" r="5" fill="currentColor" fill-opacity="0.85"/>
+            <circle cx="80" cy="32" r="5" fill="currentColor" fill-opacity="0.85"/>
+            <circle cx="80" cy="68" r="5" fill="currentColor" fill-opacity="0.85"/>
+            <circle cx="50" cy="86" r="5" fill="currentColor" fill-opacity="0.85"/>
+            <circle cx="20" cy="68" r="5" fill="currentColor" fill-opacity="0.85"/>
+            <circle cx="20" cy="32" r="5" fill="currentColor" fill-opacity="0.85"/>
+            <circle cx="50" cy="50" r="12" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="50" cy="50" r="4" fill="currentColor"/>
+          </svg>
+        </div>
+        <p class="qrxl-card-desc">
+          Generate a MACK continuity kernel — a compressed, structured document
+          that keeps AI agents aligned across sessions without losing context.
+        </p>
+        <ul class="qrxl-bullets">
+          <li>Based on the MACK methodology (Multi-Agent Continuity Kernel)</li>
+          <li>Outputs a structured handoff document for Claude Code or any AI agent</li>
+          <li>Paste your project context in, get a production-ready kernel out</li>
+          <li>Free lead-generation tool — no account required</li>
+        </ul>
+        <a class="qrxl-cta" href="/kernel-generator">Generate a Kernel →</a>
       </div>
-    </section>
+
+      <!-- BREAK THE SENTINEL -->
+      <div class="qrxl-card" data-accent="red">
+        <div class="qrxl-card-accent-bar"></div>
+        <div class="qrxl-card-head">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div class="qrxl-card-icon">🔴</div>
+            <div>
+              <div class="qrxl-card-name">Break the Sentinel</div>
+              <div class="qrxl-card-type">Prompt Injection Game</div>
+            </div>
+          </div>
+          <div class="qrxl-tag qrxl-tag-live">
+            <span class="qrxl-dot"></span> Live
+          </div>
+        </div>
+        <div class="qrxl-card-thumb">
+          <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50 8 L82 20 V48 C82 68 68 84 50 92 C32 84 18 68 18 48 V20 Z" stroke="currentColor" stroke-width="2.2" stroke-opacity="0.85" fill="currentColor" fill-opacity="0.06"/>
+            <path d="M50 20 L44 42 L54 46 L40 76" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.95"/>
+            <circle cx="50" cy="20" r="3" fill="currentColor"/>
+          </svg>
+        </div>
+        <p class="qrxl-card-desc">
+          A live adversarial AI challenge. Five layers of detection stand between
+          you and the Sentinel's core. Your mission: get through using only words.
+        </p>
+        <ul class="qrxl-bullets">
+          <li>5-layer prompt injection detection system — Q-Sentinel powered</li>
+          <li>Real-time threat scoring on every message you send</li>
+          <li>Leaderboard tracks successful breaks by technique and layer reached</li>
+          <li>Tests your understanding of AI safety and jailbreak mechanics</li>
+          <li>No bounty — just the challenge and the leaderboard</li>
+        </ul>
+        <a class="qrxl-cta" href="/break-the-sentinel.html">Enter the Challenge →</a>
+      </div>
+
+      <!-- PEPE LEGENDS FORGE -->
+      <div class="qrxl-card" data-accent="amber">
+        <div class="qrxl-card-accent-bar"></div>
+        <div class="qrxl-card-head">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div class="qrxl-card-icon">🐸</div>
+            <div>
+              <div class="qrxl-card-name">Pepe Legends Forge</div>
+              <div class="qrxl-card-type">AI Card Generator · €1.99</div>
+            </div>
+          </div>
+          <div class="qrxl-tag qrxl-tag-live">
+            <span class="qrxl-dot"></span> Live
+          </div>
+        </div>
+        <div class="qrxl-card-thumb">
+          <img src="pepe-legends-hero.png" alt="Pepe Legends series card collection" style="object-position: 50% 62%;">
+        </div>
+        <p class="qrxl-card-desc">
+          AI-generated one-of-one character cards from the Pepe Legends Series 1
+          collection. Pick a theme, hit forge, get a card that has never existed before.
+        </p>
+        <ul class="qrxl-bullets">
+          <li>1,000 card collection, ten founding themes</li>
+          <li>Gemini generates each card live — no two pulls ever match</li>
+          <li>One-time licence key model: pay once, forge once, keep forever</li>
+          <li>Issue counter baked in — your serial number is permanent and unique</li>
+          <li>Download straight away at full resolution</li>
+        </ul>
+        <a class="qrxl-cta" href="https://tools.quantumrx.eu/nft-forge-tv.html">Enter the Forge →</a>
+      </div>
+
+      <!-- LORD OF THE MEMES FORGE -->
+      <div class="qrxl-card" data-accent="purple">
+        <div class="qrxl-card-accent-bar"></div>
+        <div class="qrxl-card-head">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div class="qrxl-card-icon">👑</div>
+            <div>
+              <div class="qrxl-card-name">Lord of the Memes</div>
+              <div class="qrxl-card-type">AI Card Generator · €1.99</div>
+            </div>
+          </div>
+          <div class="qrxl-tag qrxl-tag-live">
+            <span class="qrxl-dot"></span> Live
+          </div>
+        </div>
+        <div class="qrxl-card-thumb">
+          <img src="lord-of-the-memes-hero.png" alt="Lord of the Memes series card collection" style="object-position: 50% 62%;">
+        </div>
+        <p class="qrxl-card-desc">
+          Ten archetypes, weighted rarity tiers, and a power rating baked into
+          every pull. The second collection in the QuantumRx card forge series.
+        </p>
+        <ul class="qrxl-bullets">
+          <li>Ten archetypes with weighted rarity — common through legendary</li>
+          <li>Power rating generated and embedded per card</li>
+          <li>Same one-time licence key model as Pepe Legends</li>
+          <li>Gemini image generation with full-resolution download</li>
+          <li>Serial numbered — every card has a permanent unique position</li>
+        </ul>
+        <a class="qrxl-cta" href="https://forge.quantumrx.eu/lotm-forge-tv.html">Enter the Forge →</a>
+      </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <div class="qrxl-footer">
+      <div class="qrxl-footer-brand">
+        <span>QuantumRx</span> · AI Lab · Built with Claude Code
+      </div>
+      <div class="qrxl-footer-meta">
+        All tools running on Vercel · Upstash KV · Ghost Pro
+      </div>
+    </div>
+
   </div>
+</div>
 
 <script>
   // Nine to F!veish's thumbnail shows today's actual first panel, not a
