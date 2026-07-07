@@ -48,7 +48,13 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate");
+  // Short edge TTL deliberately, not the hour-long window this started
+  // with: cartoon-refresh.js can run at any moment (cron or manual
+  // trigger) and there's no cache-purge step, so a long s-maxage means
+  // real visitors can be stuck seeing a stale/empty response for up to
+  // that whole window after a refresh. 60s self-heals fast while still
+  // absorbing normal traffic between requests.
+  res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
 
   try {
     if (req.query?.archive === "true") {
