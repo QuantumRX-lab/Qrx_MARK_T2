@@ -1178,5 +1178,48 @@
 })();
 </script>
 
+<script>
+(function(){
+  // A fixed pixel offset (e.g. "bottom: 110px") for the widget toggle
+  // doesn't work here: the toggle is anchored to the viewport's bottom
+  // edge, so on a TALLER phone it actually sits at a lower absolute
+  // position than on a shorter one, while #sendBtn's position barely
+  // moves (the chat log above it has its own capped-height internal
+  // scroll, so main's total layout height is stable) — a fixed offset
+  // that clears one device height re-overlaps on another. Measuring
+  // the real gap at runtime is the only fix that holds across devices.
+  function keepWidgetClearOfSendButton() {
+    var toggle = document.querySelector('.qrx-sa .qrx-toggle-wrap');
+    var sendBtn = document.getElementById('sendBtn');
+    if (!toggle || !sendBtn) return;
+
+    var defaultBottom = window.innerWidth <= 520 ? 16 : 28;
+    toggle.style.bottom = defaultBottom + 'px'; // reset first — the check below needs the true default position, not whatever a previous resize left it at
+
+    var sendRect = sendBtn.getBoundingClientRect();
+    var toggleRect = toggle.getBoundingClientRect();
+    if (sendRect.width === 0 || toggleRect.width === 0) return; // not rendered yet
+
+    // On desktop the game column is centered and nowhere near the
+    // bottom-right corner, so only escalate the offset on an actual 2D
+    // collision — matching purely on vertical position (ignoring x)
+    // would needlessly push the widget up on wide viewports where
+    // there's no real overlap at all.
+    var overlapsHorizontally = sendRect.right > toggleRect.left && sendRect.left < toggleRect.right;
+    var overlapsVertically = sendRect.bottom > toggleRect.top && sendRect.top < toggleRect.bottom;
+    if (!(overlapsHorizontally && overlapsVertically)) return;
+
+    var margin = 16;
+    var neededBottom = window.innerHeight - sendRect.top + margin;
+    toggle.style.bottom = Math.max(defaultBottom, neededBottom) + 'px';
+  }
+  window.addEventListener('load', keepWidgetClearOfSendButton);
+  window.addEventListener('resize', keepWidgetClearOfSendButton);
+  window.addEventListener('orientationchange', keepWidgetClearOfSendButton);
+  // Fonts/layout can still settle slightly after 'load' fires.
+  setTimeout(keepWidgetClearOfSendButton, 300);
+})();
+</script>
+
 </body>
 </html>
