@@ -87,8 +87,13 @@ export default async function handler(req, res) {
     }
 
     // Short cache — this can change once a day, but a stale minute is
-    // harmless and this keeps repeat widget loads off KV.
-    res.setHeader('Cache-Control', 'public, max-age=300');
+    // harmless and this keeps repeat widget loads off KV. Was
+    // max-age=300 (5min); confirmed live that this makes a manual
+    // trigger (or a cron catching up after an outage) look broken for
+    // up to 5 minutes after a genuinely successful write, same class of
+    // bug found and fixed on api/cartoon.js — 60s self-heals fast
+    // instead.
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     res.status(200).json({ date: record.date, chips: record.chips.map(publicShape), bootstrap: false });
   } catch (err) {
     console.error('chat-chips error:', err);
