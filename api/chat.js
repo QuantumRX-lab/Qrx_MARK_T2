@@ -533,8 +533,22 @@ const LIMIT_REACHED_TEXT = `You've reached the free limit of 8 questions for thi
 
 For unlimited access to the Signal Analyst, full weekly briefings, and daily Signals coverage, subscribe free at quantumrx.eu. Your session resets in 24 hours either way.`;
 
+// The chat widget now also runs on the Vercel-hosted tool pages
+// (forge.quantumrx.eu, tools.quantumrx.eu), not just the Ghost domain —
+// each is a distinct browser origin, so all three need to be allowed.
+const CHAT_ALLOWED_ORIGINS = [
+  'https://www.quantumrx.eu',
+  'https://quantumrx.eu',
+  'https://forge.quantumrx.eu',
+  'https://tools.quantumrx.eu'
+];
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', 'https://www.quantumrx.eu');
+  const origin = req.headers.origin;
+  if (CHAT_ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();

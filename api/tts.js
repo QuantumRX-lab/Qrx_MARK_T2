@@ -46,9 +46,10 @@ function buildWav(pcmBase64) {
 }
 
 export default async function handler(req, res) {
-  // CORS — allow both www and non-www
+  // CORS — the widget also runs on the Vercel-hosted tool pages now,
+  // each a distinct origin from the Ghost domain.
   const origin = req.headers.origin || '';
-  const allowed = ['https://quantumrx.eu', 'https://www.quantumrx.eu'];
+  const allowed = ['https://quantumrx.eu', 'https://www.quantumrx.eu', 'https://forge.quantumrx.eu', 'https://tools.quantumrx.eu'];
   if (allowed.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }

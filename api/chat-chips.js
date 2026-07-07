@@ -8,7 +8,8 @@
 import { kv } from "@vercel/kv";
 import { logRequest } from "./_lib/sentinel.js";
 
-const ALLOWED_ORIGINS = ['https://www.quantumrx.eu', 'https://quantumrx.eu'];
+// Widget also runs on the Vercel-hosted tool pages now, each a distinct origin.
+const ALLOWED_ORIGINS = ['https://www.quantumrx.eu', 'https://quantumrx.eu', 'https://forge.quantumrx.eu', 'https://tools.quantumrx.eu'];
 
 // Absolute last resort — only used if `latest` has literally never been
 // written even once (e.g. brand new deploy, before the first successful

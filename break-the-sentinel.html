@@ -596,5 +596,563 @@
   termIdle();
 })();
 </script>
+
+<style>
+.qrx-sa * { box-sizing: border-box; }
+.qrx-sa { --sa-font: 'JetBrains Mono', monospace; }
+.qrx-sa .qrx-toggle-wrap { position: fixed; bottom: 28px; right: 28px; z-index: 9998; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.qrx-sa .text-ring { position: absolute; inset: 0; animation: qrxsa-rotate-ring 10s linear infinite; pointer-events: none; }
+.qrx-sa .text-ring svg { width: 100%; height: 100%; }
+@keyframes qrxsa-rotate-ring { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.qrx-sa .qrx-glow-ring { position: absolute; width: 74px; height: 74px; border-radius: 18px; border: 1px solid rgba(26,86,219,0.18); animation: qrxsa-glow-pulse 3s ease-in-out infinite; z-index: 1; pointer-events: none; }
+@keyframes qrxsa-glow-pulse { 0%,100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.06); } }
+.qrx-sa #qrx-btn { width: 58px; height: 58px; background: #060b10; border: 1px solid rgba(26,86,219,0.45); border-radius: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 28px rgba(26,86,219,0.28), 0 0 60px rgba(26,86,219,0.1); position: relative; z-index: 2; transition: transform 0.2s, box-shadow 0.2s; animation: qrxsa-idle-pulse 3s ease-in-out infinite; }
+@keyframes qrxsa-idle-pulse { 0%,100% { box-shadow: 0 0 28px rgba(26,86,219,0.2), 0 0 0 0 rgba(26,86,219,0.3); } 50% { box-shadow: 0 0 36px rgba(26,86,219,0.35), 0 0 0 8px rgba(26,86,219,0.04); } }
+.qrx-sa #qrx-btn:hover { transform: scale(1.06); box-shadow: 0 0 44px rgba(26,86,219,0.5), 0 0 90px rgba(26,86,219,0.18); animation: none; }
+.qrx-sa .atom { width: 30px; height: 30px; position: relative; perspective: 200px; transform-style: preserve-3d; }
+.qrx-sa .atom-core { position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; background: #1a56db; border-radius: 50%; box-shadow: 0 0 12px 4px rgba(26,86,219,0.9); animation: qrxsa-core-p 2s ease-in-out infinite; z-index: 2; }
+@keyframes qrxsa-core-p { 0%,100%{box-shadow:0 0 8px 2px rgba(26,86,219,0.8)} 50%{box-shadow:0 0 18px 7px rgba(26,86,219,1)} }
+.qrx-sa .atom-ring { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid rgba(26,86,219,0.38); transform-style: preserve-3d; }
+.qrx-sa .atom-ring::after { content:''; position:absolute; top:50%; left:-3px; width:6px; height:6px; background:#38bdf8; border-radius:50%; box-shadow:0 0 8px rgba(56,189,248,0.9); }
+.qrx-sa .r1 { animation: qrxsa-o1 4s linear infinite; }
+.qrx-sa .r2 { animation: qrxsa-o2 3s linear infinite reverse; }
+@keyframes qrxsa-o1 { from{transform:rotateX(75deg) rotateZ(0deg)} to{transform:rotateX(75deg) rotateZ(360deg)} }
+@keyframes qrxsa-o2 { from{transform:rotateX(20deg) rotateY(60deg) rotateZ(0deg)} to{transform:rotateX(20deg) rotateY(60deg) rotateZ(360deg)} }
+.qrx-sa #qrx-panel { position: fixed; bottom: 150px; right: 28px; z-index: 9999; width: 560px; background: #060b10; border: 1px solid rgba(26,86,219,0.18); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 32px 90px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03); background-image: linear-gradient(rgba(26,86,219,0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(26,86,219,0.014) 1px, transparent 1px); background-size: 100% 3px, 3px 100%; transform: translateY(16px) scale(0.96); opacity: 0; pointer-events: none; transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s ease; max-height: min(900px, calc(100vh - 180px)); max-height: min(900px, calc(100dvh - 180px)); font-family: var(--sa-font); }
+.qrx-sa #qrx-panel.open { transform: translateY(0) scale(1); opacity: 1; pointer-events: all; }
+.qrx-sa .panel-scroll-area { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.qrx-sa .panel-header { padding: 13px 16px; border-bottom: 1px solid rgba(26,86,219,0.1); display: flex; align-items: center; gap: 10px; background: rgba(3,6,12,0.98); flex-shrink: 0; }
+.qrx-sa .hdr-dots { display: flex; gap: 5px; flex-shrink: 0; }
+.qrx-sa .hdr-dot { width: 10px; height: 10px; border-radius: 50%; cursor: pointer; border: none; padding: 0; }
+.qrx-sa .hdr-dot-r { background: #ff5f57; }
+.qrx-sa .hdr-dot-r:hover { background: #ff3b30; }
+.qrx-sa .hdr-dot-y { background: #febc2e; }
+.qrx-sa .hdr-dot-g { background: #28c840; }
+.qrx-sa .hdr-center { flex: 1; text-align: center; }
+.qrx-sa .hdr-title { font-size: 0.73rem; font-weight: 700; color: #e8f0ff; letter-spacing: 0.1em; text-transform: uppercase; }
+.qrx-sa .hdr-title span { color: #38bdf8; }
+.qrx-sa .hdr-pill { display: flex; align-items: center; gap: 5px; background: rgba(34,211,160,0.07); border: 1px solid rgba(34,211,160,0.18); padding: 3px 9px; border-radius: 20px; font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; color: #22d3a0; flex-shrink: 0; }
+.qrx-sa .hdr-pill-dot { width: 5px; height: 5px; border-radius: 50%; background: #22d3a0; box-shadow: 0 0 5px rgba(34,211,160,0.8); animation: qrxsa-blink 2.5s ease-in-out infinite; }
+@keyframes qrxsa-blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.qrx-sa .ctx-bar { padding: 6px 16px; background: rgba(26,86,219,0.04); border-bottom: 1px solid rgba(26,86,219,0.07); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.qrx-sa .ctx-label { font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; color: #1a3050; }
+.qrx-sa .ctx-value { font-size: 0.62rem; letter-spacing: 0.06em; color: #38bdf8; }
+.qrx-sa #qrx-msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; max-height: 640px; }
+.qrx-sa #qrx-msgs::-webkit-scrollbar { width: 2px; }
+.qrx-sa #qrx-msgs::-webkit-scrollbar-thumb { background: rgba(26,86,219,0.2); border-radius: 2px; }
+.qrx-sa .msg { display: flex; flex-direction: column; gap: 4px; animation: qrxsa-msg-in 0.22s ease; }
+@keyframes qrxsa-msg-in { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+.qrx-sa .msg-pre { font-size: 0.58rem; letter-spacing: 0.15em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+.qrx-sa .msg.analyst .msg-pre { color: #38bdf8; }
+.qrx-sa .msg-body { font-size: 1.05rem; line-height: 1.8; padding: 13px 16px; border-radius: 4px; max-width: 95%; }
+.qrx-sa .msg.analyst .msg-body { background: rgba(26,86,219,0.07); border: 1px solid rgba(26,86,219,0.14); color: #d4e4f5; border-radius: 2px 8px 8px 8px; }
+.qrx-sa .chips { display: flex; flex-direction: column; gap: 10px; padding: 14px 8px 12px; overflow-y: auto; overflow-x: hidden; }
+.qrx-sa .chips::-webkit-scrollbar { width: 3px; }
+.qrx-sa .chips::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.25); border-radius: 2px; }
+.qrx-sa .chip { width: 100%; background: #f7f4ed; border: 1px solid #d8d2c2; border-radius: 6px; padding: 13px 16px; cursor: pointer; text-align: left; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: all 0.15s; }
+.qrx-sa .chip:hover { background: #fffdf7; border-color: #38bdf8; transform: translateY(-1px); box-shadow: 0 3px 7px rgba(0,0,0,0.25); }
+.qrx-sa .chip-label { display: block; font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 1.05rem; line-height: 1.4; color: #1a1a1a; }
+.qrx-sa .read-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-family: var(--sa-font); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #38bdf8; background: rgba(56,189,248,0.06); border: 1px solid rgba(56,189,248,0.18); padding: 5px 12px; border-radius: 4px; text-decoration: none; cursor: pointer; transition: all 0.15s; }
+.qrx-sa .read-btn:hover { background: rgba(56,189,248,0.14); border-color: rgba(56,189,248,0.4); color: #f0f4ff; }
+.qrx-sa .read-btn::after { content: "→"; }
+.qrx-sa .preset-bar { padding: 16px; border-top: 1px solid rgba(26,86,219,0.08); display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #081f3e; flex-shrink: 0; }
+.qrx-sa .preset-label { grid-column: 1 / -1; font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 2px; }
+.qrx-sa .feed-link { text-align: center; font-family: var(--sa-font); font-size: 0.98rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 18px 14px; border-radius: 8px; border: 1px solid rgba(56,189,248,0.35); background: rgba(56,189,248,0.1); color: #fff; text-decoration: none; transition: all 0.15s; display: block; }
+.qrx-sa .feed-link:hover { background: rgba(56,189,248,0.2); border-color: #38bdf8; }
+.qrx-sa .feed-link::after { content: " \2192"; opacity: 0.6; }
+.qrx-sa .input-bar { padding: 12px 14px; border-top: 1px solid rgba(26,86,219,0.15); display: flex; align-items: center; gap: 8px; background: rgba(56,189,248,0.04); flex-shrink: 0; }
+.qrx-sa .input-field-wrap { flex: 1; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(56,189,248,0.3); border-radius: 6px; padding: 8px 12px; }
+.qrx-sa .input-field-wrap:focus-within { border-color: rgba(56,189,248,0.6); background: rgba(255,255,255,0.07); }
+.qrx-sa .prompt-sym { font-size: 0.75rem; color: #1a56db; flex-shrink: 0; user-select: none; }
+.qrx-sa #qrx-input { flex: 1; background: none; border: none; outline: none; font-family: var(--sa-font); font-size: 16px; color: #f0f4ff; caret-color: #38bdf8; letter-spacing: 0.02em; }
+.qrx-sa #qrx-input::placeholder { color: #6b8aad; }
+.qrx-sa #qrx-send { background: rgba(26,86,219,0.1); border: 1px solid rgba(26,86,219,0.2); border-radius: 5px; color: #38bdf8; cursor: pointer; padding: 5px 10px; font-family: var(--sa-font); font-size: 0.7rem; letter-spacing: 0.06em; transition: all 0.15s; flex-shrink: 0; }
+.qrx-sa #qrx-send:hover { background: rgba(26,86,219,0.24); color: #f0f4ff; }
+.qrx-sa #qrx-send:disabled { opacity: 0.28; cursor: not-allowed; }
+@media (max-width: 520px) {
+  .qrx-sa #qrx-panel { width: calc(100vw - 12px); right: 6px; bottom: 140px; max-height: 80vh; transform-origin: bottom right; }
+  .qrx-sa #qrx-panel.open { transform: translateY(0) scale(0.85); }
+  .qrx-sa .qrx-toggle-wrap { right: 16px; bottom: 16px; }
+  .qrx-sa #qrx-msgs { max-height: none; }
+  .qrx-sa .feed-link { padding: 12px 8px; }
+}
+.qrx-sa .qrx-toggle-wrap { pointer-events: none; }
+.qrx-sa #qrx-btn { pointer-events: all; }
+.qrx-sa .text-ring { pointer-events: none; }
+.qrx-sa .qrx-glow-ring { pointer-events: none; }
+.qrx-sa .qrx-briefing-overlay { position: absolute; inset: 0; background: #f7f4ed; z-index: 10; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+.qrx-sa .qrx-briefing-overlay.open { opacity: 1; pointer-events: all; }
+.qrx-sa .qrx-briefing-header { padding: 14px 18px; border-bottom: 2px solid #1a1a1a; display: flex; align-items: center; gap: 8px; flex-shrink: 0; background: #f7f4ed; }
+.qrx-sa .qrx-briefing-title { font-family: Georgia, 'Times New Roman', serif; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #1a1a1a; flex: 1; }
+.qrx-sa .qrx-briefing-back { font-family: var(--sa-font); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #1a1a1a; background: transparent; border: 1.5px solid #1a1a1a; border-radius: 3px; padding: 6px 12px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+.qrx-sa .qrx-briefing-back:hover { background: #1a1a1a; color: #f7f4ed; }
+.qrx-sa .qrx-briefing-speak { font-family: var(--sa-font); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #1a1a1a; background: transparent; border: 1.5px solid #1a1a1a; border-radius: 3px; padding: 6px 12px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; display: flex; align-items: center; gap: 5px; }
+.qrx-sa .qrx-briefing-speak:hover { background: #1a1a1a; color: #f7f4ed; }
+.qrx-sa .qrx-briefing-speak.speaking { background: #1a1a1a; color: #f7f4ed; animation: qrxsa-speak-pulse 1.2s ease-in-out infinite; }
+@keyframes qrxsa-speak-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+.qrx-sa .qrx-briefing-close { font-family: var(--sa-font); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #1a1a1a; background: transparent; border: 1.5px solid #1a1a1a; border-radius: 3px; padding: 6px 12px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+.qrx-sa .qrx-briefing-close:hover { background: #1a1a1a; color: #f7f4ed; }
+.qrx-sa .qrx-briefing-body { flex: 1; overflow-y: auto; padding: 22px 24px 30px; }
+.qrx-sa .qrx-briefing-body::-webkit-scrollbar { width: 3px; }
+.qrx-sa .qrx-briefing-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 2px; }
+.qrx-sa .qrx-slide-asked { font-family: var(--sa-font); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8a7f6a; margin-bottom: 10px; }
+.qrx-sa .qrx-slide-asked span { color: #1a1a1a; font-weight: 400; text-transform: none; letter-spacing: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 0.95rem; display: block; margin-top: 4px; }
+.qrx-sa .qrx-slide { border-bottom: 1px solid rgba(0,0,0,0.15); padding: 0 0 22px; margin-bottom: 22px; }
+.qrx-sa .qrx-slide:last-child { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+.qrx-sa .qrx-slide-num { font-family: var(--sa-font); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #8a7f6a; margin-bottom: 9px; }
+.qrx-sa .qrx-slide-title { font-family: Georgia, 'Times New Roman', serif; font-size: 1.5rem; font-weight: 700; color: #1a1a1a; line-height: 1.28; margin-bottom: 16px; letter-spacing: -0.01em; }
+.qrx-sa .qrx-slide-part { margin-bottom: 14px; }
+.qrx-sa .qrx-slide-part:last-child { margin-bottom: 0; border-left: 3px solid #1a1a1a; padding-left: 14px; }
+.qrx-sa .qrx-slide-label { font-family: Georgia, 'Times New Roman', serif; font-size: 0.9rem; font-weight: 700; font-style: italic; letter-spacing: 0.01em; text-transform: uppercase; color: #1a1a1a; margin-bottom: 6px; display: block; border-bottom: 1px solid #1a1a1a; padding-bottom: 4px; }
+.qrx-sa .qrx-slide-part:last-child .qrx-slide-label { border-bottom: none; padding-bottom: 0; color: #5a5040; }
+.qrx-sa .qrx-slide-text { font-family: Georgia, 'Times New Roman', serif; font-size: 1.15rem; line-height: 1.72; color: #1a1a1a; }
+.qrx-sa .qrx-slide-text.dim { color: #5a5040; }
+.qrx-sa .qrx-slide-sources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.qrx-sa .qrx-slide-sources .qrx-slide-link { margin-top: 0; }
+.qrx-sa .qrx-slide-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; font-family: var(--sa-font); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1a1a1a; background: transparent; border: 1.5px solid #1a1a1a; padding: 6px 13px; border-radius: 3px; text-decoration: none; cursor: pointer; transition: all 0.15s; }
+.qrx-sa .qrx-slide-link:hover { background: #1a1a1a; color: #f7f4ed; }
+.qrx-sa .qrx-slide-link::after { content: "→"; }
+.qrx-sa .qrx-slide-source { display: flex; align-items: center; gap: 4px; margin-bottom: 18px; font-family: var(--sa-font); font-size: 0.65rem; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7f6a; }
+.qrx-sa .qrx-slide-source-name { font-weight: 700; color: #5a5040; }
+.qrx-sa .qrx-slide-source-link { color: #8a7f6a; text-decoration: none; border-bottom: 1px solid rgba(90,80,64,0.3); transition: color 0.15s; }
+.qrx-sa .qrx-slide-source-link:hover { color: #1a1a1a; border-color: #1a1a1a; }
+.qrx-sa .qrx-slide-hottake { margin-top: 18px; padding-top: 16px; border-top: 2px dashed rgba(138,58,42,0.35); }
+.qrx-sa .qrx-slide-hottake .qrx-slide-label { color: #8a3a2a; border-bottom-color: #8a3a2a; }
+.qrx-sa .qrx-slide-hottake .qrx-slide-text { font-style: italic; color: #6b2e20; }
+.qrx-sa .qrx-slide-thinking { font-family: Georgia, 'Times New Roman', serif; font-style: italic; color: #8a7f6a; font-size: 0.95rem; }
+.qrx-sa .qrx-slide-verdict-wrap { margin-top: 14px; padding-top: 14px; border-top: 2px solid #1a1a1a; }
+.qrx-sa .qrx-slide-verdict-wrap .qrx-slide-label { color: #1a1a1a; }
+.qrx-sa .qrx-slide-verdict-wrap .qrx-slide-text { font-weight: 700; }
+.qrx-sa .qrx-briefing-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: #8a7f6a; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 0.95rem; }
+</style>
+
+<div class="qrx-sa">
+
+<div class="qrx-toggle-wrap" id="qrx-toggle">
+  <div class="text-ring">
+    <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <defs><path id="qrxsa-cp" d="M 60,60 m -46,0 a 46,46 0 1,1 92,0 a 46,46 0 1,1 -92,0"/></defs>
+      <text font-family="JetBrains Mono, monospace" font-size="8.5" font-weight="700" letter-spacing="3.2" fill="rgba(220,220,225,0.9)">
+        <textPath href="#qrxsa-cp">QRx SIGNAL ANALYST &middot; QRx SIGNAL ANALYST &middot;</textPath>
+      </text>
+    </svg>
+  </div>
+  <div class="qrx-glow-ring"></div>
+  <button id="qrx-btn" aria-label="Open Signal Analyst">
+    <div class="atom"><div class="atom-core"></div><div class="atom-ring r1"></div><div class="atom-ring r2"></div></div>
+  </button>
+</div>
+
+<div id="qrx-panel" role="dialog" aria-label="QRx Signal Analyst">
+
+  <div class="panel-scroll-area">
+
+    <div class="qrx-briefing-overlay" id="qrx-briefing-overlay">
+      <div class="qrx-briefing-header">
+        <span class="qrx-briefing-title" id="qrx-briefing-title">Signal Analyst</span>
+        <button class="qrx-briefing-back" id="qrx-briefing-back">&#8592; Back</button>
+        <button class="qrx-briefing-speak" id="qrx-briefing-speak">&#9654; Listen</button>
+        <button class="qrx-briefing-close" id="qrx-briefing-close">Close &#x2715;</button>
+      </div>
+      <div class="qrx-briefing-body" id="qrx-briefing-body">
+        <div class="qrx-briefing-loading">Ask a question or pick a signal below to get started.</div>
+      </div>
+    </div>
+
+    <div class="panel-header">
+      <div class="hdr-dots">
+        <button class="hdr-dot hdr-dot-r" id="qrx-close" aria-label="Close"></button>
+        <div class="hdr-dot hdr-dot-y"></div>
+        <div class="hdr-dot hdr-dot-g"></div>
+      </div>
+      <div class="hdr-center"><div class="hdr-title">QRx <span>Signal Analyst</span></div></div>
+      <div class="hdr-pill"><div class="hdr-pill-dot"></div>Live</div>
+    </div>
+
+    <div class="ctx-bar">
+      <span class="ctx-label">// Context loaded</span>
+      <span class="ctx-value" id="qrx-ctx-value">Loading...</span>
+    </div>
+
+    <div id="qrx-msgs">
+      <div class="chips" id="qrx-chips">
+        <span style="font-size:0.8rem;color:#6b8aad;font-family:var(--sa-font)">Loading today's questions...</span>
+      </div>
+    </div>
+
+    <div class="preset-bar">
+      <div class="preset-label">// Explore the feeds</div>
+      <a class="feed-link" href="https://quantumrx.eu/signals/" data-feed="signals">Signals</a>
+      <a class="feed-link" href="https://quantumrx.eu/the-draw/" data-feed="draw">The Draw</a>
+      <a class="feed-link" href="https://quantumrx.eu/mainstream/" data-feed="mainstream">Mainstream</a>
+      <a class="feed-link" href="https://quantumrx.eu/this-week-in-tech/" data-feed="thisweek">This Week</a>
+    </div>
+
+  </div>
+
+  <div class="input-bar">
+    <div class="input-field-wrap">
+      <span class="prompt-sym">&gt;_</span>
+      <input id="qrx-input" type="text" placeholder="Ask about any signal this week..." autocomplete="off" maxlength="400"/>
+    </div>
+    <button id="qrx-send">SEND</button>
+  </div>
+
+</div>
+</div>
+
+<script>
+(function(){
+  var API_URL = "https://forge.quantumrx.eu/api/chat";
+  var SIGNALS_BASE = "https://quantumrx.eu/signals/";
+  var isOpen = false;
+  var history = [];
+  var limitReached = false;
+  var entryCount = 0;
+
+  function esc(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+
+  function trackWidgetEvent(action, extra) {
+    if (typeof gtag !== 'function') return;
+    gtag('event', action, Object.assign({
+      source_page_type: PAGE_TYPE,
+      source_article_title: PAGE_ARTICLE_TITLE || undefined
+    }, extra || {}));
+  }
+
+  function togglePanel() {
+    isOpen = !isOpen;
+    document.getElementById('qrx-panel').classList.toggle('open', isOpen);
+    if (isOpen) {
+      trackWidgetEvent('widget_open');
+      setTimeout(function(){ document.getElementById('qrx-input').focus(); }, 300);
+    }
+  }
+
+  function closePanel() {
+    isOpen = false;
+    document.getElementById('qrx-panel').classList.remove('open');
+  }
+
+  document.getElementById('qrx-btn').addEventListener('click', togglePanel);
+  document.getElementById('qrx-close').addEventListener('click', function(e){
+    e.stopPropagation();
+    closePanel();
+  });
+
+  document.getElementById('qrx-briefing-body').addEventListener('click', function(e){
+    var link = e.target.closest('.qrx-slide-link');
+    if (link) trackWidgetEvent('widget_signals_clickthrough', {
+      link_type: 'slide_link',
+      destination_tab: (link.href.split('tab=')[1] || null)
+    });
+  });
+
+  function disablePresets() {}
+
+  function openOverlay() { document.getElementById('qrx-briefing-overlay').classList.add('open'); }
+  function closeOverlay() { document.getElementById('qrx-briefing-overlay').classList.remove('open'); }
+
+  document.getElementById('qrx-briefing-close').addEventListener('click', closeOverlay);
+  document.getElementById('qrx-briefing-back').addEventListener('click', closeOverlay);
+
+  function scrollOverlayToBottom() {
+    var body = document.getElementById('qrx-briefing-body');
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function clearFirstRunPlaceholder() {
+    var body = document.getElementById('qrx-briefing-body');
+    if (entryCount === 0) body.innerHTML = '';
+  }
+
+  function pushThinkingEntry() {
+    clearFirstRunPlaceholder();
+    var body = document.getElementById('qrx-briefing-body');
+    var el = document.createElement('div');
+    el.className = 'qrx-slide';
+    el.id = 'qrx-thinking-slide';
+    el.innerHTML = '<div class="qrx-slide-thinking">Pulling the signal...</div>';
+    body.appendChild(el);
+    openOverlay();
+    scrollOverlayToBottom();
+  }
+
+  function removeThinkingEntry() {
+    var el = document.getElementById('qrx-thinking-slide');
+    if (el) el.remove();
+  }
+
+  function renderSections(sections) {
+    return sections.map(function(s) {
+      var label = s.label ? '<span class="qrx-slide-label">' + esc(s.label) + '</span>' : '';
+      if (s.style === 'hottake') {
+        return '<div class="qrx-slide-hottake">' + (label || '<span class="qrx-slide-label">QRx Take</span>') + '<div class="qrx-slide-text">' + esc(s.text) + '</div></div>';
+      }
+      if (s.style === 'verdict') {
+        return '<div class="qrx-slide-verdict-wrap">' + label + '<div class="qrx-slide-text">' + esc(s.text) + '</div></div>';
+      }
+      var textClass = s.style === 'dim' ? 'qrx-slide-text dim' : 'qrx-slide-text';
+      return '<div class="qrx-slide-part">' + label + '<div class="' + textClass + '">' + esc(s.text) + '</div></div>';
+    }).join('');
+  }
+
+  function pushSlide(entry) {
+    removeThinkingEntry();
+    clearFirstRunPlaceholder();
+    entryCount++;
+
+    var body = document.getElementById('qrx-briefing-body');
+    var el = document.createElement('div');
+    el.className = 'qrx-slide';
+
+    var html = '';
+    if (entry.askedQuestion) {
+      html += '<div class="qrx-slide-asked">You asked<span>' + esc(entry.askedQuestion) + '</span></div>';
+    }
+    if (entry.title) {
+      html += '<div class="qrx-slide-title">' + esc(entry.title) + '</div>';
+    }
+    if (entry.source || entry.url) {
+      html += '<div class="qrx-slide-source">';
+      if (entry.source) html += '<span class="qrx-slide-source-name">' + esc(entry.source) + '</span>';
+      if (entry.url) html += (entry.source ? ' &middot; ' : '') + '<a class="qrx-slide-source-link" href="' + esc(entry.url) + '" target="_blank" rel="noopener">Read original &rarr;</a>';
+      html += '</div>';
+    }
+
+    if (entry.sections && entry.sections.length) {
+      html += renderSections(entry.sections);
+    } else if (entry.whatIsIt || entry.whyItMatters) {
+      if (entry.whatIsIt) html += '<div class="qrx-slide-part"><span class="qrx-slide-label">What is it</span><div class="qrx-slide-text">' + esc(entry.whatIsIt) + '</div></div>';
+      if (entry.whyItMatters) html += '<div class="qrx-slide-part"><span class="qrx-slide-label">Why it matters</span><div class="qrx-slide-text">' + esc(entry.whyItMatters) + '</div></div>';
+      if (entry.whatToWatch) html += '<div class="qrx-slide-part"><span class="qrx-slide-label">What to watch</span><div class="qrx-slide-text dim">' + esc(entry.whatToWatch) + '</div></div>';
+      if (entry.hotTake) html += '<div class="qrx-slide-hottake"><span class="qrx-slide-label">QRx Take</span><div class="qrx-slide-text">' + esc(entry.hotTake) + '</div></div>';
+    } else if (entry.plainText) {
+      html += '<div class="qrx-slide-part"><div class="qrx-slide-text">' + esc(entry.plainText) + '</div></div>';
+    }
+
+    if (entry.sourceLinks && entry.sourceLinks.length) {
+      html += '<div class="qrx-slide-sources">';
+      entry.sourceLinks.forEach(function(s){
+        if (!s.url) return;
+        html += '<a class="qrx-slide-link" href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.title || s.source || 'Read source') + '</a>';
+      });
+      html += '</div>';
+    }
+
+    if (entry.tab) {
+      html += '<a class="qrx-slide-link" href="' + SIGNALS_BASE + '?tab=' + entry.tab + '" target="_blank" rel="noopener">More signals</a>';
+    }
+
+    el.innerHTML = html;
+    body.appendChild(el);
+    openOverlay();
+    scrollOverlayToBottom();
+  }
+
+  var ttsAudio = null;
+  var ttsSpeaking = false;
+
+  function getLastEntryText() {
+    var body = document.getElementById('qrx-briefing-body');
+    var slides = body.querySelectorAll('.qrx-slide');
+    if (!slides.length) return '';
+    var last = slides[slides.length - 1];
+    var parts = last.querySelectorAll('.qrx-slide-text, .qrx-slide-title');
+    var lines = [];
+    parts.forEach(function(p){ if (p.textContent.trim()) lines.push(p.textContent.trim()); });
+    return lines.join('. ');
+  }
+
+  function stopTTS() {
+    if (ttsAudio) { ttsAudio.pause(); ttsAudio.src = ''; ttsAudio = null; }
+    ttsSpeaking = false;
+    var btn = document.getElementById('qrx-briefing-speak');
+    if (btn) { btn.textContent = '▶ Listen'; btn.classList.remove('speaking'); }
+  }
+
+  document.getElementById('qrx-briefing-speak').addEventListener('click', function(){
+    if (ttsSpeaking) { stopTTS(); return; }
+    var text = getLastEntryText();
+    if (!text) return;
+    var btn = document.getElementById('qrx-briefing-speak');
+    btn.textContent = '⏳ Loading...';
+    btn.classList.add('speaking');
+    fetch('https://forge.quantumrx.eu/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
+    })
+    .then(function(r){ if (!r.ok) throw new Error('TTS failed'); return r.blob(); })
+    .then(function(blob){
+      var url = URL.createObjectURL(blob);
+      ttsAudio = new Audio(url);
+      ttsSpeaking = true;
+      btn.textContent = '⏹ Stop';
+      ttsAudio.addEventListener('ended', function(){ stopTTS(); URL.revokeObjectURL(url); });
+      ttsAudio.addEventListener('error', function(){ stopTTS(); URL.revokeObjectURL(url); });
+      ttsAudio.play();
+    })
+    .catch(function(){ btn.textContent = '▶ Listen'; btn.classList.remove('speaking'); ttsSpeaking = false; });
+  });
+
+  function showBlockedEntry() {
+    pushSlide({
+      title: 'Access Monitored',
+      plainText: 'Unusual activity has been detected from your connection. This endpoint is monitored and protected. If you believe this is an error, normal access will resume automatically.'
+    });
+    limitReached = true;
+    disablePresets();
+    document.getElementById('qrx-input').disabled = true;
+    document.getElementById('qrx-send').disabled = true;
+  }
+
+  function sendMessage(text, chipId) {
+    if (!text || limitReached) return;
+
+    history.push({ role: 'user', content: text });
+    pushThinkingEntry();
+
+    var body = { messages: history, pageContext: pageContext };
+    if (chipId) body.chipId = chipId;
+
+    fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    .then(function(r){
+      if (r.status === 403) return r.text().then(function(){ return { blocked: true }; });
+      return r.json();
+    })
+    .then(function(data){
+      if (data.blocked) { showBlockedEntry(); return; }
+      var raw = (data.content && data.content[0] && data.content[0].text) || 'No response.';
+      if (data.limitReached) {
+        limitReached = true;
+        disablePresets();
+        document.getElementById('qrx-input').disabled = true;
+        document.getElementById('qrx-send').disabled = true;
+      }
+
+      var hasStructured = data.title || (data.sections && data.sections.length);
+
+      pushSlide({
+        askedQuestion: text,
+        title: data.title || null,
+        sections: data.sections || null,
+        plainText: hasStructured ? null : raw,
+        tab: data.readLink || null,
+        sourceLinks: data.sourceLinks || null
+      });
+
+      history.push({ role: 'assistant', content: raw });
+      if (data.weekLabel && data.storyCount) {
+        document.getElementById('qrx-ctx-value').textContent = data.weekLabel + ' · ' + data.storyCount + ' signals';
+      }
+    })
+    .catch(function(){
+      removeThinkingEntry();
+      pushSlide({ askedQuestion: text, plainText: 'Connection issue. Try again in a moment.' });
+    });
+  }
+
+  document.getElementById('qrx-send').addEventListener('click', function(){
+    var input = document.getElementById('qrx-input');
+    var val = input.value.trim();
+    if (!val) return;
+    input.value = '';
+    sendMessage(val);
+  });
+
+  document.getElementById('qrx-input').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') document.getElementById('qrx-send').click();
+  });
+
+  function getPageSpecificChips() {
+    return [{ label: "How does this game work?", question: "How does Break the Sentinel work?" }];
+  }
+
+
+  function buildChipButton(chipData) {
+    var btn = document.createElement('button');
+    btn.className = 'chip';
+    btn.innerHTML = '<span class="chip-label"></span>';
+    btn.querySelector('.chip-label').textContent = chipData.label || chipData.question;
+    btn.addEventListener('click', function(){
+      trackWidgetEvent('widget_chip_click', { chip_question: chipData.question, chip_id: chipData.id, page_type: PAGE_TYPE });
+      sendMessage(chipData.question, chipData.id);
+    });
+    return btn;
+  }
+
+  function sortChipsByPageRelevance(chips) {
+    if (PAGE_TYPE !== 'signals' || !PAGE_SIGNALS_TAB) return chips;
+    var relevant = [];
+    var rest = [];
+    chips.forEach(function(c){
+      (c.vertical === PAGE_SIGNALS_TAB ? relevant : rest).push(c);
+    });
+    return relevant.concat(rest);
+  }
+
+  function loadDailyChips() {
+    var container = document.getElementById('qrx-chips');
+    var pageChips = getPageSpecificChips();
+
+    container.innerHTML = '';
+    pageChips.forEach(function(chipData){ container.appendChild(buildChipButton(chipData)); });
+
+    fetch('https://forge.quantumrx.eu/api/chat-chips')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var chips = sortChipsByPageRelevance(data.chips || []);
+        if (!chips.length) {
+          if (!pageChips.length) {
+            container.innerHTML = '<span style="font-size:0.8rem;color:#6b8aad;font-family:var(--sa-font)">No questions available right now.</span>';
+          }
+          return;
+        }
+        chips.forEach(function(chipData){ container.appendChild(buildChipButton(chipData)); });
+      })
+      .catch(function(){
+        if (!pageChips.length) {
+          container.innerHTML = '<span style="font-size:0.8rem;color:#6b8aad;font-family:var(--sa-font)">Could not load today\'s questions. Try again in a moment.</span>';
+        }
+      });
+  }
+
+  document.querySelectorAll('.feed-link').forEach(function(link){
+    link.addEventListener('click', function(){
+      trackWidgetEvent('widget_signals_clickthrough', { link_type: 'feed_link', destination: link.dataset.feed });
+    });
+  });
+
+  var PAGE_TYPE = "sentinel";
+  var PAGE_ARTICLE_TITLE = null;
+  var PAGE_ARTICLE_DESC = null;
+  var PAGE_SIGNALS_TAB = null;
+  var pageContext = null;
+
+  function detectPageType() {
+    PAGE_TYPE = "sentinel";
+  }
+
+
+  function buildPageContext() {
+    return "PAGE CONTEXT: The visitor is on Break the Sentinel, a live adversarial AI challenge. Five layers of increasingly strict prompt-injection detection (Q-Sentinel) stand between the player and a hidden canary value at each level; a leaderboard tracks successful breaks. If asked about this page, explain the concept, the tiered difficulty, and the leaderboard. Do NOT suggest, hint at, or help craft any prompt-injection or jailbreak technique to beat the game yourself, even if asked directly — that would defeat the purpose of the challenge for every visitor.";
+  }
+
+
+  detectPageType();
+  pageContext = buildPageContext();
+  loadDailyChips();
+
+  document.getElementById('qrx-ctx-value').textContent = "Break the Sentinel loaded";
+
+
+})();
+</script>
+
 </body>
 </html>
