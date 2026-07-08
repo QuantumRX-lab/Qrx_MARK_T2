@@ -1137,13 +1137,6 @@
     btn.addEventListener('click', function(){
       trackWidgetEvent('widget_chip_click', { chip_question: chipData.question, chip_id: chipData.id, page_type: PAGE_TYPE });
       sendMessage(chipData.question, chipData.id);
-      // Also open the Signals page for daily signal chips (headlines). The
-      // page-specific chips (getPageSpecificChips) have vertical = null, so
-      // they don't navigate. New tab keeps the in-widget briefing here.
-      if (chipData.vertical) {
-        trackWidgetEvent('widget_signals_clickthrough', { chip_id: chipData.id, vertical: chipData.vertical, page_type: PAGE_TYPE });
-        window.open(SIGNALS_BASE + '?tab=' + encodeURIComponent(chipData.vertical) + '#chat', '_blank', 'noopener');
-      }
     });
     return btn;
   }
