@@ -554,8 +554,20 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // Scan ONLY the user's own message text for injection — not the whole body.
+  // The body also carries the server-set pageContext (which on the Break the
+  // Sentinel page legitimately contains "system prompt" / "jailbreak" / "ignore
+  // previous instructions") and the assistant's prior replies; stringifying all
+  // of that tripped the HIGH-severity auto-block and self-blocked real visitors
+  // on message #1. Flag-only (autoBlockOnInjection:false): the chat system
+  // prompt is hardcoded server-side, chat is already capped per IP/24h, and it
+  // is the one surface where discussing prompt injection is on-topic.
+  const userInjectionText = Array.isArray(req.body?.messages)
+    ? req.body.messages.filter(m => m && m.role === 'user').map(m => (m && m.content) || '').join('\n')
+    : '';
   const ip = await logRequest(req, {
-    checkBody: true,
+    injectionText: userInjectionText,
+    autoBlockOnInjection: false,
     expectedFields: ['messages'],
   });
 

@@ -87,7 +87,7 @@ async function writeAutoBlock(ip) {
 
 // ─── Threat flag writer ───────────────────────────────────────────────────────
 
-async function writeFlag(ip, severity, pattern, detail = '') {
+async function writeFlag(ip, severity, pattern, detail = '', autoBlock = true) {
   const key = `threat:flag:${ip}`;
 
   const existing = await kvGet(key);
@@ -147,7 +147,7 @@ async function writeFlag(ip, severity, pattern, detail = '') {
   // dedup check above used to gate the auto-block call too, meaning a repeat
   // HIGH severity hit on an IP that already had a HIGH flag never re-triggered
   // the block, even if the block itself had since been manually cleared.
-  if (severity === 'HIGH') {
+  if (severity === 'HIGH' && autoBlock) {
     await writeAutoBlock(ip);
   }
 }
@@ -170,12 +170,12 @@ const INJECTION_PATTERNS = [
   /pretend\s+(you\s+are|to\s+be)\s+.{0,40}(no\s+restrictions?|unfiltered)/i,
 ];
 
-async function checkPromptInjection(ip, body) {
+async function checkPromptInjection(ip, body, autoBlock = true) {
   if (!body) return;
   const text = typeof body === 'string' ? body : JSON.stringify(body);
   for (const pattern of INJECTION_PATTERNS) {
     if (pattern.test(text)) {
-      await writeFlag(ip, 'HIGH', 'prompt_injection', pattern.source.slice(0, 80));
+      await writeFlag(ip, 'HIGH', 'prompt_injection', pattern.source.slice(0, 80), autoBlock);
       return;
     }
   }
@@ -278,8 +278,18 @@ export async function logRequest(req, options = {}) {
       checkUserAgent(ip, req),
       checkRequestVolume(ip),
     ];
-    if (options.checkBody && req.body) {
-      checks.push(checkPromptInjection(ip, req.body));
+    // Injection scan target: prefer an explicit caller-supplied string over the
+    // whole body. chat.js passes ONLY the user-authored message text, so the
+    // trusted server-set pageContext (which on the Break the Sentinel page
+    // legitimately contains "system prompt" / "jailbreak" / "ignore previous
+    // instructions") and the assistant's own replies never trip detection.
+    // options.autoBlockOnInjection === false flags for monitoring WITHOUT the
+    // site-wide 30-day auto-block.
+    const injAutoBlock = options.autoBlockOnInjection !== false;
+    if (options.injectionText != null) {
+      checks.push(checkPromptInjection(ip, options.injectionText, injAutoBlock));
+    } else if (options.checkBody && req.body) {
+      checks.push(checkPromptInjection(ip, req.body, injAutoBlock));
     }
     if (options.expectedFields) {
       checks.push(checkMalformedRequest(ip, req.body, options.expectedFields));
