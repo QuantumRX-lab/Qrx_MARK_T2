@@ -5,8 +5,31 @@
 // Voice: Kore (clear, authoritative, suits news delivery)
 
 import { logRequest, getSentinelAction } from './_lib/sentinel.js';
+import { kv } from '@vercel/kv';
 
 const GEMINI_TTS_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent';
+
+// Per-IP hourly cap. This is a PAID Gemini TTS model on the shared
+// GEMINI_API_KEY_Forge (the same key behind the paid card generation and the
+// daily crons), so without a ceiling it's a budget-drain vector. Mirrors the
+// rate limiter in gemini.js / game.js. Fails open (returns 0) if KV is down.
+const TTS_RATE_LIMIT = 30; // requests per IP per hour
+
+function ttsIp(req) {
+  return (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+    || req.socket?.remoteAddress || 'unknown';
+}
+
+async function checkRateLimit(ip) {
+  const key = `tts_rate:${ip}`;
+  try {
+    const count = await kv.incr(key);
+    if (count === 1) await kv.expire(key, 60 * 60);
+    return count;
+  } catch {
+    return 0;
+  }
+}
 
 // Build a WAV file header around raw PCM data
 // Gemini TTS returns 16-bit PCM at 24kHz mono
@@ -63,6 +86,12 @@ export default async function handler(req, res) {
   const action = await getSentinelAction(req);
   if (action === 'block') {
     return res.status(403).json({ error: 'Access monitored' });
+  }
+
+  // Rate limit BEFORE the paid Gemini call — bounds worst-case spend per IP.
+  const rateCount = await checkRateLimit(ttsIp(req));
+  if (rateCount > TTS_RATE_LIMIT) {
+    return res.status(429).json({ error: 'Too many requests. Please try again later.' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY_Forge;
