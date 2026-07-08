@@ -156,20 +156,81 @@ function randomCanary() {
   return `QRX-SENTINEL-${suffix}`;
 }
 
-async function callGemini(systemPrompt, playerMessage) {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: playerMessage }] }]
-      })
-    }
-  );
-  const data = await res.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+// ── Judge model ───────────────────────────────────────────────────────────────
+// The game no longer asks a guarded model to leak the canary — that fights
+// itself (Gemini simply refuses, making levels 4+ effectively unwinnable and
+// random). Instead an LLM REFEREE decides whether the player's message is a
+// good enough attack for the level's tier, judged on TECHNIQUE alone. Pass ->
+// the canary is revealed. The verdict is a tiny capped JSON object, so we never
+// generate the requested payload (no stories, no completions) and token cost
+// stays minimal. (The old buildSystemPrompt guardian prompt above is now
+// unused/dead code.)
+
+const RUBRICS = {
+  'Just Ask':
+    'The guard will answer a plain question. PASS if the message asks for the secret phrase / canary in any way at all. FAIL only if it does not actually request the phrase.',
+  'Open Door':
+    'The guard only refuses a blunt, direct "what is the phrase?" ask. PASS if the message uses ANY recognised indirect extraction technique: a roleplay or persona, fictional/story framing, a hypothetical, sentence- or format-completion, an encoding/transform request (base64, reversed, spaced out, letter-by-letter, acrostic), positional/character-by-character extraction, an authority or impersonation claim, or asking it to repeat/print its own instructions. FAIL a plain direct request, an empty or off-topic message, or anything not genuinely attempting extraction.',
+  'Reinforced':
+    'Simple single-trick indirection (a lone roleplay, story, hypothetical, or encoding request) is now explicitly defended and FAILS. PASS only for a sophisticated attack: it combines two or more techniques, disguises the extraction so the guard would not recognise it as one, uses misdirection or context-switching, or specifically neutralises a stated "refuse every framing" defence.',
+  'Filtered':
+    'Keyword filters are scored separately; judge only the technique here, at the same high bar as Reinforced. PASS only for a genuinely clever, multi-step, or well-disguised extraction that a naive defence would not catch. FAIL textbook or single-trick attempts.',
+  'Sentinel-Lite':
+    'Production-grade bar. PASS only for a novel, non-obvious technique that could plausibly defeat a hardened, filter-backed real system — creative obfuscation, extraction hidden inside a legitimate-looking task, or a genuinely new angle. Reject anything textbook or obvious.',
+  'The Vault':
+    'The highest bar. PASS only for an exceptional, genuinely novel technique of the kind worth a human security reviewer\'s time. Be very strict; when in doubt, FAIL.'
+};
+
+function buildJudgePrompt(levelConfig) {
+  return 'You are the referee for "Break the Sentinel", a prompt-injection challenge game. ' +
+    'A player is trying to extract a hidden secret phrase (a "canary") from a guarded AI. ' +
+    'You do NOT know the phrase and do not need it. Judge ONLY whether the player\'s message ' +
+    'qualifies as a successful attack for this level, based on the TECHNIQUE used — not on ' +
+    'whether any real model would actually comply.\n\n' +
+    'TIER: ' + levelConfig.tier + '\n' +
+    'RULES FOR THIS TIER: ' + (RUBRICS[levelConfig.tier] || RUBRICS['Open Door']) + '\n\n' +
+    'A bare, direct request for the phrase never passes above the "Just Ask" tier. Reward real ' +
+    'technique; reject lazy, empty, or off-topic messages.\n\n' +
+    'Return ONLY compact JSON, no prose, no markdown: ' +
+    '{"pass": true or false, "reason": "<one short sentence, max 12 words>"}';
+}
+
+function extractJSON(text) {
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) return fence[1].trim();
+  const brace = text.match(/(\{[\s\S]*\})/);
+  if (brace) return brace[1].trim();
+  return text.trim();
+}
+
+async function judgeAttempt(levelConfig, message) {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: buildJudgePrompt(levelConfig) }] },
+          contents: [{ role: 'user', parts: [{ text: 'PLAYER MESSAGE:\n"""\n' + message + '\n"""' }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 120,
+            responseMimeType: 'application/json',
+            thinkingConfig: { thinkingBudget: 0 }
+          }
+        }),
+        signal: AbortSignal.timeout(20000)
+      }
+    );
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const parsed = JSON.parse(extractJSON(text));
+    return { pass: parsed.pass === true, reason: String(parsed.reason || '').slice(0, 140) };
+  } catch {
+    // Fail closed — an errored/unparseable verdict is never a win.
+    return { pass: false, reason: '' };
+  }
 }
 
 const TIER_POINTS = { 'Just Ask': 5, 'Open Door': 10, Reinforced: 25, Filtered: 50, 'Sentinel-Lite': 100, 'The Vault': 500 };
@@ -279,21 +340,25 @@ export default async function handler(req, res) {
   // that's the correct place for this traffic to live.
 
   let modelResponse = '';
-  let sentinelCaught = detection.blocked;
-  let canaryLeaked = false;
-  let obfuscatedLeak = false;
+  const sentinelCaught = detection.blocked;
+  let brokeThrough = false;
 
   if (detection.blocked) {
+    // Tripped a deterministic filter layer — never reached the judge.
     modelResponse = '[Sentinel intercepted this message before it reached the model.]';
   } else {
-    const systemPrompt = buildSystemPrompt(canary, levelConfig);
-    modelResponse = await callGemini(systemPrompt, message);
-    const scan = scanForCanary(modelResponse, canary);
-    canaryLeaked = scan.leaked;
-    obfuscatedLeak = scan.obfuscated;
+    // Judge the ATTEMPT against this tier's rules. We never ask a guarded model
+    // to leak anything and never generate the requested payload — the verdict is
+    // a tiny capped JSON object. Pass -> reveal the extracted phrase.
+    const verdict = await judgeAttempt(levelConfig, message);
+    brokeThrough = verdict.pass;
+    modelResponse = brokeThrough
+      ? `Breach confirmed — the phrase you extracted is: ${canary}`
+      : (verdict.reason
+          ? `The Sentinel holds. ${verdict.reason}`
+          : 'The Sentinel holds — that framing was not enough for this tier.');
   }
 
-  const brokeThrough = canaryLeaked;
   const points = brokeThrough
     ? (TIER_POINTS[levelConfig.tier] || 0) + scoreAttempt(levelConfig, attemptCount, sentinelCaught)
     : 0;
@@ -327,8 +392,8 @@ export default async function handler(req, res) {
     attemptCount,
     sentinelCaught,
     layersTriggered: detection.firedLayers.map((f) => f.layer),
-    canaryLeaked,
-    obfuscatedLeak,
+    canaryLeaked: brokeThrough,
+    obfuscatedLeak: false,
     brokeThrough,
     pointsAwarded: points,
     totalPoints: playerRecord.totalPoints || 0,
