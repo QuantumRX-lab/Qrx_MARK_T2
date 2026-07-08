@@ -57,7 +57,7 @@ jobs:
           if [ "$TASK" = "weekly" ]; then
             ENDPOINTS="weekly-refresh podcast-refresh"
           else
-            ENDPOINTS="news-refresh draw-refresh mainstream-refresh cartoon-refresh"
+            ENDPOINTS="news-refresh draw-refresh mainstream-refresh generate-chat-chips cartoon-refresh"
           fi
 
           echo "Running '$TASK' refresh -> $ENDPOINTS"
