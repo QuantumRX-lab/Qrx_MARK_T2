@@ -61,9 +61,14 @@ export default async function handler(req, res) {
   await logRequest(req, "chat-chips");
 
   const origin = req.headers.origin;
+  // Vary on Origin ALWAYS — even when the origin isn't matched — so a shared
+  // cache never serves a response built for one origin (or a no-Origin/bot
+  // request, which carries no ACAO) to a different origin. That cross-origin
+  // cache poisoning is what stripped Access-Control-Allow-Origin on
+  // www.quantumrx.eu and blocked the widget's chip fetch.
+  res.setHeader('Vary', 'Origin');
   if (ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Vary', 'Origin');
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
@@ -86,14 +91,12 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Short cache — this can change once a day, but a stale minute is
-    // harmless and this keeps repeat widget loads off KV. Was
-    // max-age=300 (5min); confirmed live that this makes a manual
-    // trigger (or a cron catching up after an outage) look broken for
-    // up to 5 minutes after a genuinely successful write, same class of
-    // bug found and fixed on api/cartoon.js — 60s self-heals fast
-    // instead.
-    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    // no-store: this is a per-origin CORS response. A shared-cached or
+    // revalidated (304) copy can come back WITHOUT the
+    // Access-Control-Allow-Origin header, which blocked the widget's chip
+    // fetch on www.quantumrx.eu. A single KV get per widget load is cheap —
+    // correctness over the tiny cache win. (Was public,max-age=60.)
+    res.setHeader('Cache-Control', 'no-store');
     res.status(200).json({ date: record.date, chips: record.chips.map(publicShape), bootstrap: false });
   } catch (err) {
     console.error('chat-chips error:', err);
