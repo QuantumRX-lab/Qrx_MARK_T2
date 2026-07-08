@@ -1,0 +1,22 @@
+# QuantumRx
+
+> QuantumRx builds and runs a suite of small, live web tools **built for AI** — for AI context engineering, prompt security, generative media, and automated AI publishing. Everything below runs on live infrastructure and is free to try (two paid €1.99 tools are noted). The hub is QuantumRx AI Labs.
+
+## Built for AI — Tools
+
+- [Kernel Generator](https://forge.quantumrx.eu/): Compress a long AI chat or project brief into a structured MACK continuity kernel you can paste into a new session to restore full context. Category: Context Engineering. Free.
+- [Break the Sentinel](https://forge.quantumrx.eu/break-the-sentinel.html): A 20-level prompt-injection challenge across six tiers of escalating LLM defenses — learn AI security by trying to beat a hardened system prompt. Category: Prompt Security. Free.
+- [Nine to F!veish](https://forge.quantumrx.eu/the-strip.html): A fully automated daily three-panel office-satire comic; the script is AI-written and the panels AI-drawn, refreshed every morning. Category: AI Publishing. Free.
+- [Pepe Legends Forge](https://forge.quantumrx.eu/nft-forge-tv.html): AI trading-card generator that forges custom Pepe legend cards from a prompt. Category: Generative Media. €1.99 one-time licence.
+- [Lord of the Memes Forge](https://forge.quantumrx.eu/lotm-forge-tv.html): AI trading-card generator for Lord of the Memes cards from a prompt. Category: Generative Media. €1.99 one-time licence.
+
+## Hub & content
+
+- [QuantumRx AI Labs](https://forge.quantumrx.eu/ai-labs.html): The hub listing all five Built-for-AI tools — the canonical "Built for AI" collection.
+- [Top 50 Tech Podcasts](https://forge.quantumrx.eu/podcasts.html): A weekly-refreshed directory of the 50 leading technology podcasts with each show's latest episode.
+- [This Week in Tech](https://forge.quantumrx.eu/this-week-in-tech.html): Weekly briefing of the most significant technology stories.
+- [Products & Services](https://forge.quantumrx.eu/products.html): QuantumRx products and services.
+
+## Taxonomy
+
+The five tools are organized under the "Built for AI" DefinedTermSet with these terms: Context Engineering, Prompt Security, Generative Media, AI Publishing. Each tool page carries schema.org structured data (WebApplication / GameApplication) that is `isPartOf` the AI Labs collection and `publisher` QuantumRx.
