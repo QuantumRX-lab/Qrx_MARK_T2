@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Podcasts — Top 50 Tech | QuantumRx</title>
+<meta name="description" content="The top 50 technology podcasts, refreshed weekly with each show's latest episode. Curated by QuantumRx.">
+<meta name="robots" content="index,follow">
+<style>
+  :root { color-scheme: light; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #f9f9f7; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif; color: #1a1a1a; }
+
+  /* ── Header ─────────────────────────────────────────────────────── */
+  .pod-header { background: #0a1628; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .pod-header-inner { max-width: 900px; margin: 0 auto; padding: 0 32px; height: 52px; display: flex; align-items: center; justify-content: space-between; }
+  .pod-brand { display: flex; align-items: center; gap: 10px; }
+  .pod-brand a { text-decoration: none; }
+  .pod-logo { font-size: 1rem; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
+  .pod-divider { color: rgba(255,255,255,0.3); font-weight: 300; font-size: 1.1rem; }
+  .pod-page { font-size: 0.78rem; font-weight: 600; color: rgba(255,255,255,0.6); letter-spacing: 0.08em; text-transform: uppercase; }
+  .pod-live { display: flex; align-items: center; gap: 6px; }
+  .pod-live-dot { width: 6px; height: 6px; border-radius: 50%; background: #22d3a0; box-shadow: 0 0 6px rgba(34,211,160,0.8); animation: pod-blink 2.5s ease-in-out infinite; }
+  @keyframes pod-blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .pod-live-text { font-size: 0.68rem; font-weight: 700; color: rgba(255,255,255,0.5); letter-spacing: 0.12em; }
+
+  /* ── Tab bar ────────────────────────────────────────────────────── */
+  .pod-tabbar { background: #0d2044; border-bottom: 2px solid rgba(56,189,248,0.25); }
+  .pod-tabbar-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; overflow-x: auto; scrollbar-width: none; }
+  .pod-tabbar-inner::-webkit-scrollbar { display: none; }
+  .pod-tab { padding: 14px 18px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.45); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color 0.15s, border-color 0.15s; font-family: inherit; flex-shrink: 0; white-space: nowrap; }
+  .pod-tab:hover { color: rgba(255,255,255,0.8); }
+  .pod-tab.active { color: #fff; border-bottom-color: #38bdf8; }
+
+  /* ── Content ────────────────────────────────────────────────────── */
+  .pod-content { max-width: 900px; margin: 0 auto; padding: 20px 32px 56px; }
+  .pod-loading { text-align: center; padding: 60px 20px; font-size: 0.9rem; color: #8a9ab0; }
+  .pod-updated { font-size: 0.75rem; color: #8a9ab0; margin-bottom: 1rem; letter-spacing: 0.03em; }
+
+  .pod-list { display: flex; flex-direction: column; }
+  .pod-item { display: flex; align-items: center; gap: 16px; padding: 18px 0; border-bottom: 1px solid #e8e8e4; }
+  .pod-item:last-child { border-bottom: none; }
+  .pod-rank { flex-shrink: 0; width: 30px; text-align: center; font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 1.3rem; color: #b8bdc4; }
+  .pod-thumb { width: 92px; height: 92px; border-radius: 10px; overflow: hidden; background: #0d1117; flex-shrink: 0; position: relative; }
+  .pod-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pod-thumb-play { position: absolute; right: 6px; bottom: 6px; width: 22px; height: 22px; border-radius: 50%; background: rgba(10,22,40,0.82); display: flex; align-items: center; justify-content: center; }
+  .pod-thumb-play svg { width: 10px; height: 10px; fill: #fff; margin-left: 1px; }
+  .pod-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+  .pod-show { font-size: 1.05rem; font-weight: 700; color: #0a1628; line-height: 1.25; letter-spacing: -0.01em; }
+  .pod-ep { font-size: 0.9rem; color: #4a4a48; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .pod-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+  .pod-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 4px; font-size: 12px; font-weight: 600; border: 1px solid #e8e8e4; background: #fff; color: #5a5a58; white-space: nowrap; }
+  .pod-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .pod-time { font-size: 12px; color: #8a9ab0; }
+  .pod-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+  .pod-btn { font-size: 11px; font-weight: 600; border-radius: 5px; padding: 7px 14px; cursor: pointer; transition: all 0.15s; white-space: nowrap; font-family: inherit; text-align: center; text-decoration: none; display: block; }
+  .pod-btn-listen { color: #fff; background: #0a1628; border: 1px solid #0a1628; }
+  .pod-btn-listen:hover { background: #16305a; }
+  .pod-btn-notes { color: #5a5a58; background: #f9f9f7; border: 1px solid #e8e8e4; }
+  .pod-btn-notes:hover { background: #f0f0ee; border-color: #d0d0cc; color: #1a1a1a; }
+
+  /* ── Slide-in sheet (cream/serif, matches The Draw) ─────────────── */
+  .pod-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0); pointer-events: none; transition: background 0.25s ease; z-index: 9990; }
+  .pod-backdrop.open { background: rgba(26,26,26,0.5); pointer-events: all; }
+  .pod-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: #f7f4ed; border-radius: 16px 16px 0 0; border: 1px solid #1a1a1a; border-bottom: none; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.34,1.1,0.64,1); z-index: 9991; max-height: 82vh; display: flex; flex-direction: column; }
+  .pod-sheet.open { transform: translateY(0); }
+  .pod-sheet-handle { width: 36px; height: 4px; background: rgba(26,26,26,0.2); border-radius: 2px; margin: 10px auto 0; flex-shrink: 0; }
+  .pod-sheet-header { padding: 16px 20px 14px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; border-bottom: 2px solid #1a1a1a; flex-shrink: 0; }
+  .pod-sheet-titles { flex: 1; min-width: 0; }
+  .pod-sheet-show { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a7f6a; margin-bottom: 6px; }
+  .pod-sheet-title { font-family: Georgia, 'Times New Roman', serif; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.01em; color: #1a1a1a; line-height: 1.32; }
+  .pod-sheet-x { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #1a1a1a; background: transparent; border: 1.5px solid #1a1a1a; border-radius: 3px; padding: 6px 12px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; white-space: nowrap; }
+  .pod-sheet-x:hover { background: #1a1a1a; color: #f7f4ed; }
+  .pod-sheet-body { padding: 18px 20px 30px; overflow-y: auto; flex: 1; }
+  .pod-sheet-listen { display: inline-flex; align-items: center; gap: 8px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #f7f4ed; background: #1a1a1a; border-radius: 6px; padding: 11px 20px; text-decoration: none; margin-bottom: 20px; transition: background 0.15s; }
+  .pod-sheet-listen:hover { background: #333; }
+  .pod-sheet-listen svg { width: 12px; height: 12px; fill: #f7f4ed; }
+  .pod-sheet-text { font-family: Georgia, 'Times New Roman', serif; font-size: 1.05rem; line-height: 1.7; color: #1a1a1a; }
+  .pod-sheet-link { display: block; margin-top: 18px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; color: #8a7f6a; text-decoration: none; border-top: 1px dashed rgba(138,127,106,0.4); padding-top: 14px; }
+  .pod-sheet-link:hover { color: #1a1a1a; }
+
+  @media (max-width: 640px) {
+    .pod-content { padding: 16px 16px 44px; }
+    .pod-header-inner { padding: 0 16px; }
+    .pod-tabbar-inner { padding: 0 10px; }
+    .pod-item { flex-wrap: wrap; gap: 12px; }
+    .pod-rank { width: 22px; font-size: 1.1rem; }
+    .pod-thumb { width: 72px; height: 72px; }
+    .pod-body { flex: 1 1 auto; }
+    .pod-actions { flex-direction: row; flex-basis: 100%; margin-left: 34px; }
+    .pod-btn { flex: 1; }
+    .pod-sheet { max-height: 86vh; }
+  }
+  @media (min-width: 768px) {
+    .pod-sheet { top: 0; bottom: 0; left: 0; right: auto; width: 460px; max-height: 100vh; border-radius: 0 16px 16px 0; transform: translateX(-100%); }
+    .pod-sheet.open { transform: translateX(0); }
+    .pod-sheet-handle { display: none; }
+    .pod-sheet-header { padding: 24px 28px 18px; }
+    .pod-sheet-title { font-size: 1.5rem; }
+    .pod-sheet-x { font-size: 0.8rem; padding: 8px 16px; }
+    .pod-sheet-body { padding: 26px 28px 44px; }
+    .pod-sheet-text { font-size: 1.2rem; line-height: 1.72; }
+  }
+</style>
+</head>
+<body>
+  <div class="pod-header">
+    <div class="pod-header-inner">
+      <div class="pod-brand">
+        <a href="/ai-labs.html"><span class="pod-logo">QuantumRx</span></a>
+        <span class="pod-divider">/</span>
+        <span class="pod-page">Podcasts</span>
+      </div>
+      <div class="pod-live">
+        <div class="pod-live-dot"></div>
+        <span class="pod-live-text" id="pod-live-time">TOP 50 · WEEKLY</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pod-tabbar">
+    <div class="pod-tabbar-inner" id="pod-tabbar">
+      <button class="pod-tab active" data-cat="all">All 50</button>
+      <button class="pod-tab" data-cat="ai">AI</button>
+      <button class="pod-tab" data-cat="dev">Dev</button>
+      <button class="pod-tab" data-cat="security">Security</button>
+      <button class="pod-tab" data-cat="business">Business</button>
+      <button class="pod-tab" data-cat="apple">Apple</button>
+      <button class="pod-tab" data-cat="linux">Linux</button>
+    </div>
+  </div>
+
+  <div class="pod-content" id="pod-content">
+    <div class="pod-loading">Loading this week's top 50…</div>
+  </div>
+
+  <div class="pod-backdrop" id="pod-backdrop"></div>
+  <div class="pod-sheet" id="pod-sheet">
+    <div class="pod-sheet-handle"></div>
+    <div class="pod-sheet-header">
+      <div class="pod-sheet-titles">
+        <div class="pod-sheet-show" id="pod-sheet-show"></div>
+        <div class="pod-sheet-title" id="pod-sheet-title"></div>
+      </div>
+      <button class="pod-sheet-x" id="pod-sheet-x">Close ✕</button>
+    </div>
+    <div class="pod-sheet-body">
+      <a class="pod-sheet-listen" id="pod-sheet-listen" href="#" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Listen
+      </a>
+      <div class="pod-sheet-text" id="pod-sheet-notes"></div>
+      <a class="pod-sheet-link" id="pod-sheet-open" href="#" target="_blank" rel="noopener">Open episode page →</a>
+    </div>
+  </div>
+
+<script>
+(function(){
+  var FEED = 'https://forge.quantumrx.eu/api/podcast-feed';
+  var allItems = [];
+  var currentCat = 'all';
+  var backdrop = document.getElementById('pod-backdrop');
+  var sheet = document.getElementById('pod-sheet');
+
+  function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+
+  function timeAgo(ts){
+    if(!ts) return '';
+    var diff = Math.floor((Date.now() - ts) / 60000);
+    if(diff < 60) return diff + 'm ago';
+    if(diff < 1440) return Math.floor(diff/60) + 'h ago';
+    var d = Math.floor(diff/1440);
+    if(d < 14) return d + 'd ago';
+    return Math.floor(d/7) + 'w ago';
+  }
+
+  var PLAY = '<span class="pod-thumb-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>';
+
+  function openSheet(item){
+    document.getElementById('pod-sheet-show').textContent = item.show || '';
+    document.getElementById('pod-sheet-title').textContent = item.title || '';
+    var listen = document.getElementById('pod-sheet-listen');
+    listen.href = item.audio || item.url || '#';
+    var notes = document.getElementById('pod-sheet-notes');
+    notes.textContent = item.description || 'No episode notes available.';
+    var open = document.getElementById('pod-sheet-open');
+    if(item.url){ open.href = item.url; open.style.display = ''; }
+    else { open.style.display = 'none'; }
+    backdrop.classList.add('open');
+    sheet.classList.add('open');
+  }
+  function closeSheet(){ backdrop.classList.remove('open'); sheet.classList.remove('open'); }
+  backdrop.addEventListener('click', closeSheet);
+  document.getElementById('pod-sheet-x').addEventListener('click', closeSheet);
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeSheet(); });
+
+  function render(cat){
+    currentCat = cat;
+    var items = cat === 'all' ? allItems : allItems.filter(function(it){ return it.cat === cat; });
+    var content = document.getElementById('pod-content');
+    if(!items.length){
+      content.innerHTML = '<div class="pod-loading">No shows in this category yet. Check back after the weekly refresh.</div>';
+      return;
+    }
+    var html = '<div class="pod-list">';
+    items.forEach(function(it){
+      var imgHtml = it.image
+        ? '<img src="' + esc(it.image) + '" alt="" loading="lazy" onerror="this.remove()">' + PLAY
+        : PLAY;
+      var listenHref = esc(it.audio || it.url || '#');
+      html += '<div class="pod-item">'
+        + '<div class="pod-rank">' + (it.rank || '') + '</div>'
+        + '<div class="pod-thumb">' + imgHtml + '</div>'
+        + '<div class="pod-body">'
+          + '<div class="pod-show">' + esc(it.show) + '</div>'
+          + '<div class="pod-ep">' + esc(it.title) + '</div>'
+          + '<div class="pod-meta">'
+            + '<span class="pod-badge"><span class="pod-dot" style="background:' + esc(it.dot||'#888') + '"></span>' + esc(it.cat||'') + '</span>'
+            + '<span class="pod-time">' + timeAgo(it.published) + '</span>'
+          + '</div>'
+        + '</div>'
+        + '<div class="pod-actions">'
+          + '<a class="pod-btn pod-btn-listen" href="' + listenHref + '" target="_blank" rel="noopener">▶ Listen</a>'
+          + '<button class="pod-btn pod-btn-notes" data-show="' + esc(it.show) + '">Notes</button>'
+        + '</div>'
+      + '</div>';
+    });
+    html += '</div>';
+    content.innerHTML = html;
+
+    content.querySelectorAll('.pod-btn-notes').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var show = btn.getAttribute('data-show');
+        var item = items.find(function(it){ return it.show === show; });
+        if(item) openSheet(item);
+      });
+    });
+  }
+
+  document.querySelectorAll('.pod-tab').forEach(function(tab){
+    tab.addEventListener('click', function(){
+      document.querySelectorAll('.pod-tab').forEach(function(t){ t.classList.remove('active'); });
+      tab.classList.add('active');
+      render(tab.dataset.cat);
+    });
+  });
+
+  fetch(FEED)
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      allItems = (data && data.items) || [];
+      if(!allItems.length){
+        document.getElementById('pod-content').innerHTML = '<div class="pod-loading">The top 50 is being compiled. Check back after the weekly refresh.</div>';
+        return;
+      }
+      var updated = data.updated ? new Date(data.updated).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '';
+      var head = updated ? '<div class="pod-updated">Refreshed ' + esc(updated) + ' · ' + allItems.length + ' shows · newest episode of each</div>' : '';
+      render('all');
+      if(head){ document.getElementById('pod-content').insertAdjacentHTML('afterbegin', head); }
+    })
+    .catch(function(){
+      document.getElementById('pod-content').innerHTML = '<div class="pod-loading">Could not load podcasts. Please refresh.</div>';
+    });
+})();
+</script>
+</body>
+</html>

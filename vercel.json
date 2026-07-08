@@ -6,10 +6,8 @@
     { "source": "/products.html", "destination": "/products.html" },
     { "source": "/the-strip.html", "destination": "/the-strip.html" },
     { "source": "/ai-labs.html", "destination": "/ai-labs.html" },
+    { "source": "/podcasts.html", "destination": "/podcasts.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ],
-  "crons": [
-    { "path": "/api/cartoon-refresh", "schedule": "0 7 * * *" }
   ],
   "headers": [
     {

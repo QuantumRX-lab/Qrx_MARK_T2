@@ -1,0 +1,5 @@
+.vercel
+.env*
+
+# Local secrets / operator notes — NEVER commit (holds CRON_SECRET, KV token, IPs)
+CRON.txt

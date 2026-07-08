@@ -1,0 +1,82 @@
+name: QuantumRx Refresh
+
+# Fires the site's refresh endpoints on a schedule (all times UTC).
+#   - daily  06:00       -> news, draw, mainstream, cartoon
+#   - weekly Monday 08:00 -> weekly (This Week), podcast (Top 50)
+# You can also run it by hand from the Actions tab (Run workflow -> pick task).
+#
+# SETUP (one-time):
+#   GitHub repo -> Settings -> Secrets and variables -> Actions ->
+#   New repository secret -> name: CRON_SECRET, value: <same secret as Vercel>
+#
+# NOTE: scheduled workflows only run from the DEFAULT branch (main), and GitHub
+# auto-disables schedules after ~60 days with no repo activity.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'    # daily 06:00 UTC
+    - cron: '0 8 * * 1'    # weekly Monday 08:00 UTC
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Which bucket to run
+        type: choice
+        options: [daily, weekly]
+        default: daily
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decide which bucket to run
+        id: pick
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_TASK: ${{ github.event.inputs.task }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "task=$DISPATCH_TASK" >> "$GITHUB_OUTPUT"
+          elif [ "$SCHEDULE" = "0 8 * * 1" ]; then
+            echo "task=weekly" >> "$GITHUB_OUTPUT"
+          else
+            echo "task=daily" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger refresh endpoints
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          TASK: ${{ steps.pick.outputs.task }}
+          BASE: https://forge.quantumrx.eu
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET repository secret is not set."
+            exit 1
+          fi
+
+          if [ "$TASK" = "weekly" ]; then
+            ENDPOINTS="weekly-refresh podcast-refresh"
+          else
+            ENDPOINTS="news-refresh draw-refresh mainstream-refresh cartoon-refresh"
+          fi
+
+          echo "Running '$TASK' refresh -> $ENDPOINTS"
+          fail=0
+          for ep in $ENDPOINTS; do
+            code=$(curl -sS -o /tmp/body -w '%{http_code}' -X POST "$BASE/api/$ep" \
+              -H "x-cron-secret: $CRON_SECRET" \
+              -H "Authorization: Bearer $CRON_SECRET" || echo "000")
+            body=$(tr -d '\n' < /tmp/body | head -c 200)
+            if [ "$code" = "200" ]; then
+              echo "[OK ] $ep $code $body"
+            else
+              echo "::warning::$ep returned $code $body"
+              echo "[ERR] $ep $code $body"
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::One or more refresh endpoints failed."
+            exit 1
+          fi
+          echo "All '$TASK' refreshes succeeded."
