@@ -7,14 +7,14 @@
 // hours, or dropped entirely) — see the 2026-07-09 miss. Keep the GitHub
 // workflow as a manual/secondary backup; make this the primary trigger.
 //
-// Ordering matters: the three feed refreshes + the cartoon run in parallel
-// first, THEN generate-chat-chips, because the chips are built from the feed
-// data that news/draw/mainstream write to KV. Cartoon has no feed dependency
-// so it rides along in phase 1.
+// Ordering matters: the three feed refreshes + the cartoon + the meme run in
+// parallel first, THEN generate-chat-chips, because the chips are built from
+// the feed data that news/draw/mainstream write to KV. Cartoon and meme have
+// no feed dependency so they ride along in phase 1.
 
 export const config = { maxDuration: 300 };
 
-const PHASE1 = ['news-refresh', 'draw-refresh', 'mainstream-refresh', 'cartoon-refresh'];
+const PHASE1 = ['news-refresh', 'draw-refresh', 'mainstream-refresh', 'cartoon-refresh', 'meme-refresh'];
 const PHASE2 = ['generate-chat-chips'];
 
 function baseUrl(req) {

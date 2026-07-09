@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- QRx AEO: canonical, Open Graph, structured data -->
+<link rel="canonical" href="https://forge.quantumrx.eu/the-meme.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="QuantumRx">
+<meta property="og:title" content="The Daily Meme | QuantumRx AI Labs">
+<meta property="og:description" content="A fully automated daily AI-humor meme. The caption is AI-written and the image is AI-generated, refreshed every morning.">
+<meta property="og:url" content="https://forge.quantumrx.eu/the-meme.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Daily Meme | QuantumRx AI Labs">
+<meta name="twitter:description" content="A fully automated daily AI-humor meme. The caption is AI-written and the image is AI-generated, refreshed every morning.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://quantumrx.eu/#organization",
+      "name": "QuantumRx",
+      "url": "https://quantumrx.eu",
+      "logo": "https://forge.quantumrx.eu/ai-tools-hero-art.png"
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://forge.quantumrx.eu/the-meme.html#app",
+      "name": "The Daily Meme",
+      "url": "https://forge.quantumrx.eu/the-meme.html",
+      "description": "A fully automated daily AI-humor meme. The caption is AI-written and the image is AI-generated, refreshed every morning.",
+      "applicationCategory": "EntertainmentApplication",
+      "operatingSystem": "Web",
+      "browserRequirements": "Requires JavaScript",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+      "publisher": { "@id": "https://quantumrx.eu/#organization" },
+      "isPartOf": { "@id": "https://forge.quantumrx.eu/ai-labs.html#built-for-ai" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "AI Labs", "item": "https://forge.quantumrx.eu/ai-labs.html" },
+        { "@type": "ListItem", "position": 2, "name": "The Daily Meme", "item": "https://forge.quantumrx.eu/the-meme.html" }
+      ]
+    }
+  ]
+}
+</script>
+
+<!-- Google Analytics 4 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-YPMBJ71VTF"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-YPMBJ71VTF');
+</script>
+
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Daily Meme — QuantumRx AI Labs</title>
+<meta name="description" content="The Daily Meme — a fully automated daily AI-humor meme. AI writes the joke, AI draws the scene.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #05070c;
+    --panel: #0c1018;
+    --border: rgba(56,189,248,.14);
+    --border-h: rgba(56,189,248,.4);
+    --blue: #38bdf8;
+    --amber: #fbbf24;
+    --text: #eef2f7;
+    --text-dim: #7c8aa0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(56,189,248,.08), transparent 45%),
+      var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 14px 72px;
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  .board {
+    width: min(680px, 100%);
+  }
+
+  .eyebrow {
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: .24em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 10px;
+  }
+
+  .page-title {
+    text-align: center;
+    font-family: 'Anton', sans-serif;
+    font-size: clamp(34px, 6vw, 54px);
+    letter-spacing: .01em;
+    line-height: 1;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, #fff, var(--blue) 120%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .page-tagline {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 26px;
+  }
+
+  .meme-card {
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--panel);
+    overflow: hidden;
+    box-shadow: 0 30px 90px rgba(0,0,0,.5);
+  }
+
+  .meme-meta-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .meme-meta-bar span:first-child { color: var(--blue); font-weight: 700; }
+
+  .meme-title {
+    padding: 16px 18px 4px;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.3;
+  }
+
+  .meme-image-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: #05070c;
+    display: grid;
+    place-items: center;
+  }
+
+  .meme-image-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .meme-placeholder {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .meme-caption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    padding: 6px 14px;
+    text-align: center;
+    font-family: 'Anton', sans-serif;
+    font-size: clamp(20px, 6vw, 34px);
+    line-height: 1.12;
+    text-transform: uppercase;
+    color: #fff;
+    -webkit-text-stroke: 2px #000;
+    paint-order: stroke fill;
+    text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+    word-wrap: break-word;
+  }
+
+  .meme-caption.top { top: 10px; }
+  .meme-caption.bottom { bottom: 10px; }
+
+  .meme-footer {
+    padding: 14px 18px 18px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .archive-section {
+    margin-top: 30px;
+  }
+
+  .archive-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  .archive-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+  }
+
+  .archive-item {
+    display: block;
+    text-align: center;
+    padding: 9px 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    color: var(--text-dim);
+    text-decoration: none;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+
+  .archive-item:hover,
+  .archive-item.current {
+    background: var(--blue);
+    color: #05070c;
+    border-color: var(--blue);
+  }
+
+  .archive-empty {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  @media (max-width: 520px) {
+    body { padding: 20px 10px 60px; }
+    .meme-title { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+  <main class="board" aria-label="The Daily Meme">
+    <div class="eyebrow">QuantumRx AI Labs · Refreshed Daily</div>
+    <h1 class="page-title">The Daily Meme</h1>
+    <p class="page-tagline">A fully automated AI-humor meme. AI writes the joke, AI draws the scene.</p>
+
+    <section class="meme-card" aria-label="Today's meme">
+      <div class="meme-meta-bar">
+        <span id="meme-issue">Issue No. —</span>
+        <span id="meme-date">Loading…</span>
+      </div>
+      <h2 class="meme-title" id="meme-title">Loading today's meme…</h2>
+      <div class="meme-image-wrap" id="meme-image-wrap">
+        <div class="meme-placeholder">The meme will appear here once fetched.</div>
+      </div>
+      <p class="meme-footer" id="meme-footer">Distributed by QuantumRx Syndicate. New meme every morning, powered by Gemini.</p>
+    </section>
+
+    <section class="archive-section" aria-label="Previous memes">
+      <div class="archive-title">Previous Memes</div>
+      <div class="archive-grid" id="meme-archive">
+        <div class="archive-empty">Loading archive…</div>
+      </div>
+    </section>
+  </main>
+
+<script>
+(function(){
+  var API = '/api/meme';
+
+  function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+
+  var params = new URLSearchParams(window.location.search);
+  var requestedDate = params.get('date');
+
+  function formatDate(dateStr) {
+    if (!dateStr) return new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+    var d = new Date(dateStr + 'T00:00:00Z');
+    return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  }
+
+  function renderMeme(data) {
+    if (!data || !data.imageUrl) {
+      document.getElementById('meme-title').textContent = 'No meme published yet';
+      document.getElementById('meme-image-wrap').innerHTML = '<div class="meme-placeholder">Check back after the next daily run.</div>';
+      return;
+    }
+
+    document.getElementById('meme-issue').textContent = 'Issue No. ' + (data.issueNumber != null ? data.issueNumber : '—');
+    document.getElementById('meme-date').textContent = formatDate(data.date);
+    document.getElementById('meme-title').textContent = data.title || '';
+    document.getElementById('meme-footer').textContent =
+      'Issue No. ' + (data.issueNumber != null ? data.issueNumber : '—') + ' · Distributed by QuantumRx Syndicate. New meme every morning, powered by Gemini.';
+
+    var wrap = document.getElementById('meme-image-wrap');
+    wrap.innerHTML = '';
+
+    var img = document.createElement('img');
+    img.src = data.imageUrl;
+    img.alt = data.altText || data.title || 'The Daily Meme';
+    img.loading = 'lazy';
+    wrap.appendChild(img);
+
+    if (data.topText) {
+      var top = document.createElement('div');
+      top.className = 'meme-caption top';
+      top.textContent = data.topText;
+      wrap.appendChild(top);
+    }
+    if (data.bottomText) {
+      var bottom = document.createElement('div');
+      bottom.className = 'meme-caption bottom';
+      bottom.textContent = data.bottomText;
+      wrap.appendChild(bottom);
+    }
+  }
+
+  function renderArchive(dates, currentDate) {
+    var el = document.getElementById('meme-archive');
+    if (!dates || !dates.length) {
+      el.innerHTML = '<div class="archive-empty">No previous memes yet.</div>';
+      return;
+    }
+    el.innerHTML = dates.map(function(d){
+      var isCurrent = d === currentDate;
+      return '<a class="archive-item' + (isCurrent ? ' current' : '') + '" href="?date=' + encodeURIComponent(d) + '">' + esc(d) + '</a>';
+    }).join('');
+  }
+
+  var fetchUrl = API + (requestedDate ? ('?date=' + encodeURIComponent(requestedDate)) : '');
+
+  fetch(fetchUrl)
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      renderMeme(data);
+      return fetch(API + '?archive=true')
+        .then(function(r){ return r.json(); })
+        .then(function(archiveData){ renderArchive(archiveData.archive || [], data && data.date); });
+    })
+    .catch(function(){
+      document.getElementById('meme-title').textContent = 'Could not load meme';
+      document.getElementById('meme-image-wrap').innerHTML = '<div class="meme-placeholder">Try refreshing the page.</div>';
+    });
+})();
+</script>
+
+<!-- QRx AEO: Built for AI cross-link footer -->
+<style>
+.qrx-labs-footer{ background:#0a0e14; color:#c7ccd6; font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif; border-top:2px solid #0055ff; position:relative; z-index:5; width:100%; margin-top:24px; }
+.qrx-labs-footer a{ text-decoration:none; }
+.qrx-labs-footer-inner{ max-width:1180px; margin:0 auto; padding:22px 20px; display:flex; flex-wrap:wrap; gap:12px 24px; align-items:center; justify-content:space-between; }
+.qrx-labs-footer-brand{ font-size:.82rem; font-weight:600; letter-spacing:.01em; color:#c7ccd6; }
+.qrx-labs-footer-brand a{ color:#4c9bff; font-weight:700; }
+.qrx-labs-footer-nav{ display:flex; flex-wrap:wrap; gap:6px 16px; }
+.qrx-labs-footer-nav a{ color:#c7ccd6; font-size:.76rem; letter-spacing:.01em; opacity:.85; }
+.qrx-labs-footer-nav a:hover{ color:#fff; opacity:1; }
+@media (max-width:640px){ .qrx-labs-footer-inner{ flex-direction:column; align-items:flex-start; gap:14px; } }
+</style>
+<footer class="qrx-labs-footer"><div class="qrx-labs-footer-inner">
+  <div class="qrx-labs-footer-brand">Part of <a href="/ai-labs.html">QuantumRx AI Labs</a> &mdash; tools built for AI</div>
+  <nav class="qrx-labs-footer-nav" aria-label="QuantumRx AI Labs">
+    <a href="/">Kernel Generator</a>
+    <a href="/break-the-sentinel.html">Break the Sentinel</a>
+    <a href="/the-strip.html">Nine to F!veish</a>
+    <a href="/the-meme.html">The Daily Meme</a>
+    <a href="/nft-forge-tv.html">Pepe Legends Forge</a>
+    <a href="/lotm-forge-tv.html">Lord of the Memes Forge</a>
+    <a href="/podcasts.html">Top 50 Tech Podcasts</a>
+    <a href="/products.html">Products</a>
+  </nav>
+</div></footer>
+<!-- QRx Home button - consistent link back to the main site. Bottom-left to avoid page headers (top) and any chat widget (bottom-right). -->
+<a href="https://www.quantumrx.eu" class="qrx-home-btn" aria-label="Back to QuantumRx home" title="Back to QuantumRx">
+  <span aria-hidden="true" style="font-size:1rem;line-height:1;">&#8962;</span>Home
+</a>
+<style>
+.qrx-home-btn{position:fixed;left:20px;bottom:24px;z-index:9990;display:inline-flex;align-items:center;gap:7px;padding:9px 14px;font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.72rem;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:#dbe7ff;background:rgba(6,11,16,0.85);border:1px solid rgba(26,86,219,0.5);border-radius:11px;text-decoration:none;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 6px 22px rgba(0,0,0,0.4);transition:background .15s,border-color .15s,transform .15s,box-shadow .15s;}
+.qrx-home-btn:hover{background:rgba(26,86,219,0.25);border-color:#1a56db;color:#fff;transform:translateY(-1px);box-shadow:0 8px 26px rgba(26,86,219,0.35);}
+@media (max-width:520px){.qrx-home-btn{left:12px;bottom:16px;padding:8px 11px;font-size:0.66rem;}}
+</style>
+</body>
+</html>

@@ -1,7 +1,7 @@
 name: QuantumRx Refresh
 
 # Fires the site's refresh endpoints on a schedule (all times UTC).
-#   - daily  06:17       -> news, draw, mainstream, cartoon
+#   - daily  06:17       -> news, draw, mainstream, cartoon, meme
 #   - weekly Monday 08:17 -> weekly (This Week), podcast (Top 50)
 # Times are deliberately off the top of the hour: GitHub delays/drops
 # scheduled runs that land on :00 (the busiest slot) — see 2026-07-09 miss.
@@ -59,7 +59,7 @@ jobs:
           if [ "$TASK" = "weekly" ]; then
             ENDPOINTS="weekly-refresh podcast-refresh"
           else
-            ENDPOINTS="news-refresh draw-refresh mainstream-refresh generate-chat-chips cartoon-refresh"
+            ENDPOINTS="news-refresh draw-refresh mainstream-refresh generate-chat-chips cartoon-refresh meme-refresh"
           fi
 
           echo "Running '$TASK' refresh -> $ENDPOINTS"

@@ -21,6 +21,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://forge.quantumrx.eu/the-meme.html</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://forge.quantumrx.eu/nft-forge-tv.html</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
