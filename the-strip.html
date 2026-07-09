@@ -109,7 +109,8 @@
       radial-gradient(circle at 20% 20%, rgba(255,255,255,.28), transparent 22%),
       linear-gradient(135deg, #c9b892, #e4d6bc 45%, #b8a07b);
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
     padding: 28px 14px;
     color: var(--ink);
     font-family: 'IM Fell English', Georgia, serif;
@@ -1297,7 +1298,7 @@
 
 <!-- QRx AEO: Built for AI cross-link footer -->
 <style>
-.qrx-labs-footer{ background:#0a0e14; color:#c7ccd6; font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif; border-top:2px solid #0055ff; position:relative; z-index:5; }
+.qrx-labs-footer{ background:#0a0e14; color:#c7ccd6; font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif; border-top:2px solid #0055ff; position:relative; z-index:5; width:100%; margin-top:24px; }
 .qrx-labs-footer a{ text-decoration:none; }
 .qrx-labs-footer-inner{ max-width:1180px; margin:0 auto; padding:22px 20px; display:flex; flex-wrap:wrap; gap:12px 24px; align-items:center; justify-content:space-between; }
 .qrx-labs-footer-brand{ font-size:.82rem; font-weight:600; letter-spacing:.01em; color:#c7ccd6; }
