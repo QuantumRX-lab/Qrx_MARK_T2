@@ -140,7 +140,7 @@ html,body{margin:0;padding:0;background:var(--bg);}.qrxl-root{background:var(--b
           <div class="qrxl-tag qrxl-tag-live"><span class="qrxl-dot"></span>Live · Daily</div>
         </div>
         <div class="qrxl-card-body">
-          <div class="qrxl-card-thumb" style="font-size:44px;">😂</div>
+          <div class="qrxl-card-thumb" id="thumb-meme" style="font-size:44px;">😂</div>
           <div class="qrxl-card-copy"><p class="qrxl-card-desc">A fully automated daily meme about AI, coding, and life with AI tools. Gemini writes the joke and generates the scene every morning — no human in the loop.</p><ul class="qrxl-bullets"><li>Fresh AI-humor theme picked from a rotating pool every day</li><li>Gemini writes the classic top/bottom caption and the image brief</li><li>Gemini renders the scene image, composited with the caption on load</li><li>Vercel cron → Upstash KV → static page, fully automated</li><li>Previous editions archive maintained automatically, last 30 memes</li></ul><a class="qrxl-cta" href="/the-meme.html">Open Today's Meme →</a></div>
         </div>
       </div>
@@ -210,6 +210,23 @@ html,body{margin:0;padding:0;background:var(--bg);}.qrxl-root{background:var(--b
       document.getElementById('thumb-strip-img').src = panel.imageUrl;
     })
     .catch(function(){ /* static fallback screenshot stays visible */ });
+
+  // The Daily Meme's thumbnail has no static fallback image (there's no
+  // "day one" screenshot yet) — it starts on the emoji placeholder and
+  // swaps to today's actual generated meme image once /api/meme resolves.
+  fetch('/api/meme')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (!data || !data.imageUrl) return;
+      var thumb = document.getElementById('thumb-meme');
+      thumb.style.fontSize = '';
+      thumb.innerHTML = '';
+      var img = document.createElement('img');
+      img.src = data.imageUrl;
+      img.alt = data.altText || 'The Daily Meme preview';
+      thumb.appendChild(img);
+    })
+    .catch(function(){ /* emoji placeholder stays visible */ });
 </script>
 
 <style>
