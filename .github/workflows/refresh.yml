@@ -1,8 +1,10 @@
 name: QuantumRx Refresh
 
 # Fires the site's refresh endpoints on a schedule (all times UTC).
-#   - daily  06:00       -> news, draw, mainstream, cartoon
-#   - weekly Monday 08:00 -> weekly (This Week), podcast (Top 50)
+#   - daily  06:17       -> news, draw, mainstream, cartoon
+#   - weekly Monday 08:17 -> weekly (This Week), podcast (Top 50)
+# Times are deliberately off the top of the hour: GitHub delays/drops
+# scheduled runs that land on :00 (the busiest slot) — see 2026-07-09 miss.
 # You can also run it by hand from the Actions tab (Run workflow -> pick task).
 #
 # SETUP (one-time):
@@ -14,8 +16,8 @@ name: QuantumRx Refresh
 
 on:
   schedule:
-    - cron: '0 6 * * *'    # daily 06:00 UTC
-    - cron: '0 8 * * 1'    # weekly Monday 08:00 UTC
+    - cron: '17 6 * * *'    # daily 06:17 UTC (off :00 — GitHub delays/drops top-of-hour runs)
+    - cron: '17 8 * * 1'    # weekly Monday 08:17 UTC
   workflow_dispatch:
     inputs:
       task:
@@ -37,7 +39,7 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "task=$DISPATCH_TASK" >> "$GITHUB_OUTPUT"
-          elif [ "$SCHEDULE" = "0 8 * * 1" ]; then
+          elif [ "$SCHEDULE" = "17 8 * * 1" ]; then
             echo "task=weekly" >> "$GITHUB_OUTPUT"
           else
             echo "task=daily" >> "$GITHUB_OUTPUT"
