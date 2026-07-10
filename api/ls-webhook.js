@@ -6,14 +6,31 @@
 //   2. Verifies the request is genuinely from Lemon Squeezy (HMAC signature)
 //   3. Extracts buyer name and email from the payload
 //   4. Calls Ghost Admin API to create the member with a 'lifetime' label
+//      (plus an 'rsi-single'/'rsi-bundle' label for RSI report purchases,
+//      distinguished by variant_id — see RSI_VARIANT_LABELS below)
 //   5. Ghost automatically sends the buyer a magic link email
 //
 // Environment variables required in Vercel:
-//   LS_WEBHOOK_SECRET   — from Lemon Squeezy dashboard → Webhooks → Signing secret
-//   GHOST_ADMIN_API_KEY — from Ghost Admin → Settings → Integrations → Add custom integration
-//   GHOST_API_URL       — e.g. https://www.quantumrx.eu
+//   LS_WEBHOOK_SECRET      — from Lemon Squeezy dashboard → Webhooks → Signing secret
+//   GHOST_ADMIN_API_KEY    — from Ghost Admin → Settings → Integrations → Add custom integration
+//   GHOST_API_URL          — e.g. https://www.quantumrx.eu
+//   LS_VARIANT_RSI_SINGLE  — Lemon Squeezy variant_id for the single-report RSI product
+//   LS_VARIANT_RSI_BUNDLE  — Lemon Squeezy variant_id for the 10-report RSI bundle
+//   (both RSI variant env vars are placeholders until the products are
+//   created in the Lemon Squeezy dashboard -- until then this simply
+//   never matches, and every purchase falls through to the pre-existing
+//   generic 'lifetime' labelling unchanged)
 
 import crypto from 'crypto';
+
+// RSI-specific label per Lemon Squeezy variant_id, matched against
+// attributes.first_order_item.variant_id (previously read but ignored by
+// this webhook). Non-RSI variants fall through to the existing generic
+// behaviour untouched -- the meme/forge products are not affected.
+const RSI_VARIANT_LABELS = {
+  [process.env.LS_VARIANT_RSI_SINGLE]: 'rsi-single',
+  [process.env.LS_VARIANT_RSI_BUNDLE]: 'rsi-bundle',
+};
 
 export default async function handler(req, res) {
 
@@ -58,13 +75,15 @@ export default async function handler(req, res) {
   const buyerEmail = attributes.user_email;
   const buyerName  = attributes.user_name || '';
   const orderId    = req.body?.data?.id || 'unknown';
+  const variantId  = String(attributes.first_order_item?.variant_id ?? '');
+  const rsiLabel   = RSI_VARIANT_LABELS[variantId] || null;
 
   if (!buyerEmail) {
     console.error('No email in payload');
     return res.status(400).json({ error: 'No email in payload' });
   }
 
-  console.log(`New purchase: ${buyerName} <${buyerEmail}> — Order ${orderId}`);
+  console.log(`New purchase: ${buyerName} <${buyerEmail}> — Order ${orderId}${rsiLabel ? ` — ${rsiLabel}` : ''}`);
 
   // ── Ghost Admin API setup ─────────────────────────────────────────────────
   const ghostApiKey = process.env.GHOST_ADMIN_API_KEY;
@@ -89,7 +108,7 @@ export default async function handler(req, res) {
       members: [{
         email:      buyerEmail,
         name:       buyerName,
-        labels:     [{ name: 'lifetime' }, { name: 'lemon-squeezy' }],
+        labels:     [{ name: 'lifetime' }, { name: 'lemon-squeezy' }, ...(rsiLabel ? [{ name: rsiLabel }] : [])],
         note:       `Lifetime member — Lemon Squeezy order ${orderId}`,
         subscribed: true,
       }]
@@ -99,7 +118,7 @@ export default async function handler(req, res) {
   // ── Member already exists — add lifetime label ───────────────────────────
   if (createRes.status === 422) {
     console.log(`Member exists: ${buyerEmail} — adding lifetime label`);
-    const result = await addLabelToExistingMember(ghostUrl, token, buyerEmail);
+    const result = await addLabelToExistingMember(ghostUrl, token, buyerEmail, rsiLabel);
     if (result.success) {
       return res.status(200).json({ success: true, action: 'label_added', email: buyerEmail });
     }
@@ -130,7 +149,7 @@ function generateGhostJWT(keyId, keySecret) {
 
 
 // ── Add lifetime label to existing member ────────────────────────────────────
-async function addLabelToExistingMember(ghostUrl, token, email) {
+async function addLabelToExistingMember(ghostUrl, token, email, rsiLabel) {
   try {
     // Find member
     const searchRes = await fetch(
@@ -143,7 +162,8 @@ async function addLabelToExistingMember(ghostUrl, token, email) {
 
     // Merge labels — avoid duplicates
     const existingLabels = (member.labels || []).map(l => l.name);
-    const newLabels = [...new Set([...existingLabels, 'lifetime', 'lemon-squeezy'])]
+    const labelsToAdd = ['lifetime', 'lemon-squeezy', ...(rsiLabel ? [rsiLabel] : [])];
+    const newLabels = [...new Set([...existingLabels, ...labelsToAdd])]
       .map(name => ({ name }));
 
     const updateRes = await fetch(
