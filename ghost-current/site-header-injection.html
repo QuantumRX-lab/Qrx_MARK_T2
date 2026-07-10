@@ -1,0 +1,1117 @@
+<!--
+  Ghost site-wide header code injection (NOT a page — this loads on
+  every page via Ghost's Code Injection > Site Header setting).
+  Pasted 2026-07-06 for reference during the widget-pages-to-Vercel move.
+
+  Deeply coupled to Ghost's own theme/CMS, not a portable embed:
+  - .home-template / .gh-viewport / .gh-navigation are Ghost theme classes
+  - #/portal/signup is Ghost's built-in subscriber-signup URL scheme
+  - MutationObserver watches for Ghost's own DOM to inject the homepage hero
+
+  This does NOT move to Vercel as part of the widget-pages migration —
+  it's homepage/theme chrome, tied to Ghost's CMS and subscriber system,
+  not one of the tool pages (Signals/Draw/Mainstream/This Week/Chat).
+-->
+<meta name="generator" content="">
+
+
+<link rel="preload" as="image" href="https://storage.ghost.io/c/08/be/08be680d-f37c-44dd-98a9-d496fb40d8de/content/images/2026/06/quantumrx-hero-1600w-under-300kb.webp">
+
+<!-- Google Analytics 4 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-YPMBJ71VTF"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-YPMBJ71VTF');
+</script>
+
+<style>
+  /* Hide Ghost's built-in homepage hero */
+  .home-template .gh-header.is-classic {
+    display: none !important;
+  }
+
+  /* Nav: transparent on desktop only */
+  @media (min-width: 769px) {
+    .home-template .gh-navigation {
+      background: transparent !important;
+      box-shadow: none !important;
+      border: none !important;
+    }
+  }
+  @media (max-width: 768px) {
+    .home-template .gh-navigation {
+      background: #ffffff !important;
+    }
+    .home-template .gh-navigation .gh-nav-item a,
+    .home-template .gh-navigation .gh-nav-link {
+      color: #1a1a1a !important;
+      text-shadow: none !important;
+    }
+    .home-template .gh-navigation .gh-search,
+    .home-template .gh-navigation .gh-icon-search,
+    .home-template .gh-navigation button[aria-label="Search"] {
+      color: #1a1a1a !important;
+      fill: #1a1a1a !important;
+    }
+    .home-template .gh-navigation button[aria-label="Search"] svg path {
+      stroke: #1a1a1a !important;
+      fill: #1a1a1a !important;
+    }
+  }
+
+  /* Nav text links white */
+  .home-template .gh-navigation .gh-nav-item a,
+  .home-template .gh-navigation .gh-nav-link {
+    color: #ffffff !important;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6) !important;
+  }
+
+  /* Search icon white */
+  .home-template .gh-navigation .gh-search,
+  .home-template .gh-navigation .gh-icon-search,
+  .home-template .gh-navigation button[aria-label="Search"] {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+  }
+  .home-template .gh-navigation button[aria-label="Search"] svg path {
+    stroke: #ffffff !important;
+    fill: #ffffff !important;
+  }
+
+  /* Hero */
+  .qrx-hero {
+    width: 100%;
+    min-height: 70vh;
+    background-image: url('https://storage.ghost.io/c/08/be/08be680d-f37c-44dd-98a9-d496fb40d8de/content/images/2026/06/quantumrx-hero-1600w-under-300kb.webp');
+    background-size: cover;
+    background-position: 70% center;
+    background-repeat: no-repeat;
+    background-attachment: scroll;
+    display: flex;
+    align-items: center;
+    position: relative;
+    -webkit-transform: translateZ(0);
+    overflow: hidden;
+  }
+
+  /* Inner content block */
+  .qrx-hero-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    margin-left: 5%;
+    margin-right: auto;
+    max-width: 540px;
+    z-index: 2;
+    position: relative;
+    padding-top: 0;
+  }
+
+  /* Headline */
+  .qrx-hero-title {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+    color: #ffffff;
+    text-shadow: 0 3px 12px rgba(0,0,0,0.8), 0 1px 3px rgba(0,0,0,0.9);
+    margin: 0 0 16px 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+    font-weight: 700;
+  }
+
+  /* Subtitle */
+  .qrx-hero-sub {
+    display: block;
+    font-size: clamp(0.9rem, 2vw, 1.1rem);
+    line-height: 1.6;
+    color: rgba(255,255,255,0.95);
+    font-weight: 600;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+    max-width: 480px;
+    margin: 0 0 20px 0;
+  }
+
+  /* Email form */
+  .qrx-subscribe-form {
+    display: flex;
+    width: 100%;
+    max-width: 460px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    margin-bottom: 10px;
+    border-radius: 6px;
+  }
+
+  .qrx-email-input {
+    flex: 1;
+    padding: 14px 16px;
+    border: none;
+    background: rgba(255,255,255,0.96);
+    font-size: 0.95rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+    color: #111;
+    outline: none;
+    min-width: 0;
+    -webkit-appearance: none;
+    border-radius: 0;
+  }
+
+  .qrx-email-input::placeholder { color: #999; }
+
+  .qrx-subscribe-btn {
+    padding: 14px 20px;
+    background: #0055ff;
+    color: #ffffff;
+    border: none;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+    cursor: pointer;
+    white-space: nowrap;
+    -webkit-appearance: none;
+    border-radius: 0;
+  }
+
+  .qrx-subscribe-btn:hover { background: #0044dd; }
+
+  /* Tools row */
+  .qrx-tools-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+    max-width: 460px;
+  }
+
+  .qrx-tools-link {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.9);
+    font-size: 0.72rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    border: 1.5px solid rgba(255,255,255,0.75);
+    padding: 9px 6px;
+    background: rgba(0,0,0,0.5);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.3;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+    min-width: calc(33% - 6px);
+  }
+
+  .qrx-tools-link:hover {
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    border-color: rgba(255,255,255,1);
+  }
+
+  /* Credits */
+  .qrx-credits {
+    position: absolute;
+    bottom: 20px;
+    right: 4%;
+    z-index: 99;
+    text-align: right;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+  }
+  .qrx-credits a { color: #58a6ff; text-decoration: none; }
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    .qrx-hero {
+      background-position: 72% top;
+      align-items: flex-start;
+    }
+    .qrx-hero-inner {
+      margin-left: 5%;
+      margin-right: 5%;
+      max-width: 90%;
+      padding-top: 52px;
+    }
+    .qrx-hero-title { font-size: 1.9rem; margin-bottom: 10px; }
+    .qrx-hero-sub   { font-size: 0.92rem; }
+    .qrx-subscribe-form {
+      flex-direction: column;
+      overflow: visible;
+      box-shadow: none;
+      gap: 6px;
+      max-width: 100%;
+      border-radius: 0;
+    }
+    .qrx-email-input {
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 6px;
+    }
+    .qrx-subscribe-btn {
+      width: 100%;
+      text-align: center;
+      padding: 15px 20px;
+      border-radius: 6px;
+    }
+    .qrx-tools-row {
+      max-width: 100%;
+      gap: 6px;
+    }
+    .qrx-tools-link {
+      width: calc(50% - 3px);
+      flex: none;
+      box-sizing: border-box;
+      padding: 13px 10px;
+      border-radius: 6px;
+      min-width: 0;
+    }
+    .qrx-credits { display: none; }
+  }
+</style>
+
+<script>
+(function () {
+  var IMG = 'https://storage.ghost.io/c/08/be/08be680d-f37c-44dd-98a9-d496fb40d8de/content/images/2026/06/quantumrx-hero-1600w-under-300kb.webp';
+  var injected = false;
+
+  function buildHero() {
+    if (injected) return;
+    if (!document.body.classList.contains('home-template')) return;
+
+    var viewport = document.querySelector('.gh-viewport');
+    if (!viewport) return;
+    injected = true;
+
+    var preload = new Image();
+    preload.src = IMG;
+
+    var hero = document.createElement('div');
+    hero.className = 'qrx-hero';
+
+    hero.innerHTML =
+      '<div class="qrx-hero-inner">' +
+        '<h1 class="qrx-hero-title">Follow the signals. Understand the future.</h1>' +
+        '<p class="qrx-hero-sub">QuantumRx tracks AI infrastructure, agentic systems, edge compute, satcom, robotics and deployment tools. Built from the field, not from the sidelines.</p>' +
+        '<div class="qrx-subscribe-form">' +
+          '<input type="email" class="qrx-email-input" placeholder="Enter your email address" autocomplete="email" />' +
+          '<button class="qrx-subscribe-btn">Subscribe Free</button>' +
+        '</div>' +
+        '<div class="qrx-tools-row">' +
+          '<a class="qrx-tools-link" href="/signals/">Signals →</a>' +
+          '<a class="qrx-tools-link" href="/this-week-in-tech/">This Week →</a>' +
+          '<a class="qrx-tools-link" href="/mainstream/">Mainstream →</a>' +
+          '<a class="qrx-tools-link" href="/the-draw/">The Draw →</a>' +
+          '<a class="qrx-tools-link" href="https://forge.quantumrx.eu/exploit-watch.html">Exploit Watch →</a>' +
+          '<a class="qrx-tools-link" href="/products/">Products →</a>' +
+        '</div>' +
+      '</div>' +
+      '<div class="qrx-credits">' +
+        '<div>Copyright &copy; 2026 QuantumRX &mdash; All rights reserved</div>' +
+        '<div>71-75 Shelton Street, Covent Garden, London, WC2H 9JQ, United Kingdom</div>' +
+        '<div>Contact: <a href="mailto:info@quantumrx.eu">info@quantumrx.eu</a> &middot; <a href="https://www.quantumrx.eu/terms-conditions/">Terms &amp; Conditions</a></div>' +
+      '</div>';
+
+    var nav = viewport.querySelector('.gh-navigation');
+    if (nav) {
+      viewport.insertBefore(hero, nav.nextSibling);
+    } else {
+      viewport.insertBefore(hero, viewport.firstChild);
+    }
+
+    var btn   = hero.querySelector('.qrx-subscribe-btn');
+    var input = hero.querySelector('.qrx-email-input');
+
+    btn.addEventListener('click', function () {
+      var email = input.value.trim();
+      if (email && email.indexOf('@') > -1) {
+        window.location.href = '#/portal/signup?email=' + encodeURIComponent(email);
+      } else {
+        input.focus();
+      }
+    });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') btn.click();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', buildHero);
+  } else {
+    buildHero();
+  }
+
+  window.addEventListener('load', buildHero);
+
+  var obs = new MutationObserver(function () {
+    if (document.querySelector('.gh-viewport') && document.body.classList.contains('home-template')) {
+      buildHero();
+      if (injected) obs.disconnect();
+    }
+  });
+  obs.observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>
+
+<!-- ============================================================
+     QRx Signal Desk — Editorial front page v2.
+     COEXISTS with the hero above: the hero image is untouched;
+     this framework is injected directly BENEATH .qrx-hero.
+     Homepage only (home-template). Fed by the public, no-auth
+     read endpoints on forge.quantumrx.eu. Silent-fails: the core
+     Signals feed failing removes the whole block; secondary feeds
+     remove only their own zones. All feed text is HTML-escaped
+     before innerHTML because feeds are AI/RSS-sourced.
+     ============================================================ -->
+<style>
+  .qrx-front-v2{
+    background:#fff;
+    color:#111;
+    border-top:3px solid #0055ff;
+    font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
+  }
+  .qrx-front-v2 *{ box-sizing:border-box; }
+  .qrx-front-v2 a{ color:inherit; text-decoration:none; }
+  .qrx-front-inner{
+    max-width:1180px;
+    margin:0 auto;
+    padding:26px 20px 48px;
+  }
+
+  .qrx-desk-head{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:20px;
+    padding-bottom:14px;
+    border-bottom:1px solid #dcdcdc;
+    margin-bottom:22px;
+  }
+  .qrx-desk-eyebrow{
+    display:block;
+    color:#0055ff;
+    font-size:.72rem;
+    font-weight:800;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .qrx-desk-head h2{
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:clamp(1.8rem,3vw,2.55rem);
+    line-height:1;
+    margin:0;
+    letter-spacing:-.035em;
+    font-weight:700;
+  }
+  .qrx-desk-meta{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+    gap:10px;
+    font-size:.72rem;
+    color:#666;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    white-space:nowrap;
+  }
+  .qrx-live-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    color:#111;
+    font-weight:700;
+  }
+  .qrx-live-dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#e3120b;
+    animation:qrxpulse 2s infinite;
+  }
+  @keyframes qrxpulse{
+    0%{ box-shadow:0 0 0 0 rgba(227,18,11,.5); }
+    70%{ box-shadow:0 0 0 6px rgba(227,18,11,0); }
+    100%{ box-shadow:0 0 0 0 rgba(227,18,11,0); }
+  }
+  .qrx-view-all{
+    color:#0055ff;
+    font-weight:800;
+    text-transform:none;
+    letter-spacing:0;
+    font-size:.82rem;
+  }
+
+  .qrx-front-grid{
+    display:grid;
+    grid-template-columns:6fr 3fr 3fr;
+    gap:24px;
+    align-items:start;
+    margin-bottom:30px;
+  }
+  .qrx-lead-panel{ display:block; }
+  .qrx-lead-panel:hover h2,
+  .qrx-news-row:hover strong,
+  .qrx-brief-row:hover .qrx-brief-title,
+  .qrx-sector-card:hover strong,
+  .qrx-main-card:hover strong,
+  .qrx-draw-row:hover strong{ color:#0055ff; }
+  .qrx-lead-img{
+    width:100%;
+    aspect-ratio:16/9;
+    object-fit:cover;
+    display:block;
+    background:#eee;
+    border-radius:2px;
+    margin-bottom:14px;
+  }
+  .qrx-kicker{
+    display:inline-block;
+    color:#0055ff;
+    font-size:.68rem;
+    font-weight:800;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    margin-bottom:8px;
+  }
+  .qrx-lead-panel h2{
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:clamp(1.75rem,3vw,2.45rem);
+    line-height:1.08;
+    margin:0 0 10px;
+    letter-spacing:-.035em;
+    font-weight:700;
+  }
+  .qrx-lead-panel p{
+    font-size:1rem;
+    line-height:1.5;
+    color:#3f3f3f;
+    margin:0 0 12px;
+  }
+  .qrx-read-source{
+    display:inline-block;
+    font-size:.78rem;
+    font-weight:800;
+    color:#0055ff;
+  }
+
+  .qrx-live-rail,
+  .qrx-briefing-rail{
+    border-left:1px solid #e3e3e3;
+    padding-left:18px;
+    min-width:0;
+  }
+  .qrx-rail-title,
+  .qrx-zone-title{
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:1.12rem;
+    line-height:1.1;
+    font-weight:700;
+    padding-bottom:9px;
+    border-bottom:2px solid #111;
+    margin:0 0 5px;
+  }
+  .qrx-news-row{
+    display:block;
+    padding:12px 0;
+    border-bottom:1px solid #ececec;
+  }
+  .qrx-news-row strong{
+    display:block;
+    font-size:.94rem;
+    line-height:1.28;
+    font-weight:700;
+  }
+  .qrx-news-meta,
+  .qrx-draw-meta,
+  .qrx-main-src{
+    display:block;
+    margin-top:5px;
+    color:#777;
+    font-size:.66rem;
+    font-weight:700;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+  }
+
+  .qrx-briefing-rail ol{
+    list-style:none;
+    margin:0;
+    padding:0;
+    counter-reset:qrx-brief-rank;
+  }
+  .qrx-briefing-rail li{ border-bottom:1px solid #ececec; }
+  .qrx-brief-row{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    padding:12px 0;
+  }
+  .qrx-brief-num{
+    counter-increment:qrx-brief-rank;
+    font-family:Georgia,"Times New Roman",serif;
+    font-weight:700;
+    font-size:1.45rem;
+    line-height:1;
+    color:#0055ff;
+    min-width:25px;
+  }
+  .qrx-brief-num:before{ content:counter(qrx-brief-rank); }
+  .qrx-brief-cat{
+    display:block;
+    color:#777;
+    font-size:.64rem;
+    font-weight:800;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    margin-bottom:4px;
+  }
+  .qrx-brief-title{
+    display:block;
+    font-size:.92rem;
+    line-height:1.27;
+    font-weight:700;
+  }
+
+  .qrx-sector-wrap{
+    padding:23px 0 25px;
+    border-top:1px solid #ddd;
+    border-bottom:1px solid #ddd;
+    margin-bottom:30px;
+  }
+  .qrx-section-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:16px;
+  }
+  .qrx-section-head h3{
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:1.35rem;
+    line-height:1;
+    margin:0;
+    letter-spacing:-.02em;
+  }
+  .qrx-section-head span{
+    color:#777;
+    font-size:.72rem;
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+  .qrx-sector-strip{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:16px;
+  }
+  .qrx-sector-card{ display:block; min-width:0; }
+  .qrx-sector-card img{
+    width:100%;
+    aspect-ratio:4/3;
+    object-fit:cover;
+    display:block;
+    background:#eee;
+    border-radius:2px;
+    margin-bottom:9px;
+  }
+  .qrx-sector-card span{
+    display:block;
+    color:#0055ff;
+    font-size:.64rem;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.09em;
+    margin-bottom:5px;
+  }
+  .qrx-sector-card strong{
+    display:block;
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:1rem;
+    line-height:1.22;
+    font-weight:700;
+  }
+
+  .qrx-lower-grid{
+    display:grid;
+    grid-template-columns:1.35fr 1fr;
+    gap:34px;
+  }
+  .qrx-main-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:16px 18px;
+  }
+  .qrx-main-card{ display:block; }
+  .qrx-main-card img{
+    width:100%;
+    aspect-ratio:3/2;
+    object-fit:cover;
+    display:block;
+    background:#eee;
+    border-radius:2px;
+    margin-bottom:9px;
+  }
+  .qrx-main-card strong{
+    display:block;
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:1rem;
+    line-height:1.24;
+    font-weight:700;
+  }
+  .qrx-draw-row{
+    display:block;
+    padding:12px 0;
+    border-bottom:1px solid #ececec;
+  }
+  .qrx-draw-row strong{
+    display:block;
+    font-size:.95rem;
+    line-height:1.3;
+    font-weight:700;
+  }
+
+  .qrx-exploit-wrap{
+    padding:23px 0 25px;
+    border-top:1px solid #ddd;
+    margin-bottom:30px;
+  }
+  .qrx-exploit-list{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:0 24px;
+  }
+  .qrx-exploit-row{
+    display:block;
+    padding:12px 0;
+    border-bottom:1px solid #ececec;
+  }
+  .qrx-ew-badge-row{ display:flex; gap:6px; margin-bottom:6px; }
+  .qrx-ew-badge{
+    font-size:.62rem;
+    font-weight:800;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    padding:2px 7px;
+    border-radius:3px;
+    background:#fdf4ff;
+    color:#7e22ce;
+  }
+  .qrx-ew-badge.qrx-ew-badge-src{ background:#eff6ff; color:#1d4ed8; }
+  .qrx-exploit-row strong{
+    display:block;
+    font-size:.95rem;
+    line-height:1.3;
+    font-weight:700;
+  }
+  .qrx-ew-target{
+    display:block;
+    margin-top:4px;
+    color:#e3120b;
+    font-size:.66rem;
+    font-weight:700;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+  }
+
+  /* "Featured Articles" heading — injected above Ghost's native .gh-feed,
+     so it is NOT scoped under .qrx-front-v2 because it lives inside .gh-container. */
+  .qrx-featured-head{
+    margin:10px 0 22px;
+    padding-top:20px;
+    border-top:3px solid #0055ff;
+  }
+  .qrx-featured-head span{
+    font-family:Georgia,"Times New Roman",serif;
+    font-weight:700;
+    font-size:1.6rem;
+    letter-spacing:-0.02em;
+    color:#121212;
+  }
+
+  @media (max-width:980px){
+    .qrx-front-grid{ grid-template-columns:1fr; gap:22px; }
+    .qrx-live-rail,
+    .qrx-briefing-rail{ border-left:0; padding-left:0; }
+    .qrx-sector-strip{ grid-template-columns:repeat(2,1fr); }
+    .qrx-lower-grid{ grid-template-columns:1fr; gap:28px; }
+    .qrx-main-grid{ grid-template-columns:repeat(2,1fr); }
+    .qrx-exploit-list{ grid-template-columns:1fr; }
+  }
+  @media (max-width:640px){
+    .qrx-front-inner{ padding:20px 16px 38px; }
+    .qrx-desk-head{ flex-direction:column; align-items:flex-start; gap:12px; }
+    .qrx-desk-meta{ justify-content:flex-start; white-space:normal; }
+    .qrx-lead-panel h2{ font-size:1.55rem; }
+    .qrx-sector-strip{ grid-template-columns:1fr; }
+    .qrx-main-grid{ grid-template-columns:1fr; }
+    .qrx-section-head{ align-items:flex-start; flex-direction:column; gap:6px; }
+    .qrx-featured-head span{ font-size:1.3rem; }
+  }
+</style>
+
+<script>
+(function () {
+  var API = 'https://forge.quantumrx.eu';
+  var built = false;
+  var labeled = false;
+
+  var SECTORS = [
+    ['aimoves', 'AI Moves'],
+    ['semis', 'Semis'],
+    ['space', 'Space'],
+    ['robotics', 'Robotics'],
+    ['energy', 'Energy']
+  ];
+
+  var SKELETON =
+    '<div class="qrx-front-inner">' +
+      '<header class="qrx-desk-head">' +
+        '<div>' +
+          '<span class="qrx-desk-eyebrow">Live intelligence</span>' +
+          '<h2>The Signal Desk</h2>' +
+        '</div>' +
+        '<div class="qrx-desk-meta">' +
+          '<span class="qrx-live-pill"><span class="qrx-live-dot"></span>Live</span>' +
+          '<span class="qrx-date"></span>' +
+          '<a class="qrx-view-all" href="/signals/">View all signals →</a>' +
+        '</div>' +
+      '</header>' +
+
+      '<div class="qrx-front-grid">' +
+        '<article class="qrx-lead-panel"></article>' +
+        '<aside class="qrx-live-rail">' +
+          '<h3 class="qrx-rail-title">Live Signals</h3>' +
+          '<div class="qrx-live-list"></div>' +
+        '</aside>' +
+        '<aside class="qrx-briefing-rail">' +
+          '<h3 class="qrx-rail-title">This Week in Tech</h3>' +
+          '<ol></ol>' +
+        '</aside>' +
+      '</div>' +
+
+      '<section class="qrx-sector-wrap">' +
+        '<div class="qrx-section-head">' +
+          '<h3>Sector Watch</h3>' +
+          '<span>AI · Semis · Space · Robotics · Energy</span>' +
+        '</div>' +
+        '<div class="qrx-sector-strip"></div>' +
+      '</section>' +
+
+      '<div class="qrx-lower-grid">' +
+        '<section class="qrx-mainstream-zone">' +
+          '<h3 class="qrx-zone-title">Mainstream Pulse</h3>' +
+          '<div class="qrx-main-grid"></div>' +
+        '</section>' +
+        '<section class="qrx-draw-zone">' +
+          '<h3 class="qrx-zone-title">The Draw — World &amp; Markets</h3>' +
+          '<div class="qrx-draw-list"></div>' +
+        '</section>' +
+      '</div>' +
+
+      '<section class="qrx-exploit-wrap">' +
+        '<div class="qrx-section-head">' +
+          '<h3>Exploit Watch</h3>' +
+          '<span>New CVEs · PoC repos · advisories</span>' +
+        '</div>' +
+        '<div class="qrx-exploit-list"></div>' +
+      '</section>' +
+    '</div>';
+
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  function timeAgo(ms){
+    if (!ms) return '';
+    var diff = Date.now() - Number(ms);
+    if (diff < 0 || !isFinite(diff)) return '';
+    var m = Math.floor(diff / 60000);
+    if (m < 60) return Math.max(1, m) + 'm ago';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + 'h ago';
+    return Math.floor(h / 24) + 'd ago';
+  }
+
+  function clip(s, n){
+    s = String(s || '');
+    return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s;
+  }
+
+  function urlOf(it){ return (it && (it.url || it.link)) || ''; }
+  function summaryOf(it){ return (it && (it.what_is_it || it.summary || it.description)) || ''; }
+  function imgOf(it){
+    var i = it && it.image;
+    return (typeof i === 'string' && /^https?:\/\//.test(i)) ? i : '';
+  }
+  function href(it){ return esc(urlOf(it) || '#'); }
+  function img(url, cls){ return url ? '<img class="' + cls + '" src="' + esc(url) + '" alt="" loading="lazy">' : ''; }
+  function meta(it){ return [it && it.source, timeAgo(it && it.published)].filter(Boolean).join(' · '); }
+  function kicker(it, fallback){
+    var m = meta(it);
+    return esc(m || fallback || 'Signals');
+  }
+
+  function getJSON(url){
+    return fetch(url, { credentials:'omit' }).then(function (r) {
+      if (!r.ok) throw new Error('bad status');
+      return r.json();
+    });
+  }
+
+  function wireImgs(front){
+    front.querySelectorAll('img').forEach(function (im) {
+      if (im.__qrxWired) return;
+      im.__qrxWired = true;
+      im.addEventListener('error', function () { im.style.display = 'none'; });
+    });
+  }
+
+  function removeZone(front, sel){
+    var n = front.querySelector(sel);
+    if (n) n.remove();
+  }
+
+  function renderTop(front, items){
+    var leadWrap = front.querySelector('.qrx-lead-panel');
+    var liveWrap = front.querySelector('.qrx-live-list');
+    if (!leadWrap || !liveWrap || !items.length) return false;
+
+    var lead = items[0];
+    var sm = summaryOf(lead);
+    leadWrap.innerHTML =
+      '<a href="' + href(lead) + '" target="_blank" rel="noopener">' +
+        img(imgOf(lead), 'qrx-lead-img') +
+        '<span class="qrx-kicker">' + kicker(lead, 'Top Signal') + '</span>' +
+        '<h2>' + esc(lead.title || '') + '</h2>' +
+        (sm ? '<p>' + esc(clip(sm, 190)) + '</p>' : '') +
+        '<span class="qrx-read-source">Read source →</span>' +
+      '</a>';
+
+    var live = items.slice(1, 7);
+    if (!live.length) {
+      removeZone(front, '.qrx-live-rail');
+    } else {
+      liveWrap.innerHTML = live.map(function (it) {
+        return '<a class="qrx-news-row" href="' + href(it) + '" target="_blank" rel="noopener">' +
+          '<strong>' + esc(it.title || '') + '</strong>' +
+          '<span class="qrx-news-meta">' + kicker(it, 'Signals') + '</span>' +
+        '</a>';
+      }).join('');
+    }
+
+    wireImgs(front);
+    return true;
+  }
+
+  function renderWeekly(front, stories){
+    var rail = front.querySelector('.qrx-briefing-rail');
+    var ol = front.querySelector('.qrx-briefing-rail ol');
+    var top = (stories || []).slice(0, 5);
+    if (!rail || !ol) return;
+    if (!top.length) { rail.remove(); return; }
+
+    ol.innerHTML = top.map(function (s) {
+      return '<li><a class="qrx-brief-row" href="/this-week-in-tech/">' +
+        '<span class="qrx-brief-num"></span>' +
+        '<span>' +
+          '<span class="qrx-brief-cat">' + esc(s.category || 'Briefing') + '</span>' +
+          '<span class="qrx-brief-title">' + esc(s.title || '') + '</span>' +
+        '</span>' +
+      '</a></li>';
+    }).join('');
+  }
+
+  function renderSectorCards(front, cards){
+    var wrap = front.querySelector('.qrx-sector-strip');
+    var items = (cards || []).filter(Boolean);
+    if (!wrap) return;
+    if (!items.length) { removeZone(front, '.qrx-sector-wrap'); return; }
+
+    wrap.innerHTML = items.map(function (entry) {
+      var it = entry.item;
+      return '<a class="qrx-sector-card" href="' + href(it) + '" target="_blank" rel="noopener">' +
+        img(imgOf(it), 'qrx-sector-img') +
+        '<span>' + esc(entry.label) + '</span>' +
+        '<strong>' + esc(it.title || '') + '</strong>' +
+      '</a>';
+    }).join('');
+    wireImgs(front);
+  }
+
+  function loadSectors(front){
+    Promise.all(SECTORS.map(function (s) {
+      return getJSON(API + '/api/news-feed?category=' + encodeURIComponent(s[0]))
+        .then(function (d) {
+          var item = d && d.items && d.items[0];
+          return item ? { label:s[1], item:item } : null;
+        })
+        .catch(function () { return null; });
+    })).then(function (cards) { renderSectorCards(front, cards); });
+  }
+
+  function renderMainstream(front, items){
+    var wrap = front.querySelector('.qrx-main-grid');
+    var top = (items || []).slice(0, 4);
+    if (!wrap) return;
+    if (!top.length) { removeZone(front, '.qrx-mainstream-zone'); return; }
+
+    wrap.innerHTML = top.map(function (it) {
+      return '<a class="qrx-main-card" href="' + href(it) + '" target="_blank" rel="noopener">' +
+        img(imgOf(it), 'qrx-main-img') +
+        '<span class="qrx-main-src">' + esc(meta(it) || it.source || '') + '</span>' +
+        '<strong>' + esc(it.title || '') + '</strong>' +
+      '</a>';
+    }).join('');
+    wireImgs(front);
+  }
+
+  function renderDraw(front, items){
+    var wrap = front.querySelector('.qrx-draw-list');
+    var top = (items || []).slice(0, 7);
+    if (!wrap) return;
+    if (!top.length) { removeZone(front, '.qrx-draw-zone'); return; }
+
+    wrap.innerHTML = top.map(function (it) {
+      return '<a class="qrx-draw-row" href="' + href(it) + '" target="_blank" rel="noopener">' +
+        '<strong>' + esc(it.title || '') + '</strong>' +
+        '<span class="qrx-draw-meta">' + esc(meta(it)) + '</span>' +
+      '</a>';
+    }).join('');
+  }
+
+  function renderDisclosures(front, items){
+    var wrap = front.querySelector('.qrx-exploit-list');
+    var top = (items || []).slice(0, 6);
+    if (!wrap) return;
+    if (!top.length) { removeZone(front, '.qrx-exploit-wrap'); return; }
+
+    wrap.innerHTML = top.map(function (it) {
+      return '<a class="qrx-exploit-row" href="' + href(it) + '" target="_blank" rel="noopener">' +
+        '<span class="qrx-ew-badge-row">' +
+          '<span class="qrx-ew-badge">' + esc(it.item_type || 'Finding') + '</span>' +
+          '<span class="qrx-ew-badge qrx-ew-badge-src">' + esc(it.source || '') + '</span>' +
+        '</span>' +
+        '<strong>' + esc(it.title || '') + '</strong>' +
+        (it.target ? '<span class="qrx-ew-target">' + esc(it.target) + '</span>' : '') +
+      '</a>';
+    }).join('');
+  }
+
+  function buildFront(){
+    if (built) return;
+    if (!document.body || !document.body.classList.contains('home-template')) return;
+
+    var viewport = document.querySelector('.gh-viewport');
+    if (!viewport) return;
+    if (document.querySelector('.qrx-front-v2')) { built = true; return; }
+    built = true;
+
+    var front = document.createElement('div');
+    front.className = 'qrx-front-v2';
+    front.style.display = 'none';
+    front.innerHTML = SKELETON;
+
+    var hero = document.querySelector('.qrx-hero');
+    if (hero && hero.parentNode) {
+      hero.parentNode.insertBefore(front, hero.nextSibling);
+    } else {
+      var nav = viewport.querySelector('.gh-navigation');
+      if (nav) viewport.insertBefore(front, nav.nextSibling);
+      else viewport.insertBefore(front, viewport.firstChild);
+    }
+
+    try {
+      var dt = front.querySelector('.qrx-date');
+      if (dt) dt.textContent = new Date().toLocaleDateString(undefined, { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    } catch (e) {}
+
+    getJSON(API + '/api/news-feed?category=hot').then(function (d) {
+      var items = (d && d.items) || [];
+      if (!items.length || !renderTop(front, items)) { front.remove(); return; }
+      front.style.display = '';
+    }).catch(function () { front.remove(); });
+
+    getJSON(API + '/api/weekly-feed')
+      .then(function (d) { renderWeekly(front, d && d.current && d.current.stories); })
+      .catch(function () { removeZone(front, '.qrx-briefing-rail'); });
+
+    loadSectors(front);
+
+    getJSON(API + '/api/mainstream-feed')
+      .then(function (d) { renderMainstream(front, (d && d.items) || []); })
+      .catch(function () { removeZone(front, '.qrx-mainstream-zone'); });
+
+    getJSON(API + '/api/draw-feed?tab=main')
+      .then(function (d) { renderDraw(front, (d && d.items) || []); })
+      .catch(function () { removeZone(front, '.qrx-draw-zone'); });
+
+    getJSON(API + '/api/exploit-watch-feed')
+      .then(function (d) { renderDisclosures(front, (d && d.items) || []); })
+      .catch(function () { removeZone(front, '.qrx-exploit-wrap'); });
+  }
+
+  // Label Ghost's native homepage post feed (.gh-feed, Source theme) as
+  // "Featured Articles". Injected inside .gh-container so it aligns with
+  // the post grid. Sits below the whole Signal Desk framework.
+  function labelFeed(){
+    if (labeled) return;
+    if (!document.body || !document.body.classList.contains('home-template')) return;
+    if (document.querySelector('.qrx-featured-head')) { labeled = true; return; }
+
+    var feed = document.querySelector('.gh-feed');
+    var parent, before;
+    if (feed && feed.parentNode) {
+      parent = feed.parentNode;
+      before = feed;
+    } else {
+      var main = document.querySelector('.gh-main');
+      if (!main) return;
+      parent = main;
+      before = main.firstChild;
+    }
+
+    var head = document.createElement('div');
+    head.className = 'qrx-featured-head';
+    head.innerHTML = '<span>Featured Articles</span>';
+    parent.insertBefore(head, before);
+    labeled = true;
+  }
+
+  function run(){ buildFront(); labelFeed(); }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+  window.addEventListener('load', run);
+
+  var fobs = new MutationObserver(function () {
+    if (document.body && document.body.classList.contains('home-template')) {
+      run();
+      if (built && labeled) fobs.disconnect();
+    }
+  });
+  fobs.observe(document.documentElement, { childList:true, subtree:true });
+})();
+</script>
+
+<meta name="msvalidate.01" content="BB5FD13CB91127F74A670E9B6B66BFB7">
+
+<!-- v11: ensure safe-area-inset-top is non-zero on iOS Safari and Chrome Android,
+     fixing the summary sheet overlapping the browser toolbar on mobile.
+     Ghost themes typically emit their own viewport tag; this one loads after it
+     in the <head> so it takes precedence (last tag wins on iOS). -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

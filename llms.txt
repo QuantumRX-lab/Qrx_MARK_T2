@@ -15,6 +15,7 @@
 - [QuantumRx AI Labs](https://forge.quantumrx.eu/ai-labs.html): The hub listing all five Built-for-AI tools — the canonical "Built for AI" collection.
 - [Top 50 Tech Podcasts](https://forge.quantumrx.eu/podcasts.html): A weekly-refreshed directory of the 50 leading technology podcasts with each show's latest episode.
 - [This Week in Tech](https://forge.quantumrx.eu/this-week-in-tech.html): Weekly briefing of the most significant technology stories.
+- [Exploit Watch](https://forge.quantumrx.eu/exploit-watch.html): Daily-refreshed briefing of newly published CVEs, PoC exploit repositories, and vulnerability write-ups from GitHub and Hacker News, summarised for defenders with no exploitation steps.
 - [Products & Services](https://forge.quantumrx.eu/products.html): QuantumRx products and services.
 
 ## Taxonomy

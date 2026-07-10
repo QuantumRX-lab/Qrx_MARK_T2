@@ -14,7 +14,7 @@
 
 export const config = { maxDuration: 300 };
 
-const PHASE1 = ['news-refresh', 'draw-refresh', 'mainstream-refresh', 'cartoon-refresh', 'meme-refresh'];
+const PHASE1 = ['news-refresh', 'draw-refresh', 'mainstream-refresh', 'cartoon-refresh', 'meme-refresh', 'exploit-watch-refresh'];
 const PHASE2 = ['generate-chat-chips'];
 
 function baseUrl(req) {
