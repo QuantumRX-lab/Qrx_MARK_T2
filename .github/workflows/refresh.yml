@@ -1,23 +1,26 @@
 name: QuantumRx Refresh
 
-# Fires the site's refresh endpoints on a schedule (all times UTC).
-#   - daily  06:17       -> news, draw, mainstream, cartoon, meme
-#   - weekly Monday 08:17 -> weekly (This Week), podcast (Top 50)
-# Times are deliberately off the top of the hour: GitHub delays/drops
-# scheduled runs that land on :00 (the busiest slot) — see 2026-07-09 miss.
-# You can also run it by hand from the Actions tab (Run workflow -> pick task).
+# Manual-only backup for the site's refresh endpoints (all times UTC).
+#   - daily  -> news, draw, mainstream, cartoon, meme
+#   - weekly -> weekly (This Week), podcast (Top 50)
+# Run it by hand from the Actions tab (Run workflow -> pick task).
+#
+# PATCH 2026-07-13 — the `schedule:` trigger has been removed. Railway
+# (railway-cron/) is now the primary trigger, running daily at 06:17 UTC and
+# also firing the weekly bucket on Mondays. Keeping GitHub's own schedule
+# alongside it caused the two to race each other on Mondays: Railway's
+# 06:17 UTC run refreshed `weekly-refresh` first, then GitHub's own
+# 08:17 UTC schedule (itself running hours late, same delay problem this
+# workflow always had) tried to refresh it again and got rejected by
+# weekly-refresh's cooldown (429 "Too soon since last refresh"), reporting
+# a false failure even though the site data was already fresh. This
+# workflow now only runs when triggered manually.
 #
 # SETUP (one-time):
 #   GitHub repo -> Settings -> Secrets and variables -> Actions ->
 #   New repository secret -> name: CRON_SECRET, value: <same secret as Vercel>
-#
-# NOTE: scheduled workflows only run from the DEFAULT branch (main), and GitHub
-# auto-disables schedules after ~60 days with no repo activity.
 
 on:
-  schedule:
-    - cron: '17 6 * * *'    # daily 06:17 UTC (off :00 — GitHub delays/drops top-of-hour runs)
-    - cron: '17 8 * * 1'    # weekly Monday 08:17 UTC
   workflow_dispatch:
     inputs:
       task:
@@ -30,25 +33,10 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
-      - name: Decide which bucket to run
-        id: pick
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          DISPATCH_TASK: ${{ github.event.inputs.task }}
-          SCHEDULE: ${{ github.event.schedule }}
-        run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "task=$DISPATCH_TASK" >> "$GITHUB_OUTPUT"
-          elif [ "$SCHEDULE" = "17 8 * * 1" ]; then
-            echo "task=weekly" >> "$GITHUB_OUTPUT"
-          else
-            echo "task=daily" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Trigger refresh endpoints
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          TASK: ${{ steps.pick.outputs.task }}
+          TASK: ${{ github.event.inputs.task }}
           BASE: https://forge.quantumrx.eu
         run: |
           if [ -z "$CRON_SECRET" ]; then
