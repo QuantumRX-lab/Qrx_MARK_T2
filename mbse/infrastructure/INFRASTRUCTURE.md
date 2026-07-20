@@ -119,5 +119,6 @@ have sat since 2026-06-29 — expected, not a bug.
 | Why past infra decisions were made | `06_decisions/decision_log.yaml` |
 | Dated change history | `07_change/CHANGELOG.md` |
 | Live status snapshot (crawler-written) | `08_status/dashboard.yaml` |
+| Internal consistency validator — run after any manual edit | `validate.py` |
 | Lighter narrative companion (no requirement IDs, easier first read) | `../../STACK-OVERVIEW.md` |
 | RSI's own product-level MBSE tree (pipeline, not infra) | `C:\Medha\MBSE\tools\RSI\` |

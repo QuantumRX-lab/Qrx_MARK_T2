@@ -1,5 +1,7 @@
 # Infrastructure — Risk Register
-# open: 2, closed: 5 (as of 2026-07-20, post ls-webhook.js deletion)
+# open: 3, closed: 5 (as of 2026-07-20 — corrected by validate.py, which
+# caught this comment/total under-counting RISK-INFRA-002 as a live bug in
+# this very file, the exact failure mode this validator exists to catch)
 
 risks:
 
@@ -159,5 +161,5 @@ risks:
     detected: 2026-07-18
     linked_requirements: [INFRA-SYS-010]
 
-open_count: 2
+open_count: 3
 closed_count: 5

@@ -45,7 +45,7 @@ test_cases:
   - id: INFRA-TC-003
     title: GitHub Actions has no active schedule trigger
     verifies: [INFRA-STK-004, INFRA-SYS-002]
-    type: INSPECTION
+    type: SYSTEM
     method: INSPECTION
     preconditions: ["GitHub PAT with actions:read scope"]
     test_data: {api: "GET /repos/QuantumRX-lab/Qrx_MARK_T2/actions/workflows/refresh.yml/runs"}
@@ -79,7 +79,7 @@ test_cases:
   - id: INFRA-TC-005
     title: Every Vercel env var used by api/*.js is actually configured
     verifies: [INFRA-STK-002, INFRA-SYS-005]
-    type: INSPECTION
+    type: SYSTEM
     method: INSPECTION
     preconditions: ["vercel CLI authenticated to the project"]
     test_data: {}
@@ -101,7 +101,7 @@ test_cases:
   - id: INFRA-TC-006
     title: Every configured Vercel env var is used by some code path
     verifies: [INFRA-STK-002, INFRA-SYS-005]
-    type: INSPECTION
+    type: SYSTEM
     method: INSPECTION
     preconditions: ["Same data as INFRA-TC-005"]
     test_data: {}
@@ -143,7 +143,7 @@ test_cases:
   - id: INFRA-TC-008
     title: A false-positive Sentinel block can be cleared without a deploy
     verifies: [INFRA-STK-005, INFRA-SYS-009]
-    type: DEMONSTRATION
+    type: INTEGRATION
     method: DEMONSTRATION
     preconditions: ["Upstash REST token"]
     test_data: {example_ip: "75.11.11.78"}
@@ -178,7 +178,7 @@ test_cases:
   - id: INFRA-TC-010
     title: Ghost site-wide Code Injection is not Admin-API-writable
     verifies: [INFRA-SYS-011]
-    type: DEMONSTRATION
+    type: INTEGRATION
     method: DEMONSTRATION
     preconditions: ["Valid Ghost Admin API key"]
     test_data: {endpoint: "PUT /ghost/api/admin/settings/", key: "codeinjection_head"}
@@ -193,7 +193,7 @@ test_cases:
   - id: INFRA-TC-011
     title: VPS static file edits are backed up first
     verifies: [INFRA-SYS-012]
-    type: INSPECTION
+    type: SYSTEM
     method: INSPECTION
     preconditions: []
     test_data: {}
@@ -208,7 +208,7 @@ test_cases:
   - id: INFRA-TC-012
     title: CRON.txt has zero git history
     verifies: [INFRA-SYS-013]
-    type: INSPECTION
+    type: UNIT
     method: INSPECTION
     preconditions: []
     test_data: {}

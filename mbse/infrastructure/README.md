@@ -28,8 +28,10 @@ IDs, verification-by-test-case, decision log, risk register), scoped differently
 
 ## Keeping it current
 
-Run `crawler.py` from this directory (or anywhere — it uses absolute checks) to
-re-verify live status and rewrite `08_status/dashboard.yaml`:
+Two scripts, two different jobs — don't confuse them:
+
+**`crawler.py`** re-verifies *live* status (is the site actually up right
+now) and rewrites `08_status/dashboard.yaml`:
 
 ```
 python crawler.py
@@ -41,3 +43,20 @@ blocks — the same checks done manually in every "stack status check" this
 session, now scripted. It requires SSH access to the VPS (`root@91.99.127.39`)
 and a GitHub PAT / Upstash token — see `crawler.py`'s own header for what it
 expects to find and where.
+
+**`validate.py`** checks *this tree's own internal consistency* — schema
+compliance, duplicate IDs, broken/one-directional trace references, and
+whether handwritten rollup numbers (risk open/closed counts) actually match
+what the individual records say:
+
+```
+python validate.py
+```
+
+Requires PyYAML (`pip install pyyaml`). Run this after any manual edit to
+`02_requirements/`, `04_verification/`, `05_risks/`, or `06_decisions/` — it
+exists specifically because a hand-authored rollup number and the atomic
+records it summarizes *will* drift apart silently otherwise. It already
+caught two real bugs the first time it ran: a miscounted `open_count` in the
+risk register, and six test cases with an invalid `type` enum value copied
+from the wrong schema field. See `06_decisions/decision_log.yaml` (`D-INFRA-009`).

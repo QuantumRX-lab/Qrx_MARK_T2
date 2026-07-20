@@ -2,6 +2,37 @@
 
 decisions:
 
+  - id: D-INFRA-009
+    date: 2026-07-20
+    title: Built validate.py after an external review flagged handwritten-rollup drift risk
+    decision: >
+      Added validate.py — a schema/ID/reciprocity validator that recomputes
+      every count and cross-reference from the atomic YAML records rather
+      than trusting handwritten totals, plus bidirectional trace checks
+      (requirement<->test case) and satisfied_by path-existence checks
+      against the real repo.
+    rationale: >
+      An external review of this tree's older sibling (Medha/MBSE/tools/RSI/)
+      found real, verified discrepancies purely by manual inspection:
+      dashboard.yaml claiming risks.open: 0 against a risk register with 8
+      real OPEN entries; a trace matrix stating 161 L2 requirements against
+      165 actually on disk; a change log with 2 entries covering 11 days of
+      extensive evolution. The reviewer's core finding — atomic records stay
+      trustworthy, handwritten aggregate YAML drifts — was judged accurate
+      and directly applicable to this tree too, since it uses the same
+      pattern (requirements.yaml/risk_register.yaml are handwritten, only
+      08_status/dashboard.yaml was previously computed).
+    outcome: >
+      First run immediately found two real bugs in this tree, proving the
+      approach: (1) risk_register.yaml's open_count/closed_count comment and
+      fields said 2/5 when the actual records summed to 3/5 — RISK-INFRA-002
+      was undercounted; (2) six test cases (TC-003, 005, 006, 008, 010, 011,
+      012) had their `type` field set to an enum value valid only for
+      `method` (e.g. type: INSPECTION, which isn't a valid `type` per the
+      schema — INSPECTION is a `method`). Both fixed immediately after
+      discovery, not left as a known issue.
+    linked_requirements: []
+
   - id: D-INFRA-008
     date: 2026-07-20
     title: api/ls-webhook.js deleted — confirmed unused stub, not fixed
