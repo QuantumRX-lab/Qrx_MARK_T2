@@ -3,3 +3,10 @@
 
 # Local secrets / operator notes — NEVER commit (holds CRON_SECRET, KV token, IPs)
 CRON.txt
+
+# Backstop: no API keys/tokens as loose text files anywhere in the repo
+*api03*.txt
+*.pem
+*.key
+secrets.txt
+credentials.txt

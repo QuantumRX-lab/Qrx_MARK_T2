@@ -1,0 +1,163 @@
+# Infrastructure — Risk Register
+# open: 2, closed: 5 (as of 2026-07-20, post ls-webhook.js deletion)
+
+risks:
+
+  - id: RISK-INFRA-004
+    title: Lemon Squeezy → Ghost member webhook — confirmed stub, deleted
+    description: >
+      Originally flagged as "non-functional in production" — 5 env vars it
+      required (GHOST_ADMIN_API_KEY, GHOST_API_URL, LS_WEBHOOK_SECRET,
+      LS_VARIANT_RSI_SINGLE, LS_VARIANT_RSI_BUNDLE) were absent from Vercel.
+      Owner confirmed 2026-07-20: api/ls-webhook.js was a stub that had never
+      actually been wired into production purchase flows — not a regression,
+      never live. File deleted rather than fixed, since there was nothing
+      real depending on it. No other file referenced it (verified via repo-
+      wide grep before deletion).
+    severity: CRITICAL
+    likelihood: CONFIRMED
+    status: CLOSED
+    resolution: >
+      api/ls-webhook.js deleted 2026-07-20 (D-INFRA-008). If/when a real
+      purchase → Ghost-member flow is needed, it should be rebuilt against
+      actual current requirements rather than resurrecting the stub.
+    detected: 2026-07-20
+    detected_by: Infrastructure audit (vercel env ls cross-referenced against api/ls-webhook.js source)
+    linked_requirements: [INFRA-STK-002, INFRA-STK-003, INFRA-SYS-005, INFRA-SYS-006]
+
+  - id: RISK-INFRA-005
+    title: Live secrets stored in a plaintext local file (CRON.txt)
+    description: >
+      CRON.txt (repo working directory) contains a live CRON_SECRET, Ghost
+      Admin API key, GitHub PAT, and Vercel token in plaintext. Confirmed
+      protected from git (gitignored, zero commits ever) — this is a
+      local-machine-only exposure, not a leaked-to-GitHub one — but it's
+      still not a real secrets manager, and anyone with filesystem access to
+      this machine can read every credential this project uses in one file.
+    severity: MEDIUM
+    likelihood: LOW
+    status: OPEN
+    owner: unassigned
+    detected: 2026-07-20
+    detected_by: Infrastructure audit
+    mitigation: >
+      Migrate to a real secrets manager (1Password, Vercel's own env var
+      storage as source of truth, or at minimum an encrypted local vault) —
+      not urgent given the confirmed git-history cleanliness, but a genuine
+      long-term hygiene gap.
+    linked_requirements: [INFRA-SYS-013]
+
+  - id: RISK-INFRA-006
+    title: ANTHROPIC_API_KEY configured on Vercel, not referenced by deployed code (confirmed intentional)
+    description: >
+      ANTHROPIC_API_KEY is set on the Vercel project but is referenced by
+      zero lines in the committed api/*.js. Every AI generation feature
+      actually deployed on forge.quantumrx.eu runs on Gemini (via
+      GEMINI_API_KEY_Chat/Forge/Game/Kernel), despite marketing copy on
+      several pages claiming "Claude writes the script." Owner confirmed
+      2026-07-20: the key is used occasionally — ad hoc / outside the
+      committed codebase (manual testing, exploratory work) — not dead
+      config, just not wired into any deployed endpoint.
+    severity: LOW
+    likelihood: CONFIRMED
+    status: CLOSED
+    resolution: >
+      Not a defect — confirmed intentional occasional/manual use by the
+      owner. Key stays configured. Re-open only if it needs documenting as
+      part of a real deployed feature later.
+    detected: 2026-07-20
+    detected_by: grep -rn ANTHROPIC_API_KEY api/*.js (zero results) cross-referenced against vercel env ls
+    linked_requirements: [INFRA-SYS-005]
+
+  - id: RISK-INFRA-007
+    title: RSI VPS accumulates uncommitted pipeline changes between sessions
+    description: >
+      This project has repeatedly hit a pattern of real, tested, deployed
+      pipeline code sitting uncommitted on the VPS for days (peaked at 19
+      modified files / 1,333 lines on 2026-07-17, since partially committed
+      in adb0304). A prior incident already needed a dedicated
+      "reconcile prior sessions' deployed-but-uncommitted fixes" commit
+      (e508d7b). Real work is at risk of loss if the VPS has an incident
+      before the next commit.
+    severity: MEDIUM
+    likelihood: MEDIUM
+    status: OPEN
+    owner: unassigned
+    detected: 2026-07-17
+    detected_by: Repeated stack status checks (git status --short on /opt/mip)
+    mitigation: >
+      Commit at the end of every working session rather than letting it
+      accumulate, or set up a low-noise reminder/habit. Not automatable
+      safely (commits need human judgement on grouping/messages), so this is
+      a process fix, not a code fix.
+    linked_requirements: []
+
+  - id: RISK-INFRA-008
+    title: WEEKLY_REFRESH_SECRET dual-auth pattern (verified, not a defect)
+    description: >
+      Initially suspected dead/redundant relative to CRON_SECRET. Verified by
+      reading weekly-refresh.js directly: it deliberately accepts EITHER
+      x-refresh-secret/WEEKLY_REFRESH_SECRET (legacy, what Railway's external
+      trigger historically depended on) OR x-cron-secret/CRON_SECRET (the
+      common pattern), by design — documented in the code's own comment as
+      intentional forward-compatibility, not leftover cruft.
+    severity: LOW
+    likelihood: CONFIRMED
+    status: CLOSED
+    resolution: >
+      Not a risk — confirmed intentional dual-auth via direct source read
+      (api/weekly-refresh.js lines 306-323). No action needed.
+    detected: 2026-07-20
+    detected_by: Infrastructure audit (env var inventory pass, then source verification)
+    linked_requirements: [INFRA-SYS-005]
+
+  - id: RISK-INFRA-001
+    title: Q-Sentinel severity-HIGH prompt_injection blocks accumulate indefinitely
+    description: >
+      4 IPs have sat blocked since 2026-06-29 for prompt_injection pattern
+      matches, almost certainly real Break the Sentinel game attempts
+      (working as intended) — but there's no expiry/review mechanism, so the
+      block list only grows over time with no way to distinguish "still
+      relevant" from "ancient and forgotten" at a glance.
+    severity: LOW
+    likelihood: CONFIRMED
+    status: CLOSED
+    resolution: >
+      Accepted as expected behavior — these are real game-security blocks,
+      not a defect. No TTL/expiry needed given the low volume observed
+      (4 entries over 3 weeks). Revisit if volume grows significantly.
+    detected: 2026-07-20
+    linked_requirements: [INFRA-STK-005]
+
+  - id: RISK-INFRA-002
+    title: Duplicate KV var sets (UPSTASH_* and KV_*) both point at the same store
+    description: >
+      Both UPSTASH_REDIS_REST_URL/TOKEN and the Vercel-native KV_* variable
+      set exist simultaneously, likely both resolving to the same underlying
+      Upstash instance via two different provisioning paths (manual Upstash
+      integration + Vercel's native KV marketplace integration).
+    severity: LOW
+    likelihood: MEDIUM
+    status: OPEN
+    owner: unassigned
+    detected: 2026-07-20
+    detected_by: vercel env ls
+    mitigation: "Confirm which set is actually read by code (grep shows UPSTASH_* is what's used) and consider removing the unused KV_* set to reduce confusion."
+    linked_requirements: [INFRA-SYS-005]
+
+  - id: RISK-INFRA-003
+    title: VPS disk usage trending upward with data-farming work
+    description: >
+      Disk usage crept 66% -> 68% over roughly a week of this session,
+      tracking new geospatial datasets being farmed (Scotland, offshore
+      layers). At current rate, still months from being a real concern, but
+      worth periodic rechecking.
+    severity: LOW
+    likelihood: LOW
+    status: CLOSED
+    resolution: "Monitored via crawler.py's disk check going forward; 12GB free headroom is comfortable for now."
+    detected: 2026-07-18
+    linked_requirements: [INFRA-SYS-010]
+
+open_count: 2
+closed_count: 5

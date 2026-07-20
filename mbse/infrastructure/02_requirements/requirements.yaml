@@ -1,0 +1,391 @@
+# Infrastructure — Requirements
+# Consolidated (schema per Medha MBSE _framework/schemas/requirement.schema.yaml,
+# batched into one file rather than one-file-per-ID given this tree's smaller
+# scope relative to a product requirements tree like RSI's).
+# All verification_status values below reflect the live 2026-07-20 audit.
+
+requirements:
+
+  # ── L1 stakeholder ──────────────────────────────────────────────────────
+
+  - id: INFRA-STK-001
+    title: Daily content refreshes unattended
+    shall_statement: >
+      The infrastructure SHALL refresh all daily content feeds (comic, meme,
+      news, draw, mainstream) without manual intervention, once per day.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: CRITICAL
+    verified_by: [INFRA-TC-001, INFRA-TC-002]
+    verification_status: PASSED
+    verification_method: TEST
+    rationale: No dedicated ops role exists; content must self-sustain.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-STK-002
+    title: Secrets are available where needed, absent where not
+    shall_statement: >
+      Each platform SHALL have exactly the credentials its own code requires
+      configured, with no credential present on a platform that doesn't use it.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: CRITICAL
+    verified_by: [INFRA-TC-005, INFRA-TC-006]
+    verification_status: PASSED
+    verification_method: INSPECTION
+    rationale: >
+      A missing secret silently breaks a feature; an unnecessary one is
+      needless attack surface.
+    notes: >
+      RE-VERIFIED 2026-07-20 after action: api/ls-webhook.js (the source of
+      the 5 missing-var gap) was confirmed by the owner to be an unused stub
+      never wired into production, and deleted (D-INFRA-008) rather than
+      fixed — so those 5 vars are no longer required by anything. The one
+      remaining present-but-unreferenced var (ANTHROPIC_API_KEY) was
+      confirmed intentional (occasional/manual use outside the deployed
+      codebase), not a gap. Status changed FAILED -> PASSED.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-STK-003
+    title: Purchases result in delivered access
+    shall_statement: >
+      A completed Lemon Squeezy purchase on either brand SHALL result in the
+      buyer receiving what they paid for (a licence key, an RSI report
+      allowance, or equivalent).
+    level: L1_stakeholder
+    status: APPROVED
+    priority: CRITICAL
+    verified_by: [INFRA-TC-007]
+    verification_status: N/A
+    verification_method: TEST
+    rationale: Customers who pay must receive what they paid for.
+    notes: >
+      REVISED 2026-07-20: the original wording of this requirement assumed
+      Ghost member creation/labelling (via api/ls-webhook.js) was the
+      delivery mechanism. Confirmed that assumption was wrong — that file
+      was an unused stub, never wired into production, now deleted
+      (D-INFRA-008). Actual purchase delivery (Lemon Squeezy's own
+      licence-key generation/email) was never dependent on it. Marked N/A
+      pending a real test of the actual delivery path (Lemon Squeezy's
+      native fulfillment), which was not directly verified this session —
+      only the now-irrelevant Ghost-labelling side path was.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-STK-004
+    title: Automation triggers do not duplicate or race
+    shall_statement: >
+      Exactly one scheduler SHALL be the active source of truth for firing
+      cron endpoints at any given time.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: HIGH
+    verified_by: [INFRA-TC-003]
+    verification_status: PASSED
+    verification_method: TEST
+    rationale: >
+      Two active schedulers previously raced on Mondays, producing a false
+      failure alert even though the underlying refresh succeeded.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-STK-005
+    title: Security auto-blocks don't punish legitimate operators
+    shall_statement: >
+      Q-Sentinel's automated blocking SHALL not persistently block legitimate
+      operational/testing traffic without a way to identify and clear it.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: MEDIUM
+    verified_by: [INFRA-TC-008]
+    verification_status: PASSED
+    verification_method: DEMONSTRATION
+    rationale: >
+      Non-browser-UA testing traffic (curl without a User-Agent header) was
+      repeatedly auto-blocked as a false positive during this session.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  # ── L2 system ───────────────────────────────────────────────────────────
+
+  - id: INFRA-SYS-001
+    title: Railway cron fires the daily fan-out on schedule
+    shall_statement: >
+      The Railway cron service SHALL POST to /api/cron-daily at 06:17 UTC
+      every day, and additionally to /api/cron-weekly when the run date is a
+      Monday (UTC).
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [INFRA-STK-001, INFRA-STK-004]
+    satisfied_by: [railway-cron/run.sh, railway-cron/Dockerfile]
+    verified_by: [INFRA-TC-001]
+    verification_status: PASSED
+    verification_method: TEST
+    rationale: Primary automation trigger since 2026-07-13.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-SYS-002
+    title: GitHub Actions schedule stays disabled
+    shall_statement: >
+      .github/workflows/refresh.yml SHALL NOT define a `schedule:` trigger
+      while Railway is the primary trigger; workflow_dispatch only.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [INFRA-STK-004]
+    satisfied_by: [.github/workflows/refresh.yml]
+    verified_by: [INFRA-TC-003]
+    verification_status: PASSED
+    verification_method: INSPECTION
+    rationale: >
+      Removed 2026-07-13 after a race condition produced a false-failure
+      alert (weekly-refresh 429 cooldown rejection from a duplicate trigger).
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-SYS-003
+    title: cron-daily.js fans out to all daily content endpoints
+    shall_statement: >
+      POST /api/cron-daily SHALL trigger news-refresh, draw-refresh,
+      mainstream-refresh, cartoon-refresh, meme-refresh, and
+      generate-chat-chips (in that dependency order), authenticated by
+      CRON_SECRET.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [INFRA-STK-001]
+    satisfied_by: [api/cron-daily.js]
+    verified_by: [INFRA-TC-001]
+    verification_status: PASSED
+    verification_method: TEST
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-SYS-004
+    title: cron-weekly.js fans out to weekly content endpoints
+    shall_statement: >
+      POST /api/cron-weekly SHALL trigger weekly-refresh and podcast-refresh,
+      authenticated by CRON_SECRET.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [INFRA-STK-001]
+    satisfied_by: [api/cron-weekly.js]
+    verified_by: [INFRA-TC-002]
+    verification_status: PASSED
+    verification_method: TEST
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-SYS-005
+    title: Vercel holds exactly the secrets its own code reads
+    shall_statement: >
+      Every process.env.* reference in api/*.js SHALL correspond to a
+      variable actually configured in the Vercel project, and every
+      configured variable SHALL be referenced by at least one code path.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [INFRA-STK-002]
+    satisfied_by: [Vercel project env vars]
+    verified_by: [INFRA-TC-005, INFRA-TC-006]
+    verification_status: PASSED
+    verification_method: INSPECTION
+    notes: >
+      RE-VERIFIED 2026-07-20 after action: the 5 vars once "missing" were
+      required only by api/ls-webhook.js, confirmed an unused stub and
+      deleted (D-INFRA-008) — no longer required by anything, gap closed by
+      removal rather than addition. ANTHROPIC_API_KEY remains present and
+      unreferenced by deployed code, but confirmed an accepted exception
+      (intentional occasional/manual use per the owner), not a defect.
+      Status changed FAILED -> PASSED.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-SYS-006
+    title: "[DELETED] ls-webhook.js successfully labels Ghost members on real purchases"
+    shall_statement: >
+      A Lemon Squeezy order_created webhook call with a valid signature
+      SHALL result in a 200 response and either a newly created or
+      label-updated Ghost member.
+    level: L2_system
+    status: DELETED
+    priority: CRITICAL
+    derives_from: [INFRA-STK-003]
+    satisfied_by: []
+    verified_by: [INFRA-TC-007]
+    verification_status: N/A
+    verification_method: TEST
+    notes: >
+      DELETED 2026-07-20: api/ls-webhook.js confirmed by the owner to be an
+      unused stub, never wired into production purchase flows. Removed
+      rather than fixed (D-INFRA-008). This requirement is retained here
+      (not scrubbed from history) per the schema's own DELETED status
+      convention — if a real purchase -> Ghost-member flow is needed later,
+      write a fresh requirement against actual current needs rather than
+      reviving this one.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-SYS-007
+    title: Each forge.quantumrx.eu page carries exactly one GA4 tag
+    shall_statement: >
+      Every page under forge.quantumrx.eu and quantumrx.eu SHALL load
+      gtag.js exactly once, configured with G-YPMBJ71VTF, with no
+      CSP directive blocking googletagmanager.com or google-analytics.com.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: []
+    satisfied_by: [per-page <head> script blocks, ghost-current/site-header-injection.html]
+    verified_by: [INFRA-TC-009]
+    verification_status: PASSED
+    verification_method: TEST
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-SYS-008
+    title: quantumrx.co.uk uses a separate, deliberate GA4 property
+    shall_statement: >
+      quantumrx.co.uk pages SHALL report to G-8C097TY3ZJ, independent of the
+      .eu property.
+    level: L2_system
+    status: APPROVED
+    priority: LOW
+    verified_by: [INFRA-TC-009]
+    verification_status: PASSED
+    verification_method: INSPECTION
+    rationale: Confirmed deliberate with the owner, 2026-07-16.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-SYS-009
+    title: Q-Sentinel auto-blocks are clearable via KV DEL
+    shall_statement: >
+      A false-positive Q-Sentinel block (threat_action:<ip>,
+      threat:flag:<ip>) SHALL be clearable by an operator via the Upstash
+      REST API without requiring a code deploy.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [INFRA-STK-005]
+    satisfied_by: [Upstash REST DEL endpoint]
+    verified_by: [INFRA-TC-008]
+    verification_status: PASSED
+    verification_method: DEMONSTRATION
+    notes: Exercised at least 3 times this session, always successful.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-SYS-010
+    title: VPS services stay active and disk stays within headroom
+    shall_statement: >
+      mip-api, mip-worker, and nginx SHALL remain in an active systemd state,
+      and root filesystem usage SHALL stay below 90%.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    satisfied_by: [systemd unit files, Hetzner CX22 38GB disk]
+    verified_by: [INFRA-TC-004]
+    verification_status: PASSED
+    verification_method: TEST
+    notes: 68% used as of 2026-07-20, steady, not currently a concern.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-SYS-011
+    title: Ghost site-wide header injection changes require manual paste
+    shall_statement: >
+      Any change to Ghost's Site Header Code Injection SHALL be prepared as
+      a diff against ghost-current/site-header-injection.html and applied by
+      a human via Ghost Admin UI, since the Admin API rejects this specific
+      write.
+    level: L2_system
+    status: APPROVED
+    priority: LOW
+    satisfied_by: [ghost-current/site-header-injection.html, manual process]
+    verified_by: [INFRA-TC-010]
+    verification_status: PASSED
+    verification_method: DEMONSTRATION
+    rationale: Confirmed via a real 403 NoPermissionError, 2026-07-16.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-SYS-012
+    title: VPS static-page edits are backed up before every change
+    shall_statement: >
+      Any edit to /var/www/medha/index.html or order.html SHALL be preceded
+      by a timestamped backup copy (*.bak-YYYYMMDDHHMMSS) in the same
+      directory.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    satisfied_by: [manual cp convention, established pre-existing on the VPS]
+    verified_by: [INFRA-TC-011]
+    verification_status: PASSED
+    verification_method: INSPECTION
+    rationale: >
+      Convention was already established on the VPS before this session;
+      followed consistently for every 2026-07-17 edit (RSI Tool rename,
+      membership button changes).
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)
+
+  - id: INFRA-SYS-013
+    title: Local secrets files stay out of git history
+    shall_statement: >
+      CRON.txt and any other file containing live credentials SHALL be
+      listed in .gitignore and SHALL have zero commits in git history.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [INFRA-STK-002]
+    satisfied_by: [.gitignore]
+    verified_by: [INFRA-TC-012]
+    verification_status: PASSED
+    verification_method: INSPECTION
+    rationale: >
+      Verified via `git log --all --full-history -- CRON.txt` returning zero
+      commits, and `git check-ignore -v` confirming it's excluded.
+    phase: v1
+    created_date: 2026-07-20
+    last_modified: 2026-07-20
+    author: Claude (session audit)

@@ -1,0 +1,132 @@
+# Infrastructure — Decision Log
+
+decisions:
+
+  - id: D-INFRA-008
+    date: 2026-07-20
+    title: api/ls-webhook.js deleted — confirmed unused stub, not fixed
+    decision: >
+      Deleted api/ls-webhook.js rather than adding the 5 Vercel env vars it
+      was missing (GHOST_ADMIN_API_KEY, GHOST_API_URL, LS_WEBHOOK_SECRET,
+      LS_VARIANT_RSI_SINGLE, LS_VARIANT_RSI_BUNDLE). Verified no other file
+      referenced it (repo-wide grep) before removal.
+    rationale: >
+      Owner confirmed this file was a stub that had never actually been
+      wired into production purchase flows — not a regression, never live.
+      RISK-INFRA-004 was raised assuming it was a broken *live* feature;
+      once corrected, deletion is the right fix, not resurrection. Also
+      corrected INFRA-STK-003's premise: actual purchase delivery (licence
+      keys) runs through Lemon Squeezy's own native fulfillment, not
+      through this file — it was never the delivery mechanism, only an
+      incomplete side path for Ghost CRM labelling.
+    supersedes: >
+      Any future purchase -> Ghost-member flow should be designed fresh
+      against real current requirements, not by resurrecting this stub.
+
+  - id: D-INFRA-001
+    date: 2026-07-13
+    title: Railway cron replaces GitHub Actions as primary automation trigger
+    decision: >
+      Built a small Docker/Alpine + curl service (railway-cron/) on Railway,
+      scheduled 06:17 UTC daily, POSTing to /api/cron-daily and (on Mondays)
+      /api/cron-weekly. Made this the primary trigger.
+    rationale: >
+      GitHub Actions' own scheduler had only fired once, ever, since the
+      workflow went live — confirmed via GitHub API run history
+      (total_count: 1). Railway has since run correctly every single day.
+    alternatives_considered:
+      - "cron-job.org (external cron service, mentioned in code comments as originally intended) — not set up in this session, Railway was already available to the user"
+      - "Fix GitHub Actions' scheduler — no clear lever available; it's a known platform-side reliability issue with top-of-hour schedules"
+
+  - id: D-INFRA-002
+    date: 2026-07-13
+    title: GitHub Actions schedule trigger removed
+    decision: >
+      Removed the `schedule:` block from .github/workflows/refresh.yml,
+      keeping workflow_dispatch as manual-only backup.
+    rationale: >
+      With Railway active, GitHub Actions' own (delayed) schedule fired hours
+      late and raced Railway's already-completed weekly-refresh, triggering
+      weekly-refresh's 429 cooldown rejection and a false-failure alert email
+      — real data was fine, the alert was noise from a redundant duplicate
+      trigger.
+    supersedes: D-INFRA-001
+
+  - id: D-INFRA-003
+    date: 2026-07-11
+    title: Sentinel false-positive block cleared, curl checks given a browser UA
+    decision: >
+      Cleared a threat_action block on the session's own testing IP
+      (75.11.11.78), flagged for bot_ua pattern (bare curl User-Agent).
+      Adopted a standard browser UA string in all subsequent curl-based
+      status checks.
+    rationale: >
+      Q-Sentinel correctly identified genuinely bot-like traffic — it was
+      unintentionally this session's own monitoring, not a real threat. The
+      block recurred once more later the same day (from checks made before
+      the UA fix took effect) and was cleared again; no recurrence since.
+
+  - id: D-INFRA-004
+    date: 2026-07-16
+    title: Ghost site-wide Code Injection confirmed API-unwritable
+    decision: >
+      After a PUT to /ghost/api/admin/settings/ for codeinjection_head
+      returned 403 NoPermissionError, stopped attempting API writes for this
+      specific setting. Established the pattern: prepare the diff locally in
+      ghost-current/site-header-injection.html, hand the exact HTML to the
+      user to paste into Ghost Admin UI manually.
+    rationale: >
+      This is a genuine Ghost platform restriction (confirmed via direct API
+      test, not an integration permission issue) — Custom Integration API
+      keys cannot write site-wide code injection regardless of scope granted.
+
+  - id: D-INFRA-005
+    date: 2026-07-17
+    title: Chose Stripe over Lemon Squeezy for future .co.uk membership billing
+    decision: >
+      Recommended connecting Stripe to the Ghost instance for recurring
+      membership billing, rather than building custom Lemon Squeezy
+      subscription-lifecycle webhook logic.
+    rationale: >
+      Ghost's Portal natively handles the entire subscription lifecycle
+      (billing, renewal, cancellation, self-serve plan management) once
+      Stripe is connected — zero new code. The Lemon Squeezy alternative
+      would require building genuinely new subscription webhook handling
+      from scratch (subscription_created/updated/cancelled/payment_failed),
+      since the existing ls-webhook.js only ever handled one-time
+      order_created events — there was no proven subscription-sync code to
+      extend, contrary to an initial assumption.
+      Not yet implemented — Stripe remains unconnected as of this audit.
+    status: RECOMMENDED, NOT YET IMPLEMENTED
+
+  - id: D-INFRA-006
+    date: 2026-07-17
+    title: Membership button reverted to placeholder pending Stripe connection
+    decision: >
+      quantumrx.co.uk's "QuantumRx membership" button no longer links to
+      Ghost Portal signup; shows a placeholder alert ("Membership options are
+      not available yet") instead.
+    rationale: >
+      The button had briefly linked directly to the paid tier's signup step
+      (#/portal/signup/default-product), but Stripe isn't connected to this
+      Ghost instance, so that flow could not actually complete a purchase.
+      Better to show an honest placeholder than a checkout flow that fails
+      partway through.
+    supersedes: >
+      An earlier same-day change that added the tier-specific deep link —
+      correct once Stripe is connected, premature before then.
+
+  - id: D-INFRA-007
+    date: 2026-07-20
+    title: Infrastructure gets its own MBSE tree, separate from RSI's product tree
+    decision: >
+      Built mbse/infrastructure/ in this repo (Qrx_MARK_T2) rather than
+      adding an "Infrastructure" entry to Medha's tools.yaml registry
+      alongside RSI/MIP.
+    rationale: >
+      Medha's MBSE registry is explicitly scoped to "self-serve intelligence
+      tools" (sellable products); infrastructure spans both brands and isn't
+      a product. Keeping it in the repo that actually hosts most of the .eu
+      infrastructure (and cross-references the .co.uk VPS) keeps the
+      boundary clean: RSI's own MBSE tree still only covers RSI's pipeline,
+      not the infra it runs on.

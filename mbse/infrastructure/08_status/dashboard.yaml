@@ -1,0 +1,198 @@
+# Infrastructure status dashboard — written by crawler.py, do not hand-edit.
+generated_at: "2026-07-20T06:11:01.306037+00:00"
+generated_by: "crawler.py"
+forge_quantumrx_eu_pages:
+  -
+    url: "https://forge.quantumrx.eu/"
+    status: 200
+    ok: true
+
+  -
+    url: "https://forge.quantumrx.eu/ai-labs.html"
+    status: 200
+    ok: true
+
+  -
+    url: "https://forge.quantumrx.eu/the-strip.html"
+    status: 200
+    ok: true
+
+  -
+    url: "https://forge.quantumrx.eu/the-meme.html"
+    status: 200
+    ok: true
+
+  -
+    url: "https://forge.quantumrx.eu/break-the-sentinel.html"
+    status: 200
+    ok: true
+
+  -
+    url: "https://forge.quantumrx.eu/podcasts.html"
+    status: 200
+    ok: true
+
+  -
+    url: "https://forge.quantumrx.eu/products.html"
+    status: 200
+    ok: true
+
+  -
+    url: "https://forge.quantumrx.eu/this-week-in-tech.html"
+    status: 200
+    ok: true
+
+  -
+    url: "https://forge.quantumrx.eu/nft-forge-tv.html"
+    status: 200
+    ok: true
+
+  -
+    url: "https://forge.quantumrx.eu/lotm-forge-tv.html"
+    status: 200
+    ok: true
+
+  -
+    url: "https://forge.quantumrx.eu/exploit-watch.html"
+    status: 200
+    ok: true
+
+
+quantumrx_eu_ghost_pages:
+  -
+    url: "https://www.quantumrx.eu/"
+    status: 200
+    ok: true
+
+  -
+    url: "https://www.quantumrx.eu/signals/"
+    status: 200
+    ok: true
+
+  -
+    url: "https://www.quantumrx.eu/the-draw/"
+    status: 200
+    ok: true
+
+  -
+    url: "https://www.quantumrx.eu/this-week-in-tech/"
+    status: 200
+    ok: true
+
+  -
+    url: "https://www.quantumrx.eu/mainstream/"
+    status: 200
+    ok: true
+
+  -
+    url: "https://www.quantumrx.eu/products/"
+    status: 200
+    ok: true
+
+
+quantumrx_co_uk_pages:
+  -
+    url: "https://quantumrx.co.uk/"
+    status: 200
+    ok: true
+
+  -
+    url: "https://quantumrx.co.uk/order.html"
+    status: 200
+    ok: true
+
+  -
+    url: "https://quantumrx.co.uk/status.html"
+    status: 200
+    ok: true
+
+
+feed_freshness:
+  cartoon:
+    date: "2026-07-19"
+    updated: null
+    issueNumber: 20
+
+  meme:
+    date: "2026-07-19"
+    updated: null
+    issueNumber: 16
+
+  news-feed:
+    date: null
+    updated: "2026-07-19T06:19:17.685000+00:00"
+    issueNumber: null
+
+  draw-feed:
+    date: null
+    updated: "2026-07-19T06:19:17.703Z"
+    issueNumber: null
+
+  mainstream-feed:
+    date: null
+    updated: "2026-07-19T06:19:18.256Z"
+    issueNumber: null
+
+  weekly-feed:
+    date: null
+    updated: "2026-07-13T06:23:12.616Z"
+    issueNumber: null
+
+  podcast-feed:
+    date: null
+    updated: "2026-07-13T11:31:08.056Z"
+    issueNumber: null
+
+
+github_actions:
+  recent_runs:
+    -
+      created_at: "2026-07-13T11:31:02Z"
+      status: "completed"
+      conclusion: "failure"
+      event: "schedule"
+
+    -
+      created_at: "2026-07-13T09:47:24Z"
+      status: "completed"
+      conclusion: "success"
+      event: "schedule"
+
+    -
+      created_at: "2026-07-12T08:31:06Z"
+      status: "completed"
+      conclusion: "success"
+      event: "schedule"
+
+    -
+      created_at: "2026-07-11T08:14:52Z"
+      status: "completed"
+      conclusion: "success"
+      event: "schedule"
+
+    -
+      created_at: "2026-07-10T09:52:49Z"
+      status: "completed"
+      conclusion: "success"
+      event: "schedule"
+
+
+  schedule_disable_holding: true
+
+sentinel_blocks:
+  active_blocks: 4
+  ips:
+    - "204.93.237.9"
+    - "46.19.136.248"
+    - "66.225.208.88"
+    - "89.244.196.104"
+
+
+vps:
+  disk_used_pct: "68%"
+  mip_api: "active"
+  mip_worker: "active"
+  nginx: "active"
+  uncommitted_files: "9"
+  last_commit: "adb0304:2026-07-19"
+

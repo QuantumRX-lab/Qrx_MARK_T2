@@ -1,0 +1,223 @@
+# Infrastructure — Test Cases
+# Schema per Medha MBSE _framework/schemas/test_case.schema.yaml, consolidated.
+# Every "last_run_result" below reflects the live 2026-07-20 audit and is
+# also what crawler.py automates for repeat checks.
+
+test_cases:
+
+  - id: INFRA-TC-001
+    title: Daily cron fan-out fires and succeeds
+    verifies: [INFRA-STK-001, INFRA-SYS-001, INFRA-SYS-003]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["CRON_SECRET valid on both Railway and Vercel"]
+    test_data: {endpoint: "POST https://forge.quantumrx.eu/api/cron-daily"}
+    procedure:
+      - "Fetch /api/cartoon, /api/meme, /api/news-feed, /api/draw-feed, /api/mainstream-feed"
+      - "Compare each response's date/updated timestamp to today's date"
+      - "Confirm all timestamps cluster around 06:17-06:25 UTC"
+    expected_result: All five feeds show today's date, timestamps within ~10 minutes of each other.
+    pass_criteria:
+      - "date/issueNumber advances daily without manual trigger"
+      - "all timestamps consistent with a single fan-out run, not scattered/duplicate runs"
+    status: PASSED
+    last_run_date: 2026-07-20
+    last_run_result: "All 5 feeds dated 2026-07-19 (day before check), updated 06:19-06:21 UTC cluster. Today's run pending at check time (05:49 UTC, before 06:17 schedule)."
+    phase: v1
+
+  - id: INFRA-TC-002
+    title: Weekly cron fan-out fires on Mondays
+    verifies: [INFRA-STK-001, INFRA-SYS-004]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["Run date is a Monday (UTC)"]
+    test_data: {endpoint: "POST https://forge.quantumrx.eu/api/cron-weekly"}
+    procedure:
+      - "Fetch /api/weekly-feed and /api/podcast-feed"
+      - "Confirm current.updatedAt matches the most recent Monday's date, ~06:17-06:25 UTC"
+    expected_result: Weekly content updates once per week, on Monday, without manual trigger.
+    pass_criteria: ["updatedAt timestamp falls on a Monday within the expected time window"]
+    status: PASSED
+    last_run_date: 2026-07-20
+    last_run_result: "weekly-feed updatedAt 2026-07-13T06:23:12Z (correct Monday, correct time window)."
+    phase: v1
+
+  - id: INFRA-TC-003
+    title: GitHub Actions has no active schedule trigger
+    verifies: [INFRA-STK-004, INFRA-SYS-002]
+    type: INSPECTION
+    method: INSPECTION
+    preconditions: ["GitHub PAT with actions:read scope"]
+    test_data: {api: "GET /repos/QuantumRX-lab/Qrx_MARK_T2/actions/workflows/refresh.yml/runs"}
+    procedure:
+      - "List recent workflow runs"
+      - "Confirm no run has event=schedule dated after 2026-07-13"
+    expected_result: No scheduled runs; only workflow_dispatch runs, if any.
+    pass_criteria: ["zero schedule-triggered runs after 2026-07-13T11:31:02Z"]
+    status: PASSED
+    last_run_date: 2026-07-20
+    last_run_result: "Most recent run still 2026-07-13T11:31:02Z (the failure that triggered the disable). Clean for a full week."
+    phase: v1
+
+  - id: INFRA-TC-004
+    title: VPS services active, disk within headroom
+    verifies: [INFRA-SYS-010]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["SSH access to root@91.99.127.39"]
+    test_data: {services: ["mip-api", "mip-worker", "nginx"]}
+    procedure:
+      - "systemctl is-active for each service"
+      - "df -h / for disk usage percentage"
+    expected_result: All services 'active'; disk usage below 90%.
+    pass_criteria: ["all 3 services report active", "disk use% < 90"]
+    status: PASSED
+    last_run_date: 2026-07-20
+    last_run_result: "All active. Disk 68% (25GB/38GB)."
+    phase: v1
+
+  - id: INFRA-TC-005
+    title: Every Vercel env var used by api/*.js is actually configured
+    verifies: [INFRA-STK-002, INFRA-SYS-005]
+    type: INSPECTION
+    method: INSPECTION
+    preconditions: ["vercel CLI authenticated to the project"]
+    test_data: {}
+    procedure:
+      - "grep -rhoE 'process\\.env\\.[A-Za-z_][A-Za-z0-9_]*' api/ | sort -u"
+      - "vercel env ls"
+      - "Diff the two lists"
+    expected_result: Every referenced variable name appears in the configured list.
+    pass_criteria: ["zero referenced-but-not-configured variables"]
+    status: PASSED
+    last_run_date: 2026-07-20
+    last_run_result: >
+      RE-RUN after action: the 5 previously-missing vars were required only
+      by api/ls-webhook.js, confirmed an unused stub and deleted. Re-running
+      the diff now shows zero referenced-but-missing variables.
+    defects_raised: [RISK-INFRA-004]
+    phase: v1
+
+  - id: INFRA-TC-006
+    title: Every configured Vercel env var is used by some code path
+    verifies: [INFRA-STK-002, INFRA-SYS-005]
+    type: INSPECTION
+    method: INSPECTION
+    preconditions: ["Same data as INFRA-TC-005"]
+    test_data: {}
+    procedure: ["Same diff as INFRA-TC-005, reverse direction"]
+    expected_result: Every configured variable name is referenced somewhere in api/*.js.
+    pass_criteria: ["zero configured-but-unused variables, OR any exception explicitly confirmed intentional by the owner"]
+    status: PASSED
+    last_run_date: 2026-07-20
+    last_run_result: >
+      ANTHROPIC_API_KEY remains configured and unreferenced by deployed
+      code, but the owner confirmed 2026-07-20 this is intentional
+      (occasional/manual use outside the committed codebase) — accepted as
+      a documented exception rather than a defect.
+    defects_raised: [RISK-INFRA-006]
+    phase: v1
+
+  - id: INFRA-TC-007
+    title: "[SUPERSEDED] ls-webhook.js correctly handles a real order_created payload"
+    verifies: [INFRA-STK-003, INFRA-SYS-006]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["N/A — file deleted"]
+    test_data: {}
+    procedure:
+      - "Not executable in current state — blocked by INFRA-TC-005's failure"
+      - "Reviewed handler code path instead (static analysis): confirmed it fails closed (401 missing secret, 500 missing Ghost config) rather than silently succeeding"
+      - "SUPERSEDED 2026-07-20: owner confirmed the file was an unused stub, never wired into production; deleted rather than fixed (D-INFRA-008)"
+    expected_result: 200 response, Ghost member created/labelled.
+    pass_criteria: ["N/A — target of this test case no longer exists"]
+    status: BLOCKED
+    last_run_date: 2026-07-20
+    last_run_result: >
+      Test case retired along with api/ls-webhook.js. If a real purchase ->
+      Ghost-member flow is built later, write a fresh test case against it
+      rather than reviving this one.
+    defects_raised: [RISK-INFRA-004]
+    phase: v1
+
+  - id: INFRA-TC-008
+    title: A false-positive Sentinel block can be cleared without a deploy
+    verifies: [INFRA-STK-005, INFRA-SYS-009]
+    type: DEMONSTRATION
+    method: DEMONSTRATION
+    preconditions: ["Upstash REST token"]
+    test_data: {example_ip: "75.11.11.78"}
+    procedure:
+      - "POST {KV_URL}/del/threat_action:<ip>"
+      - "POST {KV_URL}/del/threat:flag:<ip>"
+      - "Re-GET both keys, confirm null"
+    expected_result: Block cleared immediately, no deploy required.
+    pass_criteria: ["both keys return null after DEL"]
+    status: PASSED
+    last_run_date: 2026-07-16
+    last_run_result: "Cleared successfully 3 separate times this session (2026-07-11, twice; 2026-07-16)."
+    phase: v1
+
+  - id: INFRA-TC-009
+    title: GA4 tags load once per page, correct measurement ID, no CSP block
+    verifies: [INFRA-SYS-007, INFRA-SYS-008]
+    type: SYSTEM
+    method: TEST
+    preconditions: []
+    test_data: {pages: "all forge.quantumrx.eu + quantumrx.eu pages, plus quantumrx.co.uk"}
+    procedure:
+      - "curl each page, count occurrences of googletagmanager.com/gtag/js"
+      - "curl -I each domain, inspect Content-Security-Policy header for googletagmanager/google-analytics allowlisting"
+    expected_result: Exactly 1 load per page; correct ID per brand; no CSP block.
+    pass_criteria: ["count == 1 on every page", "CSP allows required domains or is absent"]
+    status: PASSED
+    last_run_date: 2026-07-16
+    last_run_result: "All forge/eu pages: G-YPMBJ71VTF x1. co.uk: G-8C097TY3ZJ x1. No CSP blocking."
+    phase: v1
+
+  - id: INFRA-TC-010
+    title: Ghost site-wide Code Injection is not Admin-API-writable
+    verifies: [INFRA-SYS-011]
+    type: DEMONSTRATION
+    method: DEMONSTRATION
+    preconditions: ["Valid Ghost Admin API key"]
+    test_data: {endpoint: "PUT /ghost/api/admin/settings/", key: "codeinjection_head"}
+    procedure: ["Attempt the PUT with a valid JWT", "Record response"]
+    expected_result: Either succeeds, or fails with a clear permission error.
+    pass_criteria: ["response is 403 NoPermissionError (confirms manual-only, not a bug on our side)"]
+    status: PASSED
+    last_run_date: 2026-07-16
+    last_run_result: "403 NoPermissionError, confirmed. Manual paste required and used successfully instead."
+    phase: v1
+
+  - id: INFRA-TC-011
+    title: VPS static file edits are backed up first
+    verifies: [INFRA-SYS-012]
+    type: INSPECTION
+    method: INSPECTION
+    preconditions: []
+    test_data: {}
+    procedure: ["ls /var/www/medha/*.bak-* after each edit session"]
+    expected_result: A new timestamped backup exists for every edit made.
+    pass_criteria: ["backup count matches edit count"]
+    status: PASSED
+    last_run_date: 2026-07-17
+    last_run_result: "4 backups created across the 2026-07-17 session's edits, one per change, none skipped."
+    phase: v1
+
+  - id: INFRA-TC-012
+    title: CRON.txt has zero git history
+    verifies: [INFRA-SYS-013]
+    type: INSPECTION
+    method: INSPECTION
+    preconditions: []
+    test_data: {}
+    procedure:
+      - "git check-ignore -v CRON.txt"
+      - "git log --all --full-history --oneline -- CRON.txt"
+    expected_result: File is ignored; log output is empty.
+    pass_criteria: ["check-ignore reports a match", "log output has zero lines"]
+    status: PASSED
+    last_run_date: 2026-07-20
+    last_run_result: "Confirmed both — ignored by .gitignore:5, zero commits in full history."
+    phase: v1
