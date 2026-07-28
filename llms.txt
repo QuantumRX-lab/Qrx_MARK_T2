@@ -16,6 +16,7 @@
 - [Top 50 Tech Podcasts](https://forge.quantumrx.eu/podcasts.html): A weekly-refreshed directory of the 50 leading technology podcasts with each show's latest episode.
 - [This Week in Tech](https://forge.quantumrx.eu/this-week-in-tech.html): Weekly briefing of the most significant technology stories.
 - [Exploit Watch](https://forge.quantumrx.eu/exploit-watch.html): Daily-refreshed briefing of newly published CVEs, PoC exploit repositories, and vulnerability write-ups from GitHub and Hacker News, summarised for defenders with no exploitation steps.
+- [Watch](https://forge.quantumrx.eu/videos.html): Daily-refreshed list of 15 videos across AI, robotics, semiconductors, quantum computing, and space, curated from specialist YouTube channels.
 - [Products & Services](https://forge.quantumrx.eu/products.html): QuantumRx products and services.
 
 ## Taxonomy

@@ -3,6 +3,7 @@
 <head>
 <!-- QRx AEO: canonical, Open Graph, structured data -->
 <link rel="canonical" href="https://forge.quantumrx.eu/videos.html">
+<meta name="description" content="QuantumRx's daily video picks across AI, robotics, semiconductors, quantum computing, and space.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="QuantumRx">
 <meta property="og:title" content="Watch | QuantumRx">
@@ -11,6 +12,33 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Watch | QuantumRx">
 <meta name="twitter:description" content="QuantumRx's daily video picks across AI, robotics, semiconductors, quantum computing, and space.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://quantumrx.eu/#organization",
+      "name": "QuantumRx",
+      "url": "https://quantumrx.eu",
+      "logo": "https://forge.quantumrx.eu/ai-tools-hero-art.png"
+    },
+    {
+      "@type": "CollectionPage",
+      "@id": "https://forge.quantumrx.eu/videos.html#page",
+      "name": "Watch",
+      "url": "https://forge.quantumrx.eu/videos.html",
+      "description": "QuantumRx's daily video picks across AI, robotics, semiconductors, quantum computing, and space, refreshed every morning.",
+      "isPartOf": {
+        "@id": "https://quantumrx.eu/#organization"
+      },
+      "publisher": {
+        "@id": "https://quantumrx.eu/#organization"
+      }
+    }
+  ]
+}
+</script>
 
 <!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-YPMBJ71VTF"></script>
