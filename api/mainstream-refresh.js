@@ -196,16 +196,20 @@ async function geminiSelectOutlet(items, source, apiKey) {
 
   const prompt = `You are the editor of QuantumRx. From these ${source} stories, select the 2 most significant for a technically literate audience. Prioritise genuine news impact, policy implications, infrastructure shifts, and major company moves. Avoid opinion pieces, listicles, consumer how-to content, promo codes, discount offers, coupon articles, affiliate marketing content, and anything that is not genuine tech news.
 
-For each selected story return exactly 4 bullet points covering:
-1. What happened (the concrete fact)
-2. The scale or context (numbers, geography, or timeline)
-3. Why it matters for the tech industry
-4. What to watch next (one specific, checkable signal)
+For each selected story write three short sections in plain, direct language that any intelligent reader can follow without a technical background:
 
-Each bullet should be one tight sentence. No hype, no filler.
+WHAT IS IT: one sentence explaining what actually happened, no jargon, no assumed knowledge.
+
+WHY IT MATTERS: one to two sentences on the real-world consequence. Be specific. If it is probably noise, say so.
+
+WHAT COULD HAPPEN NEXT: one sharp, checkable sentence on the most likely near-term consequence or the signal to watch for.
+
+Also assign a single category: AI, Connectivity, Energy, Policy, Space, Crypto, Robotics, Semiconductors, Quantum, Business, or World.
+
+Do not use: it is worth noting, this underscores, in conclusion, it remains to be seen, the landscape, game changer, revolutionary, unpacked, delve, or exciting developments. Do not sound like an AI.
 
 Return ONLY a JSON array, no markdown, no preamble. "title" must be copied EXACTLY from the TITLE of the story at that index, not paraphrased — it's used to verify the index is correct:
-[{"index": <number>, "title": "<exact story title>", "bullets": ["...", "...", "...", "..."]}]
+[{"index": <number>, "title": "<exact story title>", "category": "<one of the list above>", "what_is_it": "...", "why_it_matters": "...", "what_next": "..."}]
 
 STORIES:
 ${list}`;
@@ -229,16 +233,28 @@ ${list}`;
     const picks = JSON.parse(extractJSON(text));
 
     return picks
-      .filter((p) => pool[p.index] && Array.isArray(p.bullets) && p.bullets.length && titlesRoughlyMatch(p.title, pool[p.index].title))
+      .filter((p) => pool[p.index] && p.what_is_it && titlesRoughlyMatch(p.title, pool[p.index].title))
       .map((p) => ({
         ...pool[p.index],
-        bullets: p.bullets.slice(0, 4),
+        category: p.category || "World",
+        what_is_it: p.what_is_it,
+        why_it_matters: p.why_it_matters || "",
+        what_next: p.what_next || "",
+        media_maturity: "mainstream",
+        velocity: "stable",
+        outlets: source,
       }))
       .slice(0, 2);
   } catch {
     return pool.slice(0, 2).map((it) => ({
       ...it,
-      bullets: [it.description.slice(0, 120) || it.title],
+      category: "World",
+      what_is_it: it.description.slice(0, 160) || it.title,
+      why_it_matters: "",
+      what_next: "",
+      media_maturity: "mainstream",
+      velocity: "stable",
+      outlets: source,
     }));
   }
 }
