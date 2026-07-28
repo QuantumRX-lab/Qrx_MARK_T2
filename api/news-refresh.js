@@ -1,7 +1,8 @@
 // /api/news-refresh.js
 // QuantumRx Signals — daily refresh engine v6
 // Tabs: What's Hot, AI Moves, Crypto, Policy, Energy, Space, Robotics, Semis, Quantum, Social, Search
-// Watch: 4 videos, one per vertical group, diversified
+// Watch: 15 videos (top 3 per vertical group x 5 groups) — full set powers
+// /videos.html, Signals' own "Watch" teaser shows just the top 1 per group
 // v6 CHANGES: added hot_take field to editorial card generation. (Earlier v6 draft
 // incorrectly removed the blockThreat import based on a different sentinel module —
 // this _lib/sentinel.js correctly exports blockThreat, reverted, no change needed here.)
@@ -586,7 +587,9 @@ ${buildList(items)}`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.4,
-          maxOutputTokens: 800,
+          // Raised from 800 — was sized for the old 4-video cap; now
+          // covers up to 15 (3 per group x 5 groups) for the full list page.
+          maxOutputTokens: 2400,
           thinkingConfig: { thinkingBudget: 0 },
         },
       }),
@@ -614,17 +617,18 @@ function videoThumb(item) {
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : (item.image || "");
 }
 
-// Pick one video per vertical group, 4 total
-// Each group fetches all its feeds, picks the most recent item
-async function pickDiverseVideos(n) {
+// Pick the top `perGroup` most recent videos from every vertical group,
+// for the full Watch list page. Previously this stopped as soon as it
+// hit an overall cap (4) rather than a per-group one — with 5 groups in
+// VIDEO_GROUPS that meant the 5th group (space) was never reached at all,
+// not just under-represented. Iterating every group individually and
+// taking its own top N fixes that instead of just raising the old cap.
+async function pickDiverseVideos(perGroup) {
   const selected = [];
   for (const group of VIDEO_GROUPS) {
-    if (selected.length >= n) break;
     const raw = await fetchAll(group.feeds);
-    const items = freshSort(dedupe(raw));
-    if (items.length > 0) {
-      selected.push({ ...items[0], vertical: group.vertical });
-    }
+    const items = freshSort(dedupe(raw)).slice(0, perGroup);
+    items.forEach((it) => selected.push({ ...it, vertical: group.vertical }));
   }
   return selected;
 }
@@ -742,8 +746,10 @@ export default async function handler(req, res) {
   const quantumD  = diversifyBySource(quantum,  quantumPool);
   const socialD   = diversifyBySource(social,   socialPool);
 
-  // 5. Videos — one per vertical group, 4 total
-  const rawVideos = await pickDiverseVideos(4);
+  // 5. Videos — top 3 per vertical group, 15 total (5 groups), feeding
+  // both the Signals "Watch" teaser (top 1 per group) and the full
+  // /videos.html list page (all of them).
+  const rawVideos = await pickDiverseVideos(3);
   const summarisedVideos = await summariseVideos(rawVideos, apiKey);
   const videos = summarisedVideos.map((v) => ({ ...v, image: videoThumb(v) }));
 
