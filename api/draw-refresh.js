@@ -204,13 +204,18 @@ async function geminiSelectOutlet(items, source, tab, apiKey) {
 
   const prompt = `You are a senior editor at a world news briefing. From these ${source} stories select the 3 most significant for a globally informed audience. Prioritise ${criteria}
 
-For each story return exactly 3 bullet points:
-1. What happened — the concrete fact in one sentence
-2. Why it matters — the global significance in one sentence
-3. What to watch — one specific checkable signal
+For each story write three short sections in plain, direct language:
+
+WHAT IS IT: one sentence explaining what actually happened, no jargon, no assumed knowledge.
+
+WHY IT MATTERS: one to two sentences on the real global or market significance. Be specific.
+
+WHAT COULD HAPPEN NEXT: one sharp, checkable sentence on the signal to watch.
+
+Also assign a single category: World, Business, Policy, Energy, Conflict, Climate, or Science.
 
 Return ONLY a JSON array, no markdown. "title" must be copied EXACTLY from the TITLE of the story at that index, not paraphrased — it's used to verify the index is correct:
-[{"index": <number>, "title": "<exact story title>", "bullets": ["...", "...", "..."]}]
+[{"index": <number>, "title": "<exact story title>", "category": "<one of the list above>", "what_is_it": "...", "why_it_matters": "...", "what_next": "..."}]
 
 STORIES:
 ${list}`;
@@ -229,11 +234,29 @@ ${list}`;
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
     const picks = JSON.parse(extractJSON(text));
     return picks
-      .filter(p => pool[p.index] && Array.isArray(p.bullets) && p.bullets.length && titlesRoughlyMatch(p.title, pool[p.index].title))
-      .map(p => ({ ...pool[p.index], bullets: p.bullets.slice(0, 3) }))
+      .filter(p => pool[p.index] && p.what_is_it && titlesRoughlyMatch(p.title, pool[p.index].title))
+      .map(p => ({
+        ...pool[p.index],
+        category: p.category || "World",
+        what_is_it: p.what_is_it,
+        why_it_matters: p.why_it_matters || "",
+        what_next: p.what_next || "",
+        media_maturity: "mainstream",
+        velocity: "stable",
+        outlets: source,
+      }))
       .slice(0, 3);
   } catch {
-    return pool.slice(0, 3).map(it => ({ ...it, bullets: [it.description.slice(0, 120) || it.title] }));
+    return pool.slice(0, 3).map(it => ({
+      ...it,
+      category: isFinance ? "Business" : "World",
+      what_is_it: it.description.slice(0, 160) || it.title,
+      why_it_matters: "",
+      what_next: "",
+      media_maturity: "mainstream",
+      velocity: "stable",
+      outlets: source,
+    }));
   }
 }
 
