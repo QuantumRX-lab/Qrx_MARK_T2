@@ -3,6 +3,9 @@
 // Tabs: What's Hot, AI Moves, Crypto, Policy, Energy, Space, Robotics, Semis, Quantum, Social, Search
 // Watch: 15 videos (top 3 per vertical group x 5 groups) — full set powers
 // /videos.html, Signals' own "Watch" teaser shows just the top 1 per group
+// Release signals: 10 hand-curated GitHub repos (AI/ML tooling, Qiskit, ROS 2,
+// LeRobot) via GitHub's native releases.atom, feeding straight into the
+// hot/aimoves/robotics/quantum pools alongside the RSS sources
 // v6 CHANGES: added hot_take field to editorial card generation. (Earlier v6 draft
 // incorrectly removed the blockThreat import based on a different sentinel module —
 // this _lib/sentinel.js correctly exports blockThreat, reverted, no change needed here.)
@@ -85,6 +88,30 @@ const QUANTUM_FEEDS = [
   { name: "arXiv Quantum", url: "https://export.arxiv.org/rss/quant-ph" },
   { name: "IBM Research Quantum", url: "https://research.ibm.com/blog/rss" },
   { name: "Q2B Insider", url: "https://q2b.qcware.com/feed/" },
+];
+
+// GitHub's own releases.atom is a free, official feed — no RSSHub needed
+// for this. These are hand-curated repos (release titles are bare version
+// tags like "v0.32.5" with no descriptive keywords), so they're merged
+// into their pool AFTER the SIGNAL_TERMS/etc. keyword filter runs, not
+// before — termMatch() would otherwise drop every one of them.
+const AI_RELEASE_FEEDS = [
+  { name: "PyTorch Releases", url: "https://github.com/pytorch/pytorch/releases.atom" },
+  { name: "Transformers Releases", url: "https://github.com/huggingface/transformers/releases.atom" },
+  { name: "llama.cpp Releases", url: "https://github.com/ggml-org/llama.cpp/releases.atom" },
+  { name: "Ollama Releases", url: "https://github.com/ollama/ollama/releases.atom" },
+  { name: "vLLM Releases", url: "https://github.com/vllm-project/vllm/releases.atom" },
+  { name: "LangChain Releases", url: "https://github.com/langchain-ai/langchain/releases.atom" },
+  { name: "TensorRT-LLM Releases", url: "https://github.com/NVIDIA/TensorRT-LLM/releases.atom" },
+];
+
+const QUANTUM_RELEASE_FEEDS = [
+  { name: "Qiskit Releases", url: "https://github.com/Qiskit/qiskit/releases.atom" },
+];
+
+const ROBOTICS_RELEASE_FEEDS = [
+  { name: "ROS 2 Releases", url: "https://github.com/ros2/ros2/releases.atom" },
+  { name: "LeRobot Releases", url: "https://github.com/huggingface/lerobot/releases.atom" },
 ];
 
 const SOCIAL_FEEDS = [
@@ -677,7 +704,7 @@ export default async function handler(req, res) {
   const startedAt = Date.now();
 
   // 1. Fetch all pools in parallel
-  const [rawText, rawCrypto, rawPolicy, rawEnergy, rawSpace, rawRobotics, rawSemis, rawQuantum, rawSocial] = await Promise.all([
+  const [rawText, rawCrypto, rawPolicy, rawEnergy, rawSpace, rawRobotics, rawSemis, rawQuantum, rawSocial, rawAiReleases, rawQuantumReleases, rawRoboticsReleases] = await Promise.all([
     fetchAll(TEXT_FEEDS),
     fetchAll(CRYPTO_FEEDS),
     fetchAll(POLICY_FEEDS),
@@ -687,17 +714,22 @@ export default async function handler(req, res) {
     fetchAll(SEMIS_FEEDS),
     fetchAll(QUANTUM_FEEDS),
     fetchAll(SOCIAL_FEEDS),
+    fetchAll(AI_RELEASE_FEEDS),
+    fetchAll(QUANTUM_RELEASE_FEEDS),
+    fetchAll(ROBOTICS_RELEASE_FEEDS),
   ]);
 
-  // 2. Filter and dedupe
-  const textPool     = freshSort(dedupe(rawText.filter((it) => termMatch(it, SIGNAL_TERMS)))).slice(0, 60);
+  // 2. Filter and dedupe. Release feeds bypass the keyword gate (see the
+  // comment on AI_RELEASE_FEEDS above) — they're curated by repo choice,
+  // not by term matching, so they're concatenated in after the filter.
+  const textPool     = freshSort(dedupe([...rawText.filter((it) => termMatch(it, SIGNAL_TERMS)), ...rawAiReleases])).slice(0, 60);
   const cryptoPool   = freshSort(dedupe(rawCrypto.filter((it) => termMatch(it, CRYPTO_TERMS)))).slice(0, 40);
   const policyPool   = freshSort(dedupe(rawPolicy.filter((it) => termMatch(it, POLICY_TERMS)))).slice(0, 40);
   const energyPool   = freshSort(dedupe(rawEnergy.filter((it) => termMatch(it, ENERGY_TERMS)))).slice(0, 40);
   const spacePool    = freshSort(dedupe(rawSpace)).slice(0, 40);
-  const roboticsPool = freshSort(dedupe(rawRobotics.filter((it) => termMatch(it, ROBOTICS_TERMS)))).slice(0, 40);
+  const roboticsPool = freshSort(dedupe([...rawRobotics.filter((it) => termMatch(it, ROBOTICS_TERMS)), ...rawRoboticsReleases])).slice(0, 40);
   const semisPool    = freshSort(dedupe(rawSemis.filter((it) => termMatch(it, SEMIS_TERMS)))).slice(0, 40);
-  const quantumPool  = freshSort(dedupe(rawQuantum.filter((it) => termMatch(it, QUANTUM_TERMS)))).slice(0, 40);
+  const quantumPool  = freshSort(dedupe([...rawQuantum.filter((it) => termMatch(it, QUANTUM_TERMS)), ...rawQuantumReleases])).slice(0, 40);
   const socialPool   = freshSort(dedupe(rawSocial.filter((it) => termMatch(it, SOCIAL_TERMS)))).slice(0, 50);
 
   // 3. Enrich missing images/descriptions
