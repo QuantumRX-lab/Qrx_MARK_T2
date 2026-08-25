@@ -414,40 +414,43 @@ test_cases:
     phase: v1
 
   - id: CHOMP-TC-024
-    title: Ring layout inspection
+    title: Level 1 bowl layout inspection
     verifies: [CHOMP-SYS-022]
     type: SYSTEM
     method: INSPECTION
-    preconditions: ["A finished map"]
-    test_data: {scope: "map geometry and pellet values"}
+    preconditions: ["The finished Level 1 map"]
+    test_data: {scope: "spawn quadrants, rim maze, slope, central bowl and reward values"}
     procedure:
-      - "Confirm concentric rings with rising pellet values inward"
-      - "Confirm all garages sit on the outermost ring"
-      - "Rotate the map 90 degrees in the viewport and compare against the original"
-    expected_result: Rings are concentric, values rise inward, garages are outermost, and the map is identical under 90 degree rotation.
-    pass_criteria: ["pellet value strictly rises per ring inward", "all garages on ring 1", "geometry identical under rotation"]
+      - "Confirm garages are distributed across four outer spawn quadrants"
+      - "Drive from each garage through the easy rim maze to the central bowl"
+      - "Confirm route openness, pellet value and ghost danger rise toward the centre"
+      - "Confirm the guardian chamber is adjacent and visible from an approach route"
+    expected_result: Every spawn has a readable safe route, the inward risk/reward gradient is clear, and the guardian chamber is a deliberate destination.
+    pass_criteria: ["four spawn quadrants represented", "all garages connect to rim maze", "central bowl is open combat space", "reward value rises inward", "guardian chamber has a readable approach"]
     automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
   - id: CHOMP-TC-025
-    title: The gate guardian turns away, or is eaten and opens for all
+    title: Guardian chamber refuses the weak and tests the ready
     verifies: [CHOMP-SYS-023, CHOMP-SYS-024, CHOMP-SYS-025]
     type: INTEGRATION
     method: TEST
-    preconditions: ["A gate with Threat 250", "One player under it, one over it, one bystander"]
+    preconditions: ["A guardian chamber with Threat 250", "One player under it and one over it"]
     test_data: {threat: 250, under_power: 100, over_power: 300, under_carry: 400}
     procedure:
-      - "Drive the under-powered player into the guardian and read carry and position"
-      - "Drive the over-powered player into it and read points, the gate state and the bystander's access"
-      - "Wait 60 s and confirm the guardian reforms"
+      - "Approach under-powered and confirm Threat, own Power, warning and commitment line are visible"
+      - "Cross the line under-powered and measure carry loss and respawn time"
+      - "Cross at sufficient Power, strike the guardian head-on, then strike its side and rear"
+      - "Defeat the guardian and inspect the reward and Level 2 access for that player"
       - "From an exploit client, fire any gate remote claiming a Power of 900"
-    expected_result: Under-power costs 200 and ejects; over-power consumes the guardian, awards bonus and opens the gate to everyone for 60 s; forged Power is ignored.
+    expected_result: Under-power is warned then chomped for 200 carry and respawns; sufficient Power starts a directional fight whose defeat reward unlocks Level 2 only for the challenger; forged Power is ignored.
     pass_criteria:
-      - "under-powered player loses 50% carry and ends outside the gate"
-      - "guardian displays its Threat at all times while present"
-      - "bystander passes freely during the 60 s window"
-      - "guardian reforms after 60 s"
+      - "Threat and own Power are visible before commitment"
+      - "under-powered player loses 50% carry and respawns at own garage <= 4 s"
+      - "head-on attack clangs without guardian damage"
+      - "side or rear attacks damage the guardian"
+      - "defeat awards points and unlocks the Level 2 passage for the challenger"
       - "client-claimed Power has no effect"
     automation: AUTOMATED
     status: NOT_STARTED
@@ -807,4 +810,48 @@ test_cases:
       - "scan is runnable unattended and reports per-check pass/fail"
     status: NOT_STARTED
     automation: AUTOMATED
+    phase: v1
+
+  - id: CHOMP-TC-045
+    title: A child reads the play HUD while moving
+    verifies: [CHOMP-SYS-055, CHOMP-SYS-056]
+    type: ACCEPTANCE
+    method: DEMONSTRATION
+    preconditions: ["An iPad play session", "A child unfamiliar with the HUD", "No verbal explanation"]
+    test_data: {events: ["pellet pickup", "banking", "purchase", "side hit", "guardian approach"]}
+    procedure:
+      - "Drive continuously while triggering each event"
+      - "After each event ask what increased or decreased and whether it is safe"
+      - "Ask what the current next objective is and where to go"
+      - "Observe both thumbs and verify they cover no HUD value"
+    expected_result: The child distinguishes carried points, safe dollars, battle charge and Power, identifies the next useful action, and never releases touch control to read it.
+    pass_criteria:
+      - "at least 4 of 5 event outcomes identified without help"
+      - "carried and banked correctly identified as risky and safe"
+      - "next objective identified inside 2 seconds"
+      - "no HUD overlap with either lower 30% thumb zone"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-046
+    title: The garage explains the next purchase
+    verifies: [CHOMP-SYS-057]
+    type: ACCEPTANCE
+    method: DEMONSTRATION
+    preconditions: ["A player in the garage with $350", "HeavyJaw priced at $500", "At least one upgrade with a trade-off"]
+    test_data: {banked: 350, next_chassis: "HeavyJaw", price: 500}
+    procedure:
+      - "Ask the player which vehicle comes next and how many dollars remain"
+      - "Rotate the preview and compare all five bars against Standard"
+      - "Select an upgrade and ask what improves and what becomes worse"
+      - "Bank another $150 and complete the purchase"
+    expected_result: The player answers HeavyJaw and $150 without arithmetic, understands the displayed trade-off, and sees the purchased vehicle become driveable.
+    pass_criteria:
+      - "next vehicle and $150 TO GO read correctly"
+      - "five comparison bars visible without scrolling"
+      - "upgrade gain and cost both identified before purchase"
+      - "primary command changes from unavailable to BUY to DRIVE"
+    automation: HYBRID
+    status: NOT_STARTED
     phase: v1
