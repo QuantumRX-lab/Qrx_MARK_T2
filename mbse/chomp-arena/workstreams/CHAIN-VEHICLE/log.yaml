@@ -329,3 +329,25 @@ entries:
     angle. Keep Standard.rbxm until all three gates pass. Return full factory
     and conformance output plus the human facing-readability result; only then
     delete the binary and append DELIVERED.
+- date: '2026-08-25'
+  agent: Codex (vehicle design)
+  action: NOTE
+  requirements: [CHOMP-SYS-054]
+  summary: >
+    Studio runtime evidence received. VehicleFactory.buildAll() built the new
+    Standard Luau spec without error. VehicleConformance then reported PASS
+    for Standard, HeavyJaw, Ravener and Apex when each model was temporarily
+    parented to Workspace for inspection, ending with CONFORMANCE: PASS twice.
+    The normal checkAll() call produced false physics.welded failures because
+    Roblox GetJoints() returns no joints for parts under ReplicatedStorage and
+    printed that limitation explicitly; no model geometry or weld change was
+    required. Standard preview also executed without an error, but the human
+    facing-readability judgment has not yet been reported, so delivery is not
+    claimed and Standard.rbxm remains in place.
+  status: OPEN
+  handoff: >
+    Confirm that Standard's mouth and forward direction are unmistakable from
+    the 38-degree game camera, including in greyscale. After that visual gate,
+    delete Standard.rbxm, append DELIVERED, and migrate HeavyJaw next. Engine
+    owner should consider making VehicleConformance inspect weld constraints
+    without requiring models to be parented to Workspace.
