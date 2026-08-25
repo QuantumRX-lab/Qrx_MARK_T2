@@ -146,6 +146,13 @@ ChompConfig.Budgets = {
 -- Hold to turn, always driving forward. There is no accelerator, no brake and
 -- no action button in the entire game.
 
+-- ── Debug ───────────────────────────────────────────────────────────────
+-- On by default while step 1 is being accepted. Turn CameraReadout off before
+-- anyone plays this for fun rather than to measure it.
+ChompConfig.Debug = {
+	CameraReadout = true,   -- on-screen occlusion figures, for CHOMP-TC-040
+}
+
 ChompConfig.Controls = {
 	-- Floating stick (D-CHOMP-027). Radius is a fraction of screen HEIGHT so the
 	-- stick is the same physical size in portrait and landscape.

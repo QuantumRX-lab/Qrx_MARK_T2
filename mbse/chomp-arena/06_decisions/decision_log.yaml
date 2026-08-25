@@ -590,3 +590,35 @@ decisions:
       the build is internally consistent, which is a property of the artefact
       rather than a shall statement, and inventing a requirement to justify a
       tool would put a false trace in the tree.
+
+  - id: D-CHOMP-029
+    date: 2026-08-25
+    title: The camera acceptance run reports on screen, because the device has no command bar
+    decision: >
+      A CameraReadout client script shows worst occlusion, the limit and the
+      breach count at the top of the screen, red on failure, with a live HIDDEN
+      indicator while the vehicle is occluded and a RESET button to re-run the
+      circuit without rejoining. Gated on ChompConfig.Debug.CameraReadout.
+      _G.ChompCameraReport() stays for Studio.
+    rationale: >
+      BUILDING.md told the tester to call _G.ChompCameraReport() from the command
+      bar. That instruction was written by a session that could not test on a
+      device and does not survive contact with one: an iPad has no command bar.
+      The fallback, typing Lua into the /console overlay while holding a vehicle
+      on a steering stick, is a juggling act rather than a procedure — and the
+      camera warns on every breach, so the log is noisiest exactly when the
+      numbers matter. CHOMP-TC-040 is the highest-risk item in the tree
+      (RISK-CHOMP-012) and it has never once completed; a test that cannot report
+      its own result on the platform it is about will keep not completing.
+      The live HIDDEN indicator is deliberate. A total at the end says the camera
+      failed; seeing the counter run while you are behind the tower core says
+      what failed, which is the difference between a number to report and a thing
+      to fix.
+    outcome: >
+      src/StarterPlayer/StarterPlayerScripts/CameraReadout.client.lua, reading
+      _G.ChompCameraStats — a silent accessor added alongside the printing
+      report, because polling the printing one five times a second would bury
+      the breach warnings. Placed top centre, clear of the thumb zones the
+      control scheme reserves. The RESET button is safe next to a touch stick
+      because InputController drops touches whose gameProcessedEvent is true.
+      BUILDING.md now carries the publish-and-play steps as well.

@@ -73,7 +73,7 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 28
+  total: 29
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder — the daughter names it."
@@ -99,9 +99,11 @@ next_actions:
      building. Two breaches of exactly 0.20 s were already observed in Studio on
      a trivial map, so expect this to fail and budget for redesigning the camera
      rather than tuning it."
-  - "Exercise the touch stick on the device. Studio only ever tested the
-     keyboard path, so the floating anchor, the ignored second finger and the
-     dead-zone rescale are all unplayed."
+  - "Exercise the touch stick on the same device trip. Studio only ever tested
+     the keyboard path, so the floating anchor, the ignored second finger, the
+     dead-zone rescale and whether reverse should mirror the steering axis are
+     all unplayed. The on-screen camera readout (D-CHOMP-029) means one trip
+     answers both this and CHOMP-TC-040."
   - "Run the vehicle conformance scan in Edit mode and record the result in
      CHAIN-VEHICLE: require(game.ServerStorage.ChompTools.VehicleConformance)
      then S.report(S.checkAll()). It closes the last two open checks on Codex's

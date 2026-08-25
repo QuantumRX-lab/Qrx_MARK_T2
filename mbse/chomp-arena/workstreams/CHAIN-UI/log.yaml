@@ -107,3 +107,24 @@ entries:
     SetInputDirection, because nothing server-side consumes input yet and
     widening the remote means amending service_contracts.md and extending
     CHOMP-TC-042 in the same commit.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-032]
+  summary: >
+    CHOMP-TC-040 could not be run as written: BUILDING.md sent the tester to the
+    Studio command bar, and the iPad it names as the reference platform has no
+    command bar. Added CameraReadout.client.lua (D-CHOMP-029) — worst occlusion,
+    limit, breach count and a live HIDDEN duration at the top of the screen, red
+    on CHOMP-SYS-051 failure, with a RESET button. Reads a new silent
+    _G.ChompCameraStats accessor rather than the printing report, so polling it
+    does not bury the breach warnings. Gated on ChompConfig.Debug.CameraReadout.
+  status: OPEN
+  handoff: >
+    The readout itself is unplayed on a device — it is a HUD written by someone
+    who cannot see a HUD. Check on the iPad that it is legible at arm's length,
+    that it does not sit under the notch or a rounded corner despite
+    IgnoreGuiInset, and that RESET is reachable without the thumb crossing the
+    stick. If the frame overlaps anything, its position is one UDim2 at the top
+    of the file. Turn CameraReadout off in ChompConfig before this is ever
+    played for fun rather than measured.

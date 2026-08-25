@@ -35,26 +35,46 @@ scheme of `D-CHOMP-026`).
 ## What to actually test — `CHOMP-TC-040`
 
 This is the camera acceptance run, and it is the highest-risk item in the
-project (`RISK-CHOMP-012`). Do it **on the iPad**, not in Studio: publish
-privately, open it on the device, and play it there. Studio's window is not the
-device, and the device is the reference platform.
+project (`RISK-CHOMP-012`). Do it **on the iPad**, not in Studio. Studio's
+window is not the device, and the device is the reference platform.
+
+### Getting it onto the device
+
+1. Sync Rojo so the place is current, then run `python guard.py`.
+2. Studio: **File → Publish to Roblox As…**, name it, create.
+3. **create.roblox.com** → the experience → **Configure** → confirm privacy is
+   **Private**. `CHOMP-SYS-035` says private now; Friends-only later and only by
+   an explicit decision. Do not let it default to public.
+4. Copy the experience link from the Creator Dashboard.
+5. On the iPad, sign into the Roblox app as the owner, then open that link in
+   Safari and tap Play. Private experiences do not appear in search, so the link
+   is the only way in.
+
+### The run
 
 1. Drive a full circuit of both decks. Go **under the bridge**, **around the
    tower core**, and up and down the ramp.
-2. From the command bar afterwards:
+2. Read the figures off the **top of the screen**. The readout shows worst
+   occlusion, the limit, and a breach count, and turns red the moment
+   `CHOMP-SYS-051` fails. **Any breach is a failure.** While the vehicle is
+   actually hidden it shows `HIDDEN` and a running duration, so you can see
+   *which* piece of geometry did it rather than only that something did.
 
-   ```lua
-   _G.ChompCameraReport()
-   ```
-
-   It prints the worst occlusion duration and how many times the 0.2 s ceiling
-   was breached. **Any breach is a failure**, and the camera warns in the
-   output the moment one happens, with how long you were hidden.
+   There is no command bar on an iPad. `_G.ChompCameraReport()` still works in
+   Studio, but the readout is the device procedure (`D-CHOMP-029`). **RESET**
+   clears the run so you can go again without rejoining.
 3. Watch for a jump cut on the ramp, in either direction. There should be
    none — deck height eases on a critically damped spring.
 4. Drive off the bridge. The camera should follow you down without cutting.
 5. Hand the iPad to your daughter and watch whether she ever loses track of her
    own vehicle. She is the acceptance test; the numbers are only the evidence.
+   This is also the first time the touch controls have ever been used: the stick
+   floats and anchors wherever her thumb lands, a second finger is ignored, and
+   pulling back reverses and swings the vehicle around (`D-CHOMP-027`). None of
+   that has been felt by anyone — Studio only ever tested the keyboard.
+
+Turn the readout off in `ChompConfig.Debug.CameraReadout` before anyone plays
+this for fun rather than to measure it.
 
 If the camera cannot pass this on a map this trivial, the multi-level design is
 in trouble — and finding that out now, before any real geometry exists, is the

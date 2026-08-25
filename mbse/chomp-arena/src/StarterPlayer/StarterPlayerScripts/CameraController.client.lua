@@ -143,11 +143,25 @@ local function measureOcclusion(obscuring: { BasePart }, dt: number)
 	end
 end
 
--- Call from the command bar after a test circuit.
+-- Call from the command bar after a test circuit. Studio only: there is no
+-- command bar on an iPad, which is the platform CHOMP-TC-040 actually cares
+-- about, so the on-screen readout reads ChompCameraStats instead (D-CHOMP-029).
 _G.ChompCameraReport = function()
 	print(("[Camera] worst occlusion %.3fs, breaches over %.2fs: %d")
 		:format(worstOcclusion, C.MaxOcclusionSeconds, breaches))
 	return worstOcclusion, breaches
+end
+
+-- The same numbers, without printing. Polled several times a second by the
+-- readout, so it must stay silent — a report that spams the log is unreadable
+-- exactly when a breach happens.
+_G.ChompCameraStats = function()
+	return worstOcclusion, breaches, occludedFor
+end
+
+-- Lets one device session run the circuit more than once without rejoining.
+_G.ChompCameraReset = function()
+	worstOcclusion, breaches, occludedFor = 0, 0, 0
 end
 
 -- ── Hit shake ───────────────────────────────────────────────────────────
