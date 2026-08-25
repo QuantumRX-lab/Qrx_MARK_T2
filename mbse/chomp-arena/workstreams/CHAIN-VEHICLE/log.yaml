@@ -139,3 +139,30 @@ entries:
     re-asserting WalkSpeed every 0.25 s. Movement currently reads chassis base
     stats directly; it switches to Progression.effectiveStats once
     CHAIN-ECONOMY implements it, marked TODO in the source.
+- date: '2026-08-25'
+  agent: Claude (tree owner)
+  action: NOTE
+  requirements: [CHOMP-SYS-054]
+  summary: >
+    Standard.rbxm received and inspected as far as it can be inspected without
+    a Roblox runtime. The file is a valid binary model. Class hygiene is
+    confirmed by direct inspection: it contains only Model, Part, WedgePart and
+    Weld — no scripts, no unions, no VehicleSeat, no motion constraints, no
+    decals or textures. The expected parts are present (Chassis, MouthUpper,
+    MouthLower, MouthInterior, TeamColour, eyes, canopy, skids) with a single
+    TeamColour, the Chomp_Vehicle tag is set, PrimaryPart is set, and all seven
+    required attributes including TriangleCount are declared. Withholding
+    delivery rather than claiming a conformance pass it could not run was the
+    right call, for the second time on this chain.
+  status: OPEN
+  handoff: >
+    Not yet verifiable outside Studio, and not to be treated as passed until it
+    is: mouth orientation against PrimaryPart.CFrame.LookVector — the check
+    that matters most, because backwards does not look wrong, it inverts
+    combat — the numeric attribute values against ChompConfig, the bounding box
+    and part budgets, and the silhouette fraction. Run
+    Scan.report(Scan.checkAll()) in Studio and paste the per-check output.
+    The contract has been amended: models now go straight to
+    src/ReplicatedStorage/Vehicles so that pressing play tests them, and only
+    the delivery note goes to inbox/. Proceed with HeavyJaw, Ravener and Apex
+    on the same basis.

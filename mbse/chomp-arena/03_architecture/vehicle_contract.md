@@ -87,11 +87,18 @@ facing cannot play the combat system at all (`RISK-CHOMP-001`).
 
 ## 7. Delivery
 
-Deliver to `workstreams/CHAIN-VEHICLE/inbox/` as:
+Deliver straight into the synced source tree:
 
-- `<ChassisId>.rbxm` — the exported model
-- `<ChassisId>.md` — a short note: what it is, anything unusual, anything the
-  contract did not cover that had to be decided
+- `src/ReplicatedStorage/Vehicles/<ChassisId>.rbxm` — the exported model
+- `workstreams/CHAIN-VEHICLE/inbox/<ChassisId>.md` — a short note: what it is,
+  anything unusual, and **anything the contract did not cover that had to be
+  decided**. That last part is the valuable one
+
+**Amended 2026-08-25:** this contract originally said to deliver the `.rbxm`
+into `inbox/` as well. `src/` did not exist when it was written; now that Rojo
+syncs the source tree (`D-CHOMP-012`), a model in `Vehicles/` is testable by
+pressing play, and a second copy in `inbox/` would only be a copy that can
+drift. The note still goes to `inbox/`.
 
 **Check it yourself before delivering.** The conformance scan is
 `src/ServerStorage/ChompTools/VehicleConformance.lua`. Put the model in
