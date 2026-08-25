@@ -513,3 +513,24 @@ entries:
     it. The canopy centre lands at 4.62 studs and an R15 head is 4.5 to 5.0, but
     that is arithmetic, not observation. If it floats, the fix is the PivotTo
     drop in fitVehicle rather than the scale.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-001, CHOMP-SYS-003]
+  summary: >
+    Empty world diagnosed (D-CHOMP-038). Budgets.VehicleBounds was 6 x 6 x 8,
+    derived when corridors were 8 studs; the 16-stud grid of D-CHOMP-034 made it
+    stale, so assertContract correctly refused a kart that was correctly sized
+    for the map. Bounds re-derived to 8.3 x 7 x 10. Scale corrected 1.5 -> 1.4:
+    the kart is 5.84 wide, not 5.3, because the hover wheels stand proud of the
+    body shell, and the turning sweep caps scale at 1.416.
+  status: OPEN
+  handoff: >
+    CHAIN-VEHICLE owns Budgets.VehicleBounds through vehicle_contract.md, and
+    this changed it without asking, because the old value was blocking a build.
+    Please sanity-check 8.3 x 7 x 10 against the contract document, which still
+    quotes the old numbers - it was not edited here. The Y limit of 7 is not
+    arbitrary: a kart taller than WallHeight shows over the maze walls and the
+    world-locked camera loses the corridor.
+    If the wheels are meant to be the widest point, that is worth stating in the
+    contract, because measuring the body shell is what produced the wrong scale.

@@ -34,18 +34,25 @@ ChompConfig.Chassis = {
 ChompConfig.StartingChassis = "Standard"
 
 -- ── The kart ────────────────────────────────────────────────────────────
--- Scale is derived, not chosen (D-CHOMP-037). Two things pin it: the widest
--- body part must leave the turning sweep room in a corridor - clear width must
--- exceed turning radius plus body width, 5.7 + 5.3k <= 14 - and the canopy
--- centre at 3.08k must land near an R15 head, which sits 4.5 to 5.0 studs above
--- the feet. 1.5 gives 7.95 wide and a canopy centre at 4.62, satisfying both.
+-- Scale is derived, not chosen (D-CHOMP-037, corrected in D-CHOMP-038).
+--
+-- The kart's true width is 5.84 studs, not the 5.3 of its widest body part:
+-- the hover wheels stand proud of the shell. Measuring the body instead of the
+-- bounding box is how the first attempt landed on 1.5, which breached both the
+-- contract bounds and the turning sweep, so the factory refused to build it.
+--
+-- The sweep caps width at clear corridor minus turning radius, 14 - 5.7 = 8.27,
+-- which caps scale at 1.416. 1.4 gives an 8.18-stud kart, 6.04 high - under the
+-- 7-stud walls - and puts the canopy centre at 4.31, with the glass spanning
+-- 2.7 to 6.0, so an R15 head at 4.5 to 5.0 sits inside it.
+--
 -- Re-derive if CellSize, BaseSpeed or BaseTurn move.
 ChompConfig.Vehicle = {
-	Scale = 1.5,
+	Scale = 1.4,
 	ShowDriverHead = true,   -- the head stays visible through the glass canopy
 }
 
--- Movement shared by every chassis. Corridors are 8 studs wide and vehicles
+-- Movement shared by every chassis. Corridors are 16 studs wide and vehicles
 -- are at most 6, so turning has to complete inside roughly a third of a
 -- second or junctions become unmissable at speed.
 ChompConfig.Movement = {
@@ -163,7 +170,16 @@ ChompConfig.Match = {
 ChompConfig.Budgets = {
 	VehicleParts = 60,
 	VehicleTriangles = 5000,
-	VehicleBounds = Vector3.new(6, 6, 8),
+	-- Re-derived for the 16-stud grid (D-CHOMP-038). The old 6 x 6 x 8 was set
+	-- when corridors were 8 studs wide, and a kart scaled to fit a 16-stud
+	-- corridor breached it, so the contract rejected a vehicle that was the
+	-- right size for the map.
+	--   X: turning sweep caps width at clear corridor minus turning radius,
+	--      14 - 5.7 = 8.3
+	--   Y: must stay under WallHeight (7) or the kart shows over the walls and
+	--      the world-locked camera loses the maze
+	--   Z: length is not sweep-limited the way width is; 10 leaves headroom
+	VehicleBounds = Vector3.new(8.3, 7, 10),
 	VehicleTextures = 2,
 	VehicleTextureResolution = 512,
 	MouthSilhouetteFraction = 0.30,

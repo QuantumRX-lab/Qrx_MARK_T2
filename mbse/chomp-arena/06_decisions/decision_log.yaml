@@ -857,3 +857,38 @@ decisions:
       do not. Both the server sweep and the client modifier pass exclude the
       head, because disagreeing there is exactly the split D-CHOMP-035 was about.
       Codex's spec file is untouched.
+
+  - id: D-CHOMP-038
+    date: 2026-08-25
+    title: A cosmetic script may not make the player disappear
+    decision: >
+      VehicleAppearance hides the avatar only while a Vehicle is actually
+      attached to the character. With no kart it clears the modifier and leaves
+      the driver visible. VehicleBounds is re-derived for the 16-stud grid at
+      8.3 x 7 x 10, and Vehicle.Scale corrected from 1.5 to 1.4.
+    rationale: >
+      Reported twice as "the avatar and vehicle are not showing". Two faults
+      stacked, and only the second one mattered.
+      The kart stopped building: VehicleBounds was 6 x 6 x 8, set when corridors
+      were 8 studs wide, so a kart scaled for a 16-stud corridor breached the
+      contract and assertContract threw. The contract was rejecting a vehicle
+      that was the correct size for the map — the bound had gone stale the
+      moment the grid widened in D-CHOMP-034, and nothing connected the two.
+      The scale itself was also wrong. 1.5 came from the widest BODY part, 5.3,
+      but the kart's true width is 5.84 because the hover wheels stand proud of
+      the shell. Measuring a part instead of the bounding box put it over both
+      the contract and the turning sweep. The sweep caps scale at 1.416, so 1.4.
+      The fault that actually produced an empty world was neither of those.
+      VehicleAppearance hid every avatar part on spawn without ever checking
+      whether a vehicle existed, so ANY build failure gave no kart and an
+      invisible driver standing in it. That is why the symptom looked identical
+      before and after D-CHOMP-036, and why fixing the hiding logic there
+      changed nothing: the failure was upstream and the client hid the evidence.
+    outcome: >
+      The client checks for the Vehicle before hiding anything, so a failed
+      build now degrades to a plain visible avatar and a warning, which is a
+      diagnosable state rather than an empty one. Bounds and scale are both
+      derived from the corridor with the arithmetic written beside them.
+      The general rule this is the third instance of: a number derived from
+      another number must say so where it lives, or it goes stale silently when
+      the other one moves.

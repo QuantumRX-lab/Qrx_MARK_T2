@@ -103,6 +103,21 @@ player.CharacterAdded:Connect(onCharacter)
 -- Last writer wins, so write last. Fifteen parts a frame is nothing, and the
 -- alternative is racing a controller whose update schedule is not ours to know.
 RunService.RenderStepped:Connect(function()
+	-- Only hide the avatar when there is actually a kart to hide it inside
+	-- (D-CHOMP-038). Hiding unconditionally meant that ANY failure to build the
+	-- vehicle - a contract breach, a missing spec - produced an empty world: no
+	-- kart, and an invisible driver standing in it. A cosmetic script must never
+	-- be able to make the player disappear.
+	local wearing = character ~= nil and character:FindFirstChild("Vehicle") ~= nil
+	if not wearing then
+		for _, part in hidden do
+			if part.LocalTransparencyModifier ~= 0 then
+				part.LocalTransparencyModifier = 0
+			end
+		end
+		return
+	end
+
 	for _, part in hidden do
 		if part.LocalTransparencyModifier ~= 1 then
 			part.LocalTransparencyModifier = 1
