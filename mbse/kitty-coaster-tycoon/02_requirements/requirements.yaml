@@ -1,0 +1,730 @@
+# STATUS 2026-08-25: PARKED, INCOMPLETE. The game concept changed mid-session
+# (kitty coaster tycoon -> combative multiplayer Pac-Man) before the rest of the
+# tree — architecture, test cases, risks, decisions, validator — was written.
+# Committed rather than deleted so it's recoverable if the concept comes back.
+# The Pac-Man game gets its own tree; nothing here is authoritative for it.
+#
+# Kitty Coaster Tycoon — Requirements
+# Schema mirrors mbse/infrastructure/02_requirements/requirements.yaml (which in
+# turn follows Medha MBSE _framework/schemas/requirement.schema.yaml), with two
+# deliberate differences for this tree:
+#
+#   1. `satisfied_by` (repo file paths) is replaced by `allocated_to` — a
+#      Roblox DataModel path. Nothing here exists as a file in this repo; the
+#      artefact is a .rbxl place file on a home laptop. The DataModel path is
+#      the meaningful allocation target, and validate.py checks it resolves to
+#      a real Roblox service root.
+#   2. Phases map to build sessions, not releases:
+#        v1 = Session 1 — the playable loop (one evening, ~2h)
+#        v2 = Session 2 — the park (rides, coaster, saving)
+#        v3 = Session 3 — making it hers (theme, polish, sharing)
+#
+# Nothing is built yet. Every verification_status is NOT_STARTED and that is
+# honest, not an oversight — this tree was written before the first build
+# session so the scope argument happens on paper, where it's cheap.
+
+requirements:
+
+  # ── L1 stakeholder ──────────────────────────────────────────────────────
+
+  - id: KITTY-STK-001
+    title: Session one ends with something she can actually play
+    shall_statement: >
+      The first build session SHALL end with a published, playable place in
+      which the player can walk onto a button, buy a kitty ride, watch cash
+      accumulate, and buy a second thing with it.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: CRITICAL
+    verified_by: [KITTY-TC-001]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      A 7-year-old's attention is the scarcest resource in this project. An
+      evening that ends in an unfinished thing spends that resource for
+      nothing. Everything else in this tree is subordinate to this.
+    allocated_to: Workspace/Plot1
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-STK-002
+    title: The creative decisions are hers
+    shall_statement: >
+      Every player-visible name, colour, and decorative placement SHALL be
+      changeable without editing script logic, so that the child can decide
+      them and see the change immediately.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: CRITICAL
+    verified_by: [KITTY-TC-002]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      "Art director" is only a real job if her decisions survive contact with
+      the code. This requirement is what forces the ride catalogue to be data
+      (KITTY-SYS-020) rather than names hardcoded in scripts.
+    allocated_to: ReplicatedStorage/RideCatalogue
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-STK-003
+    title: She does real work with her own hands
+    shall_statement: >
+      The build SHALL include a defined set of tasks performable by a 7-year-old
+      unaided in Studio — placing, moving, resizing, recolouring and renaming
+      parts, and playtesting — and those tasks SHALL be on the critical path,
+      not decorative afterthoughts.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: HIGH
+    verified_by: [KITTY-TC-002]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      Watching a parent type is not learning to make games. Slower is fine;
+      passive is not.
+    allocated_to: Workspace/Plot1
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-STK-004
+    title: Safe for a 7-year-old
+    shall_statement: >
+      The experience SHALL be published under the parent's account, set to
+      Private during development and no wider than Friends afterwards, and
+      SHALL contain no third-party script the parent has not read.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: CRITICAL
+    verified_by: [KITTY-TC-013, KITTY-TC-014]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Two separate exposures: the child's own account (age-honest birthdate,
+      platform content and chat filters left on) and the game's contents
+      (Toolbox free models are a known malware vector — see RISK-KITTY-001).
+    allocated_to: Players
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-STK-005
+    title: Her park is never silently lost
+    shall_statement: >
+      A returning player SHALL find the cash and rides they had when they left,
+      and no failure mode SHALL result in a saved profile being replaced by an
+      empty one.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: HIGH
+    verified_by: [KITTY-TC-009, KITTY-TC-010]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The single most upsetting possible outcome of this project is a Saturday
+      of building that disappears. This is the classic beginner-tycoon bug: a
+      DataStore read fails, the code treats "no data" as "new player", and the
+      leave-handler then writes that empty profile over the real one.
+    allocated_to: ServerScriptService/DataService
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-STK-006
+    title: One laptop, no money
+    shall_statement: >
+      The project SHALL require no purchase, no subscription, no server, and no
+      second machine, and SHALL be buildable by two people sharing one laptop.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: HIGH
+    verified_by: [KITTY-TC-015]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Roblox Studio, publishing, hosting and multiplayer are free. Team Create
+      needs a second machine to be worth anything, so v1 assumes turn-taking on
+      one keyboard (D-KITTY-005).
+    allocated_to: StarterPlayer
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-STK-007
+    title: The park has a finish line
+    shall_statement: >
+      The v1–v3 scope SHALL be completable in three build sessions, and a
+      written definition of "finished" SHALL exist before the first session.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: HIGH
+    verified_by: [KITTY-TC-016]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Unbounded projects are how first game projects die. Anything not in this
+      tree is v4 — a later, separate conversation, not this weekend's work.
+    allocated_to: Workspace/Plot1
+    phase: v3
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — economy and the core loop ───────────────────────────────
+
+  - id: KITTY-SYS-001
+    title: Cash balance is server-owned
+    shall_statement: >
+      A player's cash balance SHALL exist only as a server-created IntValue
+      under Players.<name>.leaderstats, and SHALL be written exclusively by
+      server Scripts.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [KITTY-STK-001]
+    verified_by: [KITTY-TC-003]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The client is hostile by definition — an exploiter runs arbitrary Luau in
+      their own client. leaderstats also replicates to every client for free,
+      which is why the HUD (KITTY-SYS-017) needs no RemoteEvent of its own.
+    allocated_to: ServerScriptService/EconomyService
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-002
+    title: The server prices every purchase
+    shall_statement: >
+      A purchase request SHALL carry only the button identifier; the server
+      SHALL look up the price from the catalogue, verify the balance, verify
+      the prerequisite is owned, and reject the request otherwise.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [KITTY-SYS-001]
+    verified_by: [KITTY-TC-003]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Any price, balance or ownership value sent by the client is an assertion
+      by an untrusted party. In v1 the trigger is a Touched event on the server
+      anyway, so there is no RemoteEvent to abuse — but the rule is written down
+      now because v3's ticket-booth UI will add one.
+    allocated_to: ServerScriptService/EconomyService
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-003
+    title: One income loop, not one per ride
+    shall_statement: >
+      Ride income SHALL be accrued by a single server-side loop that iterates
+      owned rides on a fixed tick, not by a separate coroutine or wait-loop
+      spawned per ride.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [KITTY-SYS-001]
+    verified_by: [KITTY-TC-004, KITTY-TC-012]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Per-ride loops are the standard beginner-tycoon pattern and the standard
+      beginner-tycoon performance bug: twenty rides become twenty timers that
+      drift apart, and removing a ride leaves its loop running forever.
+    allocated_to: ServerScriptService/EconomyService
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-004
+    title: Buttons unlock in a chain
+    shall_statement: >
+      Each purchase button SHALL be invisible and non-collidable until its
+      declared prerequisite ride is owned, and SHALL become visible within one
+      income tick of that prerequisite being bought.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [KITTY-STK-001]
+    verified_by: [KITTY-TC-005]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The unlock chain *is* the game's pacing. It also stops a 7-year-old
+      staring at fifteen buttons she can't afford on minute one.
+    allocated_to: ServerScriptService/TycoonService
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-005
+    title: A button fires once per touch, not once per frame
+    shall_statement: >
+      A button's Touched handler SHALL debounce per player for at least 1
+      second and SHALL ignore touches from anything that is not a player
+      character.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [KITTY-SYS-002]
+    verified_by: [KITTY-TC-006]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Touched fires many times per second while a character stands on a part.
+      Undebounced, standing on a button drains the balance in one frame — and
+      a rolling coaster cart touching a button would buy things by itself.
+    allocated_to: ServerScriptService/TycoonService
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-006
+    title: Refusal is audible
+    shall_statement: >
+      A purchase attempt that fails for insufficient funds SHALL produce a
+      distinct sound and a visible change on the button within 0.2 s.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [KITTY-STK-001]
+    verified_by: [KITTY-TC-020]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      Silence reads as "broken" to a child. A refusal noise reads as "not yet",
+      which is the intended feeling.
+    allocated_to: ServerScriptService/TycoonService
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — plot and ownership ──────────────────────────────────────
+
+  - id: KITTY-SYS-007
+    title: One plot per player, released on leave
+    shall_statement: >
+      On join, a player SHALL be assigned exactly one unclaimed plot; on leave,
+      that plot SHALL be reset to its unbought state and returned to the pool.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [KITTY-STK-001]
+    verified_by: [KITTY-TC-007]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      v1 ships a single plot for a single player (D-KITTY-008); the claim/
+      release mechanism still gets written in v1 so that adding plot 2 in v2 is
+      a data change, not a rewrite.
+    allocated_to: ServerScriptService/TycoonService
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-008
+    title: You can only spend on your own plot
+    shall_statement: >
+      A button on a plot SHALL reject purchase attempts from any player who is
+      not that plot's current owner.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [KITTY-SYS-007]
+    verified_by: [KITTY-TC-017]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      With two plots and two sisters, "she bought a ride on my park with my
+      money" is a guaranteed first-playtest bug report.
+    allocated_to: ServerScriptService/TycoonService
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — the coaster ─────────────────────────────────────────────
+
+  - id: KITTY-SYS-009
+    title: The cart is tweened along waypoints, never simulated
+    shall_statement: >
+      The coaster cart SHALL be an Anchored model moved by TweenService between
+      an ordered list of waypoint parts, and SHALL NOT rely on unanchored
+      physics, constraints, or velocity for its motion.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [KITTY-STK-001]
+    verified_by: [KITTY-TC-008]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A physics coaster is one of the genuinely hard things to build in Roblox:
+      carts leave the track, launch riders, and behave differently with two
+      players aboard because network ownership moves. Tweening an anchored cart
+      is ~20 lines, deterministic, and looks the same to every client.
+    allocated_to: ServerScriptService/CoasterService
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-010
+    title: Riders are seated, not balanced
+    shall_statement: >
+      A rider SHALL be attached to the cart via a Seat, so that the character
+      cannot fall out and the client camera follows the cart.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [KITTY-SYS-009]
+    verified_by: [KITTY-TC-008]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A Seat gives welding, dismount handling and camera-follow for free, and
+      is the one piece of built-in character behaviour that behaves correctly
+      on a moving anchored part.
+    allocated_to: Workspace/Plot1
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-011
+    title: The ride always ends
+    shall_statement: >
+      The cart SHALL return to the station and release its riders on completion,
+      on rider disconnect mid-ride, and on server shutdown, leaving no welded
+      character and no running tween.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [KITTY-SYS-009]
+    verified_by: [KITTY-TC-008]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Leaving mid-ride is exactly what a 7-year-old does. The failure mode is a
+      cart stuck halfway up the lift hill forever, which permanently breaks the
+      most expensive ride in the park.
+    allocated_to: ServerScriptService/CoasterService
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-012
+    title: One ride at a time
+    shall_statement: >
+      A coaster with a ride in progress SHALL refuse new boarders until the
+      cart has returned to the station.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [KITTY-SYS-009]
+    verified_by: [KITTY-TC-008]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Two overlapping tweens on one cart is undefined behaviour; the second
+      cancels the first and the cart teleports.
+    allocated_to: ServerScriptService/CoasterService
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-013
+    title: A circuit lasts under 45 seconds
+    shall_statement: >
+      A full coaster circuit, station to station, SHALL complete in 45 seconds
+      or less.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [KITTY-SYS-009]
+    verified_by: [KITTY-TC-008]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Long enough to feel like a ride, short enough that being stuck in a seat
+      is never boring. Also caps how much track has to be built in one session.
+    allocated_to: ServerScriptService/CoasterService
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — persistence ─────────────────────────────────────────────
+
+  - id: KITTY-SYS-014
+    title: Progress saves on leave, on shutdown, and periodically
+    shall_statement: >
+      Cash and the set of owned ride identifiers SHALL be written to
+      DataStoreService on PlayerRemoving, inside game:BindToClose, and on a
+      periodic autosave of no less than 60 seconds.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [KITTY-STK-005]
+    verified_by: [KITTY-TC-009]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      PlayerRemoving alone loses everything when the server crashes or is shut
+      down for an update — and Studio's own stop button is a shutdown.
+    allocated_to: ServerScriptService/DataService
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-015
+    title: A failed load never becomes a save
+    shall_statement: >
+      If the profile read errors or times out, the session SHALL be flagged
+      not-saveable, the player SHALL be told, and no write SHALL be issued for
+      that player for the remainder of the session.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [KITTY-STK-005]
+    verified_by: [KITTY-TC-010]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A DataStore read failure and a genuinely new player are indistinguishable
+      unless you check pcall's success flag separately from its returned value.
+      Conflating them is what overwrites a real park with zeroes.
+    allocated_to: ServerScriptService/DataService
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-016
+    title: Writes stay inside the DataStore budget
+    shall_statement: >
+      Writes for a given key SHALL be at least 6 seconds apart, SHALL use
+      UpdateAsync rather than SetAsync, and SHALL be wrapped in pcall with at
+      most 3 retries.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [KITTY-SYS-014]
+    verified_by: [KITTY-TC-022]
+    verification_status: NOT_STARTED
+    verification_method: ANALYSIS
+    rationale: >
+      DataStore request budgets are per-server and throttle silently when
+      exceeded; UpdateAsync is the only call that reads-then-writes atomically.
+    allocated_to: ServerScriptService/DataService
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — interface ───────────────────────────────────────────────
+
+  - id: KITTY-SYS-017
+    title: The HUD only displays
+    shall_statement: >
+      The on-screen cash counter SHALL be a LocalScript-driven label that
+      renders the replicated leaderstats value and SHALL hold no balance of
+      its own.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [KITTY-SYS-001]
+    verified_by: [KITTY-TC-011]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      If the number on screen is the number the game believes, the game's
+      balance lives on the client and is already infinite.
+    allocated_to: StarterGui/CashHud
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-018
+    title: Every button says what it is and what it costs
+    shall_statement: >
+      Each purchase button SHALL display the ride's name and price from the
+      catalogue, coloured to indicate whether the local player can currently
+      afford it.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [KITTY-STK-002]
+    verified_by: [KITTY-TC-021]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      A 7-year-old reads colour before text. Green/grey answers "can I buy this
+      yet" without reading a number.
+    allocated_to: StarterGui/CashHud
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-019
+    title: The UI scales instead of moving
+    shall_statement: >
+      All GUI elements SHALL be positioned and sized in UDim2 scale terms with
+      zero offset for layout, and SHALL remain fully on screen on a phone-sized
+      viewport.
+    level: L2_system
+    status: APPROVED
+    priority: LOW
+    derives_from: [KITTY-SYS-017]
+    verified_by: [KITTY-TC-018]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Publishing to Roblox means publishing to phones and tablets whether or
+      not that was the intent — which is how the grandparents will open it.
+    allocated_to: StarterGui/CashHud
+    phase: v3
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — content, build hygiene, publishing ──────────────────────
+
+  - id: KITTY-SYS-020
+    title: The ride catalogue is data, not code
+    shall_statement: >
+      Every ride SHALL be defined by one row in a single ModuleScript table
+      giving its identifier, display name, price, payout, income tick multiplier,
+      model name, and prerequisite — and no ride name, price or payout SHALL
+      appear anywhere else in the codebase.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [KITTY-STK-002, KITTY-STK-003]
+    verified_by: [KITTY-TC-019]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      This is the requirement that makes the child's job real: renaming
+      "Whiskers' Teacups" or halving a price is editing one legible line of a
+      table, together, out loud — not hunting through logic. It also makes the
+      whole economy tunable in one place during playtesting.
+    allocated_to: ReplicatedStorage/RideCatalogue
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-021
+    title: No script enters the place unread
+    shall_statement: >
+      Any model inserted from the Toolbox or Creator Store SHALL be expanded in
+      the Explorer and have every Script, LocalScript and ModuleScript inside it
+      deleted or read and approved by the parent before use.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [KITTY-STK-004]
+    verified_by: [KITTY-TC-013]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Free models are a known malware vector: scripts inside them can insert
+      further scripts, contact external services via HttpService, or hand
+      control of the place to a third party. Default to building simple shapes.
+    allocated_to: Workspace/Plot1
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-022
+    title: The place stays inside the laptop's budget
+    shall_statement: >
+      The published place SHALL stay under 2000 parts and SHALL hold at least
+      30 FPS in a Studio playtest on the family laptop.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [KITTY-STK-006]
+    verified_by: [KITTY-TC-012]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Studio is heavier than the player client, and the laptop's specification
+      is not yet known (RISK-KITTY-005). A part budget agreed up front is far
+      easier than deleting a park she has decorated.
+    allocated_to: Workspace/Plot1
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-023
+    title: Private while building, Friends when done
+    shall_statement: >
+      The place SHALL be published from the parent's account with private
+      access during development, and SHALL only be widened to Friends by an
+      explicit parent action once v3 is complete.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [KITTY-STK-004]
+    verified_by: [KITTY-TC-014]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Ownership on the parent account keeps experience settings, publishing and
+      moderation correspondence with the adult. She is still the boss of it.
+    allocated_to: Players
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: KITTY-SYS-024
+    title: No user-authored text is ever rendered
+    shall_statement: >
+      The experience SHALL contain no text box, sign, or label whose content
+      comes from a player at runtime, and SHALL leave Roblox's default chat and
+      text filtering untouched.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [KITTY-STK-004]
+    verified_by: [KITTY-TC-013]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Any surface that renders another player's words is a moderation surface,
+      and rendering unfiltered text is also a platform policy violation. The
+      cheapest correct answer at this scale is to have no such surface.
+    allocated_to: TextChatService
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
