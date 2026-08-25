@@ -60,15 +60,15 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 14
+  total: 17
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder — the daughter names it."
   - "Nine of the ten chains are unassigned; only CHAIN-VEHICLE has an owner (Codex)."
   - "Triangle counts on vehicle models are declared by the designer, not
      measured — Luau cannot read them. Confirm in the mesh tooling."
-  - "Wall height is a camera constraint and is not yet fixed — it needs the
-     camera test map first (RISK-CHOMP-012)."
+  - "Control scheme, camera and map geometry are now decided (D-CHOMP-015 to
+     -017). Wall height is fixed at 7 studs, derived from the camera angle."
 
 next_actions:
   - "Build the camera on a throwaway two-deck test map before any real map.
@@ -78,7 +78,5 @@ next_actions:
      real to follow."
   - "Stand up the L0 conformance scans and the L1 unit spec harness before
      writing gameplay logic — the maths must stay pure to be testable."
-  - "Still to decompose before building: the camera specification (angle,
-     distance, FOV, fade rule) and the map geometry specification (grid size,
-     deck height, ramp slope, ring radii, prefab piece list). Both are
-     blocked on the touch control scheme, which is an owner decision."
+  - "Decomposition is complete for v1. Building starts with the camera on a
+     two-deck test map, on the iPad."

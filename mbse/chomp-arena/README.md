@@ -21,6 +21,9 @@ recomputes every rollup), scoped to a game rather than to hosting.
 | `03_architecture/system_architecture.md` | Where everything lives in the DataModel, the client/server rule, the whole remote surface |
 | `03_architecture/player_state.md` | The player record, which service may write each field, and the invariants |
 | `03_architecture/service_contracts.md` | What each service owns, exposes and must not touch. The complete three-remote client surface |
+| `03_architecture/control_scheme.md` | Hold to turn, always forward, no buttons. What was rejected and why |
+| `03_architecture/camera_spec.md` | **Build this first.** World-locked yaw, 35°, occluder fading, and why wall height is a camera constraint |
+| `03_architecture/map_geometry.md` | The 8-stud grid, the six prefab pieces, and the v1 two-deck map |
 | `03_architecture/vehicle_contract.md` | The interface a chassis model must satisfy. Handed to an external agent, checked by scan |
 | `03_architecture/authoring_kit.md` | v3: how the children build their own maps without scripting |
 | `04_verification/verification_strategy.md` | The five test levels and the publish gate |

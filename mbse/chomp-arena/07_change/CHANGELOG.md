@@ -1,5 +1,22 @@
 # Chomp Arena — Change Log
 
+## 2026-08-25 — Controls, camera and map geometry decided; v1 decomposition complete
+- `D-CHOMP-015` **Hold to turn, always driving forward, no action buttons.**
+  Steering gets the whole screen because turning is the entire skill of the
+  game. A brake and swipe-to-turn were considered and rejected, with reasons.
+- `D-CHOMP-016` **World-locked camera yaw at 35°.** The camera never rotates
+  with the vehicle: a maze camera that follows every turn is nauseating on a
+  tablet and destroys the learnability of junctions. The cost is that facing
+  is read from the model, which is why the 30% mouth silhouette rule in the
+  vehicle contract is load-bearing.
+- `D-CHOMP-017` **8-stud grid, six prefab pieces, one two-deck v1 map.** Wall
+  height is fixed at 7 studs — derived from the camera angle, not chosen. This
+  closes the open question that had been sitting in the dashboard.
+- New: `control_scheme.md`, `camera_spec.md`, `map_geometry.md`, and the
+  `Controls`, `Camera` and `Map` sections of `ChompConfig`.
+- **v1 decomposition is complete.** Building starts with the camera, on a
+  two-deck test map, on the iPad.
+
 ## 2026-08-25 — Design decomposition: state, contracts, pure logic
 - `src/ReplicatedStorage/Types.lua` — the shared vocabulary: `PlayerState`,
   `OwnView`, `PublicView`, `ImpactResult`, `Junction`, `WorldView`,

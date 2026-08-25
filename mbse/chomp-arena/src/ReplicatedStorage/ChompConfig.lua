@@ -139,4 +139,53 @@ ChompConfig.Budgets = {
 	CorridorWidth = 8,
 }
 
+-- ── Controls (D-CHOMP-015) ──────────────────────────────────────────────
+-- Hold to turn, always driving forward. There is no accelerator, no brake and
+-- no action button in the entire game.
+
+ChompConfig.Controls = {
+	DeadZoneFraction = 0.20,      -- middle fifth of the screen steers nowhere
+	FullLockFraction = 0.42,      -- past this from centre, full turn rate
+	FlipDoubleTapSeconds = 0.35,  -- two taps this close on the far side = 180 flip
+	ThumbSafeZoneFraction = 0.30, -- bottom corners the HUD must keep clear
+}
+
+-- ── Camera (D-CHOMP-016) ────────────────────────────────────────────────
+-- World-locked yaw: the camera never rotates with the vehicle. Turning spins
+-- the model, not the world.
+
+ChompConfig.Camera = {
+	PitchDegrees = 35,
+	Distance = 42,
+	FieldOfView = 55,
+	TargetScreenHeight = 0.55,    -- vehicle sits slightly below centre
+	LookAheadStuds = 6,
+	DeckEaseSeconds = 0.35,
+	OccluderFadeInSeconds = 0.12,
+	OccluderFadeOutSeconds = 0.25,
+	OccluderTransparency = 0.75,
+	MaxOcclusionSeconds = 0.20,   -- CHOMP-SYS-051 hard limit
+	HitShakeSeconds = 0.15,
+	HitShakeStuds = 0.6,
+}
+
+-- ── Map geometry (D-CHOMP-017) ──────────────────────────────────────────
+-- Everything on an 8-stud grid. Wall height is a camera constraint, not an
+-- art choice: taller than this and the camera cannot see over it at 35 degrees.
+
+ChompConfig.Map = {
+	CellSize = 8,
+	WallHeight = 7,
+	WallThickness = 1,
+	DeckHeight = 16,              -- floor to floor
+	SlabThickness = 2,
+	RampCells = 4,                -- 32 studs run for a 16 stud rise, ~26.6 degrees
+	BridgeWidthCells = 1,
+	QuadrantCells = 16,           -- authored quadrant is 16 x 16 cells
+	GroundDeckCells = 32,         -- full ground deck after mirroring
+	Ring2InnerCells = 8,          -- central 16 x 16 becomes the raised ring
+	GarageCells = 3,              -- garages are 3 x 3 cells
+	PelletsPerOpenCell = 1,
+}
+
 return ChompConfig

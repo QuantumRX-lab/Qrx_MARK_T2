@@ -27,3 +27,22 @@ entries:
     02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.
   status: OPEN
+- date: '2026-08-25'
+  agent: Claude (tree owner)
+  action: NOTE
+  requirements: [CHOMP-SYS-047, CHOMP-SYS-046]
+  summary: >
+    Map geometry fixed (D-CHOMP-017): 8-stud cells, 7-stud walls, 16-stud
+    decks, 4-cell ramps, 1-cell bridges, 3x3 garages, six prefab pieces. The v1
+    map is one two-deck map — 32x32 ground ring with twelve garages three per
+    quadrant, a raised 16x16 Ring 2, four ramps each with a Threat 250
+    guardian. Full spec in 03_architecture/map_geometry.md.
+  status: OPEN
+  handoff: >
+    Build one 16x16 quadrant and rotate it three times; symmetry and therefore
+    fair spawns then hold by construction. Snap increment 8, always — a map
+    built off-grid produces ghosts that stick at ramp mouths, and that failure
+    only appears once ghosts exist, potentially after a lot of building. Wall
+    height 7 is derived from the camera and is not available as an art choice.
+    This chain is the daughter's: the six pieces exist so she can build with
+    them by hand today, long before the v3 kit formalises it.

@@ -78,3 +78,22 @@ entries:
     tell you exactly which checks fail and why. Deliver Standard first — the
     camera work on CHOMP-SYS-051 needs something real to follow, and it is the
     highest-risk item in the tree.
+- date: '2026-08-25'
+  agent: Claude (tree owner)
+  action: NOTE
+  requirements: [CHOMP-SYS-051]
+  summary: >
+    Camera specified (D-CHOMP-016): world-locked yaw, 35 degrees pitch, 42
+    studs back, 55 FOV, 6 studs look-ahead, critically damped 0.35 s deck
+    transitions, occluders faded to 0.75 over 0.12 s and restored over 0.25 s.
+    Never fade the vehicle, another player, a ghost, a guardian, a pellet or a
+    gate. Full spec in 03_architecture/camera_spec.md, numbers in
+    ChompConfig.Camera.
+  status: OPEN
+  handoff: >
+    Build this first, on a throwaway two-deck test map with four snapped walls,
+    a ramp and a bridge, and test it on the iPad rather than in Studio. World
+    yaw means facing is read from the model, not the camera — which is why the
+    30% mouth silhouette rule in the vehicle contract is load-bearing rather
+    than cosmetic. Deliver the Standard chassis first so the camera has
+    something real to follow.

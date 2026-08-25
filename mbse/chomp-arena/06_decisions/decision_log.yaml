@@ -236,3 +236,70 @@ decisions:
       03_architecture/player_state.md ownership table;
       03_architecture/service_contracts.md; the reason strings are what make
       the CHOMP-TC-043 fairness assertions computable at all.
+
+  - id: D-CHOMP-015
+    date: 2026-08-25
+    title: Hold to turn, always driving forward, no action buttons
+    decision: >
+      Touch and hold on the left or right of the screen to steer, proportional
+      to distance from a 20% dead zone; the vehicle always drives forward;
+      double-tapping the far side performs a 180 flip. Banking, eating, Full
+      Jaw and gate passage are consequences of driving somewhere. There is no
+      accelerator, no brake and no action button anywhere in the game.
+    rationale: >
+      Owner decision. A virtual thumbstick has an origin that drifts and gets
+      dropped mid-corner; hold-to-turn has no origin, so a seven-year-old
+      cannot lose it. Turning is the entire skill of this game — agility is
+      what converts a flank hit into a head-on — so steering gets the entire
+      screen rather than a small puck. Always-forward is Pac-Man, and stopping
+      is not an interesting choice: it makes you a stationary target with no
+      upside. Zero action buttons also removes any conflict between controls
+      and HUD placement.
+    outcome: >
+      03_architecture/control_scheme.md, ChompConfig.Controls, CHOMP-SYS-032.
+      A brake and swipe-to-turn were both considered and rejected, with reasons
+      recorded — swipe in particular decouples input from timing, and this
+      game's combat is about when you bring your mouth to bear.
+
+  - id: D-CHOMP-016
+    date: 2026-08-25
+    title: World-locked camera yaw, 35 degrees, with occluder fading
+    decision: >
+      The camera never rotates with the vehicle. Fixed world yaw, 35 degrees of
+      pitch, 42 studs back, 55 degree FOV, 6 studs of look-ahead, deck changes
+      eased with a critically damped spring over 0.35 s, and any wall or decor
+      between camera and player faded to 0.75 over 0.12 s.
+    rationale: >
+      In a maze you turn constantly, and a camera that follows every turn swings
+      the whole world several times a second: nauseating on a tablet held close
+      to the face, and it destroys maze legibility because a memorised junction
+      faces a different way on every approach. Locked yaw keeps the maze a
+      stable, learnable place. The cost is that facing must be read from the
+      model rather than the camera — which is exactly why the vehicle contract
+      demands a mouth at 30% of the silhouette that reads in greyscale. The
+      camera decision and the vehicle readability rule are the same decision
+      seen twice.
+    outcome: >
+      03_architecture/camera_spec.md, ChompConfig.Camera. Fade-in is 0.12 s
+      specifically to leave margin under the 0.2 s occlusion ceiling in
+      CHOMP-SYS-051. Build it first, on a two-deck test map, on the iPad.
+
+  - id: D-CHOMP-017
+    date: 2026-08-25
+    title: Map geometry fixed to an 8-stud grid; wall height set by the camera
+    decision: >
+      8-stud cells, 7-stud walls, 16-stud deck height, 4-cell ramps, 1-cell
+      bridges, 3x3 garages, and a six-piece prefab set. The v1 map is one
+      two-deck map: a 32x32 ground ring with twelve garages, a raised 16x16
+      Ring 2, four ramps each with a Threat 250 guardian at its base.
+    rationale: >
+      A single grid size is what makes ghost pathing cheap, symmetry automatic
+      and prefab building possible for a child. Wall height at 7 is derived,
+      not chosen: at 35 degrees of camera pitch with 8-stud cells and vehicles
+      up to 6 studs tall, anything taller occludes the corridor ahead. This
+      closes the open question that has been sitting in the dashboard — wall
+      height was never an art choice.
+    outcome: >
+      03_architecture/map_geometry.md, ChompConfig.Map. The "prefab system" is
+      a snap increment of 8 and six models, not a tool anyone has to write.
+      Rings 3 and 4 are v2; the engine handles N decks from the start.

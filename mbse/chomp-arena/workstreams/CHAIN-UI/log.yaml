@@ -27,3 +27,21 @@ entries:
     for the shall statements and 04_verification/test_cases.yaml for how each is
     verified.
   status: OPEN
+- date: '2026-08-25'
+  agent: Claude (tree owner)
+  action: NOTE
+  requirements: [CHOMP-SYS-032, CHOMP-SYS-031]
+  summary: >
+    Control scheme decided and specified (D-CHOMP-015): hold left or right of a
+    20% dead zone to steer, proportional to distance out to full lock, always
+    driving forward, double-tap the far side to flip 180. No accelerator, no
+    brake, no action buttons anywhere — banking and gate passage are
+    consequences of driving somewhere. See 03_architecture/control_scheme.md
+    and ChompConfig.Controls.
+  status: OPEN
+  handoff: >
+    The HUD must keep the bottom-left and bottom-right corners clear — 30% of
+    width by 30% of height each — because that is where thumbs live. Bar, carry
+    and gate readiness go top-left and top-centre, standings top-right, nothing
+    along the bottom edge. Both sides held at once must cancel to straight,
+    which is what a panicking player does.
