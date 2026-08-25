@@ -17,12 +17,23 @@ read the HUD at speed. Nothing else gets to be unautomated.
 **L0 — Static conformance scans.** Scripts that read the place and assert
 structure. No gameplay involved. Cheap, fast, run on every save:
 
+- no two children of one parent share a name
+- every statically resolvable `WaitForChild` target exists in the built place
 - no script instances anywhere in content folders
 - no balance literals in engine logic; every number resolves to `ChompConfig`
 - no hardcoded instance paths into `Workspace`
 - vehicle models satisfy the vehicle contract
 - map geometry: rings ascend, garages symmetric, walls on-grid, no pellets
   inside walls, no voids or death planes
+
+The first two are `guard.py`, the static load-order guard, and they exist
+because the same fault shape has now cost four playtests. `D-CHOMP-021` left a
+module waiting forever on instances nothing created; `D-CHOMP-024` gave a
+declared folder the same name as the module that reads it, so `WaitForChild`
+returned the wrong object. Neither announces itself as missing — both present as
+some unrelated feature quietly not working, which is precisely why a human
+playing the game is the worst available detector. `guard.py` builds the place and
+fails on either, naming the file and line (`D-CHOMP-028`).
 
 **L1 — Unit specs on pure logic.** The maths of this game is separable from
 Roblox and must be kept that way: impact classification from two facing vectors,

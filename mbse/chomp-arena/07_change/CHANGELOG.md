@@ -1,5 +1,24 @@
 # Chomp Arena — Change Log
 
+## 2026-08-25 — Structural faults now fail the build
+
+`guard.py`, the static load-order guard (`D-CHOMP-028`). Builds the place and
+refuses it on two things that are silent at runtime and expensive to find by
+playing:
+
+- two children of one parent sharing a name (`D-CHOMP-024`)
+- a `WaitForChild` target that does not exist (`D-CHOMP-021`)
+
+Verified in both directions rather than only on a clean tree: with the
+`D-CHOMP-024` collision reintroduced it reports the duplicate name and all three
+now-unreachable remotes, including the names reached through a `for ... in
+ipairs(NAMES)` loop. Exit 0 on pass, 1 on failure.
+
+Listed as an L0 scan in `verification_strategy.md`. No requirement or test case
+was added — the guard checks that the artefact is internally consistent, which
+is not a shall statement, and inventing a requirement to justify a tool would
+put a false trace in the tree.
+
 ## 2026-08-25 — It drives
 
 First session run from a local machine, which is the first time anyone could

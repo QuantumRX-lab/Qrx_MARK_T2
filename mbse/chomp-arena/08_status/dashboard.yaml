@@ -73,7 +73,7 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 27
+  total: 28
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder — the daughter names it."
@@ -106,10 +106,10 @@ next_actions:
      CHAIN-VEHICLE: require(game.ServerStorage.ChompTools.VehicleConformance)
      then S.report(S.checkAll()). It closes the last two open checks on Codex's
      four chassis."
-  - "Stand up the static load-order guard and the Luau unit specs. The guard
-     should fail the build on duplicate child names under one parent — that is
-     exactly what D-CHOMP-024 was, and it presented at runtime on one side only,
-     disguised as a missing instance."
+  - "The static load-order guard is built and passing (guard.py, D-CHOMP-028).
+     The Luau unit specs over ChompLogic are NOT — Impact and Progression were
+     written as pure functions precisely so they could be tested, and nothing
+     tests them yet."
   - "Then step 2 of the v1 order: drive and eat. Do not start combat until
      banking is fun."
   - "Codex: acknowledge the CHAIN-VEHICLE claim split on CHOMP-SYS-001, -002

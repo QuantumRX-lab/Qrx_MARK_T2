@@ -557,3 +557,36 @@ decisions:
       scales the heading vector by the resulting fraction. ChompConfig gains
       StickRadiusFraction, StickDeadZoneFraction and ReverseSpeedFraction.
       control_scheme.md and BUILDING.md rewritten to match.
+
+  - id: D-CHOMP-028
+    date: 2026-08-25
+    title: Structural faults fail the build, not the playtest
+    decision: >
+      guard.py runs at build time against the built place and fails on two
+      things: two children of one parent sharing a name, and a WaitForChild
+      target that does not exist. Exit code 0 or 1, so it drops into a hook or
+      a CI step. It is an L0 scan in verification_strategy.md.
+    rationale: >
+      The same fault shape has cost four playtests. D-CHOMP-021 left a module
+      waiting forever on instances nothing created, which silently disabled all
+      steering; D-CHOMP-024 gave a declared folder the same name as the module
+      that reads it, so WaitForChild returned an object with no children. What
+      makes this shape expensive is not that it is subtle but that it is
+      disguised: a missing instance surfaces as an unrelated Infinite yield
+      warning, or as a feature quietly not working, so a human playing the game
+      is the worst available detector for it. Both faults are visible in the
+      built place in under a second.
+      Checking the BUILT PLACE rather than the source matters, because the place
+      is what the game loads and it is where a project-file declaration and a
+      synced file can collide. Reading only the source would have missed
+      D-CHOMP-024 entirely, since neither half is wrong on its own.
+    outcome: >
+      guard.py added, verified in both directions: it passes the clean tree and
+      fails a tree with the D-CHOMP-024 collision reintroduced, catching both
+      the duplicate name and the three now-unreachable remotes — including the
+      names reached through a for-in-ipairs loop over a string list, which is
+      the exact D-CHOMP-021 pattern. Documented in BUILDING.md and listed as an
+      L0 scan. No requirement or test case was added: the guard verifies that
+      the build is internally consistent, which is a property of the artefact
+      rather than a shall statement, and inventing a requirement to justify a
+      tool would put a false trace in the tree.

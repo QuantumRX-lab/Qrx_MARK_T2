@@ -60,6 +60,21 @@ If the camera cannot pass this on a map this trivial, the multi-level design is
 in trouble — and finding that out now, before any real geometry exists, is the
 entire reason this is built first.
 
+## Before you playtest
+
+```
+python guard.py
+```
+
+Builds the place and refuses it if two children of one parent share a name, or
+if a `WaitForChild` target does not exist. Both are silent at runtime and loud
+here. Exit code is 0 on pass, 1 on failure, so it drops straight into a hook or
+a CI step. `--no-build` checks the existing place; `--quiet` prints errors only.
+
+Run `python validate.py` too if you touched the tree. The two are separate on
+purpose: `validate.py` checks the MBSE records agree with each other,
+`guard.py` checks the built game agrees with the code that reads it.
+
 ## Gotchas that cost real time
 
 **`rojo serve` reads `default.project.json` once, at startup.** Editing a file
