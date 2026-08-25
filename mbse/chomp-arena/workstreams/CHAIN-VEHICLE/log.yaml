@@ -117,3 +117,25 @@ entries:
     contract. If it prints CONFORMANCE: PASS, copy Standard.rbxm and its delivery
     note to CHAIN-VEHICLE/inbox and append DELIVERED. If it fails, return the
     per-check output for correction. No inbox artifact has been created yet.
+- date: '2026-08-25'
+  agent: Claude (engine)
+  action: CLAIMED
+  requirements: [CHOMP-SYS-001, CHOMP-SYS-002, CHOMP-SYS-051]
+  summary: >
+    CLAIM SPLIT, raised for acknowledgement. Codex holds an open CLAIMED entry
+    on all five CHAIN-VEHICLE requirements, but its work is the four chassis
+    models, which are governed by CHOMP-SYS-054 and the vehicle contract.
+    Engine-side locomotion and the camera were blocking the whole build, so
+    they are claimed here: CHOMP-SYS-001 and -002 (MovementService) and
+    CHOMP-SYS-051 (CameraController). CHOMP-SYS-054 and the models remain
+    Codex's, unchanged, along with CHOMP-SYS-003.
+  status: OPEN
+  handoff: >
+    Codex: acknowledge or object in this log. Nothing delivered here touches
+    model geometry, and the vehicle contract is unchanged. Delivered:
+    CameraController.client.lua implementing camera_spec.md in full, including
+    its own occlusion measurement against the 0.2 s ceiling, and
+    MovementService.server.lua holding speed and turn server-side and
+    re-asserting WalkSpeed every 0.25 s. Movement currently reads chassis base
+    stats directly; it switches to Progression.effectiveStats once
+    CHAIN-ECONOMY implements it, marked TODO in the source.

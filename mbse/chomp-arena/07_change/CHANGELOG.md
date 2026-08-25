@@ -1,5 +1,24 @@
 # Chomp Arena — Change Log
 
+## 2026-08-25 — Build starts: camera, driving, test map
+- `default.project.json` — Rojo sync of `src/` into the DataModel.
+- `TestMap.server.lua` — the throwaway two-deck test map, built procedurally
+  from `ChompConfig.Map`: ground deck, corridor, tower core, ramp, raised deck,
+  and a bridge crossing the corridor below.
+- `CameraController.client.lua` — `camera_spec.md` implemented in full:
+  world-locked yaw, critically damped deck easing, occluder fading, and its own
+  measurement of the 0.2 s occlusion ceiling with `_G.ChompCameraReport()`.
+- `MovementService.server.lua` — server-held speed and turn, always driving
+  forward, WalkSpeed re-asserted every 0.25 s.
+- `InputController.client.lua` — hold-to-turn with dead zone, multi-touch
+  cancelling, double-tap flip, keyboard equivalents.
+- `Remotes.lua` — the three remotes and their rate limiters.
+- `BUILDING.md` — how to sync, run, and perform the `CHOMP-TC-040` camera
+  acceptance run on the iPad.
+- Contract correction: `SetInputDirection` was specified as rejecting a
+  non-unit vector, which is wrong for a steering scalar. The contract now
+  matches what the server validates.
+
 ## 2026-08-25 — Controls, camera and map geometry decided; v1 decomposition complete
 - `D-CHOMP-015` **Hold to turn, always driving forward, no action buttons.**
   Steering gets the whole screen because turning is the entire skill of the

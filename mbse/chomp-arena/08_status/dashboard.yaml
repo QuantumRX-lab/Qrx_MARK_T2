@@ -8,11 +8,13 @@
 # drift.
 
 as_of: 2026-08-25
-build_status: NOT_STARTED
+build_status: IN_PROGRESS
 note: >
-  Nothing is built. Every requirement is NOT_STARTED and every test case is
-  NOT_STARTED. This dashboard describes the shape of the plan, not progress
-  against it.
+  Building has started. Step 1 of the v1 order — camera and driving — is
+  written and awaits its acceptance run on the iPad (CHOMP-TC-040). Requirement
+  verification_status values stay NOT_STARTED until that run happens: code
+  existing is not the same as a requirement being verified, and this tree does
+  not get to pretend otherwise.
 
 requirements:
   total: 62
@@ -78,5 +80,8 @@ next_actions:
      real to follow."
   - "Stand up the L0 conformance scans and the L1 unit spec harness before
      writing gameplay logic — the maths must stay pure to be testable."
-  - "Decomposition is complete for v1. Building starts with the camera on a
-     two-deck test map, on the iPad."
+  - "Run CHOMP-TC-040 on the iPad: drive both decks, under the bridge and
+     around the tower, then call _G.ChompCameraReport(). Any breach of the
+     0.2 s occlusion ceiling is a failure and blocks real map building."
+  - "Codex: acknowledge the CHAIN-VEHICLE claim split in the log, and deliver
+     the Standard chassis so the camera has a real vehicle to follow."

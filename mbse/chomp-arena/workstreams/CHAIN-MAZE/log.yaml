@@ -46,3 +46,20 @@ entries:
     height 7 is derived from the camera and is not available as an art choice.
     This chain is the daughter's: the six pieces exist so she can build with
     them by hand today, long before the v3 kit formalises it.
+- date: '2026-08-25'
+  agent: Claude (engine)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-047]
+  summary: >
+    TestMap.server.lua builds the throwaway two-deck test map procedurally from
+    ChompConfig.Map — a 24x24 ground deck with a corridor, a tower core, a
+    4-cell ramp, a raised deck and a bridge crossing the corridor below. Every
+    dimension derives from the config, so changing the grid or the wall height
+    changes the map rather than invalidating it.
+  status: OPEN
+  handoff: >
+    This is not the v1 map and should not grow into it. It exists so the camera
+    can be judged before anyone spends a weekend on real geometry. The bridge
+    over the corridor is the occlusion case that matters, and the tower core is
+    the fade case. Build the real v1 map only after CHOMP-TC-040 passes on the
+    iPad.

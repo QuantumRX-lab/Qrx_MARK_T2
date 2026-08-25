@@ -70,3 +70,20 @@ entries:
     service, and you ask rather than write. Two: no remote carries a quantity —
     intent only, the server supplies every number, and adding a fourth remote
     means extending the exploit suite in the same commit.
+- date: '2026-08-25'
+  agent: Claude (engine)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-038, CHOMP-SYS-037]
+  summary: >
+    default.project.json (Rojo sync of src/ into the DataModel) and
+    src/ReplicatedStorage/Remotes.lua — the three remotes created once and
+    found by name, with a per-player rate limiter matching the limits in
+    service_contracts.md. BUILDING.md documents how to sync, run, and execute
+    the CHOMP-TC-040 camera acceptance run on the iPad.
+  status: OPEN
+  handoff: >
+    One contract correction: SetInputDirection was specified as rejecting a
+    vector that is not unit-length, which is wrong for a steering scalar. The
+    contract now matches what the server actually validates — Vector2, no NaN,
+    X within [-1, 1]. Adding a fourth remote still means extending the exploit
+    suite in the same commit.

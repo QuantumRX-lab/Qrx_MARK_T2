@@ -45,3 +45,18 @@ entries:
     and gate readiness go top-left and top-centre, standings top-right, nothing
     along the bottom edge. Both sides held at once must cancel to straight,
     which is what a panicking player does.
+- date: '2026-08-25'
+  agent: Claude (engine)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-032]
+  summary: >
+    InputController.client.lua implements hold-to-turn with the 20% dead zone
+    and the linear ramp to full lock, multi-touch summed and clamped so both
+    sides held cancels to straight, double-tap flip on both touch and keyboard,
+    and keyboard steering for building in Studio. It sends intent only, at two
+    thirds of the remote rate limit, and only when the value has actually
+    changed.
+  status: OPEN
+  handoff: >
+    The HUD does not exist yet. When it does, keep the bottom corners clear —
+    30% of width by 30% of height each — because that is where thumbs live.

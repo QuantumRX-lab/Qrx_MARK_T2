@@ -147,7 +147,12 @@ fourth means extending the exploit suite (`CHOMP-TC-042`) in the same commit.
 |---|---|---|---|
 | `RequestPurchase` | `(itemId: string)` | 4/s | Not in intermission or at own garage; unknown item; insufficient **banked**; prerequisite unmet |
 | `RequestBank` | `()` | 2/s | Not inside own garage volume; `garageLockedUntil` in the future; nothing carried |
-| `SetInputDirection` | `(direction: Vector2)` | 30/s | Vector not unit-length or NaN; player is respawning |
+| `SetInputDirection` | `(intent: Vector2)` | 30/s | Not a Vector2; either component NaN; `X` outside [-1, 1]; player is respawning |
+
+`SetInputDirection`'s `X` is steering intent in [-1, 1] and `Y` is 1 on the
+frame a flip is requested. Neither is a quantity the server trusts for anything
+beyond intent: the server owns speed, turn rate and position, and a flip in
+progress is a rotation the server drives to completion.
 
 **No remote carries a quantity.** No price, no amount, no power, no hit, no
 position. Everything a remote can express is *intent*; the server supplies
