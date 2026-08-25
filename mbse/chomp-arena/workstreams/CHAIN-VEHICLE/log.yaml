@@ -417,3 +417,22 @@ entries:
     Reopen the rebuilt place and rerun the Workspace-parented conformance check
     on Standard. Keep Standard.rbxm until that scan passes; then append DELIVERED
     and remove the legacy binary before migrating HeavyJaw.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-001]
+  summary: >
+    VehicleService (D-CHOMP-031) puts the chassis on the player. Codex's four
+    models existed and nothing consumed them, so every playtest so far was
+    driven as a plain avatar. The model is built from its Luau spec, welded to
+    HumanoidRootPart massless and non-colliding, and the avatar's parts are
+    hidden. Locomotion is untouched on purpose — bolting a vehicle onto a
+    character is exactly where a second physics authority would creep in.
+  status: OPEN
+  handoff: >
+    NOT yet run, and it touches Codex's chassis work, so worth flagging: this
+    consumes VehicleSpecs and VehicleFactory but changes neither. Known limit
+    recorded in D-CHOMP-031 — collision is still the humanoid's, roughly two
+    studs against a five-stud body, so the chassis will clip a wall it is
+    pressed against. If the vehicle sits at the wrong height or faces backwards,
+    the fix is the PivotTo drop in fitVehicle, not the spec.

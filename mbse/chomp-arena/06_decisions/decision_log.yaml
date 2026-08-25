@@ -622,3 +622,57 @@ decisions:
       control scheme reserves. The RESET button is safe next to a touch stick
       because InputController drops touches whose gameProcessedEvent is true.
       BUILDING.md now carries the publish-and-play steps as well.
+
+  - id: D-CHOMP-030
+    date: 2026-08-25
+    title: A generated arena to drive, distinct from the authored v1 map
+    decision: >
+      ArenaMap builds a full two-deck arena procedurally from ChompConfig.Map:
+      a 32x32 braided maze, a raised 16x16 ring 2, four ramps, four bridges that
+      end in air, and twelve garages. One 16x16 quadrant is generated and
+      rotated four times, exactly as map_geometry.md's authoring rule requires.
+      ChompConfig.Map.Layout selects it or the old TestMap.
+    rationale: >
+      BUILDING.md gates real map geometry on CHOMP-TC-040 passing, and it has
+      not run. That gate exists so nobody spends a weekend hand-building against
+      a camera that turns out not to work — so the reason is respected rather
+      than the letter: this map is GENERATED from config, so a camera retune
+      that moves WallHeight or DeckHeight regenerates it for free instead of
+      invalidating anything. It is not the v1 map and must not be mistaken for
+      it; the v1 map is hand-built by the child from the six prefabs, and that
+      work stays gated.
+      The maze is braided rather than perfect. A perfect maze has exactly one
+      route between any two points, which is dull to drive and impossible to
+      escape through, and this game is about outrunning things.
+    outcome: >
+      src/ServerScriptService/ChompEngine/ArenaMap.server.lua. Walls are
+      rendered from an open-edge set, so a perimeter hole for a ramp or a bridge
+      is just an added edge rather than a special case. Ramps and bridges are
+      each defined once as a pair of quadrant cells and both ends rotated, so
+      their direction falls out of the rotation instead of four hand-written
+      cases. Reachability is flood-filled from spawn and warns rather than
+      assumed, because a generated maze that seals a quadrant is a wasted
+      playtest. TestMap is retained behind Layout = "Test".
+
+  - id: D-CHOMP-031
+    date: 2026-08-25
+    title: The chassis is worn by the character, and is appearance only
+    decision: >
+      VehicleService builds the player's chassis from its Luau spec on spawn,
+      welds it to HumanoidRootPart massless and non-colliding, and hides the
+      avatar's own parts. Locomotion is untouched.
+    rationale: >
+      Four chassis existed and nothing consumed them, so every playtest so far
+      was driven as a plain avatar. The temptation when bolting a vehicle onto a
+      character is to give it physics — and this project has already lost two
+      playtests to a second authority writing the same value (D-CHOMP-023,
+      D-CHOMP-025). So the chassis is deliberately inert: massless, no
+      collision, no queries, welded to a root part the client already steers.
+    outcome: >
+      src/ServerScriptService/ChompEngine/VehicleService.server.lua, reading
+      ChompChassis off the character or falling back to StartingChassis.
+      KNOWN LIMIT, recorded rather than hidden: collision is still the
+      humanoid's, about two studs wide against a chassis nearer five. Corridors
+      are eight, so it shows only when hugging a wall. Giving the vehicle a real
+      collision body changes how the character is built and is not worth doing
+      before CHOMP-TC-040 says the geometry survives at all.

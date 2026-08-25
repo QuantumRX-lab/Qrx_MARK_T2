@@ -204,6 +204,18 @@ ChompConfig.Map = {
 	Ring2InnerCells = 8,          -- central 16 x 16 becomes the raised ring
 	GarageCells = 3,              -- garages are 3 x 3 cells
 	PelletsPerOpenCell = 1,
+
+	-- Which map the server builds on start.
+	--   "Test"  the throwaway two-deck map CHOMP-TC-040 was built against
+	--   "Arena" a generated full arena: 32x32 ground maze, raised ring 2,
+	--           four ramps, four bridges, twelve garages
+	-- Arena is GENERATED, not authored. The v1 map in map_geometry.md is hand
+	-- built by the child from prefabs; this exists so there is something real to
+	-- drive before that work starts, and so it costs nothing to throw away when
+	-- the camera forces a geometry change.
+	Layout = "Arena",
+	ArenaSeed = 20260825,         -- change for a different maze, same rules
+	ArenaBraidChance = 0.28,      -- fraction of dead ends opened into loops
 }
 
 return ChompConfig

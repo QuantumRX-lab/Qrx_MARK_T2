@@ -77,3 +77,23 @@ entries:
     The grid is unaffected — walls sit on cell boundaries and 2 studs still
     leaves a clear 6-stud corridor inside an 8-stud cell. Nothing in the map
     geometry spec changes except the thickness figure.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-047]
+  summary: >
+    ArenaMap (D-CHOMP-030): a generated two-deck arena to drive — 32x32 braided
+    ground maze, raised 16x16 ring 2, four ramps, four bridges ending in air,
+    twelve garages, all from ChompConfig.Map and built by rotating one 16x16
+    quadrant four times. Explicitly NOT the v1 map of map_geometry.md, which is
+    hand-built by the child and stays gated on CHOMP-TC-040.
+  status: OPEN
+  handoff: >
+    NOT yet run. Nobody has seen this map exist, let alone driven it. The
+    geometry most likely to be wrong is the ramps: tilt direction is derived
+    per rotation from the sign of the run, and a wrong sign gives a ramp that
+    descends into the floor. If a ramp looks wrong, the two CFrame.Angles signs
+    are the whole fix. Reachability is flood-filled at build time and warns in
+    the output, so read the [ArenaMap] line before concluding the maze is fine:
+    it reports how many of the 1024 ground cells are reachable from spawn.
+    Change ChompConfig.Map.ArenaSeed for a different maze under the same rules.

@@ -77,6 +77,10 @@ local function slab(parent: Instance, x: number, z: number, w: number, d: number
 	return p
 end
 
+if M.Layout ~= "Test" then
+	return   -- ArenaMap builds instead; see ChompConfig.Map.Layout
+end
+
 local function build()
 	local maps = Workspace:FindFirstChild("Maps") or Instance.new("Folder")
 	maps.Name = "Maps"
