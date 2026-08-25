@@ -671,3 +671,24 @@ test_cases:
       - "child locates an off-deck player correctly from the marker alone"
     status: NOT_STARTED
     phase: v1
+
+  - id: CHOMP-TC-041
+    title: The maze fills up when the lobby empties
+    verifies: [CHOMP-SYS-053]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["A map with ghost spawns", "Ability to join and leave with several clients"]
+    test_data: {counts: {1: 6, 2: 6, 6: 4, 12: 2}}
+    procedure:
+      - "Start alone and count active ghosts"
+      - "Have players join one at a time to a full lobby, counting ghosts at each step"
+      - "Have them all leave again, counting ghosts at each step"
+      - "Play a full solo round and confirm it is completable: gates crackable, rounds winnable"
+    expected_result: Ghost count follows the configured mapping in both directions within 10 s, and a solo round is a complete game.
+    pass_criteria:
+      - "ghost count matches config at every player count"
+      - "recalculated within 10 s of any join or leave"
+      - "no ghost orphaned or duplicated across changes"
+      - "a solo player can bank, upgrade, crack a gate and finish a round"
+    status: NOT_STARTED
+    phase: v1

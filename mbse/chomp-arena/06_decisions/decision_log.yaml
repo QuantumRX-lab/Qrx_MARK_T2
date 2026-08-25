@@ -128,17 +128,27 @@ decisions:
 
   - id: D-CHOMP-010
     date: 2026-08-25
-    title: OPEN — whether a solo/co-op mode moves into v1
+    title: Ghost count scales with player count, instead of a separate solo mode
     decision: >
-      Not yet decided. Currently scheduled for v2 (CHOMP-SYS-041).
+      The server sets the number of active ghosts from the current player
+      count, raising it as players leave and lowering it as they join. No solo
+      mode, no menu, no second rule set.
     rationale: >
       Published to Friends only, most sessions will have one or two players,
       and a 12-player PvP design degrades badly at that population. The ghosts
       and gates already constitute a complete single-player Pac-Man, so the
-      marginal cost of a v1 solo mode is mode selection and a doubled ghost
-      count rather than new mechanics — but it is still scope on a v1 that is
-      already large (RISK-CHOMP-005).
-    outcome: Awaiting owner decision. Tracked as RISK-CHOMP-007.
+      marginal cost is small, because ghosts, gates, pellets, banking and
+      upgrades all work identically with one player — what is missing is only
+      an opponent, and ghosts are opponents.
+
+      Scaling was chosen over a solo mode because it costs about an hour, adds
+      no menu and no second set of rules, and additionally fixes a subtler
+      problem: a half-empty PvP server feels dead even with three or four
+      players in it, and more ghosts make it feel busy.
+    outcome: >
+      CHOMP-SYS-053 (v1). RISK-CHOMP-007 closed. CHOMP-SYS-041 narrowed to team
+      play and an opt-out of PvP, since the empty-server case no longer needs a
+      mode to solve it.
 
   - id: D-CHOMP-011
     date: 2026-08-25

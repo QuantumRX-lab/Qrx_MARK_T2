@@ -3,8 +3,8 @@
 # from this comment. See mbse/infrastructure/06_decisions (D-INFRA-009) for
 # why that rule exists.
 
-open_count: 13
-closed_count: 0
+open_count: 12
+closed_count: 1
 
 risks:
 
@@ -138,12 +138,15 @@ risks:
       v2.
     severity: HIGH
     likelihood: HIGH
-    status: OPEN
+    status: CLOSED
     mitigation: >
-      Recommend moving a minimal solo/co-op mode into v1 — the ghosts and
-      gates already make a complete single-player Pac-Man without any new
-      systems, so the cost is mode selection and a doubled ghost count, not new
-      mechanics. Decision deferred to the owner (see D-CHOMP-010).
+      Scale the ghost count to the player count, so a quiet server fills with
+      ghosts instead of emptying of opponents.
+    resolution: >
+      Closed 2026-08-25 by owner decision (D-CHOMP-010), implemented as
+      CHOMP-SYS-053. Chosen over a separate solo mode: no menu, no mode
+      selection, no second rule set — one number the server sets on join and
+      leave. Alone, the game becomes Pac-Man with upgrades and towers.
     detected: 2026-08-25
     detected_by: Requirements review
     linked_requirements: [CHOMP-SYS-041, CHOMP-SYS-020]

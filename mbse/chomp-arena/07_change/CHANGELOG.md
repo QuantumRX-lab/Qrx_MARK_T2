@@ -1,5 +1,15 @@
 # Chomp Arena — Change Log
 
+## 2026-08-25 — Ghost count scales with player count
+- `D-CHOMP-010` resolved: the server sets the ghost count from the current
+  player count rather than offering a separate solo mode (`CHOMP-SYS-053`,
+  v1). Alone, the maze becomes the opponent and the game is Pac-Man with
+  upgrades and towers.
+- `RISK-CHOMP-007` (a Friends-only 12-player PvP game usually has two players
+  in it) closed.
+- `CHOMP-SYS-041` narrowed to team play and an opt-out of PvP, since the
+  empty-server case no longer needs a mode to solve it.
+
 ## 2026-08-25 — Multi-level maze
 - Maps become vertically stacked decks with ramps and bridges rather than
   concentric rings on one plane (`D-CHOMP-011`). Rings ascend toward the

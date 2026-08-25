@@ -1241,6 +1241,34 @@ requirements:
     last_modified: 2026-08-25
     author: Claude (requirements session)
 
+  - id: CHOMP-SYS-053
+    title: The ghost count scales with the player count
+    shall_statement: >
+      The number of active ghosts SHALL be set from the current player count,
+      rising as players leave and falling as they join, recalculated within 10
+      seconds of any join or leave, with the mapping defined in ChompConfig.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-001, CHOMP-SYS-019]
+    verified_by: [CHOMP-TC-041]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Owner decision (D-CHOMP-010). Published to Friends only, the normal case
+      is one or two players in the server, not twelve — and a PvP design with
+      one player in it has nothing happening at all. Scaling the ghosts means
+      the maze itself becomes the opponent when it is quiet: alone, the game is
+      Pac-Man with upgrades and towers, which is already a good game. Chosen
+      over a separate solo mode because it needs no menu, no mode selection and
+      no second set of rules — it is one number the server sets when people
+      join and leave.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
   # ── v2: content and modes ───────────────────────────────────────────────
 
   - id: CHOMP-SYS-039
@@ -1286,10 +1314,11 @@ requirements:
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-041
-    title: Team and solo modes
+    title: Team mode, and a way to opt out of fighting
     shall_statement: >
-      The experience SHALL offer 2v2/3v3 teams with a shared bank and no
-      friendly fire, and a solo/co-op mode against doubled ghosts with no PvP.
+      The experience SHALL offer 2v2/3v3 teams with a shared bank, shared gate
+      access and no friendly fire, and SHALL offer a no-PvP option in which a
+      player can neither attack nor be attacked by other players.
     level: L2_system
     status: APPROVED
     priority: MEDIUM
@@ -1298,8 +1327,10 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      Teams are how an adult and a young child genuinely partner up. Solo is
-      the one-player-online fallback and the gentlest way in for a beginner.
+      Teams are how an adult and a young child genuinely partner up. The no-PvP
+      option is for a beginner who wants to learn the maze without being hunted
+      — not for the empty-server case, which CHOMP-SYS-053 handles in v1 by
+      scaling the ghosts instead.
     allocated_to: ServerScriptService/ChompEngine
     phase: v2
     created_date: 2026-08-25
