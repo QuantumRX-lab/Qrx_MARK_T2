@@ -24,8 +24,6 @@ colour are deliberately unconstrained.
 | `Tier` | number | 1 | 2 | 3 | 4 |
 | `BarCapacity` | number | 100 | 175 | 275 | 400 |
 | `Power` | number | 100 | 250 | 450 | 700 |
-| `BaseSpeed` | number (studs/s) | 24 | 23 | 26 | 28 |
-| `BaseTurn` | number (deg/s) | 540 | 480 | 450 | 420 |
 | `MouthArcDegrees` | number | 90 | 90 | 100 | 110 |
 | `TriangleCount` | number | your measured triangle count, at most 5000 |
 
@@ -34,9 +32,14 @@ exist so the conformance scan can catch a model that disagrees with the config.
 **Read the values from that file, not from this table** — if the two ever
 diverge, the config is right and this table is stale.
 
-Note the deliberate shape: bigger chassis are faster but turn worse. A tier is
-a trade, not a straight upgrade. `TriangleCount` has to be declared because
-Luau cannot measure it.
+`TriangleCount` has to be declared because Luau cannot measure it.
+
+**Amended 2026-08-25 (`D-CHOMP-019`):** `BaseSpeed` and `BaseTurn` were
+originally required here too. They have been removed. They are tuning values
+that change every playtest — the first retune moved turn rates by more than
+half — and a model carrying a stale copy would fail conformance for a reason
+that says nothing about the model. **A chassis model carries identity and
+shape; `ChompConfig` carries tuning.**
 
 ## 3. Geometry and orientation
 

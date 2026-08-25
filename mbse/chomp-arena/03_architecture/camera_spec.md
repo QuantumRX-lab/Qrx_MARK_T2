@@ -10,10 +10,10 @@ first and on a throwaway test map.
 | | |
 |---|---|
 | Yaw | **World-locked. The camera never rotates with the vehicle** |
-| Pitch | 35° down |
-| Distance | 42 studs along the camera axis |
-| Field of view | 55° |
-| Target | The vehicle, plus 6 studs of look-ahead along its facing |
+| Pitch | 38° down |
+| Distance | 34 studs along the camera axis |
+| Field of view | 75° |
+| Target | The vehicle, plus 5 studs of **eased** look-ahead along its facing |
 | Screen position | Vehicle sits at 0.55 of screen height — slightly low, so there is more room ahead than behind |
 
 ## Why world-locked yaw
@@ -33,8 +33,27 @@ which is precisely why the vehicle contract demands a mouth occupying 30% of
 the silhouette that reads directionally in greyscale. The camera decision and
 the vehicle readability rule are the same decision seen twice.
 
-At 35°, corridors stay visible several cells ahead, walls read as walls rather
+At 38°, corridors stay visible several cells ahead, walls read as walls rather
 than as a flat plan, and vertical separation between decks is obvious.
+
+**Revised after the first playtest (`D-CHOMP-020`).** The original 55° field of
+view was a mistake: Roblox's default is 70 and arcade games go wider still to
+convey speed, so 55 acted as a telephoto lens that flattened the scene and made
+the camera feel detached from the vehicle. Distance came down from 42 to 34 to
+keep the framing similar at the wider angle.
+
+Two smoothing terms were also missing, and their absence was most of what
+"the camera doesn't move correctly" meant:
+
+- **The look-ahead is eased**, over `LookAheadEaseSeconds`. Applied instantly
+  it snaps around the moment you turn, which reads as the world sliding
+  sideways rather than the vehicle rotating.
+- **Horizontal follow is eased**, over `FollowEaseSeconds`, so the character's
+  physics jitter never reaches the camera.
+
+Deck detection also uses `floor` rather than rounding. Rounding flips the deck
+halfway up a ramp and again mid-fall, leaving the spring chasing a target that
+keeps moving.
 
 ## Deck transitions
 

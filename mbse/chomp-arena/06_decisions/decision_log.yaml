@@ -303,3 +303,74 @@ decisions:
       03_architecture/map_geometry.md, ChompConfig.Map. The "prefab system" is
       a snap increment of 8 and six models, not a tool anyone has to write.
       Rings 3 and 4 are v2; the engine handles N decks from the start.
+
+  - id: D-CHOMP-018
+    date: 2026-08-25
+    title: The client applies rotation to its own character; the server owns the numbers
+    decision: >
+      Steering is applied client-side by VehicleController on the character the
+      client already owns. MovementService keeps authority over the values —
+      it computes speed and turn rate from chassis and upgrades, writes them
+      onto the character as attributes, re-asserts WalkSpeed on a timer, and
+      flags horizontal travel that exceeds what those values allow.
+    rationale: >
+      Corrective. The first implementation rotated the character from the
+      server every heartbeat. Roblox gives a client network ownership of its
+      own character, so that was two authorities writing one transform every
+      frame, and the result was jitter and rubber-banding severe enough that
+      the first playtest reported the handling as terrible. Roblox's
+      replication model does not let a server smoothly drive a player's own
+      character, and pretending otherwise bought no security — it only made
+      the game feel broken. The security property that matters is preserved:
+      a client cannot choose its own speed or turn rate, and a client that
+      moves faster than its stats allow is detectable server-side.
+    outcome: >
+      VehicleController.client.lua added; MovementService.server.lua rewritten
+      to stop writing CFrame. Steering is also ramped over
+      Movement.SteerRampSeconds, because raw input at any turn rate high enough
+      to make a junction is twitchy.
+
+  - id: D-CHOMP-019
+    date: 2026-08-25
+    title: Chassis models carry identity and shape, never tuning values
+    decision: >
+      BaseSpeed and BaseTurn are removed from the vehicle contract's required
+      attributes and from the conformance scan. A model declares Tier,
+      BarCapacity, Power, MouthArcDegrees and TriangleCount; ChompConfig owns
+      speed and turn.
+    rationale: >
+      Surfaced immediately by the first retune: turn rates changed from 540 to
+      240 degrees per second, which would have made all four delivered models
+      fail conformance on a mismatch that says nothing about the models. Tuning
+      values change every playtest. A model that carries a stale copy of one is
+      a re-delivery for no reason.
+    outcome: >
+      VehicleConformance.lua REQUIRED_ATTRIBUTES reduced; vehicle_contract.md
+      updated. Codex's four delivered models are unaffected and need no rework.
+
+  - id: D-CHOMP-020
+    date: 2026-08-25
+    title: Handling and camera retuned against published benchmarks
+    decision: >
+      Turn rates cut from 540/480/450/420 to 240/220/200/185 degrees per
+      second. Camera field of view raised from 55 to 75, distance reduced from
+      42 to 34, pitch from 35 to 38 degrees. Look-ahead and horizontal follow
+      are now eased rather than applied instantly. Wall thickness raised from 1
+      stud to 2.
+    rationale: >
+      First playtest reported bad handling and a camera that did not move
+      correctly. 540 degrees per second is one and a half full rotations a
+      second, which is unusable; the geometry sets the right value — 8-stud
+      cells at 24 studs per second is a third of a second per cell, so a 90
+      degree junction turn needs roughly 270 deg/s to complete inside one cell,
+      and 240 with agility upgrades on top lands there. Roblox's default field
+      of view is 70 and arcade games go wider to convey speed, so 55 was a
+      telephoto lens that flattened the scene. An unsmoothed look-ahead snapped
+      around on every turn, which reads as the world sliding sideways rather
+      than the vehicle turning. Wall thickness went up because high WalkSpeed
+      can tunnel a character through a 1-stud wall, which is exactly what
+      CHOMP-SYS-003 exists to prevent.
+    outcome: >
+      ChompConfig retuned; CameraController eases look-ahead and horizontal
+      follow separately from the deck spring, and uses floor rather than round
+      for deck detection so the spring is not chased mid-ramp and mid-fall.

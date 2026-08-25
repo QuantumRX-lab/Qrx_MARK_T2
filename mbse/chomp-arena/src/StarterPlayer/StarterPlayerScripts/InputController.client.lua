@@ -23,6 +23,14 @@ local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local CONTROLS = Config.Controls
 
 local player = Players.LocalPlayer
+
+-- VehicleController reads this every frame to steer the character we own.
+-- The server still gets the same intent through SetInputDirection, so it can
+-- validate; this table is how the local character turns without waiting for a
+-- round trip (D-CHOMP-018).
+local shared = _G.ChompInput or { steer = 0, flip = false }
+_G.ChompInput = shared
+
 local sendRate = Remotes.Limits.SetInputDirection * 0.66  -- stay inside the limit
 local sendInterval = 1 / sendRate
 
@@ -133,6 +141,9 @@ RunService.Heartbeat:Connect(function(dt)
 	accumulator += dt
 	local steer = currentSteer()
 	local flip = flipQueued and 1 or 0
+
+	shared.steer = steer
+	if flip == 1 then shared.flip = true end
 	local payload = Vector2.new(steer, flip)
 
 	local changed = math.abs(payload.X - lastSent.X) > 0.02 or flip == 1

@@ -31,8 +31,12 @@ local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 
 local VehicleConformance = {}
 
+-- BaseSpeed and BaseTurn were deliberately removed (D-CHOMP-019). They are
+-- tuning values that change every playtest, and a model carrying a stale copy
+-- would fail conformance for a reason that has nothing to do with the model.
+-- A chassis model carries identity and shape; ChompConfig carries tuning.
 local REQUIRED_ATTRIBUTES = {
-	"Tier", "BarCapacity", "Power", "BaseSpeed", "BaseTurn", "MouthArcDegrees",
+	"Tier", "BarCapacity", "Power", "MouthArcDegrees",
 }
 local BANNED_CLASSES = {
 	Script = true, LocalScript = true, ModuleScript = true,

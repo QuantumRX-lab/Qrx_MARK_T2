@@ -39,6 +39,13 @@ local FOCUS_RAISE = math.tan(math.rad((C.TargetScreenHeight - 0.5) * C.FieldOfVi
 -- Critically damped, not linear and not bouncy: a linear ease lurches at both
 -- ends, and any overshoot on a tablet reads as the floor moving.
 local OMEGA = 4 / C.DeckEaseSeconds
+
+-- Horizontal follow and look-ahead are smoothed separately from deck height.
+-- Without this the camera copies the character's physics jitter frame for
+-- frame, and the look-ahead snaps around the moment you turn — which reads as
+-- the world sliding sideways rather than the vehicle turning.
+local followX, followZ = nil, nil
+local aheadVector = Vector3.zero
 local springY = 0
 local springV = 0
 local springReady = false
@@ -166,6 +173,8 @@ local function onRenderStep(dt: number)
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not root then
 		springReady = false
+		followX, followZ = nil, nil
+		aheadVector = Vector3.zero
 		return
 	end
 
@@ -174,7 +183,9 @@ local function onRenderStep(dt: number)
 
 	-- Deck is derived from height, so a fall eases down exactly as a ramp
 	-- eases up. No jump cuts, including when a player falls (CHOMP-SYS-049).
-	local deck = math.floor(root.Position.Y / MAP.DeckHeight + 0.5)
+	-- floor, not round: rounding flips the deck halfway up a ramp and again
+	-- mid-fall, which sets the spring chasing a target that keeps changing.
+	local deck = math.floor(root.Position.Y / MAP.DeckHeight + 0.25)
 	local deckY = stepSpring(deck * MAP.DeckHeight, dt)
 
 	local facing = root.CFrame.LookVector
@@ -185,8 +196,19 @@ local function onRenderStep(dt: number)
 		flatFacing = Vector3.new(0, 0, -1)
 	end
 
-	local focus = Vector3.new(root.Position.X, deckY, root.Position.Z)
-		+ flatFacing * C.LookAheadStuds
+	-- Ease the look-ahead toward the new facing rather than snapping to it.
+	local targetAhead = flatFacing * C.LookAheadStuds
+	local aheadAlpha = math.clamp(dt / C.LookAheadEaseSeconds, 0, 1)
+	aheadVector = aheadVector:Lerp(targetAhead, aheadAlpha)
+
+	-- Ease horizontal follow, so character physics jitter never reaches the
+	-- camera. Vertical is handled by the deck spring above.
+	local followAlpha = math.clamp(dt / C.FollowEaseSeconds, 0, 1)
+	followX = followX and (followX + (root.Position.X - followX) * followAlpha) or root.Position.X
+	followZ = followZ and (followZ + (root.Position.Z - followZ) * followAlpha) or root.Position.Z
+
+	local focus = Vector3.new(followX, deckY, followZ)
+		+ aheadVector
 		+ Vector3.new(0, FOCUS_RAISE, 0)
 
 	local position = focus + OFFSET + shakeOffset()
@@ -205,4 +227,6 @@ player.CharacterRemoving:Connect(function()
 	end
 	table.clear(faded)
 	springReady = false
+	followX, followZ = nil, nil
+	aheadVector = Vector3.zero
 end)

@@ -62,7 +62,7 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 17
+  total: 20
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder — the daughter names it."
@@ -80,7 +80,11 @@ next_actions:
      real to follow."
   - "Stand up the L0 conformance scans and the L1 unit spec harness before
      writing gameplay logic — the maths must stay pure to be testable."
-  - "Run CHOMP-TC-040 on the iPad: drive both decks, under the bridge and
+  - "Re-run the drive test after the D-CHOMP-018 locomotion fix and the
+     D-CHOMP-020 retune. First playtest reported unusable handling: the server
+     was writing the character CFrame every frame against the client's own
+     network ownership."
+  - "Then CHOMP-TC-040 on the iPad: drive both decks, under the bridge and
      around the tower, then call _G.ChompCameraReport(). Any breach of the
      0.2 s occlusion ceiling is a failure and blocks real map building."
   - "Codex: acknowledge the CHAIN-VEHICLE claim split in the log, and deliver

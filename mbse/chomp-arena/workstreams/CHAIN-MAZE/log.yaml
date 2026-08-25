@@ -63,3 +63,17 @@ entries:
     over the corridor is the occlusion case that matters, and the tower core is
     the fade case. Build the real v1 map only after CHOMP-TC-040 passes on the
     iPad.
+- date: '2026-08-25'
+  agent: Claude (engine)
+  action: NOTE
+  requirements: [CHOMP-SYS-047]
+  summary: >
+    Wall thickness raised from 1 stud to 2 in ChompConfig.Map. A character at
+    high WalkSpeed can tunnel through a 1-stud wall, which is the precise
+    failure CHOMP-SYS-003 exists to prevent, and speed upgrades make it more
+    likely rather than less.
+  status: OPEN
+  handoff: >
+    The grid is unaffected — walls sit on cell boundaries and 2 studs still
+    leaves a clear 6-stud corridor inside an 8-stud cell. Nothing in the map
+    geometry spec changes except the thickness figure.

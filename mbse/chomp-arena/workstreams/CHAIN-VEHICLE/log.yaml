@@ -257,3 +257,28 @@ entries:
     Scan.report(Scan.checkAll()) to close the first. CHAIN-VEHICLE's model work
     is otherwise complete; what is left on the chain is wiring a chassis onto
     the character, which belongs with the engine claim.
+- date: '2026-08-25'
+  agent: Claude (engine)
+  action: DECIDED
+  requirements: [CHOMP-SYS-001, CHOMP-SYS-002, CHOMP-SYS-051]
+  summary: >
+    First playtest reported terrible handling and a camera that did not move
+    correctly. Both were implementation faults, not tuning. Root cause of the
+    handling: MovementService wrote root.CFrame every heartbeat from the
+    server, while Roblox gives the client network ownership of its own
+    character — two authorities writing one transform every frame. Steering
+    moved to VehicleController on the client (D-CHOMP-018); the server keeps
+    the numbers, writes them to the character as attributes, re-asserts
+    WalkSpeed and flags impossible travel. Camera: field of view 55 to 75,
+    distance 42 to 34, pitch 35 to 38, and the two missing smoothing terms
+    added — the look-ahead was snapping round on every turn, which reads as the
+    world sliding sideways. Turn rates cut from 540 to 240 deg/s; 540 is one
+    and a half rotations a second.
+  status: OPEN
+  handoff: >
+    Codex: your four models are unaffected and need no rework. BaseSpeed and
+    BaseTurn have been removed from the contract's required attributes
+    (D-CHOMP-019) precisely so a retune cannot invalidate a delivered model —
+    the retune that prompted it would have failed all four on a mismatch that
+    says nothing about the models. Models carry identity and shape; ChompConfig
+    carries tuning.

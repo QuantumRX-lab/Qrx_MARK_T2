@@ -25,10 +25,10 @@ local ChompConfig = {}
 -- empty bar is genuinely beatable by a topped-up Standard.
 
 ChompConfig.Chassis = {
-	Standard = { Tier = 1, BarCapacity = 100, Power = 100, BaseSpeed = 24, BaseTurn = 540, MouthArcDegrees = 90,  Cost = 0 },
-	HeavyJaw = { Tier = 2, BarCapacity = 175, Power = 250, BaseSpeed = 23, BaseTurn = 480, MouthArcDegrees = 90,  Cost = 500 },
-	Ravener  = { Tier = 3, BarCapacity = 275, Power = 450, BaseSpeed = 26, BaseTurn = 450, MouthArcDegrees = 100, Cost = 1500 },
-	Apex     = { Tier = 4, BarCapacity = 400, Power = 700, BaseSpeed = 28, BaseTurn = 420, MouthArcDegrees = 110, Cost = 3500 },
+	Standard = { Tier = 1, BarCapacity = 100, Power = 100, BaseSpeed = 24, BaseTurn = 240, MouthArcDegrees = 90,  Cost = 0 },
+	HeavyJaw = { Tier = 2, BarCapacity = 175, Power = 250, BaseSpeed = 23, BaseTurn = 220, MouthArcDegrees = 90,  Cost = 500 },
+	Ravener  = { Tier = 3, BarCapacity = 275, Power = 450, BaseSpeed = 26, BaseTurn = 200, MouthArcDegrees = 100, Cost = 1500 },
+	Apex     = { Tier = 4, BarCapacity = 400, Power = 700, BaseSpeed = 28, BaseTurn = 185, MouthArcDegrees = 110, Cost = 3500 },
 }
 
 ChompConfig.StartingChassis = "Standard"
@@ -39,6 +39,7 @@ ChompConfig.StartingChassis = "Standard"
 ChompConfig.Movement = {
 	Acceleration = 60,       -- studs/s^2, deliberately snappy: arcade, not simulation
 	Braking = 90,
+	SteerRampSeconds = 0.12,      -- time for steering to reach the held value
 	ReverseFlipSeconds = 0.45,
 	ReverseFlipSecondsAgile = 0.25,   -- with Agility II or better
 	AgilityLevelForFastReverse = 2,
@@ -53,8 +54,8 @@ ChompConfig.Upgrades = {
 	PowerPerLevel = 40,
 	MaxLevel = 3,
 
-	Speed       = { Speed =  3, Turn = -25 },              -- faster, wider turning circle
-	Agility     = { Turn  = 60, Speed = -1.5 },            -- corners better, lower top speed
+	Speed       = { Speed =  3, Turn = -12 },              -- faster, wider turning circle
+	Agility     = { Turn  = 30, Speed = -1.5 },            -- corners better, lower top speed
 	Consumption = { MouthArcDegrees = 10, PelletMultiplier = 0.25, HitboxRadius = 0.25 },
 }
 
@@ -155,11 +156,13 @@ ChompConfig.Controls = {
 -- the model, not the world.
 
 ChompConfig.Camera = {
-	PitchDegrees = 35,
-	Distance = 42,
-	FieldOfView = 55,
+	PitchDegrees = 38,
+	Distance = 34,
+	FieldOfView = 75,
 	TargetScreenHeight = 0.55,    -- vehicle sits slightly below centre
-	LookAheadStuds = 6,
+	LookAheadStuds = 5,
+	LookAheadEaseSeconds = 0.45,  -- the look-ahead must NOT snap round with the vehicle
+	FollowEaseSeconds = 0.09,     -- smooths character physics jitter out of the camera
 	DeckEaseSeconds = 0.35,
 	OccluderFadeInSeconds = 0.12,
 	OccluderFadeOutSeconds = 0.25,
@@ -176,7 +179,7 @@ ChompConfig.Camera = {
 ChompConfig.Map = {
 	CellSize = 8,
 	WallHeight = 7,
-	WallThickness = 1,
+	WallThickness = 2,
 	DeckHeight = 16,              -- floor to floor
 	SlabThickness = 2,
 	RampCells = 4,                -- 32 studs run for a 16 stud rise, ~26.6 degrees
