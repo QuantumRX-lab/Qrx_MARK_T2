@@ -1,20 +1,25 @@
 # Map Geometry
 
-Everything is on an **8-stud grid**. That single fact is what makes ghost
+Everything is on a **16-stud grid**. That single fact is what makes ghost
 pathing cheap, symmetry automatic, and prefab building possible for a child.
+
+The grid was 8 until the first real drive (`D-CHOMP-034`). Corridor width is not
+an art choice: turning radius is `BaseSpeed / BaseTurn` in radians, about 5.7
+studs, and an 8-stud cell left 0.6 studs either side of the vehicle. There was no
+room to arc, so every corner was a pivot in place and the handling read as sharp.
 
 ## The numbers
 
 | | Studs | Notes |
 |---|---|---|
-| Cell | 8 | Corridor width. Vehicles are at most 6 wide |
+| Cell | 16 | Corridor width, derived from turning radius. Vehicles are at most 6 wide |
 | Wall height | 7 | **A camera constraint, not an art choice** — see `camera_spec.md` |
 | Wall thickness | 1 | Sits on the cell boundary |
 | Deck height | 16 | Floor to floor |
 | Slab | 2 | So 14 studs of clear headroom per deck |
-| Ramp | 4 cells (32) | For a 16-stud rise: about 26.6°, comfortable at full speed |
+| Ramp | 2 cells (32) | For a 16-stud rise: about 26.6°, comfortable at full speed |
 | Bridge | 1 cell wide | No railings. Falling is a mechanic (`CHOMP-SYS-049`) |
-| Garage | 3 × 3 cells | One entrance, on the outer deck |
+| Garage | 2 × 2 cells | 32 studs square. One entrance, on the outer deck |
 
 ## The prefab set
 
@@ -23,14 +28,14 @@ guarantees walls land on the grid.
 
 | Piece | Size (studs) |
 |---|---|
-| `Wall_Straight` | 8 × 7 × 1 |
-| `Wall_Corner` | L, 8 × 7 × 1 both arms |
+| `Wall_Straight` | 16 × 7 × 1 |
+| `Wall_Corner` | L, 16 × 7 × 1 both arms |
 | `Wall_Cap` | 1 × 7 × 1 end stub |
-| `Floor_Slab` | 8 × 2 × 8 |
-| `Ramp_Section` | 8 × 2 × 8, rising 4 studs |
-| `Bridge_Span` | 8 × 2 × 8, no sides |
+| `Floor_Slab` | 16 × 2 × 16 |
+| `Ramp_Section` | 16 × 2 × 16, rising 8 studs |
+| `Bridge_Span` | 16 × 2 × 16, no sides |
 
-Build with Studio's move and rotate snap set to 8. That is the whole "prefab
+Build with Studio's move and rotate snap set to 16. That is the whole "prefab
 system" — a snap increment and six models, not a tool anyone has to write.
 
 ## The v1 map

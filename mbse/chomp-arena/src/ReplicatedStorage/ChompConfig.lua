@@ -210,17 +210,23 @@ ChompConfig.Camera = {
 -- art choice: taller than this and the camera cannot see over it at 35 degrees.
 
 ChompConfig.Map = {
-	CellSize = 8,
+	-- Corridor width, and it is derived rather than chosen (D-CHOMP-034).
+	-- Turning radius is BaseSpeed / BaseTurn in radians: 24 / 4.19 = 5.7 studs.
+	-- At cell 8 the clear width was 6 studs against a 4.8-stud vehicle - 0.6
+	-- studs either side - so there was no room to arc and every corner was a
+	-- pivot in place. 16 leaves 4.6 studs either side and the sweep fits.
+	-- If BaseSpeed or BaseTurn move, re-derive this.
+	CellSize = 16,
 	WallHeight = 7,
 	WallThickness = 2,
 	DeckHeight = 16,              -- floor to floor
 	SlabThickness = 2,
-	RampCells = 4,                -- 32 studs run for a 16 stud rise, ~26.6 degrees
+	RampCells = 2,                -- 32 studs run for a 16 stud rise, ~26.6 degrees
 	BridgeWidthCells = 1,
 	QuadrantCells = 16,           -- authored quadrant is 16 x 16 cells
 	GroundDeckCells = 32,         -- full ground deck after mirroring
 	Ring2InnerCells = 8,          -- central 16 x 16 becomes the raised ring
-	GarageCells = 3,              -- garages are 3 x 3 cells
+	GarageCells = 2,              -- 2 x 2 cells is 32 studs square at cell 16
 	PelletsPerOpenCell = 1,
 
 	-- Which map the server builds on start.
@@ -233,7 +239,7 @@ ChompConfig.Map = {
 	-- the camera forces a geometry change.
 	Layout = "Arena",
 	ArenaSeed = 20260825,         -- change for a different maze, same rules
-	ArenaCells = 20,              -- full grid across; must be even, quadrant is half
+	ArenaCells = 16,              -- full grid across; must be even, quadrant is half
 	ArenaDecks = 1,               -- 1 = ground only. 2 adds ring 2, ramps and bridges
 	ArenaBraidChance = 0.45,      -- higher is more loops and fewer dead ends
 }

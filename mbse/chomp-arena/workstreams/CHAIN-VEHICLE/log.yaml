@@ -436,3 +436,22 @@ entries:
     studs against a five-stud body, so the chassis will clip a wall it is
     pressed against. If the vehicle sits at the wrong height or faces backwards,
     the fix is the PivotTo drop in fitVehicle, not the spec.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-001]
+  summary: >
+    The avatar is now hidden properly (D-CHOMP-034). Hiding once at spawn missed
+    parts that arrive after CharacterAdded and after the appearance loads, and
+    an invisible humanoid still runs its animation, so limbs were swinging
+    inside the welded chassis. VehicleService hides descendants as they appear,
+    re-hides on CharacterAppearanceLoaded, excludes the vehicle model from that
+    sweep, disables the Animate script and stops any playing tracks.
+  status: OPEN
+  handoff: >
+    Disabling Animate is a blunt instrument: when this game wants a chassis
+    animation - a mouth opening on a chomp - it will need its own animator
+    rather than the default one, because Animate is off for good here.
+    Also note the chassis is 4.8 studs wide in a corridor that is now 14 studs
+    clear (D-CHOMP-034), so it will look small. Scaling the spec is a
+    CHAIN-VEHICLE call and has deliberately not been made here.

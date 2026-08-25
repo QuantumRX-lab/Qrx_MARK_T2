@@ -218,17 +218,23 @@ ChompConfig.Camera = {
 -- art choice: taller than this and the camera cannot see over it at 35 degrees.
 
 ChompConfig.Map = {
-	CellSize = 8,
+	-- Corridor width, and it is derived rather than chosen (D-CHOMP-034).
+	-- Turning radius is BaseSpeed / BaseTurn in radians: 24 / 4.19 = 5.7 studs.
+	-- At cell 8 the clear width was 6 studs against a 4.8-stud vehicle - 0.6
+	-- studs either side - so there was no room to arc and every corner was a
+	-- pivot in place. 16 leaves 4.6 studs either side and the sweep fits.
+	-- If BaseSpeed or BaseTurn move, re-derive this.
+	CellSize = 16,
 	WallHeight = 7,
 	WallThickness = 2,
 	DeckHeight = 16,              -- floor to floor
 	SlabThickness = 2,
-	RampCells = 4,                -- 32 studs run for a 16 stud rise, ~26.6 degrees
+	RampCells = 2,                -- 32 studs run for a 16 stud rise, ~26.6 degrees
 	BridgeWidthCells = 1,
 	QuadrantCells = 16,           -- authored quadrant is 16 x 16 cells
 	GroundDeckCells = 32,         -- full ground deck after mirroring
 	Ring2InnerCells = 8,          -- central 16 x 16 becomes the raised ring
-	GarageCells = 3,              -- garages are 3 x 3 cells
+	GarageCells = 2,              -- 2 x 2 cells is 32 studs square at cell 16
 	PelletsPerOpenCell = 1,
 
 	-- Which map the server builds on start.
@@ -241,7 +247,7 @@ ChompConfig.Map = {
 	-- the camera forces a geometry change.
 	Layout = "Arena",
 	ArenaSeed = 20260825,         -- change for a different maze, same rules
-	ArenaCells = 20,              -- full grid across; must be even, quadrant is half
+	ArenaCells = 16,              -- full grid across; must be even, quadrant is half
 	ArenaDecks = 1,               -- 1 = ground only. 2 adds ring 2, ramps and bridges
 	ArenaBraidChance = 0.45,      -- higher is more loops and fewer dead ends
 }
@@ -6257,15 +6263,57 @@ local function specFor(chassisId: string)
 	return nil
 end
 
--- The avatar still exists and is still what moves; it is simply not drawn.
-local function hideAvatar(character: Model)
+-- The avatar still exists and is still what moves; it is simply not drawn, and
+-- not animated.
+local function hide(d: Instance)
+	if d:IsA("BasePart") then
+		d.Transparency = 1
+	elseif d:IsA("Decal") or d:IsA("Texture") then
+		d.Transparency = 1
+	elseif d:IsA("Accessory") then
+		d:Destroy()
+	end
+end
+
+local function hideAll(character: Model)
 	for _, d in character:GetDescendants() do
-		if d:IsA("BasePart") then
-			d.Transparency = 1
-		elseif d:IsA("Decal") or d:IsA("Texture") then
-			d.Transparency = 1
-		elseif d:IsA("Accessory") then
-			d:Destroy()
+		hide(d)
+	end
+end
+
+-- Hiding once at spawn is not enough. Body parts, decals and accessories can
+-- arrive after CharacterAdded and after the appearance loads, and a limb that
+-- appears a frame late is a leg visibly running inside the chassis.
+local function hideAvatar(player: Player, character: Model)
+	hideAll(character)
+
+	character.DescendantAdded:Connect(function(d)
+		-- except the vehicle, which is parented into the character on purpose
+		local vehicle = character:FindFirstChild("Vehicle")
+		if vehicle and (d == vehicle or d:IsDescendantOf(vehicle)) then
+			return
+		end
+		hide(d)
+	end)
+
+	player.CharacterAppearanceLoaded:Once(function(loaded)
+		if loaded == character then
+			hideAll(character)
+		end
+	end)
+
+	-- Stop the run cycle. An invisible humanoid still animates, and limbs
+	-- swinging inside a welded chassis is what "the legs are still moving"
+	-- actually is (D-CHOMP-034).
+	local animate = character:FindFirstChild("Animate")
+	if animate and animate:IsA("BaseScript") then
+		animate.Disabled = true
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+	if animator then
+		for _, track in animator:GetPlayingAnimationTracks() do
+			track:Stop(0)
 		end
 	end
 end
@@ -6306,7 +6354,7 @@ local function fitVehicle(player: Player, character: Model)
 		end
 	end
 
-	hideAvatar(character)
+	hideAvatar(player, character)
 
 	-- Sit the chassis on the ground the humanoid is standing on, not on the
 	-- root part's centre, which floats at hip height.

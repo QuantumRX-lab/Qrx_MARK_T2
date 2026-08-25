@@ -113,3 +113,23 @@ entries:
     32x32, and has not run since ring 2 sizing became a function of ArenaCells.
     Set ArenaDecks = 2 and check the ramps still land on the ring 2 edge before
     trusting it, because R2_LO moved from a constant to FULL // 4.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-047]
+  summary: >
+    Grid widened from 8 studs to 16 (D-CHOMP-034). Corners felt sharp because
+    they had to be: turning radius is 5.7 studs and an 8-stud cell left 0.6
+    studs either side of the vehicle, so there was no room to arc. At 16 the
+    sweep fits. RampCells 2 and GarageCells 2 keep those features at their old
+    real sizes; ArenaCells 16 keeps the map near 256 studs. map_geometry.md
+    updated throughout, including the six prefab sizes and the Studio snap.
+  status: OPEN
+  handoff: >
+    Wall height is still 7, which is a camera constraint (camera_spec.md) and
+    was NOT re-derived for the wider grid. Walls will read lower relative to a
+    16-stud corridor, and whether that hurts occlusion or helps it is a
+    CHOMP-TC-040 question, not a guess. Check it on the same device run.
+    The chassis is 4.8 studs in a 14-stud clear corridor and will now look
+    small. That is a vehicle-scale decision for CHAIN-VEHICLE rather than a map
+    one, so it has been left alone.

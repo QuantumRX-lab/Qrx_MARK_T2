@@ -748,3 +748,33 @@ decisions:
       ReverseSpeedFraction and the ReverseFlip timings are now unused; they are
       left in ChompConfig rather than deleted because the combat design may
       still want a commitment-cost 180.
+
+  - id: D-CHOMP-034
+    date: 2026-08-25
+    title: Corridor width is derived from turning radius, and the avatar is fully hidden
+    decision: >
+      The grid moves from 8 studs to 16. RampCells drops to 2 and GarageCells to
+      2 so both keep their real sizes, and the arena drops to 16 cells across so
+      the map stays about 256 studs. Separately, VehicleService now keeps the
+      avatar hidden as parts arrive and disables the Animate script.
+    rationale: >
+      Owner report after driving: corners felt sharp and there was no room for
+      the vehicle's sweeping turn. That is measurable rather than a matter of
+      taste. Turning radius is BaseSpeed over BaseTurn in radians — 24 / 4.19,
+      about 5.7 studs — and an 8-stud cell with 2-stud walls left 6 studs clear
+      against a 4.8-stud vehicle. That is 0.6 studs either side, so there was
+      physically no room to arc and every corner became a pivot in place. At 16
+      the clear width is 14, leaving 4.6 studs either side, and the 5.7-stud
+      sweep fits. Corridor width is therefore a derived number like wall height
+      already is, not an art choice, and ChompConfig now says so next to it.
+      On the avatar: hiding at spawn was not enough. Body parts, decals and
+      accessories can arrive after CharacterAdded and after the appearance
+      loads, and an invisible humanoid still runs its animation, so limbs were
+      swinging inside a welded chassis.
+    outcome: >
+      ChompConfig carries the derivation beside CellSize so a change to
+      BaseSpeed or BaseTurn re-derives it. map_geometry.md updated throughout —
+      the numbers table, the six prefab sizes and the Studio snap increment,
+      which all keyed off the 8-stud grid. VehicleService hides descendants as
+      they appear, re-hides on CharacterAppearanceLoaded, excludes the vehicle
+      model from that sweep, disables Animate and stops any playing tracks.

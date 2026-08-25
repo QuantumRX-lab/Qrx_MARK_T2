@@ -37,15 +37,57 @@ local function specFor(chassisId: string)
 	return nil
 end
 
--- The avatar still exists and is still what moves; it is simply not drawn.
-local function hideAvatar(character: Model)
+-- The avatar still exists and is still what moves; it is simply not drawn, and
+-- not animated.
+local function hide(d: Instance)
+	if d:IsA("BasePart") then
+		d.Transparency = 1
+	elseif d:IsA("Decal") or d:IsA("Texture") then
+		d.Transparency = 1
+	elseif d:IsA("Accessory") then
+		d:Destroy()
+	end
+end
+
+local function hideAll(character: Model)
 	for _, d in character:GetDescendants() do
-		if d:IsA("BasePart") then
-			d.Transparency = 1
-		elseif d:IsA("Decal") or d:IsA("Texture") then
-			d.Transparency = 1
-		elseif d:IsA("Accessory") then
-			d:Destroy()
+		hide(d)
+	end
+end
+
+-- Hiding once at spawn is not enough. Body parts, decals and accessories can
+-- arrive after CharacterAdded and after the appearance loads, and a limb that
+-- appears a frame late is a leg visibly running inside the chassis.
+local function hideAvatar(player: Player, character: Model)
+	hideAll(character)
+
+	character.DescendantAdded:Connect(function(d)
+		-- except the vehicle, which is parented into the character on purpose
+		local vehicle = character:FindFirstChild("Vehicle")
+		if vehicle and (d == vehicle or d:IsDescendantOf(vehicle)) then
+			return
+		end
+		hide(d)
+	end)
+
+	player.CharacterAppearanceLoaded:Once(function(loaded)
+		if loaded == character then
+			hideAll(character)
+		end
+	end)
+
+	-- Stop the run cycle. An invisible humanoid still animates, and limbs
+	-- swinging inside a welded chassis is what "the legs are still moving"
+	-- actually is (D-CHOMP-034).
+	local animate = character:FindFirstChild("Animate")
+	if animate and animate:IsA("BaseScript") then
+		animate.Disabled = true
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+	if animator then
+		for _, track in animator:GetPlayingAnimationTracks() do
+			track:Stop(0)
 		end
 	end
 end
@@ -86,7 +128,7 @@ local function fitVehicle(player: Player, character: Model)
 		end
 	end
 
-	hideAvatar(character)
+	hideAvatar(player, character)
 
 	-- Sit the chassis on the ground the humanoid is standing on, not on the
 	-- root part's centre, which floats at hip height.
