@@ -97,3 +97,23 @@ entries:
     30% mouth silhouette rule in the vehicle contract is load-bearing rather
     than cosmetic. Deliver the Standard chassis first so the camera has
     something real to follow.
+- date: '2026-08-25'
+  agent: Codex (vehicle design)
+  action: BLOCKED
+  requirements: [CHOMP-SYS-054]
+  summary: >
+    Standard.rbxm has been generated under src/ReplicatedStorage/Vehicles and
+    successfully deserialized back into a Roblox DOM. Static inspection matches
+    the VehicleConformance checks: authoritative Standard attributes, vehicle
+    tag, Chassis PrimaryPart, forward upper/lower jaw, one TeamColour part, 11
+    basic parts, 10 welds, no scripts or textures, and geometry inside budget.
+    Delivery is withheld because this execution environment has no Roblox Studio
+    or Roblox runtime, so the required in-engine Scan.report(Scan.checkAll())
+    command cannot be run honestly.
+  status: BLOCKED
+  handoff: >
+    Open the project in Roblox Studio, place the generated Standard model at
+    ReplicatedStorage.Vehicles.Standard, and run the command in the vehicle
+    contract. If it prints CONFORMANCE: PASS, copy Standard.rbxm and its delivery
+    note to CHAIN-VEHICLE/inbox and append DELIVERED. If it fails, return the
+    per-check output for correction. No inbox artifact has been created yet.
