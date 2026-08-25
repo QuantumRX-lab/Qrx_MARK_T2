@@ -1,0 +1,78 @@
+# Chomp Arena — status dashboard
+#
+# Hand-maintained rollup, checked on every run of validate.py against the
+# atomic records. If a number here disagrees with the requirements, test
+# cases, risks or decisions, the validator fails — the number is never taken
+# on trust. This is the failure mode that motivated the sibling tree's
+# validator (D-INFRA-009): atomic records stay accurate, handwritten totals
+# drift.
+
+as_of: 2026-08-25
+build_status: NOT_STARTED
+note: >
+  Nothing is built. Every requirement is NOT_STARTED and every test case is
+  NOT_STARTED. This dashboard describes the shape of the plan, not progress
+  against it.
+
+requirements:
+  total: 62
+  by_level:
+    L1_stakeholder: 8
+    L2_system: 54
+  by_phase:
+    v1: 51
+    v2: 8
+    v3: 3
+  by_priority:
+    CRITICAL: 26
+    HIGH: 28
+    MEDIUM: 8
+  by_chain:
+    CHAIN-COMBAT: 10
+    CHAIN-ECONOMY: 6
+    CHAIN-GATES: 5
+    CHAIN-GHOSTS: 8
+    CHAIN-KIT: 4
+    CHAIN-MATCH: 6
+    CHAIN-MAZE: 3
+    CHAIN-PLATFORM: 10
+    CHAIN-UI: 5
+    CHAIN-VEHICLE: 5
+  automation_exempt: 2
+
+test_cases:
+  total: 44
+  by_automation:
+    AUTOMATED: 34
+    HYBRID: 7
+    MANUAL: 3
+  by_phase:
+    v1: 37
+    v2: 4
+    v3: 3
+
+risks:
+  total: 13
+  open: 12
+  closed: 1
+  by_severity:
+    HIGH: 7
+    MEDIUM: 6
+
+decisions:
+  total: 11
+
+open_questions:
+  - "Name. 'Chomp Arena' is a placeholder — the daughter names it."
+  - "Nine of the ten chains are unassigned; only CHAIN-VEHICLE has an owner (Codex)."
+  - "Wall height is a camera constraint and is not yet fixed — it needs the
+     camera test map first (RISK-CHOMP-012)."
+
+next_actions:
+  - "Build the camera on a throwaway two-deck test map before any real map.
+     It is the highest-risk item in the tree and everything else is built
+     against what it can see."
+  - "Codex: deliver Standard chassis first, so the camera test has something
+     real to follow."
+  - "Stand up the L0 conformance scans and the L1 unit spec harness before
+     writing gameplay logic — the maths must stay pure to be testable."

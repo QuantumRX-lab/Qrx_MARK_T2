@@ -14,12 +14,19 @@ recomputes every rollup), scoped to a game rather than to hosting.
 
 | | |
 |---|---|
+| `00_need/need_statement.md` | Why this exists, what success looks like, what is out of scope |
 | `00_need/game_concept.md` | **Start here.** The design: loop, combat maths, ghosts, gates, the multi-level maze, match structure. Written to be read by a person, not parsed |
-| `02_requirements/requirements.yaml` | 60 requirements — 8 stakeholder, 52 system — phased v1/v2/v3 |
+| `01_stakeholders/stakeholders.md` | Who depends on this and what breaks it for them, including the tensions between them |
+| `02_requirements/requirements.yaml` | 62 requirements — 8 stakeholder, 54 system — phased v1/v2/v3, each on a decomposition chain |
+| `03_architecture/system_architecture.md` | Where everything lives in the DataModel, the client/server rule, the whole remote surface |
+| `03_architecture/vehicle_contract.md` | The interface a chassis model must satisfy. Handed to an external agent, checked by scan |
 | `03_architecture/authoring_kit.md` | v3: how the children build their own maps without scripting |
-| `04_verification/test_cases.yaml` | 40 test cases. The source of truth for the trace |
-| `05_risks/risk_register.yaml` | 13 open risks, including the honest ones about scope and about the children having no job until v3 |
-| `06_decisions/decision_log.yaml` | 11 decisions with rationale, including one still open |
+| `04_verification/verification_strategy.md` | The five test levels and the publish gate |
+| `04_verification/test_cases.yaml` | 44 test cases, 41 automated or hybrid. The source of truth for the trace |
+| `05_risks/risk_register.yaml` | 12 open risks, including the honest ones about scope and about the children having no job until v3 |
+| `06_decisions/decision_log.yaml` | 11 decisions with rationale |
+| `08_status/dashboard.yaml` | Hand-maintained rollup, checked against the records on every validate run |
+| `workstreams/` | One folder and one append-only log per decomposition chain. How several agents work this tree without colliding |
 
 ## Phases
 
@@ -27,7 +34,7 @@ Phases are the owner's decision (`D-CHOMP-001`) to build a good game first and
 the children's authoring kit second.
 
 - **v1 — the game.** Playable and fun as a hard-coded experience. One
-  two-deck map, two ghosts, one gated ring. 53 requirements.
+  two-deck map, two ghosts, one gated ring. 51 requirements.
 - **v2 — content and modes.** The remaining maps, ghosts and rings; team and
   solo modes; cosmetic persistence.
 - **v3 — the authoring kit.** Tags, attributes, the mirror tool, Check My
@@ -49,7 +56,7 @@ cross-reference from the atomic records rather than trusting a handwritten
 total — the same principle, and the same reason, as
 `mbse/infrastructure/validate.py` (`D-INFRA-009`).
 
-Three of its checks are specific to this tree:
+Its checks specific to this tree:
 
 - **`allocated_to` is a DataModel path, not a file path.** The artefact is a
   `.rbxl` place file on a laptop, not files in this repo, so allocations are
@@ -60,6 +67,21 @@ Three of its checks are specific to this tree:
   verified during v1 — it is merely claimed.
 - **Method agreement.** A requirement's `verification_method` must actually be
   the method of one of the test cases that verify it.
+- **Automation coverage.** Every `CRITICAL` or `HIGH` requirement must be
+  covered by an `AUTOMATED` or `HYBRID` test case, or carry an explicit
+  `automation_exempt_reason`. Two requirements hold an exemption and both are
+  honest ones — whether a seven-year-old understands the game unprompted, and
+  whether she can read the HUD at speed. Nothing else gets to be unautomated.
+- **Chains and their logs.** Every requirement names a decomposition chain,
+  every chain has an append-only log in `workstreams/`, and each log's stated
+  requirement list is checked against the tree — including that an entry never
+  cites a requirement belonging to somebody else's chain.
+- **Dashboard rollups.** Every count in `08_status/dashboard.yaml` is
+  recomputed from the records.
+
+The validator is negative-tested: seeding a wrong rollup, a wrong chain count,
+a cross-chain citation and a downgraded test automation flag produces seven
+distinct failures.
 
 `verified_by` lists in `requirements.yaml` are **generated** from the
 `verifies` lists in `test_cases.yaml`, so the trace cannot become

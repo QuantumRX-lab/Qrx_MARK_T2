@@ -1,5 +1,30 @@
 # Chomp Arena — Change Log
 
+## 2026-08-25 — Full tree, automation rule, and multi-agent workstreams
+- **iPad is now the reference platform** (`CHOMP-STK-007` rewritten), not a
+  port target. Touch controls promoted to their own CRITICAL requirement
+  (`CHOMP-SYS-032`); pellet pooling stays in v1 because a tablet has less
+  headroom than the laptop.
+- **v1 trimmed** by moving the combo multiplier, the small-fry rule, the late
+  join grant and Full Jaw gate passage to v2. v1 is 51 requirements.
+- **Robust tests for high-risk requirements.** Test cases carry an
+  `automation` field, and `validate.py` now fails if any CRITICAL or HIGH
+  requirement lacks an AUTOMATED or HYBRID test without a recorded
+  `automation_exempt_reason`. Added the exploit regression suite
+  (`CHOMP-TC-042`), fairness telemetry assertions (`CHOMP-TC-043`) and the
+  vehicle conformance scan (`CHOMP-TC-044`). 52 of 54 high/critical
+  requirements are automated; the two exemptions are both human judgements
+  about a seven-year-old.
+- **Tree completed** to the sibling infrastructure tree's shape: need
+  statement, stakeholders, system architecture, verification strategy, status
+  dashboard.
+- **Decomposition chains.** Every requirement carries a `chain`; ten chains,
+  each with an append-only `workstreams/<chain>/log.yaml` whose stated
+  requirement list is validated against the tree.
+- **Vehicle workstream for Codex**: `03_architecture/vehicle_contract.md`,
+  `workstreams/CHAIN-VEHICLE/BRIEF.md`, an `inbox/`, and `CHOMP-SYS-054` so
+  models are accepted by scan rather than by eye.
+
 ## 2026-08-25 — Ghost count scales with player count
 - `D-CHOMP-010` resolved: the server sets the ghost count from the current
   player count rather than offering a separate solo mode (`CHOMP-SYS-053`,

@@ -1,0 +1,29 @@
+# CHAIN-UI — collaboration log
+# Append-only. One entry per agent action. Never rewrite an existing entry;
+# correct it with a new entry that says what changed and why.
+# requirement_count and requirements are checked against the requirements tree
+# by validate.py — they cannot silently drift.
+
+chain: CHAIN-UI
+owner: unassigned
+scope: The HUD, touch controls on the iPad, colour-coded gate readiness, off-deck
+  player markers. Display only — it holds no state.
+requirement_count: 5
+requirements: &id001
+- CHOMP-STK-001
+- CHOMP-SYS-030
+- CHOMP-SYS-031
+- CHOMP-SYS-032
+- CHOMP-SYS-052
+phases:
+- v1
+status: NOT_STARTED
+entries:
+- date: '2026-08-25'
+  agent: Claude (requirements session)
+  action: ESTABLISHED
+  requirements: *id001
+  summary: Chain established with 5 requirements across v1. Nothing built. See 02_requirements/requirements.yaml
+    for the shall statements and 04_verification/test_cases.yaml for how each is
+    verified.
+  status: OPEN

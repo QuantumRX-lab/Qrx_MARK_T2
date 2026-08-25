@@ -1,0 +1,30 @@
+# CHAIN-GATES — collaboration log
+# Append-only. One entry per agent action. Never rewrite an existing entry;
+# correct it with a new entry that says what changed and why.
+# requirement_count and requirements are checked against the requirements tree
+# by validate.py — they cannot silently drift.
+
+chain: CHAIN-GATES
+owner: unassigned
+scope: Rings, the super ghost guardians that hold them, Threat versus Power, and
+  the 60-second open window when one is cracked.
+requirement_count: 5
+requirements: &id001
+- CHOMP-SYS-022
+- CHOMP-SYS-023
+- CHOMP-SYS-024
+- CHOMP-SYS-025
+- CHOMP-SYS-026
+phases:
+- v1
+- v2
+status: NOT_STARTED
+entries:
+- date: '2026-08-25'
+  agent: Claude (requirements session)
+  action: ESTABLISHED
+  requirements: *id001
+  summary: Chain established with 5 requirements across v1, v2. Nothing built. See
+    02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
+    for how each is verified.
+  status: OPEN

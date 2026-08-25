@@ -1,0 +1,35 @@
+# CHAIN-PLATFORM — collaboration log
+# Append-only. One entry per agent action. Never rewrite an existing entry;
+# correct it with a new entry that says what changed and why.
+# requirement_count and requirements are checked against the requirements tree
+# by validate.py — they cannot silently drift.
+
+chain: CHAIN-PLATFORM
+owner: unassigned
+scope: Server authority, the exploit surface, performance on the iPad, publishing
+  and safety, ChompConfig, and content discovery by tag.
+requirement_count: 10
+requirements: &id001
+- CHOMP-STK-005
+- CHOMP-STK-006
+- CHOMP-STK-007
+- CHOMP-SYS-033
+- CHOMP-SYS-034
+- CHOMP-SYS-035
+- CHOMP-SYS-036
+- CHOMP-SYS-037
+- CHOMP-SYS-038
+- CHOMP-SYS-042
+phases:
+- v1
+- v2
+status: NOT_STARTED
+entries:
+- date: '2026-08-25'
+  agent: Claude (requirements session)
+  action: ESTABLISHED
+  requirements: *id001
+  summary: Chain established with 10 requirements across v1, v2. Nothing built.
+    See 02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
+    for how each is verified.
+  status: OPEN

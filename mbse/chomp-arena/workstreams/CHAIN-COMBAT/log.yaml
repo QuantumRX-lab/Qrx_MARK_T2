@@ -1,0 +1,36 @@
+# CHAIN-COMBAT — collaboration log
+# Append-only. One entry per agent action. Never rewrite an existing entry;
+# correct it with a new entry that says what changed and why.
+# requirement_count and requirements are checked against the requirements tree
+# by validate.py — they cannot silently drift.
+
+chain: CHAIN-COMBAT
+owner: unassigned
+scope: 'Impact classification and everything downstream of it: head-on contests,
+  bites, scatter, invulnerability, being chomped, falls and drop attacks. The signature
+  mechanic — nothing here may depend on a client''s word.'
+requirement_count: 10
+requirements: &id001
+- CHOMP-STK-003
+- CHOMP-SYS-010
+- CHOMP-SYS-011
+- CHOMP-SYS-012
+- CHOMP-SYS-013
+- CHOMP-SYS-014
+- CHOMP-SYS-015
+- CHOMP-SYS-016
+- CHOMP-SYS-049
+- CHOMP-SYS-050
+phases:
+- v1
+- v2
+status: NOT_STARTED
+entries:
+- date: '2026-08-25'
+  agent: Claude (requirements session)
+  action: ESTABLISHED
+  requirements: *id001
+  summary: Chain established with 10 requirements across v1, v2. Nothing built.
+    See 02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
+    for how each is verified.
+  status: OPEN

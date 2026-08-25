@@ -22,6 +22,7 @@ test_cases:
     pass_criteria:
       - "all three actions performed without instruction inside 60 s"
       - "player can state the mouth/flank rule unprompted"
+    automation: MANUAL
     status: NOT_STARTED
     phase: v1
 
@@ -41,6 +42,7 @@ test_cases:
       - "child's banked total rises every round"
       - "no round in which the child is hit by the adult more than twice"
       - "gate readiness answered correctly from colour without reading digits"
+    automation: MANUAL
     status: NOT_STARTED
     phase: v1
 
@@ -57,6 +59,7 @@ test_cases:
       - "Compare scattered pellet value and retained upgrades"
     expected_result: 200 points scatter, respawn at own garage inside 4 s, chassis and upgrades unchanged.
     pass_criteria: ["respawn <= 4 s", "50% +/- 1 point scattered", "no upgrade lost", "no elimination state exists"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -73,6 +76,7 @@ test_cases:
       - "Check the declared winner matches the highest total banked"
     expected_result: Five timed rounds, four intermissions, a correct winner.
     pass_criteria: ["round lengths within 1 s of config", "winner equals max banked total", "standings visible in every round"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -90,6 +94,7 @@ test_cases:
       - "Search for TextBox instances and for any label whose text is assigned from player input"
     expected_result: No unread third-party script, no runtime player-authored text surface, access no wider than intended.
     pass_criteria: ["zero unread scripts", "zero TextBox instances", "zero player-sourced label assignments", "access setting correct"]
+    automation: HYBRID
     status: NOT_STARTED
     phase: v1
 
@@ -110,6 +115,7 @@ test_cases:
       - "every remote handler validates sender identity and re-derives values server-side"
       - "no remote signature carries an economic or combat quantity"
       - "every remote is rate-limited"
+    automation: MANUAL
     status: NOT_STARTED
     phase: v1
 
@@ -126,6 +132,7 @@ test_cases:
       - "Confirm pellet instances are reused rather than created and destroyed"
     expected_result: 30+ FPS on the laptop throughout, under 4000 parts, playable touch controls, HUD fully on screen.
     pass_criteria: ["FPS >= 30 at all times on the laptop", "live parts < 4000", "no GUI element off screen on the phone", "pellet instance count stable across the round"]
+    automation: HYBRID
     status: NOT_STARTED
     phase: v1
 
@@ -142,6 +149,7 @@ test_cases:
       - "Add a new pellet and a new gate to a map without editing engine code, and play it"
     expected_result: All balance values come from ChompConfig; all content is found by tag or folder convention; new content works untouched.
     pass_criteria: ["zero balance literals in engine logic", "zero hardcoded content paths", "added content functions with no engine edit"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -157,6 +165,7 @@ test_cases:
       - "Confirm the model's facing is driven by the character's orientation"
     expected_result: Locomotion is the standard character controller with tuned values.
     pass_criteria: ["no physics-vehicle instances present", "facing derives from character orientation only"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -172,6 +181,7 @@ test_cases:
       - "Observe the server-side position delta and the correction"
     expected_result: The server-held value is reasserted and the player does not travel at the forged speed.
     pass_criteria: ["correction applied within 1 s", "no pellet is credited from the forged movement"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -187,6 +197,7 @@ test_cases:
       - "Repeat against the thinnest wall piece in the map"
     expected_result: No tunnelling in any case.
     pass_criteria: ["zero wall passes across 30 attempts", "no case of ending up outside the maze"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -203,6 +214,7 @@ test_cases:
       - "Confirm respawn timing of eaten pellets"
     expected_result: Forged claims credit nothing; legitimate eating adds value x combo to both bar and carry; pellets respawn on schedule.
     pass_criteria: ["zero points from forged claims", "bar and carry both credited correctly", "bar capped at chassis capacity", "carry uncapped"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -220,6 +232,7 @@ test_cases:
       - "Then take a hit mid-line"
     expected_result: Multiplier climbs to x5 and resets to x1 on lapse, wall impact and hit.
     pass_criteria: ["caps at x5", "resets in all three cases", "pellet credit reflects the multiplier at the moment of eating"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -237,6 +250,7 @@ test_cases:
       - "Leave your garage and immediately attempt to re-enter"
     expected_result: Own-garage banking works; foreign banking refused; no combat inside; re-entry blocked for 5 s.
     pass_criteria: ["1:1 conversion", "bar unchanged by banking", "foreign bank refused", "no combat resolves inside a garage", "re-entry refused for 5 s"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -254,6 +268,7 @@ test_cases:
       - "From an exploit client, attempt to buy by firing the purchase remote with a forged price"
     expected_result: Legitimate purchase applies; over-budget, carry-funded and forged-price purchases all refused.
     pass_criteria: ["Power recomputed immediately", "all three illegitimate purchases refused", "server ignores any client-supplied price"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -274,6 +289,7 @@ test_cases:
       - "both bars reduced 40%"
       - "overflow equals the bar difference and comes from carry"
       - "clang inside 10% costs no points and bounces both"
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -294,6 +310,7 @@ test_cases:
       - "no points transfer directly to the attacker"
       - "scattered pellets collectable by any player including the victim"
       - "scatter persists >= 20 s"
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -309,6 +326,7 @@ test_cases:
       - "Repeat for ghost contact and for gate guardian contact"
     expected_result: At most one hit per 1.5 s from any source, with a visible indication while invulnerable.
     pass_criteria: ["<= 2 hits in 3 s of held contact", "invulnerability visible", "rule holds for players, ghosts and guardians"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -324,6 +342,7 @@ test_cases:
       - "Reduce the gap below 300 and repeat"
     expected_result: Above a 300 Power gap nothing scatters and nothing is awarded; below it, normal rules resume.
     pass_criteria: ["zero scatter above the gap", "victim keeps their carry", "normal scatter below the gap"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -339,6 +358,7 @@ test_cases:
       - "Take a ghost hit and read carry, bar, and the floor"
     expected_result: Junction-only turning; 25% of carry taken and scattered; bar untouched; vehicle survives.
     pass_criteria: ["no mid-corridor reversals outside fleeing", "100 points scattered", "bar unchanged", "no respawn triggered"]
+    automation: HYBRID
     status: NOT_STARTED
     phase: v1
 
@@ -355,6 +375,7 @@ test_cases:
       - "Confirm no engine file was edited"
     expected_result: The new ghost works with zero engine edits.
     pass_criteria: ["engine diff is empty", "new behaviour drives the ghost", "v1 ships at least Chaser and Greedy One"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -370,6 +391,7 @@ test_cases:
       - "Have that player bank, then confirm the ghost switches target at its next junction"
     expected_result: The ghost always pursues the highest unbanked carry and re-evaluates at junctions.
     pass_criteria: ["correct initial target", "target switches within one junction of the bank", "never targets a banked-out player"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -387,6 +409,7 @@ test_cases:
       - "Drive through the over-threat gate, then attempt a second gate"
     expected_result: 8 s of invulnerable-to-flanking offence; ghosts flee and are worth 200; one gate passed without consuming its guardian; the second refused.
     pass_criteria: ["flank hit does not damage during Full Jaw", "ghost eaten for 200", "first gate passes", "guardian still present after passage", "second gate refused"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -403,6 +426,7 @@ test_cases:
       - "Rotate the map 90 degrees in the viewport and compare against the original"
     expected_result: Rings are concentric, values rise inward, garages are outermost, and the map is identical under 90 degree rotation.
     pass_criteria: ["pellet value strictly rises per ring inward", "all garages on ring 1", "geometry identical under rotation"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -425,6 +449,7 @@ test_cases:
       - "bystander passes freely during the 60 s window"
       - "guardian reforms after 60 s"
       - "client-claimed Power has no effect"
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -441,6 +466,7 @@ test_cases:
       - "Rejoin and confirm nothing power-related was restored from storage"
     expected_result: Progress persists within a match only.
     pass_criteria: ["upgrades survive intermissions", "all players reset at match end", "no power restored on rejoin"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -456,6 +482,7 @@ test_cases:
       - "Play the remainder of the round"
     expected_result: Starting chassis plus a catch-up grant scaled to elapsed time, spawned at a free garage, able to bank in that round.
     pass_criteria: ["grant scales with elapsed match time", "spawn garage unoccupied", "late joiner banks at least once in their first round"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -471,6 +498,7 @@ test_cases:
       - "Inspect the HUD source for any authoritative arithmetic"
     expected_result: Local edits change pixels only; every gameplay decision uses the server value.
     pass_criteria: ["no purchase or gate passage succeeds from forged HUD values", "HUD contains no economy arithmetic"]
+    automation: HYBRID
     status: NOT_STARTED
     phase: v1
 
@@ -487,6 +515,7 @@ test_cases:
       - "Run a full round and measure whether any ring is stripped of pellets between respawns"
     expected_result: Twelve symmetric homes, no collisions in assignment, and no ring starved of pellets.
     pass_criteria: ["3 garages per quadrant", "12 distinct assignments", "no ring below 25% pellet occupancy at any sampled moment"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -502,6 +531,7 @@ test_cases:
       - "Play a full match and confirm the map changes each round"
     expected_result: Six distinct, symmetric, ringed maps rotating between rounds.
     pass_criteria: ["six maps present", "each passes ring layout inspection", "no map repeats within a match"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v2
 
@@ -517,6 +547,7 @@ test_cases:
       - "Climb the full ring ladder in one match and confirm each gate's Threat"
     expected_result: Four distinguishable ghosts; three gates at the configured Threats; the Vault reachable within a match.
     pass_criteria: ["four distinct targeting behaviours observable", "gate Threats match config", "ladder completable inside one match"]
+    automation: HYBRID
     status: NOT_STARTED
     phase: v2
 
@@ -532,6 +563,7 @@ test_cases:
       - "Play solo: confirm no PvP, doubled ghosts, gates still gated"
     expected_result: Both modes playable and internally consistent.
     pass_criteria: ["friendly fire impossible", "bank shared correctly", "solo has no PvP and doubled ghost count"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v2
 
@@ -548,6 +580,7 @@ test_cases:
       - "Separately confirm no power-affecting value is ever written"
     expected_result: The pre-existing profile is intact; the failed session wrote nothing; only cosmetics and statistics are stored.
     pass_criteria: ["no write issued after a failed read", "player informed their session will not save", "stored profile unchanged", "no power values in the stored schema"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v2
 
@@ -563,6 +596,7 @@ test_cases:
       - "Confirm every gameplay object is driven by tag and attributes alone"
     expected_result: Zero scripts in content; everything driven by tags and attributes.
     pass_criteria: ["zero script instances in content folders", "every tagged object's behaviour derives from its attributes"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v3
 
@@ -579,6 +613,7 @@ test_cases:
       - "Edit the quadrant and re-run, confirming the old copies are replaced not duplicated"
     expected_result: Three exact rotations, a playable symmetric map, and idempotent re-runs.
     pass_criteria: ["all four quadrants identical under rotation", "re-run does not duplicate geometry", "resulting map passes CHOMP-TC-024"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v3
 
@@ -594,6 +629,7 @@ test_cases:
       - "Read each message aloud to a 7-year-old and ask what they would do"
     expected_result: Every seeded fault is caught, and each message names an action the child can take.
     pass_criteria: ["6/6 faults detected", "zero false positives on the clean map", "child can state the fix from the message alone"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v3
 
@@ -610,6 +646,7 @@ test_cases:
       - "Rotate the map 90 degrees about the vertical axis and compare"
     expected_result: Stacked rings, a visible Vault from ground level, and rotational symmetry preserved in three dimensions.
     pass_criteria: ["two or more decks", "higher ring visible from every garage", "identical under 90 degree rotation about the vertical axis"]
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -626,6 +663,7 @@ test_cases:
       - "Confirm turning still happens only at junctions"
     expected_result: The ghost pursues across decks using ramps, without sticking or oscillating.
     pass_criteria: ["ghost reaches the player's deck within 15 s", "no oscillation at any ramp mouth over 5 minutes", "no geometry penetration"]
+    automation: HYBRID
     status: NOT_STARTED
     phase: v1
 
@@ -649,6 +687,7 @@ test_cases:
       - "drop attack classified as side/rear regardless of victim facing"
       - "attacker charged the standard bite cost"
       - "zero voids or death planes in the map"
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
 
@@ -669,6 +708,7 @@ test_cases:
       - "no full occlusion lasting more than 0.2 s across a 5 minute circuit"
       - "no camera jump cut on any ramp"
       - "child locates an off-deck player correctly from the marker alone"
+    automation: HYBRID
     status: NOT_STARTED
     phase: v1
 
@@ -690,5 +730,81 @@ test_cases:
       - "recalculated within 10 s of any join or leave"
       - "no ghost orphaned or duplicated across changes"
       - "a solo player can bank, upgrade, crack a gate and finish a round"
+    automation: AUTOMATED
     status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-042
+    title: Exploit regression suite
+    verifies: [CHOMP-STK-006]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["A scripted hostile client harness running in Studio"]
+    test_data:
+      attacks: ["forged WalkSpeed", "forged pellet claim", "forged purchase price", "forged Power at a gate",
+                "forged HUD values", "remote flooding at 1000/s", "purchase funded from carried rather than banked",
+                "banking at another player's garage", "claiming a hit on a player out of range"]
+    procedure:
+      - "Run every recorded attack against a live server as an automated suite"
+      - "Assert the server-side economy, Power and combat state are unchanged by every one of them"
+      - "Assert every remote rate-limits rather than processing the flood"
+      - "Run the suite before every publish and fail the publish on any regression"
+    expected_result: Every attack is rejected and leaves no trace in server state.
+    pass_criteria:
+      - "zero attacks alter points, dollars, Power, bar or position"
+      - "every remote rate-limited under flood"
+      - "suite runs unattended and reports pass/fail per attack"
+      - "a new attack is added to the suite whenever a new remote is added"
+    status: NOT_STARTED
+    automation: AUTOMATED
+    phase: v1
+
+  - id: CHOMP-TC-043
+    title: Fairness telemetry assertions
+    verifies: [CHOMP-STK-002]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Per-round telemetry logging income by source and per player"]
+    test_data: {sources: ["pellets", "scatter", "guardians", "grants"], rounds: 5}
+    procedure:
+      - "Log every player's income by source, hits taken by attacker, and banked total per round"
+      - "Assert every player banked at least once per round"
+      - "Assert no single player took more than 30% of all hits landed in a round"
+      - "Assert the leader's combat income does not exceed their pellet income"
+      - "Assert the spread between highest and lowest banked total stays inside a configured ratio"
+    expected_result: No player is starved of income, farmed by another, or winning primarily by combat.
+    pass_criteria:
+      - "100% of players bank in every round"
+      - "no player absorbs >30% of a round's hits"
+      - "leader combat income <= leader pellet income"
+      - "assertions run automatically after every playtest and print a per-round report"
+    status: NOT_STARTED
+    automation: AUTOMATED
+    phase: v1
+
+  - id: CHOMP-TC-044
+    title: Vehicle conformance scan
+    verifies: [CHOMP-SYS-054]
+    type: UNIT
+    method: INSPECTION
+    preconditions: ["A delivered chassis model in workstreams/CHAIN-VEHICLE/inbox/"]
+    test_data:
+      checks: ["tag present", "required attributes present and matching ChompConfig", "PrimaryPart named Chassis",
+               "MouthUpper and MouthLower present", "mouth wedge opens along PrimaryPart LookVector",
+               "bounding box <= 6x6x8", "parts <= 60", "triangles <= 5000", "no unions",
+               "non-primary parts Massless and CanCollide false", "all parts welded, none anchored",
+               "no VehicleSeat, wheels or motor constraints", "TeamColour part present exactly once",
+               "zero script instances", "mouth opening >= 30% of silhouette from the camera angle"]
+    procedure:
+      - "Run the scan against each delivered model"
+      - "Spawn the model on a test character and drive it into a wall, a pellet and another player"
+      - "Confirm the pellet pickup arc and the head-on classification both agree with the visible mouth"
+    expected_result: Every check passes, and the visible mouth agrees with the engine's idea of forward.
+    pass_criteria:
+      - "all listed checks pass"
+      - "pellet pickup occurs in front of the visible mouth, never behind it"
+      - "a nose-to-nose collision classifies as head-on"
+      - "scan is runnable unattended and reports per-check pass/fail"
+    status: NOT_STARTED
+    automation: AUTOMATED
     phase: v1

@@ -1,0 +1,29 @@
+# CHAIN-MAZE — collaboration log
+# Append-only. One entry per agent action. Never rewrite an existing entry;
+# correct it with a new entry that says what changed and why.
+# requirement_count and requirements are checked against the requirements tree
+# by validate.py — they cannot silently drift.
+
+chain: CHAIN-MAZE
+owner: unassigned
+scope: 'Map geometry: multi-level decks, four-fold symmetry, twelve garages three
+  per quadrant, the prefab pieces everything is built from. The daughter''s chain,
+  in practice.'
+requirement_count: 3
+requirements: &id001
+- CHOMP-SYS-039
+- CHOMP-SYS-046
+- CHOMP-SYS-047
+phases:
+- v1
+- v2
+status: NOT_STARTED
+entries:
+- date: '2026-08-25'
+  agent: Claude (requirements session)
+  action: ESTABLISHED
+  requirements: *id001
+  summary: Chain established with 3 requirements across v1, v2. Nothing built. See
+    02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
+    for how each is verified.
+  status: OPEN

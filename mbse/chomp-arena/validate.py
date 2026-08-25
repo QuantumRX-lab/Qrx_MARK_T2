@@ -42,6 +42,8 @@ REQUIREMENTS_FILE = HERE / "02_requirements" / "requirements.yaml"
 TEST_CASES_FILE = HERE / "04_verification" / "test_cases.yaml"
 RISK_REGISTER_FILE = HERE / "05_risks" / "risk_register.yaml"
 DECISION_LOG_FILE = HERE / "06_decisions" / "decision_log.yaml"
+DASHBOARD_FILE = HERE / "08_status" / "dashboard.yaml"
+WORKSTREAMS_DIR = HERE / "workstreams"
 
 PHASE_ORDER = {"v1": 1, "v2": 2, "v3": 3}
 
@@ -56,7 +58,7 @@ REQ_ENUMS = {
 REQ_REQUIRED_FIELDS = [
     "id", "title", "shall_statement", "level", "status", "priority",
     "verification_status", "verification_method", "phase", "allocated_to",
-    "rationale", "created_date", "last_modified", "author",
+    "rationale", "chain", "created_date", "last_modified", "author",
 ]
 REQ_ID_RE = re.compile(r"^CHOMP-(STK|SYS)-\d{3}$")
 
@@ -65,11 +67,12 @@ TC_ENUMS = {
     "method": {"TEST", "ANALYSIS", "DEMONSTRATION", "INSPECTION"},
     "status": {"NOT_STARTED", "IN_PROGRESS", "PASSED", "FAILED", "BLOCKED"},
     "phase": set(PHASE_ORDER),
+    "automation": {"AUTOMATED", "HYBRID", "MANUAL"},
 }
 TC_REQUIRED_FIELDS = [
     "id", "title", "verifies", "type", "method", "preconditions",
     "test_data", "procedure", "expected_result", "pass_criteria",
-    "status", "phase",
+    "status", "automation", "phase",
 ]
 TC_ID_RE = re.compile(r"^CHOMP-TC-\d{3}$")
 
@@ -80,6 +83,20 @@ RISK_ID_RE = re.compile(r"^RISK-CHOMP-\d{3}$")
 DECISION_REQUIRED_FIELDS = ["id", "date", "title", "decision"]
 DECISION_ID_RE = re.compile(r"^D-CHOMP-\d{3}$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# Decomposition chains. Every requirement belongs to exactly one, and every
+# chain must have a workstreams/<chain>/log.yaml the agents working it append to.
+CHAINS = {
+    "CHAIN-VEHICLE", "CHAIN-COMBAT", "CHAIN-ECONOMY", "CHAIN-GHOSTS",
+    "CHAIN-GATES", "CHAIN-MAZE", "CHAIN-MATCH", "CHAIN-UI",
+    "CHAIN-PLATFORM", "CHAIN-KIT",
+}
+LOG_ENTRY_ACTIONS = {
+    "CLAIMED", "DELIVERED", "ACCEPTED", "REJECTED", "BLOCKED", "DECIDED",
+    "ESTABLISHED", "NOTE",
+}
+LOG_ENTRY_REQUIRED = ["date", "agent", "action", "requirements", "summary", "status"]
+LOG_STATUSES = {"OPEN", "DONE", "BLOCKED"}
 
 # Roblox service roots an allocated_to path may start from.
 ROBLOX_SERVICES = {
@@ -139,6 +156,8 @@ def validate_requirements(report):
         if rid in seen:
             report.error(f"Requirement {rid}: duplicate ID")
         seen.add(rid)
+        if r.get("chain") and r["chain"] not in CHAINS:
+            report.error(f"Requirement {rid}: chain {r['chain']!r} is not a known chain")
         if r.get("level") == "L2_system" and not r.get("derives_from"):
             report.warn(f"Requirement {rid}: L2 system requirement derives from nothing")
     return {r["id"]: r for r in reqs if "id" in r}
@@ -264,6 +283,122 @@ def check_coverage_and_phasing(requirements, test_cases, report):
                 )
 
 
+def check_automation_coverage(requirements, test_cases, report):
+    """The owner's rule: every high-risk requirement gets a test that runs
+    during development. A CRITICAL or HIGH requirement must be covered by at
+    least one AUTOMATED or HYBRID test case, unless it carries an explicit
+    automation_exempt_reason saying why a machine cannot judge it."""
+    for rid, req in requirements.items():
+        if req.get("priority") not in ("CRITICAL", "HIGH"):
+            continue
+        tcs = [test_cases[t] for t in (req.get("verified_by") or []) if t in test_cases]
+        automated = [t for t in tcs if t.get("automation") in ("AUTOMATED", "HYBRID")]
+        if automated:
+            if req.get("automation_exempt_reason"):
+                report.warn(
+                    f"Requirement {rid}: carries automation_exempt_reason but is already covered "
+                    f"by automated tests {[t['id'] for t in automated]} — the exemption is stale"
+                )
+            continue
+        if not req.get("automation_exempt_reason"):
+            report.error(
+                f"Requirement {rid} ({req['priority']}): no AUTOMATED or HYBRID test case and no "
+                f"automation_exempt_reason (has {[(t['id'], t.get('automation')) for t in tcs]})"
+            )
+
+
+def check_workstream_logs(requirements, report):
+    """Each chain has an append-only log the agents working it write to. The
+    log states which requirements it covers; that claim is checked against the
+    requirements tree rather than trusted, the same way every other rollup is."""
+    chains_in_use = {}
+    for rid, req in requirements.items():
+        chains_in_use.setdefault(req.get("chain"), set()).add(rid)
+
+    for chain, ids in sorted(chains_in_use.items()):
+        log_path = WORKSTREAMS_DIR / str(chain) / "log.yaml"
+        if not log_path.exists():
+            report.error(f"Chain {chain}: no collaboration log at {log_path.relative_to(HERE)}")
+            continue
+        log = load_yaml(log_path)
+        if log.get("chain") != chain:
+            report.error(f"{log_path.name} in {chain}/: declares chain {log.get('chain')!r}")
+        stated = log.get("requirement_count")
+        if stated != len(ids):
+            report.error(
+                f"Chain {chain}: log states requirement_count {stated}, tree says {len(ids)}"
+            )
+        listed = set(log.get("requirements") or [])
+        if listed != ids:
+            missing, extra = sorted(ids - listed), sorted(listed - ids)
+            report.error(
+                f"Chain {chain}: log's requirement list disagrees with the tree "
+                f"(missing {missing}, unknown {extra})"
+            )
+        for n, entry in enumerate(log.get("entries") or [], 1):
+            where = f"Chain {chain} entry {n}"
+            for field in LOG_ENTRY_REQUIRED:
+                if not entry.get(field):
+                    report.error(f"{where}: missing required field '{field}'")
+            if entry.get("action") and entry["action"] not in LOG_ENTRY_ACTIONS:
+                report.error(f"{where}: action {entry['action']!r} not in {sorted(LOG_ENTRY_ACTIONS)}")
+            if entry.get("status") and entry["status"] not in LOG_STATUSES:
+                report.error(f"{where}: status {entry['status']!r} not in {sorted(LOG_STATUSES)}")
+            check_date(entry, "date", f"entry {n}", f"Chain {chain}", report)
+            for rid in entry.get("requirements") or []:
+                if rid not in requirements:
+                    report.error(f"{where}: cites non-existent requirement {rid}")
+                elif requirements[rid].get("chain") != chain:
+                    report.error(
+                        f"{where}: cites {rid}, which belongs to "
+                        f"{requirements[rid].get('chain')}, not this chain"
+                    )
+        if not log.get("entries"):
+            report.error(f"Chain {chain}: log has no entries")
+
+
+def check_dashboard(requirements, test_cases, risks, decisions, report):
+    """Never trust a handwritten total."""
+    if not DASHBOARD_FILE.exists():
+        report.error(f"Missing {DASHBOARD_FILE.relative_to(HERE)}")
+        return
+    d = load_yaml(DASHBOARD_FILE)
+
+    def tally(items, key):
+        out = {}
+        for i in items:
+            out[i.get(key)] = out.get(i.get(key), 0) + 1
+        return out
+
+    def compare(label, stated, computed):
+        if stated is None:
+            report.error(f"dashboard: {label} missing")
+        elif stated != computed:
+            report.error(f"dashboard: {label} states {stated}, records say {computed}")
+
+    req_d = d.get("requirements") or {}
+    compare("requirements.total", req_d.get("total"), len(requirements))
+    compare("requirements.by_level", req_d.get("by_level"), tally(requirements.values(), "level"))
+    compare("requirements.by_phase", req_d.get("by_phase"), tally(requirements.values(), "phase"))
+    compare("requirements.by_priority", req_d.get("by_priority"), tally(requirements.values(), "priority"))
+    compare("requirements.by_chain", req_d.get("by_chain"), tally(requirements.values(), "chain"))
+    compare("requirements.automation_exempt", req_d.get("automation_exempt"),
+            sum(1 for r in requirements.values() if r.get("automation_exempt_reason")))
+
+    tc_d = d.get("test_cases") or {}
+    compare("test_cases.total", tc_d.get("total"), len(test_cases))
+    compare("test_cases.by_automation", tc_d.get("by_automation"), tally(test_cases.values(), "automation"))
+    compare("test_cases.by_phase", tc_d.get("by_phase"), tally(test_cases.values(), "phase"))
+
+    risk_d = d.get("risks") or {}
+    compare("risks.total", risk_d.get("total"), len(risks))
+    compare("risks.open", risk_d.get("open"), sum(1 for r in risks.values() if r.get("status") == "OPEN"))
+    compare("risks.closed", risk_d.get("closed"), sum(1 for r in risks.values() if r.get("status") == "CLOSED"))
+    compare("risks.by_severity", risk_d.get("by_severity"), tally(risks.values(), "severity"))
+
+    compare("decisions.total", (d.get("decisions") or {}).get("total"), len(decisions))
+
+
 def check_allocations(requirements, report):
     for rid, req in requirements.items():
         target = req.get("allocated_to")
@@ -298,12 +433,21 @@ def main():
     check_reciprocity(requirements, test_cases, risks, report)
     check_coverage_and_phasing(requirements, test_cases, report)
     check_allocations(requirements, report)
+    check_automation_coverage(requirements, test_cases, report)
+    check_workstream_logs(requirements, report)
+    check_dashboard(requirements, test_cases, risks, decisions, report)
 
     by_phase = {}
     for r in requirements.values():
         by_phase[r.get("phase")] = by_phase.get(r.get("phase"), 0) + 1
     report.note(f"{len(requirements)} requirements ({', '.join(f'{k}: {v}' for k, v in sorted(by_phase.items()))})")
-    report.note(f"{len(test_cases)} test cases, {len(risks)} risks, {len(decisions)} decisions")
+    auto = sum(1 for t in test_cases.values() if t.get("automation") in ("AUTOMATED", "HYBRID"))
+    report.note(f"{len(test_cases)} test cases ({auto} automated or hybrid), "
+                f"{len(risks)} risks, {len(decisions)} decisions")
+    high = [r for r in requirements.values() if r.get("priority") in ("CRITICAL", "HIGH")]
+    exempt = [r["id"] for r in high if r.get("automation_exempt_reason")]
+    report.note(f"{len(high) - len(exempt)} of {len(high)} high/critical requirements carry an "
+                f"automated test; {len(exempt)} exempt with a recorded reason ({', '.join(exempt)})")
 
     _print(report, args.quiet)
     sys.exit(0 if report.ok else 1)

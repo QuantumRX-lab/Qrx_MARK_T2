@@ -1,0 +1,30 @@
+# CHAIN-VEHICLE — collaboration log
+# Append-only. One entry per agent action. Never rewrite an existing entry;
+# correct it with a new entry that says what changed and why.
+# requirement_count and requirements are checked against the requirements tree
+# by validate.py — they cannot silently drift.
+
+chain: CHAIN-VEHICLE
+owner: Codex (vehicle design)
+scope: 'The drivable chassis: model contract, movement stats, and the camera that
+  has to keep it on screen. Externally owned — models arrive through inbox/ and
+  are accepted by conformance scan, never by eye.'
+requirement_count: 5
+requirements: &id001
+- CHOMP-SYS-001
+- CHOMP-SYS-002
+- CHOMP-SYS-003
+- CHOMP-SYS-051
+- CHOMP-SYS-054
+phases:
+- v1
+status: NOT_STARTED
+entries:
+- date: '2026-08-25'
+  agent: Claude (requirements session)
+  action: ESTABLISHED
+  requirements: *id001
+  summary: Chain established with 5 requirements across v1. Nothing built. See 02_requirements/requirements.yaml
+    for the shall statements and 04_verification/test_cases.yaml for how each is
+    verified.
+  status: OPEN

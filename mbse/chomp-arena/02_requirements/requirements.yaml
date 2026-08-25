@@ -43,6 +43,12 @@ requirements:
       vehicles, a visible bar, a visible carry, and a garage that looks like
       home.
     allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
+    automation_exempt_reason: >
+      Whether a child understands the game without being told is only
+      observable by watching a child who has not been told. No harness can
+      stand in for that. CHOMP-TC-001 stays manual by nature; the readability
+      mechanisms it depends on are covered automatically by CHOMP-TC-040.
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -57,7 +63,7 @@ requirements:
     level: L1_stakeholder
     status: APPROVED
     priority: CRITICAL
-    verified_by: [CHOMP-TC-002]
+    verified_by: [CHOMP-TC-002, CHOMP-TC-043]
     verification_status: NOT_STARTED
     verification_method: DEMONSTRATION
     rationale: >
@@ -67,6 +73,7 @@ requirements:
       by strength, the small-fry rule removes the reward for bullying down,
       and per-match reset stops veterans starting ahead.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-MATCH
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -87,6 +94,7 @@ requirements:
       A child who is out of the game is a child who has left the room. This is
       why being chomped is a respawn rather than a death.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-COMBAT
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -108,6 +116,7 @@ requirements:
       matters when the players have bedtimes. Rounds also give the upgrade
       curve somewhere to land.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-MATCH
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -131,6 +140,7 @@ requirements:
       renders another player's words is a moderation surface. The cheapest
       correct answer at this scale is to have no such surface at all.
     allocated_to: Players
+    chain: CHAIN-PLATFORM
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -144,7 +154,7 @@ requirements:
     level: L1_stakeholder
     status: APPROVED
     priority: CRITICAL
-    verified_by: [CHOMP-TC-006]
+    verified_by: [CHOMP-TC-006, CHOMP-TC-042]
     verification_status: NOT_STARTED
     verification_method: ANALYSIS
     rationale: >
@@ -152,27 +162,34 @@ requirements:
       is Friends-visible this stops being theoretical, and a competitive game
       whose scores can be forged is not a game.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-PLATFORM
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
     author: Claude (requirements session)
 
   - id: CHOMP-STK-007
-    title: Runs on the family laptop and on a phone
+    title: The iPad is the reference platform
     shall_statement: >
-      The experience SHALL hold at least 30 FPS on the family laptop in a full
-      lobby, and SHALL be playable with touch controls on a phone.
+      The experience SHALL be fully playable on an iPad with touch controls —
+      driving, turning, banking and fighting — at no less than 30 FPS in a full
+      lobby, and SHALL also run on the family laptop.
     level: L1_stakeholder
     status: APPROVED
-    priority: HIGH
+    priority: CRITICAL
     verified_by: [CHOMP-TC-007]
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      Publishing to Roblox means publishing to phones and tablets whether or
-      not that was the intent — it is how relatives will open it. Mobile
-      clients also set the performance ceiling.
+      Revised 2026-08-25: the iPad is where the game is actually played, not a
+      secondary target. That makes it the performance ceiling and the control
+      reference — a design that is comfortable with a keyboard and merely
+      possible with thumbs is the wrong way round here. It also raises the
+      priority of instance pooling (CHOMP-SYS-033), since a tablet has less
+      headroom than the laptop, and it constrains HUD layout, since a thumb
+      covers part of the screen the mouse never did.
     allocated_to: StarterPlayer
+    chain: CHAIN-PLATFORM
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -195,6 +212,7 @@ requirements:
       engine and content has to be respected from the first line of v1 or the
       kit becomes a rewrite rather than an exposure of what already exists.
     allocated_to: ReplicatedStorage/ChompConfig
+    chain: CHAIN-KIT
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -221,6 +239,7 @@ requirements:
       through walls — which makes that angle non-deterministic and different on
       every screen.
     allocated_to: StarterPlayer/ChompVehicle
+    chain: CHAIN-VEHICLE
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -243,6 +262,7 @@ requirements:
       WalkSpeed is the single most commonly exploited property in Roblox. An
       unchecked client sets it to 200 and eats the map.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-VEHICLE
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -264,6 +284,7 @@ requirements:
       Speed upgrades raise the chance of tunnelling through thin geometry, and
       a maze whose walls can be skipped has no gates and no chases.
     allocated_to: Workspace/Maps
+    chain: CHAIN-VEHICLE
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -288,6 +309,7 @@ requirements:
       "I ate that pellet" from a client is a request to add points, which an
       exploiter will send several thousand times a second.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-ECONOMY
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -311,6 +333,7 @@ requirements:
       the two halves of the game together — you arm yourself by playing
       Pac-Man.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-ECONOMY
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -334,7 +357,8 @@ requirements:
       racing line is worth five times a sloppy one, and forcing an opponent
       into a wall costs them something before it costs them points.
     allocated_to: ServerScriptService/ChompEngine
-    phase: v1
+    chain: CHAIN-ECONOMY
+    phase: v2
     created_date: 2026-08-25
     last_modified: 2026-08-25
     author: Claude (requirements session)
@@ -356,6 +380,7 @@ requirements:
       Banking is what makes carried points risky and therefore what makes the
       whole map tense. It is the mechanic the rest of the design hangs from.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-ECONOMY
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -379,6 +404,7 @@ requirements:
       garage threshold and bounce in and out, which is both unbeatable and
       extremely boring to watch.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-ECONOMY
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -402,6 +428,7 @@ requirements:
       gates an outcome of the banking loop rather than of hoarding — you get
       deeper by making it home alive, not by eating more.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-ECONOMY
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -428,6 +455,7 @@ requirements:
       spots, and everything else in combat derives from getting this one
       classification right and identical on every screen.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-COMBAT
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -451,6 +479,7 @@ requirements:
       Charging blindly is punished, a well-fed player wins the duel, and
       winning still costs — so head-ons cannot be farmed.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-COMBAT
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -474,6 +503,7 @@ requirements:
       player chain-rear-ends the entire lobby indefinitely and nothing else in
       the game matters.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-COMBAT
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -497,6 +527,7 @@ requirements:
       fight a contested pile that pulls other players in, and lets a third
       party rob the winner.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-COMBAT
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -519,6 +550,7 @@ requirements:
       A single physical collision registers across many frames. Undebounced,
       one bump empties a player completely and reads as the game being broken.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-COMBAT
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -541,6 +573,7 @@ requirements:
       Losing upgrades on death would make a bad run unrecoverable and put a
       child permanently behind. Losing carry hurts enough.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-COMBAT
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -562,7 +595,8 @@ requirements:
       Removes the economic reason for a maxed-out player to camp a beginner's
       garage. Nobody has to be told the rule — the reward simply is not there.
     allocated_to: ServerScriptService/ChompEngine
-    phase: v1
+    chain: CHAIN-COMBAT
+    phase: v2
     created_date: 2026-08-25
     last_modified: 2026-08-25
     author: Claude (requirements session)
@@ -587,6 +621,7 @@ requirements:
       makes ghosts learnable rather than twitchy — which is what makes them
       fair rather than merely difficult.
     allocated_to: ServerScriptService/ChompEngine/Behaviours
+    chain: CHAIN-GHOSTS
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -610,6 +645,7 @@ requirements:
       is exactly when you should already have banked. Killing outright would
       make the deep rings unplayable for a child.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-GHOSTS
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -634,6 +670,7 @@ requirements:
       module boundary is also the v3 on-ramp: a ten-line function is the first
       real code an older child will write.
     allocated_to: ServerScriptService/ChompEngine/Behaviours
+    chain: CHAIN-GHOSTS
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -656,6 +693,7 @@ requirements:
       hunts whoever is winning without any artificial handicap, and it means
       the game still works when one player is online alone.
     allocated_to: ServerScriptService/ChompEngine/Behaviours
+    chain: CHAIN-GHOSTS
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -678,6 +716,7 @@ requirements:
       The oldest working idea in the genre, and the underdog's tool. Being
       visible to everyone is what turns it from a buff into an event.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-GHOSTS
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -702,6 +741,7 @@ requirements:
       player in one maze — which a combat game requires, since players in
       separate levels cannot fight each other.
     allocated_to: Workspace/Maps
+    chain: CHAIN-GATES
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -723,6 +763,7 @@ requirements:
       A door with a face. Its number and the player's Power number are the
       whole interaction, and both must be visible at the moment of decision.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-GATES
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -745,6 +786,7 @@ requirements:
       Painful, instant and impossible to misread. A soft bounce would be tested
       repeatedly; this is tested once.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-GATES
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -769,6 +811,7 @@ requirements:
       lobby floods in behind them, and nobody can quietly farm the rich ring
       alone because breaking in announces it to everyone.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-GATES
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -790,7 +833,8 @@ requirements:
       Hands the underdog the richest ground in the map for exactly as long as
       it takes to get out again — the best gamble in the game.
     allocated_to: ServerScriptService/ChompEngine
-    phase: v1
+    chain: CHAIN-GATES
+    phase: v2
     created_date: 2026-08-25
     last_modified: 2026-08-25
     author: Claude (requirements session)
@@ -814,6 +858,7 @@ requirements:
       Round length is the main tuning dial for how far up the ring ladder a
       match gets. All five numbers live in ChompConfig for exactly that reason.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-MATCH
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -838,6 +883,7 @@ requirements:
       requirement is the mechanical form of "keep it fair"; anything permanent
       belongs in cosmetics.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-MATCH
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -861,7 +907,8 @@ requirements:
       Tier 3 opponents with no grant has no game to play and will leave inside
       a minute.
     allocated_to: ServerScriptService/ChompEngine
-    phase: v1
+    chain: CHAIN-MATCH
+    phase: v2
     created_date: 2026-08-25
     last_modified: 2026-08-25
     author: Claude (requirements session)
@@ -885,6 +932,7 @@ requirements:
       If the number on screen is the number the game believes, the game's
       economy lives on the client and is already forged.
     allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -907,34 +955,43 @@ requirements:
       A child reads colour before text, and reads nothing at all while driving.
       Red-to-green on the gate marker answers "can I go in yet" with no reading.
     allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
+    automation_exempt_reason: >
+      Colour legibility at speed to a seven-year-old is a human judgement.
+      Automated coverage is limited to asserting the HUD renders the correct
+      values (CHOMP-TC-028); whether she can read them is CHOMP-TC-002.
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-032
-    title: Scales to a phone
+    title: Touch controls are the primary control scheme
     shall_statement: >
-      All GUI SHALL be laid out in UDim2 scale terms, SHALL remain fully on
-      screen on a phone viewport, and touch controls SHALL support driving and
-      turning without a keyboard.
+      Driving and turning SHALL be operable by touch alone, with controls
+      positioned so that neither thumb occludes the HUD or the vehicle, and all
+      GUI SHALL be laid out in UDim2 scale terms and remain fully on screen on
+      an iPad in both orientations.
     level: L2_system
     status: APPROVED
-    priority: MEDIUM
+    priority: CRITICAL
     derives_from: [CHOMP-STK-007]
     verified_by: [CHOMP-TC-007]
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      Publishing to Roblox is publishing to phones whether or not that was the
-      intent.
+      The game is played on an iPad. Turning is the skill in this game —
+      agility converts a flank hit into a head-on — so a turn control that is
+      imprecise under a thumb removes the defensive half of the combat system
+      for the player who actually plays it.
     allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
     author: Claude (requirements session)
 
-  # ── L2 system — platform, safety, performance ───────────────────────────
+    # ── L2 system — platform, safety, performance ───────────────────────────
 
   - id: CHOMP-SYS-033
     title: Pellets are pooled, not created and destroyed
@@ -952,8 +1009,11 @@ requirements:
     rationale: >
       A maze holds hundreds of pellets being eaten continuously by a full
       lobby. Instance churn at that rate is the most likely source of frame
-      drops on a laptop and a phone.
+      drops — and with the iPad as the reference platform (CHOMP-STK-007) the
+      headroom is smaller than a laptop's, so this stays in v1 rather than
+      waiting for a measured problem.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-PLATFORM
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -977,6 +1037,7 @@ requirements:
       further scripts, reach external services via HttpService, or hand
       control of the place to a third party.
     allocated_to: Workspace/Maps
+    chain: CHAIN-PLATFORM
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -999,6 +1060,7 @@ requirements:
       Keeps experience settings, publishing and any moderation correspondence
       with the adult.
     allocated_to: Players
+    chain: CHAIN-PLATFORM
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1022,6 +1084,7 @@ requirements:
       rendering unfiltered text is a platform policy violation. Having no such
       surface is the cheapest correct answer at this scale.
     allocated_to: TextChatService
+    chain: CHAIN-PLATFORM
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1045,6 +1108,7 @@ requirements:
       the first thing handed to the children in v3, and the smallest possible
       down payment on the authoring kit.
     allocated_to: ReplicatedStorage/ChompConfig
+    chain: CHAIN-PLATFORM
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1068,6 +1132,7 @@ requirements:
       costs nothing now; retrofitting it later means rewriting every system
       that touches the map.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-PLATFORM
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1094,6 +1159,7 @@ requirements:
       with the five or six players actually likely to be on. Raising it later
       means editing one quadrant, not rebuilding a map.
     allocated_to: Workspace/Maps
+    chain: CHAIN-MAZE
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1118,6 +1184,7 @@ requirements:
       not yet allowed into, with a guarded ramp in between — and gives the map
       natural chokepoints on its bridges instead of manufactured ones.
     allocated_to: Workspace/Maps
+    chain: CHAIN-MAZE
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1141,6 +1208,7 @@ requirements:
       data rather than something the pathing has to infer from geometry —
       which is exactly what building from a prefab set provides.
     allocated_to: ServerScriptService/ChompEngine/Behaviours
+    chain: CHAIN-GHOSTS
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1164,6 +1232,7 @@ requirements:
       a fall that wipes a good run is the difference between a seven-year-old
       laughing and a seven-year-old leaving the room.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-COMBAT
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1187,6 +1256,7 @@ requirements:
       being a new one. It rewards knowing the building and costs the attacker
       their height advantage to use.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-COMBAT
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1213,6 +1283,7 @@ requirements:
       that can quietly ruin the whole game. It must be solved on a test map
       before any real map is built.
     allocated_to: StarterPlayer/ChompCamera
+    chain: CHAIN-VEHICLE
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1236,6 +1307,7 @@ requirements:
       ambush and no player can plan anything — which throws away the scouting
       and anticipation that were the reason for building upward.
     allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1264,6 +1336,35 @@ requirements:
       no second set of rules — it is one number the server sets when people
       join and leave.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-GHOSTS
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-054
+    title: Vehicle models are accepted by contract, not by eye
+    shall_statement: >
+      Every chassis model SHALL satisfy the vehicle contract — tag, attributes,
+      named PrimaryPart, mouth aligned to the PrimaryPart LookVector, part and
+      triangle budgets, physics properties, and no scripts — and SHALL be
+      rejected automatically if it does not.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-001, CHOMP-STK-007]
+    chain: CHAIN-VEHICLE
+    verified_by: [CHOMP-TC-044]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Vehicles are being designed by a separate agent working from a written
+      contract (03_architecture/vehicle_contract.md). A model that faces the
+      wrong way does not look wrong — it inverts the combat system, because
+      every classification reads the LookVector. That failure has to be caught
+      by a scan at acceptance, not by a person noticing something odd during a
+      playtest.
+    allocated_to: ReplicatedStorage/Vehicles
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1287,6 +1388,7 @@ requirements:
       Topology decides which attacks are possible, so map variety is combat
       variety. Rotation also stops map memory deciding matches.
     allocated_to: Workspace/Maps
+    chain: CHAIN-MAZE
     phase: v2
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1308,6 +1410,7 @@ requirements:
       v1 proves the mechanics with two ghosts and one gate; v2 is where the
       maze becomes genuinely dangerous and the ladder gets its full arc.
     allocated_to: ServerScriptService/ChompEngine/Behaviours
+    chain: CHAIN-GHOSTS
     phase: v2
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1332,6 +1435,7 @@ requirements:
       — not for the empty-server case, which CHOMP-SYS-053 handles in v1 by
       scaling the ghosts instead.
     allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-MATCH
     phase: v2
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1355,6 +1459,7 @@ requirements:
       unless pcall's success flag is checked separately from its returned
       value. Conflating them overwrites a real profile with zeroes.
     allocated_to: ServerScriptService/DataService
+    chain: CHAIN-PLATFORM
     phase: v2
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1380,6 +1485,7 @@ requirements:
       remembered, and means a child cannot break the game by building badly.
       Full vocabulary in 03_architecture/authoring_kit.md.
     allocated_to: Workspace/Maps
+    chain: CHAIN-KIT
     phase: v3
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1402,6 +1508,7 @@ requirements:
       building work, and is visibly magic to a child — which is the actual
       lesson underneath the project.
     allocated_to: ServerStorage/ChompTools
+    chain: CHAIN-KIT
     phase: v3
     created_date: 2026-08-25
     last_modified: 2026-08-25
@@ -1427,6 +1534,7 @@ requirements:
       It is what lets her iterate without an adult beside her, which is the
       difference between helping and owning.
     allocated_to: ServerStorage/ChompTools
+    chain: CHAIN-KIT
     phase: v3
     created_date: 2026-08-25
     last_modified: 2026-08-25

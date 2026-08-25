@@ -1,0 +1,29 @@
+# CHAIN-KIT — collaboration log
+# Append-only. One entry per agent action. Never rewrite an existing entry;
+# correct it with a new entry that says what changed and why.
+# requirement_count and requirements are checked against the requirements tree
+# by validate.py — they cannot silently drift.
+
+chain: CHAIN-KIT
+owner: unassigned
+scope: 'v3: the authoring kit — tags and attributes, the mirror tool, Check My Maze.
+  Deliberately last (D-CHOMP-001).'
+requirement_count: 4
+requirements: &id001
+- CHOMP-STK-008
+- CHOMP-SYS-043
+- CHOMP-SYS-044
+- CHOMP-SYS-045
+phases:
+- v1
+- v3
+status: NOT_STARTED
+entries:
+- date: '2026-08-25'
+  agent: Claude (requirements session)
+  action: ESTABLISHED
+  requirements: *id001
+  summary: Chain established with 4 requirements across v1, v3. Nothing built. See
+    02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
+    for how each is verified.
+  status: OPEN
