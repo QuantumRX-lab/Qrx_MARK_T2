@@ -374,3 +374,26 @@ decisions:
       ChompConfig retuned; CameraController eases look-ahead and horizontal
       follow separately from the deck spring, and uses floor rather than round
       for deck detection so the spring is not chased mid-ramp and mid-fall.
+
+  - id: D-CHOMP-021
+    date: 2026-08-25
+    title: Remotes are declared in the project file, and input never blocks on them
+    decision: >
+      The three RemoteEvents are declared as instances in default.project.json
+      rather than created at require time. Remotes.lua only resolves them, with
+      a timeout and an explicit error. InputController acquires the module in a
+      spawned task and steers regardless of whether it arrives.
+    rationale: >
+      Found in the second playtest. The module created the remotes on whichever
+      side required it first, which was a latent race; rewriting MovementService
+      removed the last server-side require, so nothing created them, and a
+      client requiring the module yielded forever on WaitForChild. Because
+      InputController required it at the top of the file, that silently disabled
+      steering entirely — the failure presented as an unrelated warning about an
+      infinite yield rather than as "the controls do not work". Declaring the
+      instances removes the race; acquiring them off-thread means a network
+      surface that is missing or late can never again stop a player driving.
+    outcome: >
+      default.project.json declares ReplicatedStorage.Remotes and its three
+      events; Remotes.lua creates nothing; InputController holds the module
+      optionally and only fires when it is present.

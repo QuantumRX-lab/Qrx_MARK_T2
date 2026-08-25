@@ -2,42 +2,43 @@
 --[[
 	Remotes — CHAIN-PLATFORM
 
-	The entire client-to-server surface, created once and found by name. Three
-	remotes, and none of them carries a quantity: no price, no amount, no
-	power, no hit, no position. Everything a client can express is intent; the
-	server supplies every number.
+	The entire client-to-server surface. Three remotes, and none of them
+	carries a quantity: no price, no amount, no power, no hit, no position.
+	Everything a client can express is intent; the server supplies every number.
 
 	Adding a fourth remote means extending the exploit regression suite
 	(CHOMP-TC-042) in the same commit. That is not a guideline.
+
+	The remotes are DECLARED IN default.project.json, not created here.
+
+	They used to be created at require time by whichever side got there first.
+	That was a latent race, and it fired the moment MovementService stopped
+	requiring this module: nothing on the server created them any more, so a
+	client requiring this module yielded forever on WaitForChild — which took
+	the entire input controller down with it, because it requires this at the
+	top of the file. Declaring them in the project file means they exist in the
+	DataModel before any code runs, and there is nothing left to race.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local NAMES = { "RequestPurchase", "RequestBank", "SetInputDirection" }
+local TIMEOUT = 10
 
 local Remotes = {}
 
-local folder = ReplicatedStorage:FindFirstChild("Remotes")
-if not folder and RunService:IsServer() then
-	folder = Instance.new("Folder")
-	folder.Name = "Remotes"
-	folder.Parent = ReplicatedStorage
-end
-if RunService:IsServer() then
-	for _, name in ipairs(NAMES) do
-		if not folder:FindFirstChild(name) then
-			local remote = Instance.new("RemoteEvent")
-			remote.Name = name
-			remote.Parent = folder
-		end
-	end
-else
-	folder = ReplicatedStorage:WaitForChild("Remotes")
+local folder = ReplicatedStorage:WaitForChild("Remotes", TIMEOUT)
+if not folder then
+	error("[Remotes] ReplicatedStorage.Remotes is missing. It is declared in " ..
+		"default.project.json — if it is absent, the Rojo sync did not apply.")
 end
 
 for _, name in ipairs(NAMES) do
-	Remotes[name] = folder:WaitForChild(name) :: RemoteEvent
+	local remote = folder:WaitForChild(name, TIMEOUT)
+	if not remote then
+		error(("[Remotes] %s is missing from ReplicatedStorage.Remotes"):format(name))
+	end
+	Remotes[name] = remote :: RemoteEvent
 end
 
 -- Rate limits from service_contracts.md, enforced server-side.

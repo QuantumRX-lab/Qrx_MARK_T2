@@ -19,8 +19,23 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
-local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local CONTROLS = Config.Controls
+
+-- Acquired off the critical path. Steering must work whether or not the
+-- network surface is ready: a module that yields at require time took the
+-- whole controller down once already, and driving is not something that
+-- should ever wait on a RemoteEvent.
+local Remotes = nil
+task.spawn(function()
+	local ok, result = pcall(function()
+		return require(ReplicatedStorage:WaitForChild("Remotes"))
+	end)
+	if ok then
+		Remotes = result
+	else
+		warn("[InputController] remotes unavailable, driving locally only: " .. tostring(result))
+	end
+end)
 
 local player = Players.LocalPlayer
 
@@ -31,7 +46,7 @@ local player = Players.LocalPlayer
 local shared = _G.ChompInput or { steer = 0, flip = false }
 _G.ChompInput = shared
 
-local sendRate = Remotes.Limits.SetInputDirection * 0.66  -- stay inside the limit
+local sendRate = 20  -- two thirds of the server's 30/s limit
 local sendInterval = 1 / sendRate
 
 local activeTouches: { [any]: Vector2 } = {}
@@ -147,7 +162,7 @@ RunService.Heartbeat:Connect(function(dt)
 	local payload = Vector2.new(steer, flip)
 
 	local changed = math.abs(payload.X - lastSent.X) > 0.02 or flip == 1
-	if accumulator >= sendInterval and changed then
+	if accumulator >= sendInterval and changed and Remotes then
 		Remotes.SetInputDirection:FireServer(payload)
 		lastSent = payload
 		accumulator = 0

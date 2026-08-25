@@ -3,7 +3,19 @@
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
-      "$path": "src/ReplicatedStorage"
+      "$path": "src/ReplicatedStorage",
+      "Remotes": {
+        "$className": "Folder",
+        "RequestPurchase": {
+          "$className": "RemoteEvent"
+        },
+        "RequestBank": {
+          "$className": "RemoteEvent"
+        },
+        "SetInputDirection": {
+          "$className": "RemoteEvent"
+        }
+      }
     },
     "ServerScriptService": {
       "$path": "src/ServerScriptService"

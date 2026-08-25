@@ -143,6 +143,18 @@ Everything is found by tag, never by hardcoded path (`CHOMP-SYS-038`).
 Three remotes. That is the entire client-to-server attack surface, and adding a
 fourth means extending the exploit suite (`CHOMP-TC-042`) in the same commit.
 
+**The remotes are declared in `default.project.json`, not created at runtime.**
+They were originally created by whichever side required the module first, which
+was a race waiting to fire — and it fired: when `MovementService` was rewritten
+and stopped requiring the module, nothing on the server created them any more,
+so a client requiring it yielded forever and took the input controller down
+with it. Declaring them in the project file means they exist before any code
+runs.
+
+**Nothing on the critical path may block on a remote.** Input in particular
+acquires the module off-thread and drives locally regardless — a player should
+never be unable to steer because the network surface is not ready.
+
 | Remote | Signature | Rate limit | Server rejects when |
 |---|---|---|---|
 | `RequestPurchase` | `(itemId: string)` | 4/s | Not in intermission or at own garage; unknown item; insufficient **banked**; prerequisite unmet |

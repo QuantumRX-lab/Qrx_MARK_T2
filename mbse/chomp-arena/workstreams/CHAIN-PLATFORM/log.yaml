@@ -87,3 +87,21 @@ entries:
     contract now matches what the server actually validates — Vector2, no NaN,
     X within [-1, 1]. Adding a fourth remote still means extending the exploit
     suite in the same commit.
+- date: '2026-08-25'
+  agent: Claude (engine)
+  action: DECIDED
+  requirements: [CHOMP-SYS-038]
+  summary: >
+    Remotes are now declared in default.project.json instead of created at
+    require time (D-CHOMP-021). The old approach created them on whichever side
+    required the module first; rewriting MovementService removed the last
+    server-side require, so nothing created them and a client requiring the
+    module yielded forever — which disabled steering entirely, because
+    InputController required it at the top of the file.
+  status: OPEN
+  handoff: >
+    Two rules from this. Instances that must exist belong in the project file,
+    not in creation code that races. And nothing on the critical path may block
+    on the network: input now acquires the module off-thread and drives locally
+    regardless. The failure presented as an infinite-yield warning rather than
+    as broken controls, which is why it survived a playtest.
