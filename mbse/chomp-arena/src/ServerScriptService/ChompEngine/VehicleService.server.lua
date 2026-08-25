@@ -14,7 +14,7 @@
 	authority, which is the mistake this project has now made twice.
 
 	KNOWN LIMIT: collision is still the humanoid's, which is about two studs
-	wide, while the chassis is nearer five. Corridors are eight, so you only
+	wide, while the chassis is nearer eight. Corridors are sixteen, so you only
 	notice it hugging a wall. Giving the vehicle its own collision body is a
 	real change to how the character is built and is not worth doing before the
 	camera acceptance run says the geometry survives at all.
@@ -169,6 +169,25 @@ local function fitVehicle(player: Player, character: Model)
 			d.Massless = true
 			d.CanQuery = false
 			d.CanTouch = false
+		end
+	end
+
+	-- Make the driver read. The head is most of what says "someone is driving
+	-- this", so it gets scaled up and the glass gets cleared (D-CHOMP-039).
+	local V = Config.Vehicle
+	if V and V.CanopyTransparency then
+		local canopy = model:FindFirstChild("Canopy")
+		if canopy and canopy:IsA("BasePart") then
+			canopy.Transparency = V.CanopyTransparency
+		end
+	end
+	if V and V.DriverHeadScale then
+		-- R15 exposes body scaling as NumberValues under the Humanoid. HeadScale
+		-- touches the head alone, so HipHeight and the chassis drop below are
+		-- unaffected. R6 has no such value and simply skips this.
+		local headScale = humanoid:FindFirstChild("HeadScale")
+		if headScale and headScale:IsA("NumberValue") then
+			headScale.Value = V.DriverHeadScale
 		end
 	end
 

@@ -58,6 +58,20 @@ ChompConfig.StartingChassis = "Standard"
 ChompConfig.Vehicle = {
 	Scale = 1.4,
 	ShowDriverHead = true,   -- the head stays visible through the glass canopy
+
+	-- Making the driver read clearly is worth two knobs (D-CHOMP-039).
+	-- The spec ships the canopy at 0.62, which is convincing glass and poor
+	-- visibility; 0.85 keeps the highlight and the frame while letting the face
+	-- through. Overridden after build so Codex's spec stays the source of truth
+	-- for shape, and only the glass is tuned here.
+	CanopyTransparency = 0.85,
+	-- A kart driver reads as a driver mostly through head size. This is the
+	-- R15 HeadScale, so it scales the head alone and leaves HipHeight - and
+	-- therefore the chassis drop - untouched.
+	-- 1.5 is the ceiling and it clears the canopy roof by 0.06 studs, which is
+	-- not a margin when R15 head heights vary by avatar. 1.4 clears by 0.12.
+	-- Above about 1.5 the head pushes through the glass.
+	DriverHeadScale = 1.4,
 }
 
 -- Movement shared by every chassis. Corridors are 16 studs wide and vehicles
@@ -6268,7 +6282,7 @@ build()
 	authority, which is the mistake this project has now made twice.
 
 	KNOWN LIMIT: collision is still the humanoid's, which is about two studs
-	wide, while the chassis is nearer five. Corridors are eight, so you only
+	wide, while the chassis is nearer eight. Corridors are sixteen, so you only
 	notice it hugging a wall. Giving the vehicle its own collision body is a
 	real change to how the character is built and is not worth doing before the
 	camera acceptance run says the geometry survives at all.
@@ -6423,6 +6437,25 @@ local function fitVehicle(player: Player, character: Model)
 			d.Massless = true
 			d.CanQuery = false
 			d.CanTouch = false
+		end
+	end
+
+	-- Make the driver read. The head is most of what says "someone is driving
+	-- this", so it gets scaled up and the glass gets cleared (D-CHOMP-039).
+	local V = Config.Vehicle
+	if V and V.CanopyTransparency then
+		local canopy = model:FindFirstChild("Canopy")
+		if canopy and canopy:IsA("BasePart") then
+			canopy.Transparency = V.CanopyTransparency
+		end
+	end
+	if V and V.DriverHeadScale then
+		-- R15 exposes body scaling as NumberValues under the Humanoid. HeadScale
+		-- touches the head alone, so HipHeight and the chassis drop below are
+		-- unaffected. R6 has no such value and simply skips this.
+		local headScale = humanoid:FindFirstChild("HeadScale")
+		if headScale and headScale:IsA("NumberValue") then
+			headScale.Value = V.DriverHeadScale
 		end
 	end
 

@@ -50,6 +50,20 @@ ChompConfig.StartingChassis = "Standard"
 ChompConfig.Vehicle = {
 	Scale = 1.4,
 	ShowDriverHead = true,   -- the head stays visible through the glass canopy
+
+	-- Making the driver read clearly is worth two knobs (D-CHOMP-039).
+	-- The spec ships the canopy at 0.62, which is convincing glass and poor
+	-- visibility; 0.85 keeps the highlight and the frame while letting the face
+	-- through. Overridden after build so Codex's spec stays the source of truth
+	-- for shape, and only the glass is tuned here.
+	CanopyTransparency = 0.85,
+	-- A kart driver reads as a driver mostly through head size. This is the
+	-- R15 HeadScale, so it scales the head alone and leaves HipHeight - and
+	-- therefore the chassis drop - untouched.
+	-- 1.5 is the ceiling and it clears the canopy roof by 0.06 studs, which is
+	-- not a margin when R15 head heights vary by avatar. 1.4 clears by 0.12.
+	-- Above about 1.5 the head pushes through the glass.
+	DriverHeadScale = 1.4,
 }
 
 -- Movement shared by every chassis. Corridors are 16 studs wide and vehicles

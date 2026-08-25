@@ -892,3 +892,27 @@ decisions:
       The general rule this is the third instance of: a number derived from
       another number must say so where it lives, or it goes stale silently when
       the other one moves.
+
+  - id: D-CHOMP-039
+    date: 2026-08-25
+    title: The driver reads through clearer glass and a bigger head
+    decision: >
+      After the kart is built, the Canopy part's transparency is raised from the
+      spec's 0.62 to ChompConfig.Vehicle.CanopyTransparency (0.85), and the
+      character's R15 HeadScale is set to Vehicle.DriverHeadScale (1.4).
+    rationale: >
+      The head was visible but not reading. Two causes, and only one of them was
+      the glass. At 0.62 the canopy is convincing as glass and poor as a window;
+      0.85 keeps the highlight and the frame while letting a face through.
+      The other is size. A kart driver reads as a driver mostly through head
+      size — it is why every kart game gives its drivers oversized heads — and a
+      default R15 head inside a 4.3-stud-wide cockpit is simply small.
+      HeadScale was chosen over resizing the Head part because it scales the
+      head alone and leaves HipHeight, and therefore the chassis drop, untouched.
+      1.4 rather than 1.5: the canopy roof sits at 5.96 studs and a 1.5 head tops
+      out at 5.90, which is not a margin when R15 head heights vary by avatar.
+      1.4 clears by 0.12. Above about 1.5 the head pushes through the glass.
+    outcome: >
+      Both values are config, applied after build, so Codex's spec stays the
+      source of truth for shape and only the glass is tuned here. R6 characters
+      have no HeadScale value and skip that step rather than erroring.
