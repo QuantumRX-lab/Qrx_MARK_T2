@@ -28,3 +28,31 @@ entries:
     for the shall statements and 04_verification/test_cases.yaml for how each is
     verified.
   status: OPEN
+- date: '2026-08-25'
+  agent: Codex (vehicle design)
+  action: CLAIMED
+  requirements: *id001
+  summary: >
+    Claimed the four chassis model delivery and the vehicle-chain interfaces for
+    character-controller compatibility, server-held movement statistics, wall
+    collision compatibility, camera readability, and automated model conformance.
+  status: OPEN
+  handoff: >
+    Work is confined to CHAIN-VEHICLE. Any dependency requiring another chain
+    will be recorded as BLOCKED rather than edited across chain boundaries.
+- date: '2026-08-25'
+  agent: Codex (vehicle design)
+  action: BLOCKED
+  requirements: [CHOMP-SYS-054]
+  summary: >
+    Vehicle model delivery is blocked because the binding contract requires
+    BaseSpeed and BaseTurn attributes to mirror ChompConfig, but this branch
+    contains no ChompConfig values and no executable CHOMP-TC-044 conformance
+    scanner. Creating the four RBXM files would require guessing binding
+    attributes and could not be checked before delivery.
+  status: BLOCKED
+  handoff: >
+    CHAIN-PLATFORM must provide the authoritative BaseSpeed and BaseTurn values
+    for Standard, HeavyJaw, Ravener, and Apex, plus the CHOMP-TC-044 scanner or
+    its machine-readable implementation. Resume CHAIN-VEHICLE after those
+    dependencies land; do not infer the values from the game concept.
