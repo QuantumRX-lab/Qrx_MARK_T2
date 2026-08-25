@@ -455,3 +455,22 @@ entries:
     Also note the chassis is 4.8 studs wide in a corridor that is now 14 studs
     clear (D-CHOMP-034), so it will look small. Scaling the spec is a
     CHAIN-VEHICLE call and has deliberately not been made here.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-001]
+  summary: >
+    The legs were still visible to the driver after D-CHOMP-034, because
+    server-side Transparency is not what renders your own character: Roblox uses
+    LocalTransparencyModifier for that, and PlayerModule's transparency
+    controller writes to it. Disabling that module's controls in D-CHOMP-023 did
+    not stop its camera and transparency halves. VehicleAppearance.client.lua
+    now holds the modifier at 1 every frame (D-CHOMP-035).
+  status: OPEN
+  handoff: >
+    NOT yet played. If the VEHICLE turns invisible instead of the avatar, the
+    cause is the exclusion in collect(): the vehicle is parented in after the
+    character spawns, so an early sweep sees its parts before it is named
+    Vehicle. Watch also for a first-person camera flip - the transparency
+    controller is what normally hides your head when you zoom in, and it is now
+    being overwritten every frame.

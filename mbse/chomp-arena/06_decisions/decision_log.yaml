@@ -778,3 +778,31 @@ decisions:
       which all keyed off the 8-stud grid. VehicleService hides descendants as
       they appear, re-hides on CharacterAppearanceLoaded, excludes the vehicle
       model from that sweep, disables Animate and stops any playing tracks.
+
+  - id: D-CHOMP-035
+    date: 2026-08-25
+    title: The driver's own avatar is hidden on the client, not just on the server
+    decision: >
+      A client script holds LocalTransparencyModifier at 1 on every avatar part
+      of the local character, every frame, excluding the vehicle model. The
+      server-side Transparency = 1 stays, because that is what other players
+      see.
+    rationale: >
+      Setting Transparency on the server was not enough and the legs kept
+      showing through the chassis for the driver. Roblox renders the local
+      player's own character through LocalTransparencyModifier, and the default
+      PlayerModule's transparency controller writes to it as the camera moves.
+      D-CHOMP-023 disabled that module's CONTROLS, which is a different thing:
+      the camera and transparency halves kept running.
+      So this is the same shape of bug as D-CHOMP-023 and D-CHOMP-025 in a third
+      register — two authorities writing one value, and whichever runs last
+      wins. The fix is the same one that worked twice already: be the last
+      writer every frame rather than trying to reason about somebody else's
+      update schedule. Fifteen parts a frame costs nothing.
+    outcome: >
+      src/StarterPlayer/StarterPlayerScripts/VehicleAppearance.client.lua. It
+      recollects on DescendantAdded because parts arrive late, and it clears the
+      modifier on vehicle parts rather than merely skipping them — the vehicle
+      is parented in after the character spawns, so an early sweep can catch it,
+      and dropping a part from the list stops the writes without undoing the
+      last one. That would have produced an invisible vehicle.

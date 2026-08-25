@@ -7687,6 +7687,111 @@ end)
       </Item>
       <Item class="LocalScript" referent="155">
         <Properties>
+          <string name="Name">VehicleAppearance</string>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	VehicleAppearance — CHAIN-VEHICLE
+
+	Keeps the driver's own avatar invisible on their own screen.
+
+	VehicleService already sets Transparency = 1 on every avatar part, and that
+	is the right thing for what everyone else sees. It is not sufficient for
+	what YOU see. Roblox renders the local player's own character through
+	LocalTransparencyModifier, which the default PlayerModule's transparency
+	controller writes to as the camera moves — so the legs kept showing through
+	the chassis on the driving client while looking correctly hidden to anyone
+	watching (D-CHOMP-035).
+
+	Two authorities writing one visual property, which is the same shape of bug
+	as D-CHOMP-023 and D-CHOMP-025 in a different register. The fix is the same:
+	be the last writer, every frame, and stop guessing.
+
+	The vehicle itself is excluded, since it is parented into the character.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+local character: Model? = nil
+local hidden: { BasePart } = {}
+local decals: { Decal | Texture } = {}
+
+local function isVehicle(d: Instance): boolean
+	local vehicle = character and character:FindFirstChild("Vehicle")
+	return vehicle ~= nil and (d == vehicle or d:IsDescendantOf(vehicle))
+end
+
+local function collect()
+	table.clear(hidden)
+	table.clear(decals)
+	if not character then return end
+	for _, d in character:GetDescendants() do
+		local mine = isVehicle(d)
+		if d:IsA("BasePart") then
+			if mine then
+				-- The vehicle is parented in AFTER the character spawns, so an
+				-- early sweep can catch its parts. Clearing the modifier here
+				-- matters: dropping a part from the list stops us writing to it
+				-- but leaves whatever we last wrote, which would be an
+				-- invisible vehicle.
+				d.LocalTransparencyModifier = 0
+			else
+				table.insert(hidden, d)
+			end
+		elseif d:IsA("Decal") or d:IsA("Texture") then
+			if not mine then
+				table.insert(decals, d)
+			end
+		end
+	end
+end
+
+local function onCharacter(c: Model)
+	character = c
+	collect()
+	-- Parts and accessories arrive late, so recollect rather than assume the
+	-- first sweep saw everything.
+	c.DescendantAdded:Connect(function()
+		task.defer(collect)
+	end)
+
+	-- The run cycle is stopped server-side too, but a track that was already
+	-- playing when the script was disabled keeps going until it is told not to.
+	local humanoid = c:FindFirstChildOfClass("Humanoid")
+	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+	if animator then
+		for _, track in animator:GetPlayingAnimationTracks() do
+			track:Stop(0)
+		end
+	end
+end
+
+if player.Character then
+	onCharacter(player.Character)
+end
+player.CharacterAdded:Connect(onCharacter)
+
+-- Last writer wins, so write last. Fifteen parts a frame is nothing, and the
+-- alternative is racing a controller whose update schedule is not ours to know.
+RunService.RenderStepped:Connect(function()
+	for _, part in hidden do
+		if part.LocalTransparencyModifier ~= 1 then
+			part.LocalTransparencyModifier = 1
+		end
+	end
+	for _, decal in decals do
+		if decal.Transparency ~= 1 then
+			decal.Transparency = 1
+		end
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="156">
+        <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
 --[[
@@ -7874,7 +7979,7 @@ end)
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="156">
+  <Item class="Workspace" referent="157">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>
