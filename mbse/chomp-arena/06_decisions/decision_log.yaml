@@ -916,3 +916,30 @@ decisions:
       Both values are config, applied after build, so Codex's spec stays the
       source of truth for shape and only the glass is tuned here. R6 characters
       have no HeadScale value and skip that step rather than erroring.
+
+  - id: D-CHOMP-040
+    date: 2026-08-25
+    title: Hair and hats stay on, and accessories are never destroyed
+    decision: >
+      Head accessories — identified by HairAttachment, HatAttachment,
+      FaceFrontAttachment or FaceCenterAttachment on their Handle — stay visible
+      with the head. No accessory is destroyed; non-head ones have their Handle
+      hidden like any other part.
+    rationale: >
+      Studio logged "Something unexpectedly tried to set the parent of Pal Hair
+      to NULL". That was this code destroying accessories while the character
+      was still assembling itself. Two things wrong with it. Destroying is a
+      race against whatever else is still parenting parts, and it is
+      irreversible — an appearance is player data, and a cosmetic script has no
+      business deleting it.
+      It was also self-defeating. The complaint being worked on was that the
+      driver did not read, and hair is most of what makes a head look like a
+      person rather than a sphere.
+      Attachment names identify head gear rather than accessory names, because
+      the name is player-chosen — "Pal Hair" is not a pattern anything can match
+      on — while the attachment is how Roblox itself decides where it goes.
+    outcome: >
+      Both the server sweep and the client modifier pass share the same
+      isHeadGear test. Accessory handles that are not head gear get
+      Transparency = 1 like any other part, so nothing is deleted and the effect
+      is reversible.

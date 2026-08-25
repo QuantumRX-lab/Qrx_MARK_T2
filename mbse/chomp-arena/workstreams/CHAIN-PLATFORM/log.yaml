@@ -126,3 +126,28 @@ entries:
     calls for: duplicate child names under one parent in the built place should
     fail the build, because the symptom appears at runtime on one side only and
     reads as a missing instance.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: NOTE
+  requirements: [CHOMP-SYS-051]
+  summary: >
+    FIRST REAL CAMERA EVIDENCE. Driving the generated arena in Studio, the
+    on-screen readout reported worst occlusion 0.92s against the 0.20s ceiling,
+    one breach — CHOMP-SYS-051 failing by 4.6x. This is RISK-CHOMP-012 landing
+    exactly where the tree said it would.
+    Caveats stated so nobody over-reads it: this is Studio, not the iPad, so it
+    is not CHOMP-TC-040 and the requirement stays NOT_STARTED. It is also the
+    generated arena rather than authored geometry, and the 16-stud grid of
+    D-CHOMP-034 changed the corridor width the camera was tuned against without
+    WallHeight being re-derived — that is recorded as an open item in
+    CHAIN-MAZE and may be the whole cause.
+  status: OPEN
+  handoff: >
+    Do not tune the camera by guessing. The readout already reports duration, so
+    the next step is to make it report WHERE: log the position and the obscuring
+    part name at the moment of a breach. A 0.92s occlusion is long enough that
+    it is one specific piece of geometry, not general tightness, and knowing
+    which wall it was decides whether this is a camera problem, a wall-height
+    problem, or a map-generation problem.
+    Wall height is still 7, derived at 38 degrees pitch against 8-stud
+    corridors. Corridors are now 16. Re-deriving that is the first candidate.

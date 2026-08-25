@@ -70,18 +70,42 @@ local function isDriverHead(d: Instance): boolean
 	return false
 end
 
+-- Hair and hats are the driver. Roblox attaches head accessories through named
+-- attachments on the Handle, so that is what identifies them rather than a
+-- guess at the name (D-CHOMP-040).
+local HEAD_ATTACHMENTS = {
+	HairAttachment = true, HatAttachment = true,
+	FaceFrontAttachment = true, FaceCenterAttachment = true,
+}
+
+local function isHeadGear(d: Instance): boolean
+	local accessory = if d:IsA("Accessory") then d else d:FindFirstAncestorOfClass("Accessory")
+	if not accessory then return false end
+	local handle = accessory:FindFirstChild("Handle")
+	if not handle then return false end
+	for _, a in handle:GetChildren() do
+		if a:IsA("Attachment") and HEAD_ATTACHMENTS[a.Name] then
+			return true
+		end
+	end
+	return false
+end
+
 -- The avatar still exists and is still what moves; it is simply not drawn, and
 -- not animated.
 local function hide(d: Instance)
-	if Config.Vehicle and Config.Vehicle.ShowDriverHead and isDriverHead(d) then
+	local showHead = Config.Vehicle and Config.Vehicle.ShowDriverHead
+	if showHead and (isDriverHead(d) or isHeadGear(d)) then
 		return
 	end
+	-- Accessories are NOT destroyed. Removing one races whatever else is still
+	-- assembling the character and produces "tried to set the parent of X to
+	-- NULL"; an accessory's Handle is a BasePart, so hiding it is enough and
+	-- reversible (D-CHOMP-040).
 	if d:IsA("BasePart") then
 		d.Transparency = 1
 	elseif d:IsA("Decal") or d:IsA("Texture") then
 		d.Transparency = 1
-	elseif d:IsA("Accessory") then
-		d:Destroy()
 	end
 end
 

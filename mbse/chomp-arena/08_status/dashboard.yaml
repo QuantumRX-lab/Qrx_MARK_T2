@@ -73,7 +73,7 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 39
+  total: 40
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder — the daughter names it."
