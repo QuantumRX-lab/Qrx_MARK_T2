@@ -2,19 +2,26 @@
 --[[
 	VehicleController — CHAIN-VEHICLE, CHOMP-SYS-001
 
-	Steering runs HERE, on the client that owns its own character.
+	Grid driving (D-CHOMP-033). A direction IS the drive command: hold one and
+	the vehicle faces that way and goes. Stopped, it snaps instantly. Moving, it
+	turns at the chassis turn rate. Release and it coasts to a stop.
 
-	It used to run on the server, which wrote root.CFrame every heartbeat. That
-	was wrong and it is why the handling felt broken: Roblox gives the client
-	network ownership of its own character, so a server writing that same
-	transform every frame is two authorities fighting over one value, and the
-	result is jitter and rubber-banding. Rotating your own character locally is
-	both smooth and correctly replicated.
+	That is how Pac-Man works, and it is the point. The scheme it replaces had a
+	throttle and continuous steering, which meant reorienting in a dead end was a
+	three-point turn, and lining a corridor up before committing to it was not
+	possible at all. On an 8-stud grid, direction is the only steering input that
+	means anything.
 
-	The server has not given up authority (D-CHOMP-018). It still owns the
-	numbers — speed and turn rate — re-asserts WalkSpeed, and validates that
-	the movement the client produced is possible. What moved to the client is
-	the application of rotation, not the right to decide how fast you go.
+	The camera never rotates (D-CHOMP-016), so a direction on the keys or on the
+	stick is always the same direction on screen. That is what makes an absolute
+	scheme legible to a seven-year-old: left is left, not "left relative to
+	something that just spun".
+
+	Movement runs HERE, on the client that owns its own character, and it never
+	writes a transform. The client integrates a heading and hands it to Move();
+	the engine owns the transform and the solver has nothing to fight over
+	(D-CHOMP-025). The server still owns the numbers — speed and turn rate — and
+	validates the result (D-CHOMP-018).
 ]]
 
 local Players = game:GetService("Players")
@@ -28,9 +35,9 @@ local player = Players.LocalPlayer
 
 -- Roblox's default control script drives the same Humanoid this controller
 -- does. It calls humanoid:Move() every frame from its own input, and with no
--- key held that call is Vector3.zero — which cancels the forward drive below,
--- so the vehicle only moved while a key was down and never steered. Disabling
--- it makes this the single writer of locomotion.
+-- key held that call is Vector3.zero — which cancels the drive below, so the
+-- vehicle only moved while a key was down and never steered. Disabling it makes
+-- this the single writer of locomotion.
 --
 -- This is D-CHOMP-018 again in a different property: the fix moved rotation off
 -- the server, but left a second authority calling Move() on the client. One
@@ -52,20 +59,28 @@ task.spawn(function()
 	end
 end)
 
--- Written by InputController each frame. Steering intent only, -1 .. 1.
+-- Written by InputController each frame. Intent only, -1 .. 1 on each axis.
 local state = _G.ChompInput or { steer = 0, throttle = 0, flip = false }
 _G.ChompInput = state
 
-local smoothedSteer = 0
-local heading = 0          -- world yaw in radians. Ours, not the solver's.
-local headingReady = false -- seeded from the character on first frame
-local currentSpeed = 0     -- studs/s, ramped by Acceleration and Braking
-local flipRemaining = 0
-local flipDirection = 1
+-- CFrame.Angles(0, h, 0) has a LookVector of (-sin h, 0, -cos h), so north
+-- (towards -Z) is zero and the compass runs anticlockwise from there.
+local NORTH, WEST, SOUTH, EAST = 0, math.pi / 2, math.pi, -math.pi / 2
+local TWO_PI = math.pi * 2
+local PRESSED = 0.5   -- a stick past this counts as a direction, not a nudge
+
+local heading = 0
+local headingReady = false
+local currentSpeed = 0
+local desired: number? = nil     -- the direction being held, if any
+local desiredAxis: string? = nil -- "x" or "z", so the newer press wins
+local prevSteer = 0
+local prevThrottle = 0
 
 player.CharacterAdded:Connect(function()
 	headingReady = false
 	currentSpeed = 0
+	desired, desiredAxis = nil, nil
 end)
 
 local function stats()
@@ -76,6 +91,40 @@ local function stats()
 	local turn = character and character:GetAttribute("ChompTurn")
 	local chassis = Config.Chassis[Config.StartingChassis]
 	return speed or chassis.BaseSpeed, turn or chassis.BaseTurn
+end
+
+-- Which way is being asked for, or nil for "nothing held, coast".
+--
+-- The most recent press wins, so cutting a corner by rolling from one key onto
+-- another does what you meant rather than averaging the two into a diagonal
+-- that no corridor can accept.
+local function updateDesired(steer: number, throttle: number)
+	local steerOn = math.abs(steer) > PRESSED
+	local throttleOn = math.abs(throttle) > PRESSED
+	local steerNew = steerOn and math.abs(prevSteer) <= PRESSED
+	local throttleNew = throttleOn and math.abs(prevThrottle) <= PRESSED
+
+	if steerNew then
+		desired, desiredAxis = (steer > 0 and EAST or WEST), "x"
+	elseif throttleNew then
+		desired, desiredAxis = (throttle > 0 and NORTH or SOUTH), "z"
+	elseif desiredAxis == "x" and not steerOn then
+		-- the key we were following was let go; fall back to the other if held
+		desired, desiredAxis = throttleOn and (throttle > 0 and NORTH or SOUTH) or nil,
+			throttleOn and "z" or nil
+	elseif desiredAxis == "z" and not throttleOn then
+		desired, desiredAxis = steerOn and (steer > 0 and EAST or WEST) or nil,
+			steerOn and "x" or nil
+	elseif not steerOn and not throttleOn then
+		desired, desiredAxis = nil, nil
+	end
+
+	prevSteer, prevThrottle = steer, throttle
+end
+
+-- Shortest signed angle from a to b, in (-pi, pi].
+local function shortestTurn(from: number, to: number): number
+	return (to - from + math.pi) % TWO_PI - math.pi
 end
 
 RunService.RenderStepped:Connect(function(dt)
@@ -94,67 +143,30 @@ RunService.RenderStepped:Connect(function(dt)
 		headingReady = true
 	end
 
-	-- Ramp the steering instead of applying it raw. Straight-through input is
-	-- twitchy at any turn rate high enough to make a junction.
-	--
-	-- Engaging and releasing use different rates (D-CHOMP-032). Committing to a
-	-- turn should take a moment; coming out of one should not, because a vehicle
-	-- that keeps turning after the key is released is what actually reads as
-	-- twitchy.
-	local steerTarget = state.steer or 0
-	local engaging = math.abs(steerTarget) > math.abs(smoothedSteer)
-	local rampSeconds = engaging and MOVE.SteerRampSeconds or MOVE.SteerReleaseSeconds
-	local ramp = math.clamp(dt / rampSeconds, 0, 1)
-	smoothedSteer += (steerTarget - smoothedSteer) * ramp
+	updateDesired(state.steer or 0, state.throttle or 0)
 
-	if state.flip and flipRemaining <= 0 then
-		flipRemaining = MOVE.ReverseFlipSeconds
-		flipDirection = smoothedSteer >= 0 and 1 or -1
-	end
-	state.flip = false
-
-	local yaw
-	if flipRemaining > 0 then
-		-- A flip is a fixed rotation over a fixed time. It cannot be steered
-		-- out of, which is what makes it a commitment rather than a dodge.
-		local slice = math.min(dt, flipRemaining)
-		yaw = math.pi * (slice / MOVE.ReverseFlipSeconds) * flipDirection
-		flipRemaining -= slice
-	else
-		yaw = -math.rad(turnRate) * smoothedSteer * dt
+	if desired then
+		if math.abs(currentSpeed) < MOVE.SnapBelowSpeed then
+			-- Stopped: snap. Lining a corridor up before committing to it should
+			-- cost nothing, and a three-point turn in a dead end is not a skill
+			-- anyone wants to teach a seven-year-old.
+			heading = desired
+		else
+			-- Moving: turn at the chassis rate, so a direction press is a
+			-- commitment rather than a teleport. A 180 falls out of this for
+			-- free — it is just the opposite direction — which is why the old
+			-- double-tap flip is gone.
+			local diff = shortestTurn(heading, desired)
+			local step = math.rad(turnRate) * dt
+			heading = math.abs(diff) <= step and desired or heading + (diff > 0 and step or -step)
+		end
 	end
 
-	-- The heading is ours; the transform is the engine's (D-CHOMP-025).
-	--
-	-- This used to write root.CFrame every RenderStepped. That is a third
-	-- authority problem, and the physics solver won: the rotation was reverted
-	-- on the following step, so yaw never accumulated past a few degrees and the
-	-- vehicle drove permanently north into a wall no matter how hard you steered.
-	-- Being wedged in that wall made it worse, because the solver was also
-	-- resolving penetration every step.
-	--
-	-- So we never touch the transform. We integrate a heading angle and hand it
-	-- to Move() as a direction; AutoRotate turns the character to match. Move()
-	-- is a request the solver honours rather than a value it has to reconcile.
-	heading += yaw
-
-	-- CFrame.Angles(0, h, 0).LookVector is (-sin h, 0, -cos h). Flat by
-	-- construction, so slopes cannot steal speed on the ramp (D-CHOMP-015).
-	-- Signed throttle from the stick (D-CHOMP-027). Forward drives, back reverses
-	-- at a fraction of top speed, centre coasts to a stop over Braking. Releasing
-	-- coasts rather than stopping dead, so letting go mid-corner is a decision
-	-- rather than a punishment. Acceleration and Braking had been declared in
-	-- ChompConfig since the start and unused while speed was constant.
-	local demand = state.throttle or 0
-	local target = topSpeed * demand
-	if demand < 0 then
-		target = target * MOVE.ReverseSpeedFraction
-	end
-
-	-- Accelerating means moving away from zero; anything else is braking, which
-	-- is the stronger rate. Reversing from a forward roll therefore brakes first
-	-- and only then picks up speed backwards, which is what a vehicle does.
-	local rate = (math.abs(target) > math.abs(currentSpeed)) and MOVE.Acceleration or MOVE.Braking
+	-- Holding a direction is the throttle. Releasing coasts over Braking rather
+	-- than stopping dead, so letting go mid-corner is a decision, not a
+	-- punishment.
+	local target = desired and topSpeed or 0
+	local rate = (target > currentSpeed) and MOVE.Acceleration or MOVE.Braking
 	if currentSpeed < target then
 		currentSpeed = math.min(target, currentSpeed + rate * dt)
 	else
@@ -162,11 +174,8 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 
 	-- MoveDirection magnitude scales speed, which is how analog input works, so
-	-- the throttle rides on the vector length rather than on WalkSpeed. WalkSpeed
-	-- stays the server's number and is never written from here. A negative
-	-- fraction points the vector backwards along the heading, and AutoRotate then
-	-- swings the vehicle to face where it is actually going — which is what makes
-	-- holding back read as "turn around" rather than as moonwalking.
-	local fraction = topSpeed > 0 and math.clamp(currentSpeed / topSpeed, -1, 1) or 0
+	-- the throttle rides on the vector length rather than on WalkSpeed.
+	-- WalkSpeed stays the server's number and is never written from here.
+	local fraction = topSpeed > 0 and math.clamp(currentSpeed / topSpeed, 0, 1) or 0
 	humanoid:Move(Vector3.new(-math.sin(heading), 0, -math.cos(heading)) * fraction, false)
 end)

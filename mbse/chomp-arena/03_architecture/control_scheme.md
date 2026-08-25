@@ -1,6 +1,6 @@
 # Control Scheme
 
-**One floating stick. Forward to drive, left and right to turn, back to turn around.**
+**Four directions. Push one and you go that way. Stopped, you snap to it.**
 
 That is the entire control scheme, and the absence of buttons is the design,
 not a gap in it.
@@ -9,17 +9,17 @@ not a gap in it.
 
 | | |
 |---|---|
-| **Forward** | Push the stick up. Release to centre and the vehicle coasts to a stop over `Braking` |
-| **Steer** | Push the stick left or right. Turn rate is proportional to deflection, so a small push is a gentle curve and the rim is full lock |
+| **Go** | Hold a direction. That direction IS the throttle; there is no separate one. Release and the vehicle coasts to a stop over `Braking` |
+| **Turn** | Push a different direction. Stopped, the vehicle snaps to face it instantly. Moving, it turns at the chassis `BaseTurn`, so a direction is a commitment rather than a teleport |
 | **Turn rate** | Proportional to how far from centre you hold — near the dead zone edge is a gentle curve, near the screen edge is full lock |
-| **Reverse / turn around** | Pull the stick back. Reverse runs at `ReverseSpeedFraction` of top speed, and the vehicle swings to face where it is going, so backing out of a dead end reads as turning around |
-| **180° flip** | Keyboard only for now: double-tap the opposite key within 0.35 s. Costs `ReverseFlipSeconds`; Agility II makes it much faster |
+| **Turn around** | Push the opposite direction. There is no separate reverse and no flip gesture: a 180 is just the other way, and it costs what the turn rate says it costs |
 | **Bank** | Automatic on entering your garage. No button, no prompt |
 | **Buy** | Big tap targets, at your garage and during intermission. The only menu in the game |
 
-Keyboard equivalent, for building in Studio: `W`/`Up` to drive, `S`/`Down` to
-reverse, `A`/`D` or `Left`/`Right` to steer, double-tap the opposite steering key
-to flip. Opposed keys cancel to neutral on both axes.
+Keyboard equivalent, for building in Studio: `W` `A` `S` `D` or the arrow keys
+are north, west, south and east. Opposed keys cancel to neutral. The most recent
+press wins, so rolling a thumb from one key to the next takes the corner rather
+than averaging into a diagonal no corridor can accept.
 
 ## Why this one
 
@@ -35,18 +35,23 @@ what converts a flank hit into a head-on. Giving steering the entire screen —
 rather than a 120-pixel puck — is what makes that defensive move actually
 performable under a thumb.
 
-**A floating stick, after playing both alternatives.** The tree first specified
-constant motion (`D-CHOMP-015`), then briefly gated movement on the steering hold
-(`D-CHOMP-026`). Playing the second exposed the flaw immediately: if holding left
-or right is the only way to move, the vehicle can only ever travel in an arc, and
-driving straight down a corridor is impossible. That is fatal in a maze.
+**Grid driving, after playing three alternatives.** The tree specified constant
+motion (`D-CHOMP-015`), then gated movement on the steering hold
+(`D-CHOMP-026`), then split direction from throttle on a floating stick
+(`D-CHOMP-027`). Each was played and each failed differently: the second could
+only ever travel in arcs, because holding left was the only way to move; the
+third made reorienting in a dead end a three-point turn, and lining a corridor
+up before committing to it impossible.
 
-The answer is a stick, which `D-CHOMP-015` rejected — but the objection there was
-specifically that a stick *with a fixed origin* drifts, gets dropped mid-corner,
-and needs a visual to find. A floating stick has none of those properties: it
-anchors wherever the finger lands, so it cannot be missed and cannot be lost
-(`D-CHOMP-027`). Releasing coasts rather than stopping dead, so letting go
+On an 8-stud grid, direction is the only steering input that means anything, so
+the fourth scheme stops pretending otherwise (`D-CHOMP-033`). A direction IS the
+drive command. Stopped you snap to it; moving you turn at the chassis rate. That
+is Pac-Man, which is what this game is, and it is the easiest thing to put in a
+seven-year-old's hands. Releasing coasts rather than stopping dead, so letting go
 mid-corner is a decision, not a punishment.
+
+The floating anchor from `D-CHOMP-027` survives: the stick still anchors wherever
+the finger lands, because that was never the part that was wrong.
 
 **Zero action buttons means zero occlusion problems.** Banking, eating, Full
 Jaw and gate passage are all consequences of driving somewhere. The only thing

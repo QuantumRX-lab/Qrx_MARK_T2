@@ -10,9 +10,12 @@
 	to lose if the thumb drifts. That was the real objection to a thumbstick in
 	D-CHOMP-015, and a floating origin answers it without giving up a throttle.
 
-	The scheme this replaces gated movement on steering — hold left or right to
-	drive — which meant the vehicle could only ever travel in an arc. There was
-	no way to drive straight. It was wrong the moment it was played.
+	This publishes intent on two axes and nothing more. What a direction MEANS —
+	snap when stopped, turn at the chassis rate when moving — is
+	VehicleController's business. Two earlier schemes died here: one gated
+	movement on steering, so every path was an arc and driving straight was
+	impossible; the next split direction from throttle, so reorienting in a dead
+	end was a three-point turn.
 
 	The client sends INTENT ONLY. It never sends a speed, a position or a turn
 	rate — the server owns all three (CHOMP-SYS-002).
@@ -146,25 +149,11 @@ local function recomputeKeyboard()
 	keyboardThrottle = (forward and 1 or 0) - (back and 1 or 0)
 end
 
-local flipQueued = false
-local lastTapSide = 0
-local lastTapAt = 0
-
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 	heldKeys[input.KeyCode] = true
 	recomputeKeyboard()
 
-	local side = LEFT[input.KeyCode] and -1 or (RIGHT[input.KeyCode] and 1 or 0)
-	if side ~= 0 then
-		local now = os.clock()
-		if side == lastTapSide and now - lastTapAt <= CONTROLS.FlipDoubleTapSeconds then
-			flipQueued = true
-			lastTapSide, lastTapAt = 0, 0
-		else
-			lastTapSide, lastTapAt = side, now
-		end
-	end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
@@ -174,7 +163,10 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 -- ── Send ────────────────────────────────────────────────────────────────
--- X is steer in [-1, 1]. Y is 1 on the frame a flip is requested, else 0.
+-- X is steer in [-1, 1]. Y is the flip flag service_contracts.md specifies and
+-- is now always zero: a 180 is just the opposite direction under grid driving,
+-- so the double-tap gesture retired with D-CHOMP-033. The remote's shape is
+-- unchanged, so no contract amendment and no exploit-suite change.
 -- Neither is a quantity the server trusts for anything but intent.
 --
 -- Throttle is deliberately NOT on the wire yet. The remote's shape is fixed by
@@ -192,19 +184,15 @@ RunService.Heartbeat:Connect(function(dt)
 	local steer = math.clamp(keyboardSteer + stickX, -1, 1)
 	local throttle = math.clamp(keyboardThrottle + stickY, -1, 1)
 
-	local flip = flipQueued and 1 or 0
-
 	shared.steer = steer
 	shared.throttle = throttle
-	if flip == 1 then shared.flip = true end
-	local payload = Vector2.new(steer, flip)
+	local payload = Vector2.new(steer, 0)
 
-	local changed = math.abs(payload.X - lastSent.X) > 0.02 or flip == 1
+	local changed = math.abs(payload.X - lastSent.X) > 0.02
 	if accumulator >= sendInterval and changed and Remotes then
 		Remotes.SetInputDirection:FireServer(payload)
 		lastSent = payload
 		accumulator = 0
-		flipQueued = false
 	elseif accumulator >= sendInterval then
 		accumulator = 0
 	end

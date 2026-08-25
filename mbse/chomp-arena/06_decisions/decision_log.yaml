@@ -708,3 +708,43 @@ decisions:
       VehicleController picks the rate by whether the deflection is growing.
       ArenaMap takes ArenaCells and ArenaDecks, and ring 2 sizing scales from
       the grid so switching back to two decks needs no other change.
+
+  - id: D-CHOMP-033
+    date: 2026-08-25
+    title: Grid driving — a direction is the drive command
+    decision: >
+      The four directions are absolute and each one is both steering and
+      throttle. Hold a direction and the vehicle goes that way: stopped it snaps
+      to face it instantly, moving it turns at the chassis BaseTurn. Release and
+      it coasts over Braking. There is no separate throttle, no reverse and no
+      double-tap flip — a 180 is just the opposite direction. Supersedes the
+      throttle-and-steering half of D-CHOMP-027; the floating touch anchor
+      survives unchanged.
+    rationale: >
+      Owner decision after driving the arena. This is the fourth control scheme
+      and the previous three each failed for a reason worth keeping on record:
+      D-CHOMP-015 never stopped, so there was no way to pause and look;
+      D-CHOMP-026 gated movement on steering, so every path was an arc and
+      driving straight down a corridor was impossible; D-CHOMP-027 split
+      direction from throttle, which drove well but made reorienting in a dead
+      end a three-point turn and lining a corridor up before committing to it
+      impossible.
+      The through-line is that a maze on an 8-stud grid has four meaningful
+      directions and analog steering pretends there are more. Once the request
+      was "a press should snap the stopped vehicle to face that way", the
+      throttle had nowhere sensible to live: on a keyboard W is simultaneously
+      the forward direction and the only accelerator, so a naive snap left the
+      vehicle able to travel north and south and nothing else. Making the
+      direction the command removes the conflict rather than arbitrating it.
+    outcome: >
+      VehicleController holds a desired heading rather than a steering scalar;
+      the most recent press wins, so rolling from one key to the next takes the
+      corner instead of averaging into a diagonal no corridor accepts. Snapping
+      applies below Movement.SnapBelowSpeed. InputController still publishes two
+      axes and nothing more — what a direction MEANS is the controller's
+      business — and the flip gesture is gone. The wire format is unchanged:
+      the remote's Y is still the flip flag service_contracts.md specifies and
+      is now always zero, so no contract amendment and no exploit-suite change.
+      ReverseSpeedFraction and the ReverseFlip timings are now unused; they are
+      left in ChompConfig rather than deleted because the combat design may
+      still want a commitment-cost 180.

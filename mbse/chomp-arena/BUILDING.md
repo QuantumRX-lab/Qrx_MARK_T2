@@ -23,9 +23,10 @@ Hit Play. You should get:
 - A 24 × 24 cell ground deck with a corridor, a tower core, a ramp up to a
   raised deck, and a bridge crossing the corridor below.
 - A camera locked to world north, 35° down, that follows you.
-- A vehicle driven by one stick. `W`/`Up` drives, `S`/`Down` reverses, `A`/`D`
-  or `Left`/`Right` steer, and the stick centred coasts to a stop. Double-tap a
-  steering key to flip 180°.
+- A vehicle driven by direction. `W` `A` `S` `D` or the arrows are north, west,
+  south and east: hold one and it goes that way, release and it coasts to a
+  stop. Stopped, a direction press snaps it round instantly; moving, it turns at
+  the chassis rate. Push the opposite direction to turn around.
 
 On touch this is a single **floating** stick: it anchors wherever the finger
 lands, so there is nothing to find and nothing to lose (`D-CHOMP-027`, which

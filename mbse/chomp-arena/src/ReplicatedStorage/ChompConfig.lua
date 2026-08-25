@@ -53,6 +53,11 @@ ChompConfig.Movement = {
 	-- twitch people feel is usually the vehicle still turning after they let go,
 	-- and a fast release fixes that without slowing the turn itself.
 	SteerReleaseSeconds = 0.10,
+	-- Below this speed the vehicle is "stopped", and a fresh direction press
+	-- snaps it to face that way instead of steering it (D-CHOMP-033). The
+	-- camera never rotates (D-CHOMP-016), so a direction on the keys or the
+	-- stick is always the same direction on screen.
+	SnapBelowSpeed = 1.5,
 	ReverseFlipSeconds = 0.45,
 	ReverseFlipSecondsAgile = 0.25,   -- with Agility II or better
 	AgilityLevelForFastReverse = 2,

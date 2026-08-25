@@ -128,3 +128,26 @@ entries:
     stick. If the frame overlaps anything, its position is one UDim2 at the top
     of the file. Turn CameraReadout off in ChompConfig before this is ever
     played for fun rather than measured.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-032]
+  summary: >
+    Fourth and hopefully final control scheme: grid driving (D-CHOMP-033). A
+    direction is the drive command — hold it and the vehicle goes that way,
+    snapping instantly when stopped and turning at BaseTurn when moving. No
+    separate throttle, no reverse, no flip gesture. VehicleController now tracks
+    a desired heading rather than a steering scalar; InputController still
+    publishes only two axes. control_scheme.md and BUILDING.md rewritten.
+  status: OPEN
+  handoff: >
+    NOT yet played. Two things to watch. First, the most-recent-press rule: two
+    keys held at once follows the newer one, and if that reads wrong when
+    cutting a corner the logic is entirely inside updateDesired. Second, the
+    snap threshold — Movement.SnapBelowSpeed is 1.5 studs/s, and if the vehicle
+    snaps while still visibly rolling, lower it; if reorienting feels like it
+    needs a full stop first, raise it.
+    Touch is still unexercised on a device. The stick now picks a cardinal from
+    whichever axis crossed the press threshold most recently, which is a
+    different feel from proportional steering and has only ever been reasoned
+    about, never felt.
