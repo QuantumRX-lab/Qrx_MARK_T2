@@ -1,0 +1,8 @@
+# Pin LF for text so Windows checkouts don't produce noisy CRLF diffs.
+* text=auto eol=lf
+
+# Roblox binary models must never be touched by line-ending conversion.
+*.rbxm  binary
+*.rbxl  binary
+*.png   binary
+*.jpg   binary
