@@ -399,3 +399,21 @@ entries:
     InputController and must come out before this is committed. If heading
     advances but yaw does not follow, AutoRotate is not being applied to the
     character and the fault is in MovementService.apply rather than here.
+- date: '2026-08-25'
+  agent: Codex (vehicle design)
+  action: NOTE
+  requirements: [CHOMP-SYS-054]
+  summary: >
+    Refined the Standard Luau spec through owner-reviewed Studio previews using
+    the original vehicle mock-ups as the design reference. The current candidate
+    has a dominant opaque lower sphere, a smaller transparent upper cockpit for
+    the avatar's head and shoulders, compact split jaws, red mouth, six teeth,
+    circular light-eyes, one side upgrade socket, a visible seat and dashboard,
+    and four nonfunctional cylindrical hover-wheel pods. The owner accepted this
+    visual direction as good for now. Repository validation passes; the changed
+    geometry has not yet had its final Studio conformance rerun.
+  status: OPEN
+  handoff: >
+    Reopen the rebuilt place and rerun the Workspace-parented conformance check
+    on Standard. Keep Standard.rbxm until that scan passes; then append DELIVERED
+    and remove the legacy binary before migrating HeavyJaw.
