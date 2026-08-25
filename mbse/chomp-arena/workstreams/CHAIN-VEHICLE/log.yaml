@@ -493,3 +493,23 @@ entries:
     "could not build". If neither appears and [VehicleService] running does,
     the model was built and attached, and the problem is visibility rather than
     construction.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-001]
+  summary: >
+    Kart scaled to 1.5 and the driver's head left visible through the canopy
+    (D-CHOMP-037). Scale is derived from the corridor sweep and the R15 head
+    height, which agree on about 1.5. Codex's Standard.lua is NOT edited — the
+    spec table is copied and scaled at build time in VehicleService, so the
+    delivered model stays the source of truth for shape and proportion.
+  status: OPEN
+  handoff: >
+    Codex owns the chassis: if 1.5 is the right size, the honest fix is to
+    author the spec at that size and drop the scale factor, because a magic
+    multiplier applied to someone else's model is a trap for whoever tunes it
+    next. Left as config for now so it can be dialled without touching your file.
+    Watch on the next drive: whether the head sits ON the seat or floats above
+    it. The canopy centre lands at 4.62 studs and an R15 head is 4.5 to 5.0, but
+    that is arithmetic, not observation. If it floats, the fix is the PivotTo
+    drop in fitVehicle rather than the scale.

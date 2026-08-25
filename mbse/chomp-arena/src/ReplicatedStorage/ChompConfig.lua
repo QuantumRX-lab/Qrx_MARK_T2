@@ -33,6 +33,18 @@ ChompConfig.Chassis = {
 
 ChompConfig.StartingChassis = "Standard"
 
+-- ── The kart ────────────────────────────────────────────────────────────
+-- Scale is derived, not chosen (D-CHOMP-037). Two things pin it: the widest
+-- body part must leave the turning sweep room in a corridor - clear width must
+-- exceed turning radius plus body width, 5.7 + 5.3k <= 14 - and the canopy
+-- centre at 3.08k must land near an R15 head, which sits 4.5 to 5.0 studs above
+-- the feet. 1.5 gives 7.95 wide and a canopy centre at 4.62, satisfying both.
+-- Re-derive if CellSize, BaseSpeed or BaseTurn move.
+ChompConfig.Vehicle = {
+	Scale = 1.5,
+	ShowDriverHead = true,   -- the head stays visible through the glass canopy
+}
+
 -- Movement shared by every chassis. Corridors are 8 studs wide and vehicles
 -- are at most 6, so turning has to complete inside roughly a third of a
 -- second or junctions become unmissable at speed.

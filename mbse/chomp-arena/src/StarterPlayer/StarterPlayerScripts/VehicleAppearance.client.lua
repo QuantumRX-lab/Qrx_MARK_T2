@@ -33,12 +33,29 @@ local function isVehicle(d: Instance): boolean
 	return vehicle ~= nil and (d == vehicle or d:IsDescendantOf(vehicle))
 end
 
+-- The head shows through the glass canopy (D-CHOMP-037). The server leaves it
+-- visible; this has to agree, or the driver is invisible on their own screen
+-- and visible to everyone else — the same split D-CHOMP-035 was about.
+--
+-- Unconditional rather than config-gated: if the server decides to hide the
+-- head, its Transparency does that on every screen, and leaving the modifier
+-- alone here costs nothing.
+local function isDriverHead(d: Instance): boolean
+	if d:IsA("BasePart") and d.Name == "Head" then
+		return true
+	end
+	if (d:IsA("Decal") or d:IsA("Texture")) and d.Parent and d.Parent.Name == "Head" then
+		return true
+	end
+	return false
+end
+
 local function collect()
 	table.clear(hidden)
 	table.clear(decals)
 	if not character then return end
 	for _, d in character:GetDescendants() do
-		local mine = isVehicle(d)
+		local mine = isVehicle(d) or isDriverHead(d)
 		if d:IsA("BasePart") then
 			if mine then
 				-- The vehicle is parented in AFTER the character spawns, so an

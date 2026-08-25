@@ -41,6 +41,18 @@ ChompConfig.Chassis = {
 
 ChompConfig.StartingChassis = "Standard"
 
+-- ── The kart ────────────────────────────────────────────────────────────
+-- Scale is derived, not chosen (D-CHOMP-037). Two things pin it: the widest
+-- body part must leave the turning sweep room in a corridor - clear width must
+-- exceed turning radius plus body width, 5.7 + 5.3k <= 14 - and the canopy
+-- centre at 3.08k must land near an R15 head, which sits 4.5 to 5.0 studs above
+-- the feet. 1.5 gives 7.95 wide and a canopy centre at 4.62, satisfying both.
+-- Re-derive if CellSize, BaseSpeed or BaseTurn move.
+ChompConfig.Vehicle = {
+	Scale = 1.5,
+	ShowDriverHead = true,   -- the head stays visible through the glass canopy
+}
+
 -- Movement shared by every chassis. Corridors are 8 studs wide and vehicles
 -- are at most 6, so turning has to complete inside roughly a third of a
 -- second or junctions become unmissable at speed.
@@ -6263,9 +6275,45 @@ local function specFor(chassisId: string)
 	return nil
 end
 
+-- Scale the SPEC rather than the built model. Scaling afterwards would mean
+-- resizing parts that VehicleFactory has already welded to each other, and a
+-- weld holds the offset it was made with — the kart would come apart.
+--
+-- Sizes and offsets scale; rotations do not, being degrees.
+local function scaled(spec, k: number)
+	if k == 1 then return spec end
+	local parts = {}
+	for i, p in ipairs(spec.parts) do
+		local copy = table.clone(p)
+		copy.size = p.size * k
+		copy.offset = p.offset * k
+		parts[i] = copy
+	end
+	local out = table.clone(spec)
+	out.parts = parts
+	return out
+end
+
+-- The driver's head shows through the canopy, which is what makes this a kart
+-- with someone in it rather than an empty shell (D-CHOMP-037). Codex's spec was
+-- built for this all along: the solid lower pod hides the legs and arms, and the
+-- glass is only the upper half.
+local function isDriverHead(d: Instance): boolean
+	if d:IsA("BasePart") and d.Name == "Head" then
+		return true
+	end
+	if (d:IsA("Decal") or d:IsA("Texture")) and d.Parent and d.Parent.Name == "Head" then
+		return true
+	end
+	return false
+end
+
 -- The avatar still exists and is still what moves; it is simply not drawn, and
 -- not animated.
 local function hide(d: Instance)
+	if Config.Vehicle and Config.Vehicle.ShowDriverHead and isDriverHead(d) then
+		return
+	end
 	if d:IsA("BasePart") then
 		d.Transparency = 1
 	elseif d:IsA("Decal") or d:IsA("Texture") then
@@ -6340,8 +6388,9 @@ local function fitVehicle(player: Player, character: Model)
 		return
 	end
 
+	local scale = (Config.Vehicle and Config.Vehicle.Scale) or 1
 	local ok, model = pcall(function()
-		return VehicleFactory.build(spec)
+		return VehicleFactory.build(scaled(spec, scale))
 	end)
 	if not ok or not model then
 		warn(("[VehicleService] could not build '%s': %s"):format(tostring(chassisId), tostring(model)))
@@ -7730,12 +7779,29 @@ local function isVehicle(d: Instance): boolean
 	return vehicle ~= nil and (d == vehicle or d:IsDescendantOf(vehicle))
 end
 
+-- The head shows through the glass canopy (D-CHOMP-037). The server leaves it
+-- visible; this has to agree, or the driver is invisible on their own screen
+-- and visible to everyone else — the same split D-CHOMP-035 was about.
+--
+-- Unconditional rather than config-gated: if the server decides to hide the
+-- head, its Transparency does that on every screen, and leaving the modifier
+-- alone here costs nothing.
+local function isDriverHead(d: Instance): boolean
+	if d:IsA("BasePart") and d.Name == "Head" then
+		return true
+	end
+	if (d:IsA("Decal") or d:IsA("Texture")) and d.Parent and d.Parent.Name == "Head" then
+		return true
+	end
+	return false
+end
+
 local function collect()
 	table.clear(hidden)
 	table.clear(decals)
 	if not character then return end
 	for _, d in character:GetDescendants() do
-		local mine = isVehicle(d)
+		local mine = isVehicle(d) or isDriverHead(d)
 		if d:IsA("BasePart") then
 			if mine then
 				-- The vehicle is parented in AFTER the character spawns, so an

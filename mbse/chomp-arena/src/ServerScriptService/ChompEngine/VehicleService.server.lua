@@ -37,9 +37,45 @@ local function specFor(chassisId: string)
 	return nil
 end
 
+-- Scale the SPEC rather than the built model. Scaling afterwards would mean
+-- resizing parts that VehicleFactory has already welded to each other, and a
+-- weld holds the offset it was made with — the kart would come apart.
+--
+-- Sizes and offsets scale; rotations do not, being degrees.
+local function scaled(spec, k: number)
+	if k == 1 then return spec end
+	local parts = {}
+	for i, p in ipairs(spec.parts) do
+		local copy = table.clone(p)
+		copy.size = p.size * k
+		copy.offset = p.offset * k
+		parts[i] = copy
+	end
+	local out = table.clone(spec)
+	out.parts = parts
+	return out
+end
+
+-- The driver's head shows through the canopy, which is what makes this a kart
+-- with someone in it rather than an empty shell (D-CHOMP-037). Codex's spec was
+-- built for this all along: the solid lower pod hides the legs and arms, and the
+-- glass is only the upper half.
+local function isDriverHead(d: Instance): boolean
+	if d:IsA("BasePart") and d.Name == "Head" then
+		return true
+	end
+	if (d:IsA("Decal") or d:IsA("Texture")) and d.Parent and d.Parent.Name == "Head" then
+		return true
+	end
+	return false
+end
+
 -- The avatar still exists and is still what moves; it is simply not drawn, and
 -- not animated.
 local function hide(d: Instance)
+	if Config.Vehicle and Config.Vehicle.ShowDriverHead and isDriverHead(d) then
+		return
+	end
 	if d:IsA("BasePart") then
 		d.Transparency = 1
 	elseif d:IsA("Decal") or d:IsA("Texture") then
@@ -114,8 +150,9 @@ local function fitVehicle(player: Player, character: Model)
 		return
 	end
 
+	local scale = (Config.Vehicle and Config.Vehicle.Scale) or 1
 	local ok, model = pcall(function()
-		return VehicleFactory.build(spec)
+		return VehicleFactory.build(scaled(spec, scale))
 	end)
 	if not ok or not model then
 		warn(("[VehicleService] could not build '%s': %s"):format(tostring(chassisId), tostring(model)))

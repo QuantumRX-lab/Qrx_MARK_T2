@@ -829,3 +829,31 @@ decisions:
     outcome: >
       isVehicle is defined once and both sweeps call it. Noted for whoever adds
       a third sweep: it goes through the same predicate.
+
+  - id: D-CHOMP-037
+    date: 2026-08-25
+    title: A kart with a driver in it — scaled to the corridor, head visible through the glass
+    decision: >
+      The chassis spec is scaled by ChompConfig.Vehicle.Scale at build time, set
+      to 1.5, and the driver's head is left visible so it shows through the glass
+      canopy. Everything else about the avatar stays hidden.
+    rationale: >
+      Owner direction: bigger, proportional, Mario Kart. The scale is derived
+      rather than eyeballed, from two constraints that happen to agree. The
+      widest body part must leave the turning sweep room in a corridor — clear
+      width has to exceed turning radius plus body width, 5.7 + 5.3k <= 14 —
+      which caps k at about 1.55. And the canopy centre at 3.08k should land
+      where an R15 head sits, 4.5 to 5.0 studs above the feet, which wants k
+      near 1.5. So 1.5 gives a 7.95-stud kart with the glass centred at 4.62.
+      On the head: Codex's spec was designed for this from the start and says so
+      — the solid lower pod hides the legs and arms while the glass is only the
+      upper half. VehicleService was hiding the whole avatar and defeating it,
+      so the kart read as an empty shell. A visible driver is most of what makes
+      a kart look like a kart.
+    outcome: >
+      The SPEC is scaled, not the built model: scaling afterwards would resize
+      parts VehicleFactory has already welded, and a weld holds the offset it was
+      made with, so the kart would come apart. Sizes and offsets scale, rotations
+      do not. Both the server sweep and the client modifier pass exclude the
+      head, because disagreeing there is exactly the split D-CHOMP-035 was about.
+      Codex's spec file is untouched.
