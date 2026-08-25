@@ -174,3 +174,24 @@ decisions:
       problem in the project (RISK-CHOMP-012, to be solved on a test map before
       any real map is built). Falls are explicitly non-lethal (CHOMP-SYS-049) —
       no voids, no death planes.
+
+  - id: D-CHOMP-012
+    date: 2026-08-25
+    title: Authored Luau lives in the repo, not only in the place file
+    decision: >
+      Engine and tool source is committed under mbse/chomp-arena/src/ in a
+      DataModel-shaped folder tree and synced into Studio (Rojo or equivalent),
+      rather than existing only inside the .rbxl place file.
+    rationale: >
+      Raised by a real blocker: CHAIN-VEHICLE claimed its requirements and then
+      correctly stopped, because the vehicle contract told it to mirror
+      ChompConfig values that existed nowhere it could read, and to satisfy a
+      conformance test that existed only as a written test case rather than as
+      something runnable. A .rbxl is a binary that cannot be diffed, reviewed or
+      shared between agents — so any tree that expects several agents to work
+      against a common contract has to keep the authored source in git.
+    outcome: >
+      src/ReplicatedStorage/ChompConfig.lua (the authoritative numbers,
+      CHOMP-SYS-037) and src/ServerStorage/ChompTools/VehicleConformance.lua
+      (the executable form of CHOMP-TC-044) added, unblocking CHAIN-VEHICLE.
+      The place file becomes a build output rather than the source of truth.

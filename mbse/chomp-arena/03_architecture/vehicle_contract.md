@@ -24,12 +24,19 @@ colour are deliberately unconstrained.
 | `Tier` | number | 1 | 2 | 3 | 4 |
 | `BarCapacity` | number | 100 | 175 | 275 | 400 |
 | `Power` | number | 100 | 250 | 450 | 700 |
-| `BaseSpeed` | number | set in ChompConfig, mirrored here for validation |
-| `BaseTurn` | number | as above |
+| `BaseSpeed` | number (studs/s) | 24 | 23 | 26 | 28 |
+| `BaseTurn` | number (deg/s) | 540 | 480 | 450 | 420 |
 | `MouthArcDegrees` | number | 90 | 90 | 100 | 110 |
+| `TriangleCount` | number | your measured triangle count, at most 5000 |
 
-Numbers are owned by `ChompConfig`; the attributes exist so the conformance
-check can catch a model that disagrees with the config.
+Numbers are owned by `src/ReplicatedStorage/ChompConfig.lua`; the attributes
+exist so the conformance scan can catch a model that disagrees with the config.
+**Read the values from that file, not from this table** — if the two ever
+diverge, the config is right and this table is stale.
+
+Note the deliberate shape: bigger chassis are faster but turn worse. A tier is
+a trade, not a straight upgrade. `TriangleCount` has to be declared because
+Luau cannot measure it.
 
 ## 3. Geometry and orientation
 
@@ -86,8 +93,23 @@ Deliver to `workstreams/CHAIN-VEHICLE/inbox/` as:
 - `<ChassisId>.md` — a short note: what it is, anything unusual, anything the
   contract did not cover that had to be decided
 
+**Check it yourself before delivering.** The conformance scan is
+`src/ServerStorage/ChompTools/VehicleConformance.lua`. Put the model in
+`ReplicatedStorage.Vehicles`, then from the Studio command bar:
+
+```lua
+local Scan = require(game.ServerStorage.ChompTools.VehicleConformance)
+Scan.report(Scan.checkAll())
+```
+
+It prints every failure with its reason, then `CONFORMANCE: PASS` or `FAIL`.
+Two of its checks are honest approximations and say so in their own output:
+triangle count is the number you declared rather than one it measured, and the
+silhouette fraction is computed from bounding boxes — it catches an obviously
+too-small mouth but does not replace looking at the vehicle on an iPad.
+
 Then append an entry to `workstreams/CHAIN-VEHICLE/log.yaml` recording the
-delivery, and the receiving agent runs the conformance check before accepting.
+delivery, and the receiving agent re-runs the scan before accepting.
 
 ## 8. What the contract deliberately does not constrain
 

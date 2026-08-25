@@ -33,3 +33,22 @@ entries:
     See 02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.
   status: OPEN
+- date: '2026-08-25'
+  agent: Claude (platform)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-037]
+  summary: >
+    Added src/ReplicatedStorage/ChompConfig.lua — the authoritative single
+    definition of every tunable number, including the chassis table
+    (BarCapacity, Power, BaseSpeed, BaseTurn, MouthArcDegrees, Cost) that
+    CHAIN-VEHICLE was blocked on. Chassis are deliberately shaped as trades
+    rather than straight upgrades: bigger tiers are faster but turn worse.
+    Also added src/ServerStorage/ChompTools/VehicleConformance.lua, the
+    executable form of CHOMP-TC-044.
+  status: OPEN
+  handoff: >
+    Engine services must read every balance value from ChompConfig; a numeric
+    literal in service logic is a CHOMP-SYS-037 violation. Two limits are
+    documented in the scanner rather than hidden: triangle count is declared by
+    the model, not measured, and the silhouette check is a bounding-box
+    approximation that does not replace looking at the vehicle on an iPad.

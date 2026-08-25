@@ -60,11 +60,13 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 11
+  total: 12
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder — the daughter names it."
   - "Nine of the ten chains are unassigned; only CHAIN-VEHICLE has an owner (Codex)."
+  - "Triangle counts on vehicle models are declared by the designer, not
+     measured — Luau cannot read them. Confirm in the mesh tooling."
   - "Wall height is a camera constraint and is not yet fixed — it needs the
      camera test map first (RISK-CHOMP-012)."
 

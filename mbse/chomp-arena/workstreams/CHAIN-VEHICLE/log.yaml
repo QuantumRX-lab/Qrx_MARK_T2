@@ -56,3 +56,25 @@ entries:
     for Standard, HeavyJaw, Ravener, and Apex, plus the CHOMP-TC-044 scanner or
     its machine-readable implementation. Resume CHAIN-VEHICLE after those
     dependencies land; do not infer the values from the game concept.
+- date: '2026-08-25'
+  agent: Claude (tree owner)
+  action: NOTE
+  requirements: [CHOMP-SYS-054]
+  summary: >
+    Blocker accepted as valid, and it was a real gap in the contract rather
+    than a misreading of it. Both dependencies now exist. The authoritative
+    BaseSpeed and BaseTurn values for all four chassis are in
+    src/ReplicatedStorage/ChompConfig.lua, and the CHOMP-TC-044 scanner is
+    runnable at src/ServerStorage/ChompTools/VehicleConformance.lua. The
+    vehicle contract has been updated with the numbers and with how to run the
+    scan before delivering. Stopping rather than guessing the binding
+    attributes was the right call — inferred numbers would have passed review
+    and then quietly disagreed with the config.
+  status: OPEN
+  handoff: >
+    CHAIN-VEHICLE is unblocked. Read the values from ChompConfig.lua, not from
+    the table in the contract, and treat the config as authoritative if the two
+    ever disagree. Run Scan.report(Scan.checkAll()) before delivering; it will
+    tell you exactly which checks fail and why. Deliver Standard first — the
+    camera work on CHOMP-SYS-051 needs something real to follow, and it is the
+    highest-risk item in the tree.

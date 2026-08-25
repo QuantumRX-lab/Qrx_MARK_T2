@@ -1,5 +1,24 @@
 # Chomp Arena — Change Log
 
+## 2026-08-25 — CHAIN-VEHICLE blocker resolved; source moves into the repo
+- CHAIN-VEHICLE claimed its requirements and correctly logged `BLOCKED` rather
+  than guessing: the vehicle contract asked for attributes mirroring a
+  ChompConfig that existed nowhere readable, and for conformance against a test
+  case that was written but not runnable. Both gaps were real.
+- `D-CHOMP-012`: authored Luau now lives in the repo under `src/`, in a
+  DataModel-shaped tree, synced into Studio. A `.rbxl` cannot be diffed or
+  shared between agents, so the place file becomes a build output rather than
+  the source of truth.
+- Added `src/ReplicatedStorage/ChompConfig.lua` — every tunable number defined
+  once, including the four-chassis table. Chassis are shaped as trades, not
+  straight upgrades: bigger tiers are faster but turn worse.
+- Added `src/ServerStorage/ChompTools/VehicleConformance.lua` — the executable
+  form of `CHOMP-TC-044`, with two limits reported rather than hidden
+  (triangle count is declared not measured; silhouette is a bounding-box
+  approximation).
+- Vehicle contract updated with the real numbers and with how to run the scan
+  before delivering.
+
 ## 2026-08-25 — Full tree, automation rule, and multi-agent workstreams
 - **iPad is now the reference platform** (`CHOMP-STK-007` rewritten), not a
   port target. Touch controls promoted to their own CRITICAL requirement
