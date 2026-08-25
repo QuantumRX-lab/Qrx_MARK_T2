@@ -28,17 +28,17 @@ note: >
   game-mechanics work by owner decision.
 
 requirements:
-  total: 62
+  total: 65
   by_level:
     L1_stakeholder: 8
-    L2_system: 54
+    L2_system: 57
   by_phase:
-    v1: 51
+    v1: 54
     v2: 8
     v3: 3
   by_priority:
     CRITICAL: 26
-    HIGH: 28
+    HIGH: 31
     MEDIUM: 8
   by_chain:
     CHAIN-COMBAT: 10
@@ -49,18 +49,18 @@ requirements:
     CHAIN-MATCH: 6
     CHAIN-MAZE: 3
     CHAIN-PLATFORM: 10
-    CHAIN-UI: 5
+    CHAIN-UI: 8
     CHAIN-VEHICLE: 5
   automation_exempt: 2
 
 test_cases:
-  total: 44
+  total: 46
   by_automation:
     AUTOMATED: 34
-    HYBRID: 7
+    HYBRID: 9
     MANUAL: 3
   by_phase:
-    v1: 37
+    v1: 39
     v2: 4
     v3: 3
 
@@ -73,7 +73,7 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 40
+  total: 41
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder — the daughter names it."

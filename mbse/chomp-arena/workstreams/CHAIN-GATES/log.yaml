@@ -6,8 +6,8 @@
 
 chain: CHAIN-GATES
 owner: unassigned
-scope: Rings, the super ghost guardians that hold them, Threat versus Power, and
-  the 60-second open window when one is cracked.
+scope: Level progression, guardian chambers, Threat versus Power, under-powered
+  consequences and qualified guardian fights.
 requirement_count: 5
 requirements: &id001
 - CHOMP-SYS-022
@@ -28,3 +28,18 @@ entries:
     02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.
   status: OPEN
+- date: '2026-08-25'
+  agent: Codex (HUD/gameplay requirements)
+  action: NOTE
+  requirements: [CHOMP-SYS-022, CHOMP-SYS-023, CHOMP-SYS-024, CHOMP-SYS-025]
+  summary: >
+    Reframed v1 around the owner's Level 1 concept: four outer spawn quadrants,
+    an easy rim maze sloping into an open high-reward combat bowl, and a visible
+    guardian in an adjacent chamber. Crossing the marked boundary under Threat
+    now causes an immediate guardian chomp and normal short respawn; qualified
+    entry starts a directional boss fight rather than consuming a gate on touch.
+  status: OPEN
+  handoff: >
+    Review the change against CHOMP-SYS-026 Full Jaw behaviour and decide whether
+    multiplayer guardian fights are private, cooperative, or open to interference
+    before implementation. CHOMP-TC-024 and CHOMP-TC-025 carry the proposed tests.

@@ -722,13 +722,14 @@ requirements:
     last_modified: 2026-08-25
     author: Claude (requirements session)
 
-  # ── L2 system — rings and gate guardians ────────────────────────────────
+  # ── L2 system — arena and guardian progression ──────────────────────────
 
   - id: CHOMP-SYS-022
-    title: The maze is divided into rings
+    title: Level 1 is a readable bowl arena
     shall_statement: >
-      Each map SHALL be divided into concentric rings with rising pellet values
-      toward the centre, with garages on the outermost ring.
+      Level 1 SHALL place garages in four outer spawn quadrants, an easy maze
+      around the rim of a broad circular slope, and an open high-reward combat
+      bowl at the centre, with reward value and danger increasing inward.
     level: L2_system
     status: APPROVED
     priority: HIGH
@@ -737,9 +738,9 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: INSPECTION
     rationale: >
-      Rings are what let gating sort the lobby by strength while keeping every
-      player in one maze — which a combat game requires, since players in
-      separate levels cannot fight each other.
+      The arena teaches itself spatially: the outer rim is safe enough to learn,
+      the centre is visibly risky and rewarding, and a child can retreat uphill
+      toward home without reading a map.
     allocated_to: Workspace/Maps
     chain: CHAIN-GATES
     phase: v1
@@ -748,10 +749,12 @@ requirements:
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-023
-    title: A guardian stands in every gate
+    title: The guardian waits in an adjacent chamber
     shall_statement: >
-      Each gate SHALL be occupied by a super ghost displaying its Threat value,
-      SHALL block passage while occupied, and SHALL NOT leave its gate.
+      The route from Level 1 to Level 2 SHALL pass through a guardian chamber
+      adjacent to the maze; its guardian SHALL display its Threat, remain in
+      that chamber, and be visible before the player crosses the commitment
+      boundary.
     level: L2_system
     status: APPROVED
     priority: CRITICAL
@@ -760,8 +763,9 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      A door with a face. Its number and the player's Power number are the
-      whole interaction, and both must be visible at the moment of decision.
+      The guardian is a deliberate challenge rather than an accidental maze
+      collision. Seeing the creature and its Threat before entry makes the risk
+      understandable without pausing play for an explanation.
     allocated_to: ServerScriptService/ChompEngine
     chain: CHAIN-GATES
     phase: v1
@@ -770,11 +774,12 @@ requirements:
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-024
-    title: Under-powered means turned away, hard
+    title: Entering under-powered is a deliberate instant loss
     shall_statement: >
-      Contact with a guardian by a player whose Power is below its Threat SHALL
-      take 50% of that player's carried points and eject them back to the outer
-      side of the gate.
+      A player crossing the guardian chamber's marked commitment boundary while
+      their Power is below its Threat SHALL receive an unmistakable warning,
+      SHALL be immediately chomped by the guardian, SHALL scatter 50% of carried
+      points, and SHALL respawn at their own garage within 4 seconds.
     level: L2_system
     status: APPROVED
     priority: HIGH
@@ -783,8 +788,8 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      Painful, instant and impossible to misread. A soft bounce would be tested
-      repeatedly; this is tested once.
+      The warning and commitment line make the loss a knowingly accepted risk;
+      the standard short respawn keeps it memorable rather than punitive.
     allocated_to: ServerScriptService/ChompEngine
     chain: CHAIN-GATES
     phase: v1
@@ -793,12 +798,12 @@ requirements:
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-025
-    title: Cracking a gate opens it for everyone
+    title: Qualified players fight the guardian to progress
     shall_statement: >
-      Contact with a guardian by a player whose Power meets or exceeds its
-      Threat SHALL consume the guardian, award that player bonus points, and
-      leave the gate open to all players for 60 seconds before the guardian
-      reforms.
+      Crossing the commitment boundary at or above the guardian's Threat SHALL
+      start a chamber fight in which frontal attacks clang and the guardian is
+      damaged through readable side or rear openings; defeating it SHALL award
+      a major point burst and unlock the Level 2 passage for that player.
     level: L2_system
     status: APPROVED
     priority: HIGH
@@ -807,9 +812,9 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      The best moment in the design: the strongest player is the key, the whole
-      lobby floods in behind them, and nobody can quietly farm the rich ring
-      alone because breaking in announces it to everyone.
+      Power earns the right to attempt progression; it does not replace playing
+      well. Reusing mouth/front/flank language makes the guardian a mastery
+      check for the combat system learned in Level 1.
     allocated_to: ServerScriptService/ChompEngine
     chain: CHAIN-GATES
     phase: v1
@@ -990,6 +995,81 @@ requirements:
     created_date: 2026-08-25
     last_modified: 2026-08-25
     author: Claude (requirements session)
+
+  - id: CHOMP-SYS-055
+    title: The play HUD answers what matters now
+    shall_statement: >
+      During play the HUD SHALL place battle charge and risky carried points at
+      top-left, one contextual next objective at top-centre, and safe dollars,
+      timer and standings at top-right, while keeping the bottom edge and both
+      lower 30% corner zones clear for touch input.
+    level: L2_system
+    status: DRAFT
+    priority: HIGH
+    derives_from: [CHOMP-STK-001, CHOMP-SYS-030, CHOMP-SYS-032]
+    verified_by: [CHOMP-TC-045]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      A child driving at speed cannot scan a dashboard. Stable zones build
+      recognition, and one contextual objective can answer bank, upgrade or
+      guardian readiness without presenting a task list.
+    allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Codex (HUD/gameplay requirements)
+
+  - id: CHOMP-SYS-056
+    title: Gains and losses explain themselves
+    shall_statement: >
+      Pellet collection, banking, purchases, combat hits and guardian outcomes
+      SHALL produce distinct on-screen and world-space feedback showing the
+      signed amount and destination as carried points, safe dollars, battle
+      charge or Power, and SHALL NOT identify all four values by colour alone.
+    level: L2_system
+    status: DRAFT
+    priority: HIGH
+    derives_from: [CHOMP-STK-001, CHOMP-SYS-031]
+    verified_by: [CHOMP-TC-045]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      The economy only works if a child can see where value went. A pickup
+      should arc toward CARRY, banking should count into SAFE dollars, and a hit
+      should point back to the pellets that scattered into the world.
+    allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Codex (HUD/gameplay requirements)
+
+  - id: CHOMP-SYS-057
+    title: The garage makes the next unlock obvious
+    shall_statement: >
+      The garage SHALL show a rotatable vehicle preview, five relative bars for
+      Speed, Turning, Toughness, Bite Power and Chomp Reach, the next eligible
+      chassis or upgrade price, current safe dollars, and the remaining dollar
+      amount when unaffordable, with any upgrade trade-off shown before purchase.
+    level: L2_system
+    status: DRAFT
+    priority: HIGH
+    derives_from: [CHOMP-STK-001, CHOMP-SYS-009, CHOMP-SYS-030]
+    verified_by: [CHOMP-TC-046]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      Exact tuning belongs to the server, but the purchase decision belongs to
+      the player. Relative bars and a clear "$150 TO GO" communicate progress
+      without asking a young player to compare engineering units.
+    allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Codex (HUD/gameplay requirements)
 
     # ── L2 system — platform, safety, performance ───────────────────────────
 

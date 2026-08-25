@@ -943,3 +943,31 @@ decisions:
       isHeadGear test. Accessory handles that are not head gear get
       Transparency = 1 like any other part, so nothing is deleted and the effect
       is reversible.
+
+  - id: D-CHOMP-041
+    date: 2026-08-25
+    title: Level 1 is a bowl arena with a committed guardian chamber
+    decision: >
+      Level 1 uses four outer spawn quadrants, an easy rim maze, a broad slope
+      into an open high-reward central combat bowl, and a guardian chamber
+      adjacent to the maze on the route to Level 2. The guardian and its Threat
+      are visible before a marked commitment boundary. Crossing under-powered
+      triggers an immediate guardian chomp, 50% carried-point scatter and the
+      normal <=4 second garage respawn. Crossing at sufficient Power begins a
+      directional fight; head-on attacks clang and side/rear attacks progress
+      the defeat. The Level 2 unlock is personal to the successful challenger.
+    rationale: >
+      The bowl makes safety and reward readable as geography: learn and bank at
+      the rim, take risks toward the centre. Moving the guardian into a side
+      chamber turns progression into a conscious challenge rather than a door
+      collision. Power grants permission to attempt the next level, while the
+      fight proves the player learned the mouth/front/flank rule. A visible
+      warning preserves fairness when the owner deliberately allows an
+      under-powered player to enter and be killed.
+    outcome: >
+      Supersedes the v1 behaviour in which an under-powered gate merely ejected
+      the player and sufficient Power consumed the guardian on contact for a
+      60-second global opening. CHOMP-SYS-022 through -025 and CHOMP-TC-024/-025
+      are amended on the HUD/gameplay requirements branch. Cooperative entry,
+      interference by other players and Full Jaw interaction remain explicit
+      open decisions before implementation.

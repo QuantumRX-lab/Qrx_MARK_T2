@@ -8,13 +8,16 @@ chain: CHAIN-UI
 owner: unassigned
 scope: The HUD, touch controls on the iPad, colour-coded gate readiness, off-deck
   player markers. Display only — it holds no state.
-requirement_count: 5
+requirement_count: 8
 requirements: &id001
 - CHOMP-STK-001
 - CHOMP-SYS-030
 - CHOMP-SYS-031
 - CHOMP-SYS-032
 - CHOMP-SYS-052
+- CHOMP-SYS-055
+- CHOMP-SYS-056
+- CHOMP-SYS-057
 phases:
 - v1
 status: NOT_STARTED
@@ -128,6 +131,21 @@ entries:
     stick. If the frame overlaps anything, its position is one UDim2 at the top
     of the file. Turn CameraReadout off in ChompConfig before this is ever
     played for fun rather than measured.
+- date: '2026-08-25'
+  agent: Codex (HUD/gameplay requirements)
+  action: NOTE
+  requirements: [CHOMP-SYS-055, CHOMP-SYS-056, CHOMP-SYS-057]
+  summary: >
+    Added child-facing requirements for stable play-HUD zones, distinct feedback
+    for carried points, safe dollars, battle charge and Power, one contextual
+    next objective, and a garage comparison that shows five relative vehicle
+    bars plus the exact dollars remaining before an unlock. These are display
+    requirements only; the HUD remains non-authoritative under CHOMP-SYS-030.
+  status: OPEN
+  handoff: >
+    Review the proposed layout against the iPad thumb zones, then prototype the
+    HUD with server-replicated values. CHOMP-TC-045 and CHOMP-TC-046 require a
+    child-facing demonstration before approval.
 - date: '2026-08-25'
   agent: Claude (local session)
   action: DELIVERED
