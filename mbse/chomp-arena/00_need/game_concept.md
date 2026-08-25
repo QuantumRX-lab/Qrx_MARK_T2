@@ -345,8 +345,10 @@ learnable rather than twitchy.
 ## 13. Open questions for the owner
 
 1. **Player count target** — 4-8 in a lobby, or bigger? It sets maze scale.
-2. **Who is this for?** If the 7-year-old is still a builder here, maze
-   construction is her track and it is the most valuable one in the project.
+2. ~~**Who is this for?**~~ **Answered:** the owner builds the mechanics; the
+   children build mazes, vehicles and ghosts on top of them without scripting.
+   See `03_architecture/authoring_kit.md` — that decision reshapes v1, which is
+   now the authoring kit plus one ring, not the full game.
 3. **Name.** "Chomp Arena" is a placeholder.
 4. **Match length** — 5 x 6 min is ~35 minutes. Right for a school night?
 5. **Do all four ring gates ship in v1**, or does v1 ship Rings 1-2 with one
