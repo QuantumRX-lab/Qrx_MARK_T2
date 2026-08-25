@@ -133,3 +133,24 @@ entries:
     The chassis is 4.8 studs in a 14-stud clear corridor and will now look
     small. That is a vehicle-scale decision for CHAIN-VEHICLE rather than a map
     one, so it has been left alone.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-047]
+  summary: >
+    Level 1 built as a bowl (D-CHOMP-044), implementing Codex's D-CHOMP-041:
+    raised rim with a three-ring maze, four broad slopes into an open central
+    bowl, guardian chamber off the rim behind a non-collidable commitment
+    boundary, four garages. Curved throughout, because continuous steering has
+    nothing to hold a line around in a rectilinear maze. Every wall is tagged
+    Chomp_Wall this time (D-CHOMP-043).
+  status: OPEN
+  handoff: >
+    NOT yet driven. Two things to check first. Part count: three rings at
+    SegmentStuds 8 are about 470 parts before the rim floor, lip and outer wall,
+    so the whole map is likely 1200 to 1500. That is fine on a desktop and is
+    exactly the kind of thing CHOMP-SYS-036 exists to catch on an iPad - raising
+    SegmentStuds to 12 is the cheap lever and costs roundness.
+    Second, the rim maze is generated from ring gaps and spokes and has NOT been
+    checked for reachability the way ArenaMap flood-fills its grid. A ring maze
+    is much harder to seal by accident, but "harder" is not "checked".

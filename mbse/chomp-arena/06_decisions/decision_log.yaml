@@ -1018,3 +1018,31 @@ decisions:
       because the failure it prevents appears nowhere near the cause.
       CHOMP-TC-040 still has not run; this removes a false signal rather than
       producing a real one.
+
+  - id: D-CHOMP-044
+    date: 2026-08-25
+    title: Level 1 is built as a bowl, and the geometry is curved throughout
+    decision: >
+      BowlMap builds Level 1 from ChompConfig.Level1: a raised rim carrying a
+      three-ring maze, four broad slopes into an open central bowl, a guardian
+      chamber off the rim behind a visible commitment boundary, and four garages
+      on the outer rim. ChompConfig.Map.Layout selects it; ArenaMap and TestMap
+      remain behind their own values.
+    rationale: >
+      Implements D-CHOMP-041. Two things made the curve non-negotiable rather
+      than stylistic. Continuous steering (D-CHOMP-042) leans into a bend, and
+      the rectilinear arena punished that by putting a flat wall and a square
+      corner at the end of every corridor — the reported symptom was catching on
+      walls, and the cause was that there was nothing to hold a line around.
+      And the design already wanted it: rim for safety, centre for reward, is
+      only legible as geography if the geography is concentric.
+      Arcs are drawn as chords, which is the whole trade in one number. At
+      SegmentStuds = 8 the three rings alone are about 470 parts. Rounder costs
+      parts, and parts are the iPad's budget.
+    outcome: >
+      Rim band is 80 studs, five corridors wide. Slopes fall 10 studs over 48,
+      about 12 degrees, and are two corridors wide so they read as an invitation
+      rather than a chute. Ring gaps are offset ring to ring so no radial line
+      is a free run from the outer wall to the bowl, and short radial spokes stop
+      a ring becoming a racetrack. The commitment boundary is deliberately not
+      collidable: crossing under-powered must be possible and fatal, not blocked.

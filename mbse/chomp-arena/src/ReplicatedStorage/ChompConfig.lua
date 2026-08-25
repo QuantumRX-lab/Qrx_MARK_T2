@@ -230,6 +230,26 @@ ChompConfig.Controls = {
 -- World-locked yaw: the camera never rotates with the vehicle. Turning spins
 -- the model, not the world.
 
+-- ── Level 1: the bowl (D-CHOMP-041) ─────────────────────────────────────
+-- Safety and reward as geography: learn and bank on the rim, take risks toward
+-- the middle. Radii are in studs and everything is a multiple of CellSize so
+-- the rim corridors are the same width as everywhere else.
+ChompConfig.Level1 = {
+	RimOuter = 240,          -- outer boundary wall
+	RimInner = 160,          -- where the rim ends and the drop into the bowl begins
+	RimHeight = 10,          -- the rim stands this far above the bowl floor
+	RampCount = 4,           -- one broad slope per quadrant
+	RampWidthStuds = 32,     -- two corridors wide: this is a slope, not a corridor
+	RampRunStuds = 48,       -- 10 studs of fall over 48 is about 12 degrees
+	RingRadii = { 176, 200, 224 },  -- the rim maze runs on three concentric rings
+	GapsPerRing = 5,         -- openings per ring, offset ring to ring
+	RadialsPerQuadrant = 2,  -- spokes that stop a ring becoming a racetrack
+	GarageCount = 4,         -- one per spawn quadrant, on the outer rim
+	GuardianAngleDegrees = 0,-- the chamber sits at world east, off the rim
+	GuardianChamberStuds = 56,
+	SegmentStuds = 8,        -- arc resolution; smaller is rounder and more parts
+}
+
 ChompConfig.Camera = {
 	PitchDegrees = 38,
 	Distance = 34,
@@ -272,14 +292,16 @@ ChompConfig.Map = {
 	PelletsPerOpenCell = 1,
 
 	-- Which map the server builds on start.
-	--   "Test"  the throwaway two-deck map CHOMP-TC-040 was built against
-	--   "Arena" a generated full arena: 32x32 ground maze, raised ring 2,
-	--           four ramps, four bridges, twelve garages
+	--   "Test"   the throwaway two-deck map CHOMP-TC-040 was built against
+	--   "Arena"  a generated rectilinear maze: ground maze, raised ring 2,
+	--            ramps, bridges, garages
+	--   "Level1" the bowl (D-CHOMP-041): rim maze, slopes into a central combat
+	--            bowl, guardian chamber. This is the one being built.
 	-- Arena is GENERATED, not authored. The v1 map in map_geometry.md is hand
 	-- built by the child from prefabs; this exists so there is something real to
 	-- drive before that work starts, and so it costs nothing to throw away when
 	-- the camera forces a geometry change.
-	Layout = "Arena",
+	Layout = "Level1",
 	ArenaSeed = 20260825,         -- change for a different maze, same rules
 	ArenaCells = 16,              -- full grid across; must be even, quadrant is half
 	ArenaDecks = 1,               -- 1 = ground only. 2 adds ring 2, ramps and bridges
