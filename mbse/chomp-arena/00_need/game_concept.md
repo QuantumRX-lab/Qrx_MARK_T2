@@ -236,36 +236,91 @@ richest ground for exactly as long as it takes to get out again.
 
 ---
 
-## 8. Mazes — fun, level-based, and fair by construction
+## 8. The maze is a building, not a floor plan
 
-"Fair" in an arena means **symmetric**. The rule for every maze:
+The maze is **multi-level** — towers, ramps, and bridges that cross over the
+corridors below, in the spirit of a Mario 64 courtyard rather than a flat
+arcade board. This is not decoration. It changes four things, all for the
+better:
 
-- **Four-fold rotational symmetry.** Rotate 90° and it is identical.
-- Concentric rings, garages on the outer ring, **four gates per ring** at
-  symmetric points, the Vault at the centre.
-- The centre is the richest and the most exposed. Reward for risk, in the one
-  place everyone can reach equally.
+**Height is the progression, and you can see it.** The rings stack vertically:
+Ring 1 is the ground floor where the garages are, and each ring above it is
+higher, smaller and richer, with the Vault at the top of the central tower. A
+new player can *look up and see the treasure they are not allowed into yet*,
+with a guarded ramp between them and it. On a flat plane, a locked ring is an
+abstraction on a minimap; stacked, it is a thing you can see from your own front
+door. That is the single strongest motivator the design has.
 
-Nobody can have a better spawn, because every spawn is the same spawn rotated.
-You get this free by building one quadrant and copy-rotating it three times.
+**Bridges are duelling grounds.** A bridge is a corridor with no sideways
+escape, so it is where head-on contests actually happen — you either commit or
+you back off, and both players know it. Flat mazes have to manufacture
+chokepoints; a building has them naturally.
 
-Maze topology *is* combat design, because it decides which attacks are possible:
+**You can scout.** From a bridge you can watch a fight on the deck below and
+decide whether to drop in on it. Anticipation is a kind of gameplay a flat maze
+cannot offer at all.
+
+**Attacks from above are always flanks.** A mouth faces forward, horizontally —
+so nobody's mouth ever points at the ceiling. Dropping onto a player from a
+bridge is therefore *always* a side/rear hit, and it costs the attacker bar like
+any other bite. Drop attacks are strong, they reward knowing the building, and
+they cost you your height advantage to use.
+
+### Falling is a cost, never a death
+
+You can be knocked off a bridge, and knockback near an edge is a legitimate way
+to attack. But there is **no void and no death pit** — you land on the deck
+below, lose your combo, and scatter 10% of your carry on landing. A fall hurts
+and embarrasses; it never removes you from the game or wipes a good run. This is
+the difference between a seven-year-old laughing and a seven-year-old leaving.
+
+### What verticality costs
+
+**Ghost pathing becomes a graph, not a grid.** Each deck keeps its own grid;
+ramps, spirals and bridges are explicit links between decks. Ghosts still choose
+a direction at each junction by their rule — the rule now just includes up and
+down. This is barely harder than the flat version *provided the links are
+explicit*, which is exactly what building from a prefab set guarantees.
+
+**The camera becomes the hardest technical problem in the project.** A flat maze
+can use a fixed overhead view and never think about it again. A building has
+geometry between the camera and the player constantly. The plan: a locked-angle
+chase camera that rises with the player's deck, walls kept low enough to see
+over, and anything between camera and player faded to transparent. This needs
+solving early, on a test map, before any real map is built — it is the one part
+of this design that can quietly ruin the whole thing.
+
+**You must be able to see who is above and below you.** Off-deck players get a
+coloured marker with a height indicator, or combat becomes pure ambush and
+nobody can plan anything.
+
+**Building takes longer.** A multi-deck map is several times the work of a flat
+one, and the prefab set grows: ramps, bridge spans, tower cores, junction
+platforms. This is the main argument for v1 shipping exactly one map.
+
+### Fairness is unchanged
+
+Four-fold rotational symmetry still holds — you rotate about the vertical axis
+instead of about a point on the floor. Build one quadrant of one deck, stack the
+decks, mirror the quadrant four ways. Garages sit on the ground deck at
+symmetric positions, gates guard the ramps between decks, and the Vault sits at
+the top of the centre where every approach is equally long.
 
 | Map | Shape | What it creates |
 |---|---|---|
-| 1 — **Classic Grid** | Even lattice, wide lanes | Teaches the basics. Escape always available |
-| 2 — **Long Halls** | Long corridors, few junctions | Chases and rear attacks. Speed builds shine |
-| 3 — **The Spiral** | Concentric coils, few crossings | Commitment — you can't turn back. Agility shines |
-| 4 — **Crossroads** | Dense short blocks, junctions everywhere | Ambush. Constant flank threat. Hardest map |
-| 5 — **Gates** | Doors on a 20 s cycle, on top of the ring gates | Route planning, traps, timed escapes |
-| 6 — **Tunnels** | Wrap-around edges, Pac-Man style | Escape valves. Rewards knowing the map |
+| 1 — **Classic Grid** | Two low decks, wide lanes, gentle ramps | Teaches the basics. Escape always available |
+| 2 — **Long Halls** | Long straight runs, few crossings | Chases and rear attacks. Speed builds shine |
+| 3 — **The Spiral** | One coiling ramp around a central tower | Commitment — you can't turn back. Agility shines |
+| 4 — **Crossroads** | Dense short blocks, bridges crossing everywhere | Ambush and drop attacks. Hardest map |
+| 5 — **Gates** | Timed doors on the ramps, on top of the ring gates | Route planning, traps, timed escapes |
+| 6 — **Tunnels** | Wrap-around edges and vertical drop shafts | Escape valves. Rewards knowing the building |
 
 Rotate the map every round so nobody wins on memory alone.
 
-**This is the job to hand to a child.** Maze building is placing and resizing
-walls — genuinely within reach at seven — and it is the most gameplay-critical
-asset in the project. The symmetry rule is enforced by the build method, not by
-anyone's judgement.
+**This is still the job to hand to a child.** Placing and resizing prefab walls,
+ramps and bridge spans is within reach at seven, and it is the most
+gameplay-critical asset in the project. The symmetry rule is enforced by the
+build method, not by anyone's judgement.
 
 ---
 

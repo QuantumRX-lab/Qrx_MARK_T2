@@ -1,0 +1,1402 @@
+# Chomp Arena — Requirements
+#
+# Schema mirrors mbse/infrastructure/02_requirements/requirements.yaml (Medha
+# MBSE _framework/schemas/requirement.schema.yaml), with one deliberate
+# difference: `satisfied_by` (repo file paths) is replaced by `allocated_to`,
+# a Roblox DataModel path, because the artefact is a .rbxl place file rather
+# than files in this repo. validate.py checks it resolves to a real service.
+#
+# Phases follow the owner's decision (D-CHOMP-001) to build a good game first
+# and the children's authoring kit second:
+#
+#   v1  The game. Playable, fun, complete as an experience. One map, two
+#       ghosts, one gated ring. Hard-coding is acceptable here.
+#   v2  Content and modes. The remaining maps, ghosts, rings, team and solo
+#       modes, cosmetics.
+#   v3  The authoring kit. Tags, attributes, mirror tool, Check My Maze,
+#       ChompConfig — the children build their own content.
+#
+# `verified_by` lists are generated from 04_verification/test_cases.yaml
+# rather than hand-maintained, so the trace cannot be one-directional.
+# Nothing is built yet: every verification_status is NOT_STARTED and that is
+# honest, not an oversight.
+
+requirements:
+
+  # ── L1 stakeholder ──────────────────────────────────────────────────────
+
+  - id: CHOMP-STK-001
+    title: Understandable without being explained
+    shall_statement: >
+      A player who has never seen the game SHALL understand eating, banking and
+      directional combat within 60 seconds of their first spawn, without a
+      tutorial, a wall of text, or another player explaining it.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: CRITICAL
+    verified_by: [CHOMP-TC-001]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      The mechanics are borrowed from a game everyone already knows, which is
+      most of the work — but only if the game reads at a glance: mouth-forward
+      vehicles, a visible bar, a visible carry, and a garage that looks like
+      home.
+    allocated_to: StarterGui/ChompHud
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-STK-002
+    title: A child and an adult can share a lobby
+    shall_statement: >
+      A 7-year-old and an experienced adult SHALL be able to play the same
+      match without the child being farmed, unable to progress, or unable to
+      score.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: CRITICAL
+    verified_by: [CHOMP-TC-002]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      This is the requirement most likely to be silently violated, because it
+      cannot be checked by reading code — only by watching a real child play
+      against a real adult. Three mechanisms defend it: ring gating separates
+      by strength, the small-fry rule removes the reward for bullying down,
+      and per-match reset stops veterans starting ahead.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-STK-003
+    title: Nobody ever sits out
+    shall_statement: >
+      No game state SHALL remove a player from play for longer than 5 seconds,
+      and no player SHALL be eliminated from a round.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: CRITICAL
+    verified_by: [CHOMP-TC-003]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A child who is out of the game is a child who has left the room. This is
+      why being chomped is a respawn rather than a death.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-STK-004
+    title: A match has a shape and an ending
+    shall_statement: >
+      Play SHALL be structured into timed rounds within a match, with visible
+      standings, a spending intermission, and a declared winner at the end.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: HIGH
+    verified_by: [CHOMP-TC-004]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      An endless arena has no payoff and no natural moment to stop, which
+      matters when the players have bedtimes. Rounds also give the upgrade
+      curve somewhere to land.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-STK-005
+    title: Safe for children
+    shall_statement: >
+      The experience SHALL be published from the owner's account, private
+      during development and no wider than Friends afterwards, SHALL render no
+      player-authored text at runtime, and SHALL contain no third-party script
+      the owner has not read.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: CRITICAL
+    verified_by: [CHOMP-TC-005]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Toolbox free models are a known malware vector, and any surface that
+      renders another player's words is a moderation surface. The cheapest
+      correct answer at this scale is to have no such surface at all.
+    allocated_to: Players
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-STK-006
+    title: A client cannot manufacture anything
+    shall_statement: >
+      No client SHALL be able to create points, dollars, Power, bar charge,
+      gate passage, or a combat hit that the server did not itself compute.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: CRITICAL
+    verified_by: [CHOMP-TC-006]
+    verification_status: NOT_STARTED
+    verification_method: ANALYSIS
+    rationale: >
+      Exploiters run arbitrary Luau in their own client. The moment the place
+      is Friends-visible this stops being theoretical, and a competitive game
+      whose scores can be forged is not a game.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-STK-007
+    title: Runs on the family laptop and on a phone
+    shall_statement: >
+      The experience SHALL hold at least 30 FPS on the family laptop in a full
+      lobby, and SHALL be playable with touch controls on a phone.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: HIGH
+    verified_by: [CHOMP-TC-007]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Publishing to Roblox means publishing to phones and tablets whether or
+      not that was the intent — it is how relatives will open it. Mobile
+      clients also set the performance ceiling.
+    allocated_to: StarterPlayer
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-STK-008
+    title: Content can be added later without rewriting the engine
+    shall_statement: >
+      Maps, ghosts, vehicles and tuning values SHALL be addable or changeable
+      without modifying engine logic.
+    level: L1_stakeholder
+    status: APPROVED
+    priority: HIGH
+    verified_by: [CHOMP-TC-008]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      v3 hands content authoring to the children (03_architecture/
+      authoring_kit.md). That is a later phase, but the separation between
+      engine and content has to be respected from the first line of v1 or the
+      kit becomes a rewrite rather than an exposure of what already exists.
+    allocated_to: ReplicatedStorage/ChompConfig
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — vehicle and control ─────────────────────────────────────
+
+  - id: CHOMP-SYS-001
+    title: The vehicle is a character controller, not a physics vehicle
+    shall_statement: >
+      The player vehicle SHALL be the standard Roblox character with a custom
+      model, driven by tuned movement values, and SHALL NOT use VehicleSeat,
+      wheels, or unanchored physics for locomotion.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-006]
+    verified_by: [CHOMP-TC-009]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      The entire combat system reads the facing angle. Physics vehicles flip,
+      jitter as network ownership passes between clients, and shove each other
+      through walls — which makes that angle non-deterministic and different on
+      every screen.
+    allocated_to: StarterPlayer/ChompVehicle
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-002
+    title: Movement stats are server-held
+    shall_statement: >
+      Top speed and turn rate SHALL be stored server-side per player and
+      applied by the server, and a client-modified movement value SHALL be
+      corrected within 1 second.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-006, CHOMP-SYS-001]
+    verified_by: [CHOMP-TC-010]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      WalkSpeed is the single most commonly exploited property in Roblox. An
+      unchecked client sets it to 200 and eats the map.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-003
+    title: Walls hold at full speed
+    shall_statement: >
+      A vehicle at maximum speed with maximum upgrades SHALL NOT pass through
+      a maze wall, in a head-on impact or a glancing one.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-001]
+    verified_by: [CHOMP-TC-011]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Speed upgrades raise the chance of tunnelling through thin geometry, and
+      a maze whose walls can be skipped has no gates and no chases.
+    allocated_to: Workspace/Maps
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — eating and economy ──────────────────────────────────────
+
+  - id: CHOMP-SYS-004
+    title: Pellets are server-owned and validated by distance
+    shall_statement: >
+      Pellet existence, consumption and respawn SHALL be decided by the server,
+      which SHALL confirm the eater is within the mouth arc and pickup radius
+      at the moment of consumption; the client SHALL NOT report eating.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-006]
+    verified_by: [CHOMP-TC-012]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      "I ate that pellet" from a client is a request to add points, which an
+      exploiter will send several thousand times a second.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-005
+    title: Eating charges the bar and fills the carry
+    shall_statement: >
+      Eating a pellet SHALL add its value, multiplied by the current combo, to
+      both the player's battle bar (capped at chassis capacity) and their
+      carried total (uncapped).
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-001]
+    verified_by: [CHOMP-TC-012]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      One action feeding both the combat resource and the score is what ties
+      the two halves of the game together — you arm yourself by playing
+      Pac-Man.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-006
+    title: Combo multiplier
+    shall_statement: >
+      Consecutive pellets eaten within 1.5 seconds of each other SHALL raise a
+      multiplier from x1 to a maximum of x5, resetting to x1 on a wall impact,
+      on taking any hit, or when the window lapses.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [CHOMP-SYS-005]
+    verified_by: [CHOMP-TC-013]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Without it the eating half of the game is mindless. With it a clean
+      racing line is worth five times a sloppy one, and forcing an opponent
+      into a wall costs them something before it costs them points.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-007
+    title: Banking at your own garage
+    shall_statement: >
+      Entering your own garage SHALL convert all carried points to banked
+      dollars at 1:1, leave the battle bar untouched, and SHALL be refused at
+      any other player's garage.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-001]
+    verified_by: [CHOMP-TC-014]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Banking is what makes carried points risky and therefore what makes the
+      whole map tense. It is the mechanic the rest of the design hangs from.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-008
+    title: The garage is safe but not a hiding place
+    shall_statement: >
+      No combat SHALL resolve inside a garage volume, no pellets SHALL spawn
+      inside one, and a player SHALL be unable to re-enter their garage for 5
+      seconds after leaving it.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-007]
+    verified_by: [CHOMP-TC-014]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Without the re-entry cooldown the optimal strategy is to sit on the
+      garage threshold and bounce in and out, which is both unbeatable and
+      extremely boring to watch.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-009
+    title: Upgrades are bought from banked dollars only
+    shall_statement: >
+      Chassis and upgrade purchases SHALL be validated and applied by the
+      server against banked dollars only, and SHALL recompute the player's
+      Power immediately.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-007, CHOMP-STK-006]
+    verified_by: [CHOMP-TC-015]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Power rising only when banked dollars are spent is what makes the ring
+      gates an outcome of the banking loop rather than of hoarding — you get
+      deeper by making it home alive, not by eating more.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — combat ──────────────────────────────────────────────────
+
+  - id: CHOMP-SYS-010
+    title: Impact angle decides everything
+    shall_statement: >
+      On player-to-player contact the server SHALL classify the impact from the
+      two facing vectors as head-on (within ±45°) or side/rear, and SHALL
+      resolve it accordingly; no client input SHALL influence the
+      classification.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-006, CHOMP-SYS-001]
+    verified_by: [CHOMP-TC-016]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      This is the signature mechanic. Mouth is weapon, flank and back are weak
+      spots, and everything else in combat derives from getting this one
+      classification right and identical on every screen.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-011
+    title: Head-on is a contest both players pay for
+    shall_statement: >
+      A head-on impact SHALL cost both players 40% of their own bar; the lower
+      bar SHALL additionally lose carried points equal to the difference
+      between the two bars; bars within 10% of each other SHALL clang, costing
+      the bar only and bouncing both players backwards.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-010]
+    verified_by: [CHOMP-TC-016]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Charging blindly is punished, a well-fed player wins the duel, and
+      winning still costs — so head-ons cannot be farmed.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-012
+    title: Biting costs the biter
+    shall_statement: >
+      A side or rear hit SHALL cost the attacker 30% of their bar, and SHALL
+      remove that amount from the victim's bar first and their carried points
+      second.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-010]
+    verified_by: [CHOMP-TC-017]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Attacking has to be a decision, not a reflex. Without this, one fast
+      player chain-rear-ends the entire lobby indefinitely and nothing else in
+      the game matters.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-013
+    title: Lost points scatter, they never transfer
+    shall_statement: >
+      Points lost in combat SHALL be spawned as collectable pellets at the
+      impact point, available to any player including the victim, and SHALL
+      persist for at least 20 seconds.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-011, CHOMP-SYS-012]
+    verified_by: [CHOMP-TC-017]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Direct transfer snowballs whoever is already ahead. Scatter makes every
+      fight a contested pile that pulls other players in, and lets a third
+      party rob the winner.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-014
+    title: One collision is one hit
+    shall_statement: >
+      A player SHALL be invulnerable to all damage for 1.5 seconds after taking
+      any hit, from a player, a ghost, or a gate guardian, with a visible
+      indication.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-010]
+    verified_by: [CHOMP-TC-018]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A single physical collision registers across many frames. Undebounced,
+      one bump empties a player completely and reads as the game being broken.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-015
+    title: Chomped, not eliminated
+    shall_statement: >
+      A player hit while their bar is empty SHALL scatter 50% of their carried
+      points, and SHALL respawn at their own garage within 4 seconds with an
+      empty bar and their upgrades intact.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-003]
+    verified_by: [CHOMP-TC-003]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Losing upgrades on death would make a bad run unrecoverable and put a
+      child permanently behind. Losing carry hurts enough.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-016
+    title: No pickings from small fry
+    shall_statement: >
+      A hit on a player more than 300 Power below the attacker SHALL scatter no
+      points and SHALL award the attacker nothing.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-002]
+    verified_by: [CHOMP-TC-019]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Removes the economic reason for a maxed-out player to camp a beginner's
+      garage. Nobody has to be told the rule — the reward simply is not there.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — ghosts ──────────────────────────────────────────────────
+
+  - id: CHOMP-SYS-017
+    title: Ghosts path on the maze grid
+    shall_statement: >
+      Ghosts SHALL move junction to junction on the maze grid, choosing a
+      direction at each junction by their behaviour rule, and SHALL NOT reverse
+      mid-corridor except when fleeing.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-001]
+    verified_by: [CHOMP-TC-020]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Grid pathing is how the original worked, it costs almost nothing, and it
+      makes ghosts learnable rather than twitchy — which is what makes them
+      fair rather than merely difficult.
+    allocated_to: ServerScriptService/ChompEngine/Behaviours
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-018
+    title: Ghosts rob, they do not kill
+    shall_statement: >
+      Ghost contact SHALL take 25% of the player's carried points, scatter them
+      at the contact point, apply knockback and invulnerability, and SHALL NOT
+      reduce the battle bar or destroy the vehicle.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-003]
+    verified_by: [CHOMP-TC-020]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A ghost hit should hurt most when you are fat and far from home — which
+      is exactly when you should already have banked. Killing outright would
+      make the deep rings unplayable for a child.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-019
+    title: Ghost personalities are pluggable modules
+    shall_statement: >
+      Each ghost behaviour SHALL be a separate ModuleScript returning a single
+      direction-choosing function, and adding a new personality SHALL require
+      no change to engine code. v1 SHALL ship at least The Chaser and The
+      Greedy One.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-008, CHOMP-SYS-017]
+    verified_by: [CHOMP-TC-021]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Distinct, learnable behaviours are what make the maze feel alive. The
+      module boundary is also the v3 on-ramp: a ten-line function is the first
+      real code an older child will write.
+    allocated_to: ServerScriptService/ChompEngine/Behaviours
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-020
+    title: The Greedy One hunts the fattest carry
+    shall_statement: >
+      One ghost SHALL target the player with the highest unbanked carried total
+      at all times, re-evaluating at each junction.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-002, CHOMP-SYS-019]
+    verified_by: [CHOMP-TC-022]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      One targeting rule earns its place three times: it punishes hoarding, it
+      hunts whoever is winning without any artificial handicap, and it means
+      the game still works when one player is online alone.
+    allocated_to: ServerScriptService/ChompEngine/Behaviours
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-021
+    title: Power pellets reverse the game
+    shall_statement: >
+      Eating a power pellet SHALL grant 8 seconds of Full Jaw, during which all
+      sides of the vehicle count as mouth, ghosts flee and are edible for 200
+      points, and the player is visibly and audibly marked to everyone.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-001]
+    verified_by: [CHOMP-TC-023]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The oldest working idea in the genre, and the underdog's tool. Being
+      visible to everyone is what turns it from a buff into an event.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — rings and gate guardians ────────────────────────────────
+
+  - id: CHOMP-SYS-022
+    title: The maze is divided into rings
+    shall_statement: >
+      Each map SHALL be divided into concentric rings with rising pellet values
+      toward the centre, with garages on the outermost ring.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-002]
+    verified_by: [CHOMP-TC-024]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Rings are what let gating sort the lobby by strength while keeping every
+      player in one maze — which a combat game requires, since players in
+      separate levels cannot fight each other.
+    allocated_to: Workspace/Maps
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-023
+    title: A guardian stands in every gate
+    shall_statement: >
+      Each gate SHALL be occupied by a super ghost displaying its Threat value,
+      SHALL block passage while occupied, and SHALL NOT leave its gate.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-022]
+    verified_by: [CHOMP-TC-025]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A door with a face. Its number and the player's Power number are the
+      whole interaction, and both must be visible at the moment of decision.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-024
+    title: Under-powered means turned away, hard
+    shall_statement: >
+      Contact with a guardian by a player whose Power is below its Threat SHALL
+      take 50% of that player's carried points and eject them back to the outer
+      side of the gate.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-023]
+    verified_by: [CHOMP-TC-025]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Painful, instant and impossible to misread. A soft bounce would be tested
+      repeatedly; this is tested once.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-025
+    title: Cracking a gate opens it for everyone
+    shall_statement: >
+      Contact with a guardian by a player whose Power meets or exceeds its
+      Threat SHALL consume the guardian, award that player bonus points, and
+      leave the gate open to all players for 60 seconds before the guardian
+      reforms.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-023]
+    verified_by: [CHOMP-TC-025]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The best moment in the design: the strongest player is the key, the whole
+      lobby floods in behind them, and nobody can quietly farm the rich ring
+      alone because breaking in announces it to everyone.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-026
+    title: Full Jaw is a skeleton key
+    shall_statement: >
+      A player under Full Jaw SHALL pass any one gate regardless of Power,
+      without consuming the guardian.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [CHOMP-SYS-021, CHOMP-SYS-023]
+    verified_by: [CHOMP-TC-023]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Hands the underdog the richest ground in the map for exactly as long as
+      it takes to get out again — the best gamble in the game.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — match structure ─────────────────────────────────────────
+
+  - id: CHOMP-SYS-027
+    title: Rounds, intermission, winner
+    shall_statement: >
+      A match SHALL consist of 5 rounds of 6 minutes separated by 30-second
+      garage intermissions, and SHALL declare a winner by total banked dollars
+      across the match.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-004]
+    verified_by: [CHOMP-TC-004]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Round length is the main tuning dial for how far up the ring ladder a
+      match gets. All five numbers live in ChompConfig for exactly that reason.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-028
+    title: Progress persists across rounds, resets between matches
+    shall_statement: >
+      Upgrades, chassis and Power SHALL carry across the rounds of a match and
+      SHALL reset to the starting chassis at match end; nothing that affects
+      power SHALL persist between sessions.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-002]
+    verified_by: [CHOMP-TC-026]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Permanent progression means a veteran drives an Apex against a
+      first-timer's Standard and the first-timer never touches a pellet. This
+      requirement is the mechanical form of "keep it fair"; anything permanent
+      belongs in cosmetics.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-029
+    title: Joining late is not a punishment
+    shall_statement: >
+      A player joining mid-round SHALL start with the starting chassis and a
+      catch-up dollar grant scaled to elapsed match time, and SHALL be spawned
+      at an unoccupied garage.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [CHOMP-STK-002]
+    verified_by: [CHOMP-TC-027]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Roblox servers fill continuously; someone joining in round four against
+      Tier 3 opponents with no grant has no game to play and will leave inside
+      a minute.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — interface ───────────────────────────────────────────────
+
+  - id: CHOMP-SYS-030
+    title: The HUD only displays
+    shall_statement: >
+      The HUD SHALL render bar, carried, banked, Power, round timer and
+      standings from server-replicated values only, and SHALL hold no
+      authoritative state of its own.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-006]
+    verified_by: [CHOMP-TC-028]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      If the number on screen is the number the game believes, the game's
+      economy lives on the client and is already forged.
+    allocated_to: StarterGui/ChompHud
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-031
+    title: Readable by a seven-year-old at speed
+    shall_statement: >
+      Gate readiness SHALL be shown as a colour comparison between the player's
+      Power and the nearest gate's Threat, and carried-versus-banked SHALL be
+      visually distinct without reading numbers.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-001, CHOMP-STK-002]
+    verified_by: [CHOMP-TC-002]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      A child reads colour before text, and reads nothing at all while driving.
+      Red-to-green on the gate marker answers "can I go in yet" with no reading.
+    allocated_to: StarterGui/ChompHud
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-032
+    title: Scales to a phone
+    shall_statement: >
+      All GUI SHALL be laid out in UDim2 scale terms, SHALL remain fully on
+      screen on a phone viewport, and touch controls SHALL support driving and
+      turning without a keyboard.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [CHOMP-STK-007]
+    verified_by: [CHOMP-TC-007]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Publishing to Roblox is publishing to phones whether or not that was the
+      intent.
+    allocated_to: StarterGui/ChompHud
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── L2 system — platform, safety, performance ───────────────────────────
+
+  - id: CHOMP-SYS-033
+    title: Pellets are pooled, not created and destroyed
+    shall_statement: >
+      Pellet instances SHALL be pooled and reused rather than created and
+      destroyed on each consumption, and total live parts SHALL stay under
+      4000 in a full lobby.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [CHOMP-STK-007]
+    verified_by: [CHOMP-TC-007]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A maze holds hundreds of pellets being eaten continuously by a full
+      lobby. Instance churn at that rate is the most likely source of frame
+      drops on a laptop and a phone.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-034
+    title: No script enters the place unread
+    shall_statement: >
+      Any model inserted from the Toolbox or Creator Store SHALL have every
+      Script, LocalScript and ModuleScript inside it deleted or read and
+      approved by the owner before use.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-005]
+    verified_by: [CHOMP-TC-005]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Free models are a known malware vector: scripts inside them can insert
+      further scripts, reach external services via HttpService, or hand
+      control of the place to a third party.
+    allocated_to: Workspace/Maps
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-035
+    title: Private while building, Friends when done
+    shall_statement: >
+      The place SHALL be published from the owner's account with private access
+      during development, and SHALL only be widened to Friends by an explicit
+      owner action.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-005]
+    verified_by: [CHOMP-TC-005]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Keeps experience settings, publishing and any moderation correspondence
+      with the adult.
+    allocated_to: Players
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-036
+    title: No user-authored text is ever rendered
+    shall_statement: >
+      The experience SHALL contain no surface whose content comes from a player
+      at runtime, and SHALL leave Roblox's default chat and text filtering
+      untouched.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-005]
+    verified_by: [CHOMP-TC-005]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Any surface rendering another player's words is a moderation surface, and
+      rendering unfiltered text is a platform policy violation. Having no such
+      surface is the cheapest correct answer at this scale.
+    allocated_to: TextChatService
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-037
+    title: Every tunable number lives in one table
+    shall_statement: >
+      All balance values SHALL be defined exactly once in a ChompConfig
+      ModuleScript, and no balance value SHALL appear as a literal in engine
+      logic.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-008]
+    verified_by: [CHOMP-TC-008]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Balancing this game means changing numbers hundreds of times. It is also
+      the first thing handed to the children in v3, and the smallest possible
+      down payment on the authoring kit.
+    allocated_to: ReplicatedStorage/ChompConfig
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-038
+    title: The engine finds content, it does not name it
+    shall_statement: >
+      The engine SHALL locate maps, pellets, gates, garages, ghost spawns and
+      vehicles by tag or folder convention rather than by hardcoded instance
+      references, so that adding content requires no engine change.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-008]
+    verified_by: [CHOMP-TC-008]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      This is the one v3 decision that must be honoured in v1. Discovery by tag
+      costs nothing now; retrofitting it later means rewriting every system
+      that touches the map.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-046
+    title: Twelve players, three garages per quadrant
+    shall_statement: >
+      MaxPlayers SHALL be 12, each map SHALL provide 12 garages arranged as 3
+      per quadrant, and pellet count and maze footprint SHALL be scaled to the
+      player count so that a full lobby does not strip a ring bare between
+      respawns.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-022, CHOMP-STK-007]
+    verified_by: [CHOMP-TC-029]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Owner decision (D-CHOMP-006). 12 divides by four, so every garage has a
+      symmetric counterpart and no spawn is better than another; it stays
+      comfortable in one maze; and a smaller cap makes the server feel busier
+      with the five or six players actually likely to be on. Raising it later
+      means editing one quadrant, not rebuilding a map.
+    allocated_to: Workspace/Maps
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-047
+    title: The maze is multi-level
+    shall_statement: >
+      Each map SHALL consist of two or more vertically stacked decks connected
+      by ramps and bridges, with rings ascending toward the centre and the
+      Vault at the top of the central tower.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-022]
+    verified_by: [CHOMP-TC-037]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Owner decision (D-CHOMP-011). Stacking the rings makes the progression
+      visible from the ground floor — a player can see the treasure they are
+      not yet allowed into, with a guarded ramp in between — and gives the map
+      natural chokepoints on its bridges instead of manufactured ones.
+    allocated_to: Workspace/Maps
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-048
+    title: Ghosts path a multi-deck graph
+    shall_statement: >
+      Ghost pathing SHALL treat each deck as a grid and ramps, bridges and
+      shafts as explicit links between decks, and a ghost SHALL be able to
+      pursue a target onto any deck.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-017, CHOMP-SYS-047]
+    verified_by: [CHOMP-TC-038]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Verticality only stays cheap if the vertical connections are explicit
+      data rather than something the pathing has to infer from geometry —
+      which is exactly what building from a prefab set provides.
+    allocated_to: ServerScriptService/ChompEngine/Behaviours
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-049
+    title: Falling costs, it never kills
+    shall_statement: >
+      A player leaving a deck edge SHALL land on the deck below, lose their
+      combo, and scatter 10% of their carried points on landing; no map SHALL
+      contain a void, a death plane, or a fall that removes a player from play.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-003, CHOMP-SYS-047]
+    verified_by: [CHOMP-TC-039]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Knocking someone off a bridge should be a real and satisfying attack, but
+      a fall that wipes a good run is the difference between a seven-year-old
+      laughing and a seven-year-old leaving the room.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-050
+    title: An attack from above is always a flank
+    shall_statement: >
+      Contact initiated from a higher deck SHALL classify as a side/rear hit
+      and SHALL cost the attacker bar on the same terms as any other bite.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [CHOMP-SYS-010, CHOMP-SYS-047]
+    verified_by: [CHOMP-TC-039]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A mouth faces forward horizontally, so nobody's mouth ever points at the
+      ceiling — the drop attack falls out of the existing rule rather than
+      being a new one. It rewards knowing the building and costs the attacker
+      their height advantage to use.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-051
+    title: The camera survives the building
+    shall_statement: >
+      The camera SHALL follow the player at a locked angle, rise with their
+      deck, and fade any geometry between itself and the player to transparent;
+      the player's vehicle SHALL never be fully occluded for more than 0.2
+      seconds.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-047, CHOMP-STK-001]
+    verified_by: [CHOMP-TC-040]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A flat maze can use one fixed overhead view and never think about it
+      again. A building puts towers and bridges between the camera and the
+      player constantly, and this is the one part of the multi-level design
+      that can quietly ruin the whole game. It must be solved on a test map
+      before any real map is built.
+    allocated_to: StarterPlayer/ChompCamera
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-052
+    title: You can see who is above and below you
+    shall_statement: >
+      Players on other decks within a defined radius SHALL be shown as coloured
+      markers carrying a height indication, and gate markers SHALL show the
+      Threat of the gate on the deck above.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-047, CHOMP-SYS-031]
+    verified_by: [CHOMP-TC-040]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Without off-deck awareness, verticality turns every encounter into an
+      ambush and no player can plan anything — which throws away the scouting
+      and anticipation that were the reason for building upward.
+    allocated_to: StarterGui/ChompHud
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── v2: content and modes ───────────────────────────────────────────────
+
+  - id: CHOMP-SYS-039
+    title: Six maps in rotation
+    shall_statement: >
+      The map pool SHALL contain the six archetypes defined in the concept, and
+      the map SHALL change between rounds.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [CHOMP-SYS-022]
+    verified_by: [CHOMP-TC-030]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Topology decides which attacks are possible, so map variety is combat
+      variety. Rotation also stops map memory deciding matches.
+    allocated_to: Workspace/Maps
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-040
+    title: Four ghost personalities and four rings
+    shall_statement: >
+      The full ghost set (Chaser, Ambusher, Flanker, Greedy One) and the full
+      ring ladder (Rings 1-4, Threats 250/500/800) SHALL be in play.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [CHOMP-SYS-019, CHOMP-SYS-022]
+    verified_by: [CHOMP-TC-031]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      v1 proves the mechanics with two ghosts and one gate; v2 is where the
+      maze becomes genuinely dangerous and the ladder gets its full arc.
+    allocated_to: ServerScriptService/ChompEngine/Behaviours
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-041
+    title: Team and solo modes
+    shall_statement: >
+      The experience SHALL offer 2v2/3v3 teams with a shared bank and no
+      friendly fire, and a solo/co-op mode against doubled ghosts with no PvP.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [CHOMP-STK-002, CHOMP-STK-003]
+    verified_by: [CHOMP-TC-032]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Teams are how an adult and a young child genuinely partner up. Solo is
+      the one-player-online fallback and the gentlest way in for a beginner.
+    allocated_to: ServerScriptService/ChompEngine
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-042
+    title: Persistence is cosmetic only
+    shall_statement: >
+      Cross-session persistence SHALL store cosmetics and lifetime statistics
+      only, SHALL never restore power, and a failed profile read SHALL never be
+      written back as an empty profile.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-028]
+    verified_by: [CHOMP-TC-033]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A DataStore read failure and a genuinely new player are indistinguishable
+      unless pcall's success flag is checked separately from its returned
+      value. Conflating them overwrites a real profile with zeroes.
+    allocated_to: ServerScriptService/DataService
+    phase: v2
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  # ── v3: the authoring kit ───────────────────────────────────────────────
+
+  - id: CHOMP-SYS-043
+    title: Content is geometry plus tags, never scripts
+    shall_statement: >
+      All authorable content SHALL be expressible as tagged parts and models
+      carrying attributes, and content folders SHALL contain no scripts of any
+      kind.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-008, CHOMP-SYS-038]
+    verified_by: [CHOMP-TC-034]
+    verification_status: NOT_STARTED
+    verification_method: INSPECTION
+    rationale: >
+      Makes the no-unread-scripts safety rule structural rather than
+      remembered, and means a child cannot break the game by building badly.
+      Full vocabulary in 03_architecture/authoring_kit.md.
+    allocated_to: Workspace/Maps
+    phase: v3
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-044
+    title: The mirror tool
+    shall_statement: >
+      A one-action tool SHALL copy a map's authored quadrant to the other three
+      rotations, so that four-fold symmetry is a property of the build method.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-043]
+    verified_by: [CHOMP-TC-035]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Guarantees spawn fairness without an adult checking it, quarters the
+      building work, and is visibly magic to a child — which is the actual
+      lesson underneath the project.
+    allocated_to: ServerStorage/ChompTools
+    phase: v3
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)
+
+  - id: CHOMP-SYS-045
+    title: Check My Maze
+    shall_statement: >
+      A validator SHALL check an authored map for missing gates, missing
+      garages, pellets inside walls, off-grid walls, unknown ghost behaviours
+      and embedded scripts, and SHALL report each failure in plain language a
+      child can act on.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-043]
+    verified_by: [CHOMP-TC-036]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The same principle as this repo's own validate.py — never trust that a
+      hand-built thing is internally consistent — pointed at a child's maze.
+      It is what lets her iterate without an adult beside her, which is the
+      difference between helping and owning.
+    allocated_to: ServerStorage/ChompTools
+    phase: v3
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (requirements session)

@@ -1,0 +1,265 @@
+# Chomp Arena — Risk Register
+# Counts are checked by validate.py against the records below, never trusted
+# from this comment. See mbse/infrastructure/06_decisions (D-INFRA-009) for
+# why that rule exists.
+
+open_count: 13
+closed_count: 0
+
+risks:
+
+  - id: RISK-CHOMP-001
+    title: Directional combat may be unreadable at speed
+    description: >
+      The entire combat system rests on the player understanding, in the
+      instant it happens, why they just lost points. At speed, in a corridor,
+      with three vehicles converging, "he hit my flank" and "we hit head-on"
+      can look identical. If players cannot read the outcome they will
+      conclude the game is random, which is worse than losing.
+    severity: HIGH
+    likelihood: MEDIUM
+    status: OPEN
+    mitigation: >
+      Make the mouth enormous and unmistakable on the model. Show a directional
+      hit indicator at the moment of impact. Use two clearly different sounds
+      for clang and bite. Verify with a child, not an adult, in CHOMP-TC-002.
+    detected: 2026-08-25
+    detected_by: Design review
+    linked_requirements: [CHOMP-STK-001, CHOMP-SYS-010, CHOMP-SYS-031]
+
+  - id: RISK-CHOMP-002
+    title: Server-authoritative hits will feel unfair on a bad connection
+    description: >
+      The server decides every contact from replicated positions, which is
+      correct and non-negotiable, but it means a player on a poor connection
+      will sometimes see themselves land a bite that the server scores as a
+      miss, or take a hit from someone who looked far away on their screen.
+      This is the standard cost of server authority in a fast contact game.
+    severity: MEDIUM
+    likelihood: HIGH
+    status: OPEN
+    mitigation: >
+      Play impact effects client-side immediately on predicted contact while
+      letting the server decide the economy, so the feedback is instant even
+      when the outcome arrives late. Use a generous contact volume and a short
+      grace window rather than an exact-frame test. Never roll a credited hit
+      back on screen — absorb the discrepancy silently.
+    detected: 2026-08-25
+    detected_by: Design review
+    linked_requirements: [CHOMP-STK-006, CHOMP-SYS-010, CHOMP-SYS-014]
+
+  - id: RISK-CHOMP-003
+    title: The fast player may still snowball
+    description: >
+      Speed upgrades make rear attacks easier, rear attacks fund more
+      upgrades. The 30% bar cost per bite (CHOMP-SYS-012), scatter instead of
+      transfer (CHOMP-SYS-013) and the small-fry rule (CHOMP-SYS-016) are all
+      designed to break that loop, but none of them has been played yet, and
+      the loop is the most likely way this game turns unfun.
+    severity: HIGH
+    likelihood: MEDIUM
+    status: OPEN
+    mitigation: >
+      Instrument it: log per-player income by source (pellets, scatter,
+      guardians) each round and check whether combat income exceeds eating
+      income for the leader. If it does, raise the bite cost first — it is one
+      number in ChompConfig.
+    detected: 2026-08-25
+    detected_by: Design review
+    linked_requirements: [CHOMP-STK-002, CHOMP-SYS-012, CHOMP-SYS-016]
+
+  - id: RISK-CHOMP-004
+    title: Ring gating could thin the lobby instead of sorting it
+    description: >
+      Gating is meant to sort players by strength while keeping everyone in
+      one maze. If the Threats are set too high, or rings are too large,
+      players end up spread thinly across four rings and rarely meet — which
+      is the exact failure (players separated, no combat) that gating by ring
+      rather than by level was chosen to avoid.
+    severity: MEDIUM
+    likelihood: MEDIUM
+    status: OPEN
+    mitigation: >
+      Keep ring area falling sharply toward the centre so higher rings are
+      small and crowded. Tune Threats so the median player clears Ring 2 in
+      round one. Measure encounters per player per round, not just scores.
+    detected: 2026-08-25
+    detected_by: Design review
+    linked_requirements: [CHOMP-SYS-022, CHOMP-SYS-023, CHOMP-SYS-025]
+
+  - id: RISK-CHOMP-005
+    title: v1 is an engine, not a weekend
+    description: >
+      v1 as specified is 39 system requirements covering movement, an economy,
+      directional combat, ghost AI, gate guardians, match structure, a HUD and
+      an anti-cheat posture. That is a genuine multi-week build for one person
+      working evenings, and the owner's earlier instinct — end the first
+      session with something playable — cannot be satisfied by it.
+    severity: HIGH
+    likelihood: CONFIRMED
+    status: OPEN
+    mitigation: >
+      Sequence v1 internally so there is a playable thing at the end of each
+      step: (1) drive and eat, (2) bank and upgrade, (3) directional combat,
+      (4) one ghost, (5) one gate, (6) rounds and a winner. Each is playable on
+      its own and each is a session. Do not start step 3 until step 2 is fun.
+    detected: 2026-08-25
+    detected_by: Requirements review
+    linked_requirements: [CHOMP-STK-001, CHOMP-STK-004]
+
+  - id: RISK-CHOMP-006
+    title: The children have no job until v3
+    description: >
+      Building the engine first is the right call for the game, but it means
+      the authoring kit — the children's whole role — arrives last. Months of
+      watching a parent type is precisely the outcome the project was meant to
+      avoid, and a 7-year-old's interest will not survive it.
+    severity: HIGH
+    likelihood: HIGH
+    status: OPEN
+    mitigation: >
+      Do not wait for the kit. From the first map, build walls from a small set
+      of grid-snapped prefab pieces and let her place them by hand — the kit
+      later automates that workflow rather than inventing it. She can also name
+      the ghosts, choose the vehicle colours, and be chief tester for
+      CHOMP-TC-002 throughout. Her work then becomes the first content the kit
+      has to keep working.
+    detected: 2026-08-25
+    detected_by: Requirements review
+    linked_requirements: [CHOMP-STK-002, CHOMP-SYS-043, CHOMP-SYS-044]
+
+  - id: RISK-CHOMP-007
+    title: A friends-only 12-player PvP game is usually a 2-player game
+    description: >
+      The design assumes a populated lobby. In reality, published to Friends
+      only, most sessions will be one or two children. Head-on contests,
+      scatter piles, gate floods and the whole social layer degrade badly at
+      that population, and the solo/co-op fallback is currently scheduled for
+      v2.
+    severity: HIGH
+    likelihood: HIGH
+    status: OPEN
+    mitigation: >
+      Recommend moving a minimal solo/co-op mode into v1 — the ghosts and
+      gates already make a complete single-player Pac-Man without any new
+      systems, so the cost is mode selection and a doubled ghost count, not new
+      mechanics. Decision deferred to the owner (see D-CHOMP-010).
+    detected: 2026-08-25
+    detected_by: Requirements review
+    linked_requirements: [CHOMP-SYS-041, CHOMP-SYS-020]
+
+  - id: RISK-CHOMP-008
+    title: Grid pathing constrains what a map can be
+    description: >
+      Ghosts turn only at junctions on a grid. A map built with free-form,
+      off-grid or curved walls will produce ghosts that stick, oscillate, or
+      path through geometry — and the failure appears only once ghosts are
+      added, potentially after a lot of building.
+    severity: MEDIUM
+    likelihood: HIGH
+    status: OPEN
+    mitigation: >
+      Build every map from grid-snapped prefab wall pieces from the very first
+      one, before ghosts exist. Add the off-grid check to Check My Maze
+      (CHOMP-SYS-045) but enforce it by prefab long before that.
+    detected: 2026-08-25
+    detected_by: Design review
+    linked_requirements: [CHOMP-SYS-017, CHOMP-SYS-045]
+
+  - id: RISK-CHOMP-009
+    title: Pellet volume is the likely performance wall
+    description: >
+      A ringed maze scaled for 12 players holds several hundred pellets being
+      consumed and respawned continuously, plus scatter piles from every
+      fight. Instance churn at that rate is the most plausible source of frame
+      drops on the family laptop and on any phone.
+    severity: MEDIUM
+    likelihood: MEDIUM
+    status: OPEN
+    mitigation: >
+      Pool and reuse pellet instances rather than creating and destroying them
+      (CHOMP-SYS-033). Cap scatter pile size. Measure with the microprofiler at
+      a full 12 before adding decoration, not after.
+    detected: 2026-08-25
+    detected_by: Design review
+    linked_requirements: [CHOMP-STK-007, CHOMP-SYS-033]
+
+  - id: RISK-CHOMP-010
+    title: Toolbox models can carry malicious scripts
+    description: >
+      Free models inserted from the Toolbox can contain scripts that insert
+      further scripts, reach external services via HttpService, or hand control
+      of the place to a third party. The risk rises with a project that wants a
+      lot of decorative content and has children inserting things.
+    severity: HIGH
+    likelihood: MEDIUM
+    status: OPEN
+    mitigation: >
+      Expand every inserted model in the Explorer and delete every script
+      inside it before use (CHOMP-SYS-034). Prefer building simple shapes.
+      From v3, content folders are script-free by rule and checked
+      automatically (CHOMP-SYS-043).
+    detected: 2026-08-25
+    detected_by: Design review
+    linked_requirements: [CHOMP-STK-005, CHOMP-SYS-034, CHOMP-SYS-043]
+
+  - id: RISK-CHOMP-011
+    title: Balance cannot be verified by reading it
+    description: >
+      Almost every interesting requirement in this tree — bite cost, ring
+      Threats, ghost steal rate, round length, upgrade prices — is a number
+      whose correctness is only observable in play with real players. The
+      tree can prove the mechanics work; it cannot prove the game is fun.
+    severity: MEDIUM
+    likelihood: CONFIRMED
+    status: OPEN
+    mitigation: >
+      Treat ChompConfig as the deliverable it is: keep every number in one
+      file, log per-round income by source, and schedule a tuning pass after
+      every playtest with actual children present. Fun is verified by
+      CHOMP-TC-001 and CHOMP-TC-002 and by nothing else in this tree.
+    detected: 2026-08-25
+    detected_by: Requirements review
+    linked_requirements: [CHOMP-STK-001, CHOMP-STK-002, CHOMP-SYS-037]
+
+  - id: RISK-CHOMP-012
+    title: The camera is the thing most likely to ruin the multi-level design
+    description: >
+      A flat maze can use a fixed overhead camera and never think about it
+      again. A building of towers and bridges puts geometry between the camera
+      and the player continuously, and a camera that loses the player for even
+      a second in a fast contact game makes the game feel broken rather than
+      difficult. Camera work is also the hardest thing in this project to
+      retrofit, because every map is built against whatever the camera can
+      actually see.
+    severity: HIGH
+    likelihood: HIGH
+    status: OPEN
+    mitigation: >
+      Solve it on a throwaway test map before any real map is built: locked
+      angle, rise with the deck, transparency fade on anything between camera
+      and player, walls kept low enough to see over. Treat wall height as a
+      camera constraint, not an art choice. CHOMP-TC-040 is the gate on this.
+    detected: 2026-08-25
+    detected_by: Design review
+    linked_requirements: [CHOMP-SYS-047, CHOMP-SYS-051]
+
+  - id: RISK-CHOMP-013
+    title: A multi-deck map is several times the building work
+    description: >
+      Verticality multiplies build cost: every deck needs its own grid, and the
+      prefab set grows to include ramps, bridge spans, tower cores and junction
+      platforms. Combined with an already large v1 (RISK-CHOMP-005), the risk is
+      that the first playable map takes so long that nothing is playable for
+      weeks.
+    severity: MEDIUM
+    likelihood: HIGH
+    status: OPEN
+    mitigation: >
+      v1 ships exactly one map, and that map ships with two decks rather than
+      four. Build the prefab set before the map, mirror one quadrant rather
+      than building four, and treat additional decks as content added later
+      against an engine that already handles them.
+    detected: 2026-08-25
+    detected_by: Requirements review
+    linked_requirements: [CHOMP-SYS-047, CHOMP-SYS-039]

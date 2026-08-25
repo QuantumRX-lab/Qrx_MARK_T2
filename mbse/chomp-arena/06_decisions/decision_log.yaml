@@ -1,0 +1,166 @@
+# Chomp Arena — Decision Log
+
+decisions:
+
+  - id: D-CHOMP-001
+    date: 2026-08-25
+    title: Build a good game first, the children's authoring kit second
+    decision: >
+      v1 and v2 build and prove the game as a hard-coded experience. The
+      authoring kit — tags, attributes, mirror tool, Check My Maze — lands in
+      v3.
+    rationale: >
+      Owner decision. A kit is only worth building once it is abstracting
+      something that is actually fun; abstracting an unproven design means
+      designing the authoring surface for mechanics that may not survive
+      playtesting, and then rebuilding it.
+    outcome: >
+      Two v1 requirements act as the down payment so v3 is an exposure of what
+      exists rather than a rewrite: CHOMP-SYS-037 (every tunable number in one
+      config table) and CHOMP-SYS-038 (engine finds content by tag, never by
+      hardcoded path). Both cost almost nothing now and are expensive to
+      retrofit. See RISK-CHOMP-006 for what this ordering costs the children.
+
+  - id: D-CHOMP-002
+    date: 2026-08-25
+    title: The vehicle is the character controller, not a physics vehicle
+    decision: >
+      Use the standard Roblox character with a custom Pac-Man model and tuned
+      movement values. No VehicleSeat, no wheels, no unanchored physics.
+    rationale: >
+      The whole combat system reads the facing angle. Physics vehicles flip,
+      jitter as network ownership passes between clients, and push each other
+      through walls, which makes that angle non-deterministic and different on
+      every screen. It also turns the speed and agility upgrades into two
+      server-side numbers instead of a suspension-tuning problem.
+    outcome: CHOMP-SYS-001, CHOMP-SYS-002.
+
+  - id: D-CHOMP-003
+    date: 2026-08-25
+    title: Points must be banked at a garage before they count
+    decision: >
+      Split the score into carried points (at risk) and banked dollars (safe,
+      and the only thing that buys upgrades).
+    rationale: >
+      Without it, points are a counter and there is never a reason to stop
+      eating or to take a risk. With it, every minute is a greed decision, the
+      map gains geography, and Power — which only rises when banked dollars are
+      spent — becomes an outcome of surviving the trip home rather than of
+      hoarding.
+    outcome: CHOMP-SYS-007, CHOMP-SYS-008, CHOMP-SYS-009.
+
+  - id: D-CHOMP-004
+    date: 2026-08-25
+    title: Combat losses scatter on the floor rather than transferring
+    decision: >
+      Points lost to a hit spawn as collectable pellets at the impact point,
+      available to anyone including the victim.
+    rationale: >
+      Direct transfer compounds whoever is already ahead. Scatter makes every
+      fight a contested pile that pulls in third parties, lets someone rob the
+      winner, and keeps the reward for attacking real but not automatic.
+    outcome: CHOMP-SYS-013.
+
+  - id: D-CHOMP-005
+    date: 2026-08-25
+    title: Attacking costs the attacker battle bar
+    decision: >
+      A side or rear bite costs the attacker 30% of their bar; a head-on costs
+      both players 40%.
+    rationale: >
+      Without a cost, the fastest player rear-ends the lobby indefinitely and
+      no other system matters. Spending bar sends the attacker back to the
+      pellets to re-arm and makes each attack a decision.
+    outcome: CHOMP-SYS-011, CHOMP-SYS-012. Residual risk RISK-CHOMP-003.
+
+  - id: D-CHOMP-006
+    date: 2026-08-25
+    title: Levels are gated rings inside one maze, not separate places
+    decision: >
+      Super ghosts guard gates between concentric rings of a single maze, and
+      cracking a gate opens it for the whole lobby for 60 seconds.
+    rationale: >
+      The obvious reading — each player unlocks their own next level — would
+      separate players into different mazes, and a combat game requires them in
+      the same one. Rings keep the lobby together and additionally sort it by
+      strength: a beginner farms the outer ring while stronger players fight
+      over the centre, which is age-fair matchmaking falling out of the map
+      layout with no matchmaking code.
+    outcome: CHOMP-SYS-022 through CHOMP-SYS-026. Residual risk RISK-CHOMP-004.
+
+  - id: D-CHOMP-007
+    date: 2026-08-25
+    title: Twelve players per server
+    decision: MaxPlayers 12, with 12 garages arranged 3 per quadrant.
+    rationale: >
+      Owner decision. 12 divides by four, so every garage has a symmetric
+      counterpart and no spawn is better than another. It stays comfortable in
+      one maze, and a smaller cap makes a server feel busier with the five or
+      six players realistically online. Raising it later is a quadrant edit,
+      not a rebuild.
+    outcome: CHOMP-SYS-046.
+
+  - id: D-CHOMP-008
+    date: 2026-08-25
+    title: Power resets at match end; nothing that affects power persists
+    decision: >
+      Upgrades, chassis and Power carry across the rounds of a match and reset
+      at match end. Cross-session persistence stores cosmetics and statistics
+      only.
+    rationale: >
+      Permanent progression means a veteran drives an Apex against a
+      first-timer's Standard and the first-timer never touches a pellet. This
+      is the mechanical form of the owner's fairness requirement.
+    outcome: CHOMP-SYS-028, CHOMP-SYS-042.
+
+  - id: D-CHOMP-009
+    date: 2026-08-25
+    title: Ghost personalities are pluggable modules from v1
+    decision: >
+      Each ghost behaviour is a ModuleScript returning one direction-choosing
+      function. v1 ships The Chaser and The Greedy One; v2 adds the rest.
+    rationale: >
+      Distinct, learnable behaviours are what make a maze feel alive, and the
+      module boundary costs nothing to establish now. It is also the v3
+      on-ramp: a ten-line function is the first real code an older child will
+      write, in a game their sister is already playing.
+    outcome: CHOMP-SYS-019, CHOMP-SYS-020.
+
+  - id: D-CHOMP-010
+    date: 2026-08-25
+    title: OPEN — whether a solo/co-op mode moves into v1
+    decision: >
+      Not yet decided. Currently scheduled for v2 (CHOMP-SYS-041).
+    rationale: >
+      Published to Friends only, most sessions will have one or two players,
+      and a 12-player PvP design degrades badly at that population. The ghosts
+      and gates already constitute a complete single-player Pac-Man, so the
+      marginal cost of a v1 solo mode is mode selection and a doubled ghost
+      count rather than new mechanics — but it is still scope on a v1 that is
+      already large (RISK-CHOMP-005).
+    outcome: Awaiting owner decision. Tracked as RISK-CHOMP-007.
+
+  - id: D-CHOMP-011
+    date: 2026-08-25
+    title: The maze is multi-level — towers, ramps and bridges
+    decision: >
+      Maps are vertically stacked decks connected by ramps and bridges, with
+      the rings ascending toward the centre and the Vault at the top of the
+      central tower, rather than concentric rings on a single plane.
+    rationale: >
+      Owner decision. It makes the progression visible: from the ground floor a
+      player can see the ring they are not yet allowed into, with a guarded ramp
+      between them and it, where on a flat plane a locked ring is an
+      abstraction. It also produces natural chokepoints — a bridge is a corridor
+      with no sideways escape and therefore where head-on contests actually
+      happen — allows scouting a fight before joining it, and yields the drop
+      attack for free, since a mouth never points at the ceiling and an attack
+      from above is therefore always a flank.
+    outcome: >
+      CHOMP-SYS-047 through CHOMP-SYS-052. Costs accepted: ghost pathing becomes
+      a multi-deck graph (cheap, provided vertical links are explicit prefab
+      data), build cost per map rises sharply (RISK-CHOMP-013, mitigated by v1
+      shipping one two-deck map), and the camera becomes the hardest technical
+      problem in the project (RISK-CHOMP-012, to be solved on a test map before
+      any real map is built). Falls are explicitly non-lethal (CHOMP-SYS-049) —
+      no voids, no death planes.

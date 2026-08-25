@@ -1,0 +1,673 @@
+# Chomp Arena — Test Cases
+# Schema per mbse/infrastructure/04_verification/test_cases.yaml.
+# This file is the source of truth for the requirement<->test trace: each
+# requirement's `verified_by` list is generated from the `verifies` lists
+# below, so the trace cannot drift or become one-directional.
+# Nothing is built yet — every status is NOT_STARTED.
+
+test_cases:
+
+  - id: CHOMP-TC-001
+    title: A new player understands the game in 60 seconds
+    verifies: [CHOMP-STK-001]
+    type: ACCEPTANCE
+    method: DEMONSTRATION
+    preconditions: ["A player who has never seen the game", "No verbal explanation given"]
+    test_data: {observer: "silent, timing only"}
+    procedure:
+      - "Spawn the player into a live round and say nothing"
+      - "Time until they eat a pellet, until they bank, and until they attack another player"
+      - "Afterwards ask them: what happens if someone hits your back?"
+    expected_result: Eating within 15 s, banking within 60 s, and a correct answer on directional combat.
+    pass_criteria:
+      - "all three actions performed without instruction inside 60 s"
+      - "player can state the mouth/flank rule unprompted"
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-002
+    title: A 7-year-old and an adult share a lobby
+    verifies: [CHOMP-STK-002, CHOMP-SYS-031]
+    type: ACCEPTANCE
+    method: DEMONSTRATION
+    preconditions: ["One child player, one experienced adult player, one full match"]
+    test_data: {match: "5 rounds, free-for-all"}
+    procedure:
+      - "Play a full match with both players"
+      - "Record the child's banked total per round and how often they were hit by the adult"
+      - "Ask the child at each gate whether they can go in, without letting them read the number aloud"
+    expected_result: The child banks in every round, is not repeatedly farmed, and answers gate readiness from colour alone.
+    pass_criteria:
+      - "child's banked total rises every round"
+      - "no round in which the child is hit by the adult more than twice"
+      - "gate readiness answered correctly from colour without reading digits"
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-003
+    title: Being chomped costs carry, never the round
+    verifies: [CHOMP-STK-003, CHOMP-SYS-015]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Player at empty bar carrying a known point total"]
+    test_data: {carried: 400, bar: 0}
+    procedure:
+      - "Take a side hit at empty bar"
+      - "Time from burst to controllable respawn"
+      - "Compare scattered pellet value and retained upgrades"
+    expected_result: 200 points scatter, respawn at own garage inside 4 s, chassis and upgrades unchanged.
+    pass_criteria: ["respawn <= 4 s", "50% +/- 1 point scattered", "no upgrade lost", "no elimination state exists"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-004
+    title: Rounds, intermission and a declared winner
+    verifies: [CHOMP-STK-004, CHOMP-SYS-027]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["A full match played to completion"]
+    test_data: {rounds: 5, round_seconds: 360, intermission_seconds: 30}
+    procedure:
+      - "Play a match end to end"
+      - "Check each round ends on time, each intermission allows spending, standings are visible throughout"
+      - "Check the declared winner matches the highest total banked"
+    expected_result: Five timed rounds, four intermissions, a correct winner.
+    pass_criteria: ["round lengths within 1 s of config", "winner equals max banked total", "standings visible in every round"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-005
+    title: Safety inspection before any wider publish
+    verifies: [CHOMP-STK-005, CHOMP-SYS-034, CHOMP-SYS-035, CHOMP-SYS-036]
+    type: SYSTEM
+    method: INSPECTION
+    preconditions: ["Place open in Studio", "Experience settings page open"]
+    test_data: {scope: "whole DataModel"}
+    procedure:
+      - "Search the whole DataModel for Script, LocalScript and ModuleScript instances outside the engine folders"
+      - "Confirm every remaining script is one the owner wrote or has read"
+      - "Confirm experience access is Private (or Friends, post-v3) and set by the owner's account"
+      - "Search for TextBox instances and for any label whose text is assigned from player input"
+    expected_result: No unread third-party script, no runtime player-authored text surface, access no wider than intended.
+    pass_criteria: ["zero unread scripts", "zero TextBox instances", "zero player-sourced label assignments", "access setting correct"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-006
+    title: Client-authority threat model walk-through
+    verifies: [CHOMP-STK-006]
+    type: SYSTEM
+    method: ANALYSIS
+    preconditions: ["Engine source complete for the phase under test"]
+    test_data: {scope: "every RemoteEvent and RemoteFunction in ReplicatedStorage"}
+    procedure:
+      - "List every remote the client can fire"
+      - "For each, write down what an attacker sending arbitrary arguments at 1000/s could achieve"
+      - "Confirm each handler re-derives every value it trusts from server state, and rate-limits"
+      - "Confirm no remote accepts a points, dollars, Power, bar or hit value as an argument"
+    expected_result: No remote through which a client can manufacture economy, power or combat outcomes.
+    pass_criteria:
+      - "every remote handler validates sender identity and re-derives values server-side"
+      - "no remote signature carries an economic or combat quantity"
+      - "every remote is rate-limited"
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-007
+    title: Performance on the family laptop and a phone
+    verifies: [CHOMP-STK-007, CHOMP-SYS-032, CHOMP-SYS-033]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Full 12-player lobby, simulated where necessary", "The family laptop", "One phone"]
+    test_data: {players: 12, duration_seconds: 360}
+    procedure:
+      - "Run a full round with 12 players and read the microprofiler and part count"
+      - "Join the same round from a phone and play a full lap of the outer ring"
+      - "Confirm pellet instances are reused rather than created and destroyed"
+    expected_result: 30+ FPS on the laptop throughout, under 4000 parts, playable touch controls, HUD fully on screen.
+    pass_criteria: ["FPS >= 30 at all times on the laptop", "live parts < 4000", "no GUI element off screen on the phone", "pellet instance count stable across the round"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-008
+    title: Engine and content are actually separate
+    verifies: [CHOMP-STK-008, CHOMP-SYS-037, CHOMP-SYS-038]
+    type: SYSTEM
+    method: INSPECTION
+    preconditions: ["Engine source complete for the phase under test"]
+    test_data: {method: "read every engine module"}
+    procedure:
+      - "Grep the engine for numeric literals that are balance values"
+      - "Grep the engine for hardcoded instance paths into Workspace content"
+      - "Add a new pellet and a new gate to a map without editing engine code, and play it"
+    expected_result: All balance values come from ChompConfig; all content is found by tag or folder convention; new content works untouched.
+    pass_criteria: ["zero balance literals in engine logic", "zero hardcoded content paths", "added content functions with no engine edit"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-009
+    title: The vehicle is a character, not a physics vehicle
+    verifies: [CHOMP-SYS-001]
+    type: UNIT
+    method: INSPECTION
+    preconditions: ["Vehicle model and controller complete"]
+    test_data: {scope: "StarterPlayer and the vehicle model"}
+    procedure:
+      - "Confirm no VehicleSeat, wheel, or motor constraint is used for locomotion"
+      - "Confirm the model's facing is driven by the character's orientation"
+    expected_result: Locomotion is the standard character controller with tuned values.
+    pass_criteria: ["no physics-vehicle instances present", "facing derives from character orientation only"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-010
+    title: A client cannot make itself fast
+    verifies: [CHOMP-SYS-002]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["Two clients, one running an exploit simulation script in Studio"]
+    test_data: {attack: "set Humanoid.WalkSpeed = 200 locally, repeatedly"}
+    procedure:
+      - "Set WalkSpeed far above the server value from the client"
+      - "Observe the server-side position delta and the correction"
+    expected_result: The server-held value is reasserted and the player does not travel at the forged speed.
+    pass_criteria: ["correction applied within 1 s", "no pellet is credited from the forged movement"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-011
+    title: Walls hold at maximum speed
+    verifies: [CHOMP-SYS-003]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Apex chassis with Speed III"]
+    test_data: {approach_angles: [90, 45, 15]}
+    procedure:
+      - "Drive at maximum speed into a wall head-on, then at 45 degrees, then at a glancing 15 degrees"
+      - "Repeat against the thinnest wall piece in the map"
+    expected_result: No tunnelling in any case.
+    pass_criteria: ["zero wall passes across 30 attempts", "no case of ending up outside the maze"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-012
+    title: Pellets are server-owned and charge both pools
+    verifies: [CHOMP-SYS-004, CHOMP-SYS-005]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["One client running an exploit simulation"]
+    test_data: {attack: "fire any eat-related remote 1000 times without moving", pellet_value: 10}
+    procedure:
+      - "Attempt to claim pellets from the client without being near them"
+      - "Then legitimately eat 10 pellets and read bar and carried"
+      - "Confirm respawn timing of eaten pellets"
+    expected_result: Forged claims credit nothing; legitimate eating adds value x combo to both bar and carry; pellets respawn on schedule.
+    pass_criteria: ["zero points from forged claims", "bar and carry both credited correctly", "bar capped at chassis capacity", "carry uncapped"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-013
+    title: Combo builds and breaks
+    verifies: [CHOMP-SYS-006]
+    type: UNIT
+    method: TEST
+    preconditions: ["A corridor of evenly spaced pellets"]
+    test_data: {window_seconds: 1.5, max: 5}
+    procedure:
+      - "Eat a clean line of pellets and watch the multiplier climb"
+      - "Pause for 2 s mid-line"
+      - "Then drive into a wall mid-line"
+      - "Then take a hit mid-line"
+    expected_result: Multiplier climbs to x5 and resets to x1 on lapse, wall impact and hit.
+    pass_criteria: ["caps at x5", "resets in all three cases", "pellet credit reflects the multiplier at the moment of eating"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-014
+    title: Banking, and the garage that is not a fort
+    verifies: [CHOMP-SYS-007, CHOMP-SYS-008]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["Two players, each with a garage and a known carry"]
+    test_data: {carried: 500}
+    procedure:
+      - "Enter your own garage and confirm carry converts 1:1 with the bar untouched"
+      - "Enter the other player's garage and attempt to bank"
+      - "Attempt to attack a player standing inside a garage"
+      - "Leave your garage and immediately attempt to re-enter"
+    expected_result: Own-garage banking works; foreign banking refused; no combat inside; re-entry blocked for 5 s.
+    pass_criteria: ["1:1 conversion", "bar unchanged by banking", "foreign bank refused", "no combat resolves inside a garage", "re-entry refused for 5 s"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-015
+    title: Upgrades spend banked dollars and move Power
+    verifies: [CHOMP-SYS-009]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["Player with a known bank and a known Power"]
+    test_data: {bank: 600, purchase: "Tier 2 chassis at 500"}
+    procedure:
+      - "Buy a chassis and confirm bank, bar capacity and Power all update"
+      - "Attempt a purchase exceeding the bank"
+      - "Attempt a purchase using carried rather than banked points"
+      - "From an exploit client, attempt to buy by firing the purchase remote with a forged price"
+    expected_result: Legitimate purchase applies; over-budget, carry-funded and forged-price purchases all refused.
+    pass_criteria: ["Power recomputed immediately", "all three illegitimate purchases refused", "server ignores any client-supplied price"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-016
+    title: Head-on classification and resolution
+    verifies: [CHOMP-SYS-010, CHOMP-SYS-011]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["Two players with controlled bar values"]
+    test_data: {cases: ["100 v 40", "100 v 95", "approach angles 0, 30, 44, 46, 90 degrees"]}
+    procedure:
+      - "Collide mouth to mouth at each approach angle and record the classification"
+      - "Run the 100 v 40 case and check both bars and the loser's carry"
+      - "Run the 100 v 95 case and check for a clang"
+    expected_result: Angles within 45 degrees classify head-on; both lose 40% bar; the lower bar loses the difference from carry; near-equal bars clang without point loss.
+    pass_criteria:
+      - "classification boundary correct at 44 and 46 degrees"
+      - "both bars reduced 40%"
+      - "overflow equals the bar difference and comes from carry"
+      - "clang inside 10% costs no points and bounces both"
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-017
+    title: Biting costs the biter, and losses scatter
+    verifies: [CHOMP-SYS-012, CHOMP-SYS-013]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["Attacker with a full bar, victim with a known bar and carry"]
+    test_data: {attacker_bar: 100, victim_bar: 20, victim_carry: 300}
+    procedure:
+      - "Hit the victim's flank and read both bars, the victim's carry, and the floor"
+      - "Attempt four consecutive bites and confirm the attacker runs out of bar"
+      - "Have a third player eat the scattered pellets"
+    expected_result: Attacker spends 30% per bite; victim loses bar then carry; the loss appears on the floor as pellets anyone can eat, for at least 20 s.
+    pass_criteria:
+      - "attacker bar reduced 30% per bite and bites stop at empty"
+      - "no points transfer directly to the attacker"
+      - "scattered pellets collectable by any player including the victim"
+      - "scatter persists >= 20 s"
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-018
+    title: One collision is one hit
+    verifies: [CHOMP-SYS-014]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["Two players able to hold contact"]
+    test_data: {contact_seconds: 3}
+    procedure:
+      - "Hold contact against a flank for 3 seconds and count damage events"
+      - "Repeat for ghost contact and for gate guardian contact"
+    expected_result: At most one hit per 1.5 s from any source, with a visible indication while invulnerable.
+    pass_criteria: ["<= 2 hits in 3 s of held contact", "invulnerability visible", "rule holds for players, ghosts and guardians"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-019
+    title: No pickings from small fry
+    verifies: [CHOMP-SYS-016]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["One Apex player, one starting-chassis player carrying points"]
+    test_data: {power_gap: 600, victim_carry: 200}
+    procedure:
+      - "Hit the weaker player from behind and inspect the floor and both totals"
+      - "Reduce the gap below 300 and repeat"
+    expected_result: Above a 300 Power gap nothing scatters and nothing is awarded; below it, normal rules resume.
+    pass_criteria: ["zero scatter above the gap", "victim keeps their carry", "normal scatter below the gap"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-020
+    title: Ghosts path on the grid and rob on contact
+    verifies: [CHOMP-SYS-017, CHOMP-SYS-018]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["A map with ghosts active", "Player carrying a known total"]
+    test_data: {carried: 400}
+    procedure:
+      - "Watch a ghost for 60 s and confirm it turns only at junctions and never reverses mid-corridor"
+      - "Take a ghost hit and read carry, bar, and the floor"
+    expected_result: Junction-only turning; 25% of carry taken and scattered; bar untouched; vehicle survives.
+    pass_criteria: ["no mid-corridor reversals outside fleeing", "100 points scattered", "bar unchanged", "no respawn triggered"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-021
+    title: A new ghost personality needs no engine change
+    verifies: [CHOMP-SYS-019]
+    type: UNIT
+    method: INSPECTION
+    preconditions: ["Engine complete for the phase under test"]
+    test_data: {new_module: "Behaviours/Sneaky.lua"}
+    procedure:
+      - "Add a new behaviour module returning a direction-choosing function"
+      - "Point a ghost spawn at it and play"
+      - "Confirm no engine file was edited"
+    expected_result: The new ghost works with zero engine edits.
+    pass_criteria: ["engine diff is empty", "new behaviour drives the ghost", "v1 ships at least Chaser and Greedy One"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-022
+    title: The Greedy One hunts the fattest carry
+    verifies: [CHOMP-SYS-020]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Three players with different carried totals"]
+    test_data: {carries: [50, 200, 900]}
+    procedure:
+      - "Confirm the ghost pursues the 900 carry"
+      - "Have that player bank, then confirm the ghost switches target at its next junction"
+    expected_result: The ghost always pursues the highest unbanked carry and re-evaluates at junctions.
+    pass_criteria: ["correct initial target", "target switches within one junction of the bank", "never targets a banked-out player"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-023
+    title: Full Jaw reverses the game and opens one gate
+    verifies: [CHOMP-SYS-021, CHOMP-SYS-026]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["A power pellet available", "A gate above the player's Power"]
+    test_data: {duration_seconds: 8, guardian_threat: 500, player_power: 100}
+    procedure:
+      - "Eat the power pellet and confirm glow, siren, fleeing ghosts and all-sides mouth"
+      - "Take a flank hit while active"
+      - "Eat a fleeing ghost"
+      - "Drive through the over-threat gate, then attempt a second gate"
+    expected_result: 8 s of invulnerable-to-flanking offence; ghosts flee and are worth 200; one gate passed without consuming its guardian; the second refused.
+    pass_criteria: ["flank hit does not damage during Full Jaw", "ghost eaten for 200", "first gate passes", "guardian still present after passage", "second gate refused"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-024
+    title: Ring layout inspection
+    verifies: [CHOMP-SYS-022]
+    type: SYSTEM
+    method: INSPECTION
+    preconditions: ["A finished map"]
+    test_data: {scope: "map geometry and pellet values"}
+    procedure:
+      - "Confirm concentric rings with rising pellet values inward"
+      - "Confirm all garages sit on the outermost ring"
+      - "Rotate the map 90 degrees in the viewport and compare against the original"
+    expected_result: Rings are concentric, values rise inward, garages are outermost, and the map is identical under 90 degree rotation.
+    pass_criteria: ["pellet value strictly rises per ring inward", "all garages on ring 1", "geometry identical under rotation"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-025
+    title: The gate guardian turns away, or is eaten and opens for all
+    verifies: [CHOMP-SYS-023, CHOMP-SYS-024, CHOMP-SYS-025]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["A gate with Threat 250", "One player under it, one over it, one bystander"]
+    test_data: {threat: 250, under_power: 100, over_power: 300, under_carry: 400}
+    procedure:
+      - "Drive the under-powered player into the guardian and read carry and position"
+      - "Drive the over-powered player into it and read points, the gate state and the bystander's access"
+      - "Wait 60 s and confirm the guardian reforms"
+      - "From an exploit client, fire any gate remote claiming a Power of 900"
+    expected_result: Under-power costs 200 and ejects; over-power consumes the guardian, awards bonus and opens the gate to everyone for 60 s; forged Power is ignored.
+    pass_criteria:
+      - "under-powered player loses 50% carry and ends outside the gate"
+      - "guardian displays its Threat at all times while present"
+      - "bystander passes freely during the 60 s window"
+      - "guardian reforms after 60 s"
+      - "client-claimed Power has no effect"
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-026
+    title: Power carries across rounds and resets at match end
+    verifies: [CHOMP-SYS-028]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["A full match, then a second match with the same players"]
+    test_data: {end_of_match_power: 700}
+    procedure:
+      - "Confirm upgrades persist across the intermission into the next round"
+      - "At match end, confirm every player is reset to the starting chassis"
+      - "Rejoin and confirm nothing power-related was restored from storage"
+    expected_result: Progress persists within a match only.
+    pass_criteria: ["upgrades survive intermissions", "all players reset at match end", "no power restored on rejoin"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-027
+    title: Joining in round four is still a game
+    verifies: [CHOMP-SYS-029]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["A match in progress at round 4 with Tier 3 opponents"]
+    test_data: {elapsed_fraction: 0.7}
+    procedure:
+      - "Join mid-round and read the starting grant, chassis and spawn garage"
+      - "Play the remainder of the round"
+    expected_result: Starting chassis plus a catch-up grant scaled to elapsed time, spawned at a free garage, able to bank in that round.
+    pass_criteria: ["grant scales with elapsed match time", "spawn garage unoccupied", "late joiner banks at least once in their first round"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-028
+    title: The HUD holds nothing
+    verifies: [CHOMP-SYS-030]
+    type: UNIT
+    method: TEST
+    preconditions: ["An exploit client able to edit its own GUI"]
+    test_data: {attack: "set the banked label to 999999 locally"}
+    procedure:
+      - "Edit every HUD value locally and attempt to bank, buy and pass a gate"
+      - "Inspect the HUD source for any authoritative arithmetic"
+    expected_result: Local edits change pixels only; every gameplay decision uses the server value.
+    pass_criteria: ["no purchase or gate passage succeeds from forged HUD values", "HUD contains no economy arithmetic"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-029
+    title: Twelve players, twelve symmetric garages
+    verifies: [CHOMP-SYS-046]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["A finished map", "12 players, simulated where necessary"]
+    test_data: {players: 12}
+    procedure:
+      - "Confirm MaxPlayers is 12 and 12 garages exist, 3 per quadrant"
+      - "Fill the server and confirm every player gets a distinct garage"
+      - "Run a full round and measure whether any ring is stripped of pellets between respawns"
+    expected_result: Twelve symmetric homes, no collisions in assignment, and no ring starved of pellets.
+    pass_criteria: ["3 garages per quadrant", "12 distinct assignments", "no ring below 25% pellet occupancy at any sampled moment"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-030
+    title: Six maps in rotation
+    verifies: [CHOMP-SYS-039]
+    type: SYSTEM
+    method: INSPECTION
+    preconditions: ["v2 map pool complete"]
+    test_data: {maps: 6}
+    procedure:
+      - "Confirm all six archetypes exist and each passes CHOMP-TC-024"
+      - "Play a full match and confirm the map changes each round"
+    expected_result: Six distinct, symmetric, ringed maps rotating between rounds.
+    pass_criteria: ["six maps present", "each passes ring layout inspection", "no map repeats within a match"]
+    status: NOT_STARTED
+    phase: v2
+
+  - id: CHOMP-TC-031
+    title: Four ghosts, four rings
+    verifies: [CHOMP-SYS-040]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["v2 content complete"]
+    test_data: {threats: {2: 250, 3: 500, 4: 800}}
+    procedure:
+      - "Confirm all four personalities are active and behave distinctly over 5 minutes of observation"
+      - "Climb the full ring ladder in one match and confirm each gate's Threat"
+    expected_result: Four distinguishable ghosts; three gates at the configured Threats; the Vault reachable within a match.
+    pass_criteria: ["four distinct targeting behaviours observable", "gate Threats match config", "ladder completable inside one match"]
+    status: NOT_STARTED
+    phase: v2
+
+  - id: CHOMP-TC-032
+    title: Team and solo modes
+    verifies: [CHOMP-SYS-041]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["v2 modes complete"]
+    test_data: {modes: ["2v2", "solo"]}
+    procedure:
+      - "Play a team round: confirm shared bank, shared gate access and no friendly fire"
+      - "Play solo: confirm no PvP, doubled ghosts, gates still gated"
+    expected_result: Both modes playable and internally consistent.
+    pass_criteria: ["friendly fire impossible", "bank shared correctly", "solo has no PvP and doubled ghost count"]
+    status: NOT_STARTED
+    phase: v2
+
+  - id: CHOMP-TC-033
+    title: A failed profile read never becomes a save
+    verifies: [CHOMP-SYS-042]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["A player with existing cosmetics saved", "A way to force a DataStore read failure"]
+    test_data: {failure: "forced pcall error on GetAsync"}
+    procedure:
+      - "Force the read to fail, join, then leave normally"
+      - "Restore the DataStore and read the stored profile"
+      - "Separately confirm no power-affecting value is ever written"
+    expected_result: The pre-existing profile is intact; the failed session wrote nothing; only cosmetics and statistics are stored.
+    pass_criteria: ["no write issued after a failed read", "player informed their session will not save", "stored profile unchanged", "no power values in the stored schema"]
+    status: NOT_STARTED
+    phase: v2
+
+  - id: CHOMP-TC-034
+    title: Authored content contains no scripts
+    verifies: [CHOMP-SYS-043]
+    type: SYSTEM
+    method: INSPECTION
+    preconditions: ["v3 kit complete", "At least one child-authored map"]
+    test_data: {scope: "Workspace/Maps and ReplicatedStorage content folders"}
+    procedure:
+      - "Search all content folders for any script instance"
+      - "Confirm every gameplay object is driven by tag and attributes alone"
+    expected_result: Zero scripts in content; everything driven by tags and attributes.
+    pass_criteria: ["zero script instances in content folders", "every tagged object's behaviour derives from its attributes"]
+    status: NOT_STARTED
+    phase: v3
+
+  - id: CHOMP-TC-035
+    title: The mirror tool produces a symmetric map
+    verifies: [CHOMP-SYS-044]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["v3 kit complete", "An authored quadrant"]
+    test_data: {rotations: [90, 180, 270]}
+    procedure:
+      - "Run the tool on a quadrant containing walls, pellets, a gate and a garage"
+      - "Compare all four quadrants and play the result"
+      - "Edit the quadrant and re-run, confirming the old copies are replaced not duplicated"
+    expected_result: Three exact rotations, a playable symmetric map, and idempotent re-runs.
+    pass_criteria: ["all four quadrants identical under rotation", "re-run does not duplicate geometry", "resulting map passes CHOMP-TC-024"]
+    status: NOT_STARTED
+    phase: v3
+
+  - id: CHOMP-TC-036
+    title: Check My Maze catches a child's real mistakes
+    verifies: [CHOMP-SYS-045]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["v3 kit complete"]
+    test_data: {seeded_faults: ["gate removed", "garage removed", "pellet inside a wall", "wall off grid", "unknown ghost behaviour", "script inserted into content"]}
+    procedure:
+      - "Seed each fault into a valid map one at a time and run the validator"
+      - "Read each message aloud to a 7-year-old and ask what they would do"
+    expected_result: Every seeded fault is caught, and each message names an action the child can take.
+    pass_criteria: ["6/6 faults detected", "zero false positives on the clean map", "child can state the fix from the message alone"]
+    status: NOT_STARTED
+    phase: v3
+
+  - id: CHOMP-TC-037
+    title: The building stacks, and the Vault is visible from the ground
+    verifies: [CHOMP-SYS-047]
+    type: SYSTEM
+    method: INSPECTION
+    preconditions: ["A finished multi-deck map"]
+    test_data: {decks: ">= 2"}
+    procedure:
+      - "Confirm rings ascend toward the centre with the Vault on the top deck"
+      - "Stand at a ground-floor garage and confirm a higher ring is visible from it"
+      - "Rotate the map 90 degrees about the vertical axis and compare"
+    expected_result: Stacked rings, a visible Vault from ground level, and rotational symmetry preserved in three dimensions.
+    pass_criteria: ["two or more decks", "higher ring visible from every garage", "identical under 90 degree rotation about the vertical axis"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-038
+    title: Ghosts follow you upstairs
+    verifies: [CHOMP-SYS-048]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["A multi-deck map with ghosts active"]
+    test_data: {route: "ground deck to top deck via two ramps"}
+    procedure:
+      - "Draw a ghost into pursuit, then climb two decks by different ramps"
+      - "Watch for sticking, oscillation at ramp mouths, or pathing through geometry"
+      - "Confirm turning still happens only at junctions"
+    expected_result: The ghost pursues across decks using ramps, without sticking or oscillating.
+    pass_criteria: ["ghost reaches the player's deck within 15 s", "no oscillation at any ramp mouth over 5 minutes", "no geometry penetration"]
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-039
+    title: Falls and drop attacks
+    verifies: [CHOMP-SYS-049, CHOMP-SYS-050]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["A bridge over a lower deck", "Two players"]
+    test_data: {carried: 500, combo: 4}
+    procedure:
+      - "Drive off a bridge edge and read landing position, combo and carry"
+      - "Be knocked off by a bite near the edge and repeat the readings"
+      - "Drop from a bridge onto a player below, facing any direction"
+      - "Search the map for any void, death plane or unrecoverable fall"
+    expected_result: Falls land on the deck below costing 10% of carry and the combo; drops onto players classify as flank hits and cost the attacker bar; no unrecoverable falls exist anywhere.
+    pass_criteria:
+      - "10% +/- 1 point scattered on landing"
+      - "combo reset to x1"
+      - "player always lands on a walkable deck"
+      - "drop attack classified as side/rear regardless of victim facing"
+      - "attacker charged the standard bite cost"
+      - "zero voids or death planes in the map"
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-040
+    title: The camera never loses the player, and other decks are legible
+    verifies: [CHOMP-SYS-051, CHOMP-SYS-052]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["A multi-deck map", "Several players spread across decks"]
+    test_data: {duration_seconds: 300}
+    procedure:
+      - "Drive a full circuit of every deck, under bridges and around tower cores, logging occlusion"
+      - "Ride a ramp between decks and confirm the camera rises without a jump cut"
+      - "Confirm players on other decks appear as markers with height indication"
+      - "Ask a 7-year-old to point at where the nearest other player is"
+    expected_result: Occluding geometry fades, the camera tracks across decks smoothly, off-deck players are locatable at a glance.
+    pass_criteria:
+      - "no full occlusion lasting more than 0.2 s across a 5 minute circuit"
+      - "no camera jump cut on any ramp"
+      - "child locates an off-deck player correctly from the marker alone"
+    status: NOT_STARTED
+    phase: v1
