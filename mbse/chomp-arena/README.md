@@ -10,6 +10,8 @@ Same methodology as `mbse/infrastructure/` (INCOSE-style requirement IDs,
 verification by test case, decision log, risk register, a validator that
 recomputes every rollup), scoped to a game rather than to hosting.
 
+**Taking this over?** Read `HANDOVER.md` first.
+
 **Building it:** see `BUILDING.md` — Rojo sync, press play, and the camera
 acceptance run.
 
