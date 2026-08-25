@@ -26,13 +26,47 @@ local MOVE = Config.Movement
 
 local player = Players.LocalPlayer
 
+-- Roblox's default control script drives the same Humanoid this controller
+-- does. It calls humanoid:Move() every frame from its own input, and with no
+-- key held that call is Vector3.zero — which cancels the forward drive below,
+-- so the vehicle only moved while a key was down and never steered. Disabling
+-- it makes this the single writer of locomotion.
+--
+-- This is D-CHOMP-018 again in a different property: the fix moved rotation off
+-- the server, but left a second authority calling Move() on the client. One
+-- writer per value, or the value is whatever ran last (D-CHOMP-023).
+task.spawn(function()
+	local ok, err = pcall(function()
+		local playerScripts = player:WaitForChild("PlayerScripts", 10)
+		if not playerScripts then error("PlayerScripts never appeared") end
+		local module = playerScripts:WaitForChild("PlayerModule", 10)
+		if not module then error("PlayerModule never appeared") end
+		require(module):GetControls():Disable()
+	end)
+	if ok then
+		print("[VehicleController] default controls disabled — this is the only mover")
+	else
+		-- Loud, because the symptom otherwise reads as "the handling is bad"
+		-- rather than "something else is steering".
+		warn("[VehicleController] could not disable default controls, expect a fight: " .. tostring(err))
+	end
+end)
+
 -- Written by InputController each frame. Steering intent only, -1 .. 1.
-local state = _G.ChompInput or { steer = 0, flip = false }
+local state = _G.ChompInput or { steer = 0, throttle = 0, flip = false }
 _G.ChompInput = state
 
 local smoothedSteer = 0
+local heading = 0          -- world yaw in radians. Ours, not the solver's.
+local headingReady = false -- seeded from the character on first frame
+local currentSpeed = 0     -- studs/s, ramped by Acceleration and Braking
 local flipRemaining = 0
 local flipDirection = 1
+
+player.CharacterAdded:Connect(function()
+	headingReady = false
+	currentSpeed = 0
+end)
 
 local function stats()
 	-- The server holds the authoritative values and writes them onto the
@@ -52,7 +86,13 @@ RunService.RenderStepped:Connect(function(dt)
 	if not (root and humanoid) then return end
 	if humanoid.Health <= 0 then return end
 
-	local _, turnRate = stats()
+	local topSpeed, turnRate = stats()
+
+	if not headingReady then
+		local _, y = root.CFrame:ToOrientation()
+		heading = y
+		headingReady = true
+	end
 
 	-- Ramp the steering instead of applying it raw. Straight-through input is
 	-- twitchy at any turn rate high enough to make a junction.
@@ -76,15 +116,49 @@ RunService.RenderStepped:Connect(function(dt)
 		yaw = -math.rad(turnRate) * smoothedSteer * dt
 	end
 
-	if yaw ~= 0 then
-		root.CFrame = root.CFrame * CFrame.Angles(0, yaw, 0)
+	-- The heading is ours; the transform is the engine's (D-CHOMP-025).
+	--
+	-- This used to write root.CFrame every RenderStepped. That is a third
+	-- authority problem, and the physics solver won: the rotation was reverted
+	-- on the following step, so yaw never accumulated past a few degrees and the
+	-- vehicle drove permanently north into a wall no matter how hard you steered.
+	-- Being wedged in that wall made it worse, because the solver was also
+	-- resolving penetration every step.
+	--
+	-- So we never touch the transform. We integrate a heading angle and hand it
+	-- to Move() as a direction; AutoRotate turns the character to match. Move()
+	-- is a request the solver honours rather than a value it has to reconcile.
+	heading += yaw
+
+	-- CFrame.Angles(0, h, 0).LookVector is (-sin h, 0, -cos h). Flat by
+	-- construction, so slopes cannot steal speed on the ramp (D-CHOMP-015).
+	-- Signed throttle from the stick (D-CHOMP-027). Forward drives, back reverses
+	-- at a fraction of top speed, centre coasts to a stop over Braking. Releasing
+	-- coasts rather than stopping dead, so letting go mid-corner is a decision
+	-- rather than a punishment. Acceleration and Braking had been declared in
+	-- ChompConfig since the start and unused while speed was constant.
+	local demand = state.throttle or 0
+	local target = topSpeed * demand
+	if demand < 0 then
+		target = target * MOVE.ReverseSpeedFraction
 	end
 
-	-- Always driving forward (D-CHOMP-015). Move() is given a flat world
-	-- vector so slopes do not steal speed on the ramp.
-	local facing = root.CFrame.LookVector
-	local flat = Vector3.new(facing.X, 0, facing.Z)
-	if flat.Magnitude > 0.001 then
-		humanoid:Move(flat.Unit, false)
+	-- Accelerating means moving away from zero; anything else is braking, which
+	-- is the stronger rate. Reversing from a forward roll therefore brakes first
+	-- and only then picks up speed backwards, which is what a vehicle does.
+	local rate = (math.abs(target) > math.abs(currentSpeed)) and MOVE.Acceleration or MOVE.Braking
+	if currentSpeed < target then
+		currentSpeed = math.min(target, currentSpeed + rate * dt)
+	else
+		currentSpeed = math.max(target, currentSpeed - rate * dt)
 	end
+
+	-- MoveDirection magnitude scales speed, which is how analog input works, so
+	-- the throttle rides on the vector length rather than on WalkSpeed. WalkSpeed
+	-- stays the server's number and is never written from here. A negative
+	-- fraction points the vector backwards along the heading, and AutoRotate then
+	-- swings the vehicle to face where it is actually going — which is what makes
+	-- holding back read as "turn around" rather than as moonwalking.
+	local fraction = topSpeed > 0 and math.clamp(currentSpeed / topSpeed, -1, 1) or 0
+	humanoid:Move(Vector3.new(-math.sin(heading), 0, -math.cos(heading)) * fraction, false)
 end)

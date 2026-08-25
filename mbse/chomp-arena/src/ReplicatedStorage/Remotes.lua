@@ -9,7 +9,12 @@
 	Adding a fourth remote means extending the exploit regression suite
 	(CHOMP-TC-042) in the same commit. That is not a guideline.
 
-	The remotes are DECLARED IN default.project.json, not created here.
+	The remotes are DECLARED IN default.project.json, not created here, in a
+	folder named RemoteEvents — NOT "Remotes". This module is itself named
+	Remotes, and two children of ReplicatedStorage sharing one name makes
+	WaitForChild("Remotes") ambiguous: it returned this ModuleScript, which has
+	no children, so the lookup below timed out and took the network surface
+	down with it (D-CHOMP-024).
 
 	They used to be created at require time by whichever side got there first.
 	That was a latent race, and it fired the moment MovementService stopped
@@ -27,16 +32,16 @@ local TIMEOUT = 10
 
 local Remotes = {}
 
-local folder = ReplicatedStorage:WaitForChild("Remotes", TIMEOUT)
+local folder = ReplicatedStorage:WaitForChild("RemoteEvents", TIMEOUT)
 if not folder then
-	error("[Remotes] ReplicatedStorage.Remotes is missing. It is declared in " ..
+	error("[Remotes] ReplicatedStorage.RemoteEvents is missing. It is declared in " ..
 		"default.project.json — if it is absent, the Rojo sync did not apply.")
 end
 
 for _, name in ipairs(NAMES) do
 	local remote = folder:WaitForChild(name, TIMEOUT)
 	if not remote then
-		error(("[Remotes] %s is missing from ReplicatedStorage.Remotes"):format(name))
+		error(("[Remotes] %s is missing from ReplicatedStorage.RemoteEvents"):format(name))
 	end
 	Remotes[name] = remote :: RemoteEvent
 end

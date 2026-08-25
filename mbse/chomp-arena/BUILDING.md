@@ -23,10 +23,14 @@ Hit Play. You should get:
 - A 24 × 24 cell ground deck with a corridor, a tower core, a ramp up to a
   raised deck, and a bridge crossing the corridor below.
 - A camera locked to world north, 35° down, that follows you.
-- A vehicle that **drives forward on its own**. Hold `A`/`D` (or the arrow
-  keys) to steer. Double-tap the opposite direction to flip 180°.
+- A vehicle driven by one stick. `W`/`Up` drives, `S`/`Down` reverses, `A`/`D`
+  or `Left`/`Right` steer, and the stick centred coasts to a stop. Double-tap a
+  steering key to flip 180°.
 
-There is no accelerator and no brake. That is the design (`D-CHOMP-015`).
+On touch this is a single **floating** stick: it anchors wherever the finger
+lands, so there is nothing to find and nothing to lose (`D-CHOMP-027`, which
+supersedes the always-forward rule of `D-CHOMP-015` and the hold-to-drive
+scheme of `D-CHOMP-026`).
 
 ## What to actually test — `CHOMP-TC-040`
 
@@ -55,6 +59,33 @@ device, and the device is the reference platform.
 If the camera cannot pass this on a map this trivial, the multi-level design is
 in trouble — and finding that out now, before any real geometry exists, is the
 entire reason this is built first.
+
+## Gotchas that cost real time
+
+**`rojo serve` reads `default.project.json` once, at startup.** Editing a file
+under a `$path` syncs live; changing the *project file* — adding, renaming or
+removing a declared instance — does not. The old tree keeps being served and the
+symptom is an instance that is "missing" no matter how many times you reconnect.
+Restart the server after any project-file edit.
+
+**Never give a declared instance the same name as a module syncing into the same
+parent.** Rojo creates both, and `WaitForChild` then picks arbitrarily between
+them. This cost two playtests: a `Remotes` folder declared alongside
+`Remotes.lua` meant `WaitForChild("Remotes")` returned the ModuleScript, which
+has no children (`D-CHOMP-024`).
+
+**A stale `rojo serve` from another project holds port 34872** and will happily
+sync Studio with the wrong tree. `Stop-Process -Name rojo -Force`.
+
+**Studio's Plugin Management window lists only Marketplace plugins.** A locally
+placed `.rbxm` works but never appears there — its absence is not a problem.
+
+**PowerShell 5.1: `&&` is a parse error.** Use `;`.
+
+**Function keys may be in media mode** — `F5` opens display options rather than
+playtesting. Use the toolbar buttons, or `Fn`+`F5`.
+
+**Rojo disconnects when you press Play.** Expected. Reconnect after stopping.
 
 ## Tuning it
 

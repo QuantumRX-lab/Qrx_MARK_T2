@@ -43,6 +43,8 @@ ChompConfig.Movement = {
 	ReverseFlipSeconds = 0.45,
 	ReverseFlipSecondsAgile = 0.25,   -- with Agility II or better
 	AgilityLevelForFastReverse = 2,
+	ReverseSpeedFraction = 0.6,       -- reverse is slower than forward, so backing
+	                                  -- out of a corner is never the fast route
 }
 
 -- ── Upgrades ────────────────────────────────────────────────────────────
@@ -145,6 +147,12 @@ ChompConfig.Budgets = {
 -- no action button in the entire game.
 
 ChompConfig.Controls = {
+	-- Floating stick (D-CHOMP-027). Radius is a fraction of screen HEIGHT so the
+	-- stick is the same physical size in portrait and landscape.
+	StickRadiusFraction = 0.10,   -- drag this far from the anchor = full deflection
+	StickDeadZoneFraction = 0.15, -- of the radius; below this the stick reads zero
+
+	-- Retained for the HUD and for the old hold-to-turn scheme's tests.
 	DeadZoneFraction = 0.20,      -- middle fifth of the screen steers nowhere
 	FullLockFraction = 0.42,      -- past this from centre, full turn rate
 	FlipDoubleTapSeconds = 0.35,  -- two taps this close on the far side = 180 flip

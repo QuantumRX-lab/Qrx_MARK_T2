@@ -420,3 +420,140 @@ decisions:
       combat. Attributes are read from ChompConfig rather than written into the
       spec, so a model cannot drift from the numbers the game uses. Work
       instruction in workstreams/CHAIN-VEHICLE/BUILD-AND-TEST.md.
+
+  - id: D-CHOMP-023
+    date: 2026-08-25
+    title: The default control script is disabled; this client is the only mover
+    decision: >
+      VehicleController disables Roblox's default PlayerModule controls on
+      startup, making it the single writer of locomotion for the character it
+      owns. The disable runs off-thread and warns loudly if it fails.
+    rationale: >
+      Found in the first playtest run from a local session. MovementService
+      already set AutoRotate = false, but nothing disabled the default control
+      script, which calls humanoid:Move() every frame from its own input. With
+      no key held that call is Vector3.zero, so it cancelled the unconditional
+      forward drive in VehicleController; with a key held it supplied a
+      camera-relative direction instead. The vehicle therefore only moved while
+      a key was down and never steered, which reads as "the controls are
+      broken" rather than as a second authority writing the same value. This is
+      D-CHOMP-018 in a different property: that fix moved rotation off the
+      server but left two writers of Move() on the client.
+    outcome: >
+      VehicleController requires PlayerModule and calls GetControls():Disable()
+      in a spawned task, printing on success and warning on failure. Steering
+      and the forward drive are now written by exactly one place.
+
+  - id: D-CHOMP-024
+    date: 2026-08-25
+    title: The RemoteEvent folder is named RemoteEvents, never Remotes
+    decision: >
+      The folder of RemoteEvents declared in default.project.json is named
+      RemoteEvents. The ModuleScript that resolves them keeps the name Remotes.
+      No two children of ReplicatedStorage may share a name.
+    rationale: >
+      D-CHOMP-021 declared the events in a folder called Remotes, while
+      src/ReplicatedStorage/Remotes.lua already syncs as a ModuleScript called
+      Remotes. ReplicatedStorage therefore had two children with one name, and
+      WaitForChild("Remotes") is free to return either. Inside Remotes.lua it
+      returned the ModuleScript — itself — which has no children, so the wait
+      for RequestPurchase ran the full 10 s timeout and errored, taking the
+      network surface down on every client. InputController's require of the
+      same ambiguous name could equally have resolved to the Folder and failed
+      differently. The symptom was identical to the bug D-CHOMP-021 fixed, which
+      is why it read as a regression rather than as a new fault in the fix.
+    outcome: >
+      default.project.json declares ReplicatedStorage.RemoteEvents; Remotes.lua
+      resolves that name and says so in its error text. Verified against the
+      built place: ReplicatedStorage has no duplicate child names.
+
+  - id: D-CHOMP-025
+    date: 2026-08-25
+    title: The client owns the heading, the engine owns the transform
+    decision: >
+      VehicleController never writes HumanoidRootPart.CFrame. It integrates a
+      heading angle from steering intent and hands that heading to
+      humanoid:Move() as a direction vector. AutoRotate is true again, so the
+      engine turns the character to face the direction it is given.
+    rationale: >
+      Instrumented in the first local playtest that got this far. Steering
+      intent was reaching the mover correctly — smoothedSteer ramped to a full
+      plus or minus 1.000 and turnRate read 240 — but the measured yaw of the
+      root part never accumulated past about four degrees and MoveDirection
+      stayed pinned to world north, so the vehicle drove into the boundary wall
+      and could not turn away. The per-frame CFrame write in RenderStepped was
+      being reverted by the physics solver on the following step, and the
+      character being wedged in that wall made it worse, because the solver was
+      resolving penetration every step as well. Grep confirmed VehicleController
+      was the only writer of that CFrame, so this was not another two-authority
+      bug: it was one authority writing a value the solver owns. Move() is a
+      request the solver honours rather than a transform it has to reconcile,
+      so expressing the same intent that way removes the fight entirely.
+    outcome: >
+      VehicleController holds `heading` in radians, seeded from the character on
+      its first frame and reseeded on respawn, advanced by the same turn-rate
+      and flip maths as before. It calls humanoid:Move with
+      (-sin heading, 0, -cos heading), which is flat by construction so slopes
+      still cannot steal speed. MovementService sets AutoRotate = true, and the
+      comment there records why facing is still the vehicle's.
+
+  - id: D-CHOMP-026
+    date: 2026-08-25
+    title: Hold to drive — the steering hold is the throttle
+    decision: >
+      The vehicle moves only while the player holds a steering input, and coasts
+      to a stop over Braking when released. The same hold still steers. There is
+      still no separate accelerator, no brake and no action button. Supersedes
+      the always-forward half of D-CHOMP-015; the rest of that decision stands.
+    rationale: >
+      Owner decision after the first genuinely drivable build. Constant motion
+      was specified on the Pac-Man argument and it reads well on paper, but
+      playing it showed a vehicle that can never stop is tiring to hold, and
+      that releasing is what a player instinctively does when they want a moment
+      to look at the map. Gating movement on the steering hold keeps the two
+      properties that made D-CHOMP-015 right — no second control to find, and
+      nothing on screen to lose under a thumb — while making stopping possible.
+      It also gives Acceleration and Braking in ChompConfig a job; they had been
+      declared since the start and unused while speed was constant. Coasting
+      rather than stopping dead means letting go mid-corner is a decision rather
+      than a punishment.
+    outcome: >
+      InputController publishes state.driving, true whenever a steering key is
+      held or a touch is active. VehicleController ramps currentSpeed toward the
+      server's top speed by Acceleration, and toward zero by Braking, then scales
+      the heading vector by that fraction — MoveDirection magnitude carries the
+      throttle, so WalkSpeed remains the server's number and is never written by
+      the client. control_scheme.md and BUILDING.md amended.
+
+  - id: D-CHOMP-027
+    date: 2026-08-25
+    title: One floating stick — forward drives, left and right turn, back turns around
+    decision: >
+      Input is a single stick. Forward drives, left and right steer proportional
+      to deflection, back reverses at ReverseSpeedFraction of top speed and the
+      vehicle swings to face its travel direction. On touch the stick FLOATS: it
+      anchors wherever the finger lands and reads displacement from that anchor.
+      One finger drives; a second touch is ignored. Supersedes the always-forward
+      rule of D-CHOMP-015 and the hold-to-drive scheme of D-CHOMP-026.
+    rationale: >
+      Owner decision after playing D-CHOMP-026, which gated movement on the
+      steering hold. That scheme is unusable and the reason is structural rather
+      than a matter of taste: if holding left or right is the only way to move,
+      every path the vehicle can take is an arc, and driving straight down a
+      corridor is impossible. In a maze that is fatal. It should not have shipped
+      to a playtest — the flaw is visible from the design alone.
+      A stick was rejected in D-CHOMP-015, but the objection recorded there was
+      specific: a stick with a FIXED origin drifts, gets dropped mid-corner, and
+      needs a visual to find. A floating stick has none of those properties,
+      because it re-anchors on every touch. So the original reasoning is not
+      being overturned so much as read precisely — what it ruled out was a puck
+      at a fixed spot, not a throttle.
+    outcome: >
+      InputController rewritten around a floating stick with a dead zone
+      rescaled so the rim is full deflection, publishing steer and throttle in
+      -1..1. Keyboard is W/Up drive, S/Down reverse, A/D and arrows steer, with
+      opposed keys cancelling on both axes. VehicleController ramps a signed
+      currentSpeed by Acceleration away from zero and Braking toward it, then
+      scales the heading vector by the resulting fraction. ChompConfig gains
+      StickRadiusFraction, StickDeadZoneFraction and ReverseSpeedFraction.
+      control_scheme.md and BUILDING.md rewritten to match.

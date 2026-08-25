@@ -1,5 +1,42 @@
 # Chomp Arena — Change Log
 
+## 2026-08-25 — It drives
+
+First session run from a local machine, which is the first time anyone could
+press Play. Four faults stood between the written code and a drivable vehicle,
+and none of them were findable by reading — the decisive evidence in every case
+came from instrumenting the running game.
+
+- `D-CHOMP-023` — Roblox's default control script was never disabled and was
+  calling `humanoid:Move()` on the same Humanoid every frame. With no key held
+  that call is `Vector3.zero`, which cancelled the forward drive. `AutoRotate`
+  had been handled; `Move()` had not.
+- `D-CHOMP-024` — `D-CHOMP-021` declared the RemoteEvents in a folder named
+  `Remotes`, colliding with the `Remotes` ModuleScript that syncs into the same
+  parent. `WaitForChild("Remotes")` returned the module, which has no children,
+  so the network surface was unreachable on every client. Folder renamed to
+  `RemoteEvents`.
+- `D-CHOMP-025` — `VehicleController` wrote `root.CFrame` every `RenderStepped`
+  and the physics solver reverted it, so measured yaw never accumulated past a
+  few degrees and the vehicle drove permanently north into a wall. It now
+  integrates a heading and hands it to `Move()`; the transform is the engine's.
+- `D-CHOMP-026`, then `D-CHOMP-027` — the control scheme went through two
+  shapes before settling. Hold-to-drive gated movement on steering, which means
+  every path is an arc and driving straight is impossible; it was wrong from
+  the design alone and should not have reached a playtest. Replaced with a
+  single floating stick: forward drives, left and right steer, back reverses
+  and the vehicle swings to face its travel direction.
+
+Also: `Acceleration`, `Braking` and the new `ReverseSpeedFraction` now do work
+instead of sitting unused; `BUILDING.md` gained a Gotchas section covering the
+Rojo, PowerShell and Studio traps that cost time here; `control_scheme.md`
+rewritten twice and now records why fixed-origin thumbsticks stay rejected while
+a floating one does not.
+
+No requirement moved off `NOT_STARTED`. `CHOMP-TC-040` has still never run, the
+touch stick has never been played on a device, and two camera occlusion breaches
+of exactly 0.20 s were observed in Studio on a trivial map.
+
 ## 2026-08-25 — Build starts: camera, driving, test map
 - `default.project.json` — Rojo sync of `src/` into the DataModel.
 - `TestMap.server.lua` — the throwaway two-deck test map, built procedurally

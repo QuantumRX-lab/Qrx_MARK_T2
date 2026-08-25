@@ -51,7 +51,11 @@ local function apply(player: Player, character: Model)
 
 	local speed, turn = statsFor(record.chassis)
 	humanoid.WalkSpeed = speed
-	humanoid.AutoRotate = false            -- facing is the vehicle's, not the mover's
+	-- AutoRotate turns the character to face its MoveDirection, and since
+	-- D-CHOMP-025 that direction IS the vehicle's heading — the client hands the
+	-- engine a heading vector rather than writing the transform itself. Facing is
+	-- still the vehicle's; the engine is just the thing that applies it.
+	humanoid.AutoRotate = true
 	humanoid.JumpPower = 0
 	humanoid.UseJumpPower = true
 

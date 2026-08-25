@@ -60,3 +60,50 @@ entries:
   handoff: >
     The HUD does not exist yet. When it does, keep the bottom corners clear —
     30% of width by 30% of height each — because that is where thumbs live.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-032]
+  summary: >
+    Owner decision after the first drivable build: the vehicle now moves only
+    while a steering input is held, and coasts to a stop when released
+    (D-CHOMP-026, superseding the always-forward half of D-CHOMP-015).
+    InputController publishes state.driving; VehicleController ramps speed by
+    Acceleration and Braking and scales the heading vector by the result, so the
+    throttle rides on MoveDirection magnitude and WalkSpeed stays the server's
+    number. control_scheme.md and BUILDING.md amended to match.
+  status: OPEN
+  handoff: >
+    NOT yet played. The touch half is untested and matters more than the
+    keyboard half: on iPad, holding to steer must also be what drives, and the
+    dead zone means a touch near screen centre steers barely at all — check that
+    such a touch still drives at full speed rather than crawling, because
+    throttle is gated on driving being true, not on steer magnitude. If that
+    feels wrong, the fix is in InputController where driving is computed, not in
+    VehicleController.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-032]
+  summary: >
+    D-CHOMP-026 was wrong and was caught in one playtest: gating movement on the
+    steering hold means every path is an arc and driving straight is impossible.
+    Replaced with a single floating stick (D-CHOMP-027) — forward drives, left
+    and right steer proportionally, back reverses and the vehicle swings to face
+    its travel direction. InputController rewritten; VehicleController now ramps
+    a signed speed by Acceleration away from zero and Braking toward it.
+    ChompConfig gains StickRadiusFraction, StickDeadZoneFraction and
+    ReverseSpeedFraction. control_scheme.md and BUILDING.md rewritten.
+  status: OPEN
+  handoff: >
+    NOT yet played, and the touch half is entirely unexercised — Studio only
+    tests the keyboard path. Three things need a device: that the floating
+    anchor survives a thumb dragging beyond the stick radius, that a second
+    finger being ignored is right rather than annoying, and whether reversing
+    should mirror the steering axis. Reverse currently does not mirror, so
+    holding back and left swings the nose the same way it would going forward;
+    that reads as "turn around" but has not been felt by anyone.
+    The wire format is unchanged: throttle is client-local and is NOT sent on
+    SetInputDirection, because nothing server-side consumes input yet and
+    widening the remote means amending service_contracts.md and extending
+    CHOMP-TC-042 in the same commit.

@@ -105,3 +105,24 @@ entries:
     on the network: input now acquires the module off-thread and drives locally
     regardless. The failure presented as an infinite-yield warning rather than
     as broken controls, which is why it survived a playtest.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-038]
+  summary: >
+    The client reported RequestPurchase missing from the remotes folder on two
+    consecutive playtests, ten seconds after join each time. Cause was a name
+    collision, not a missing instance: D-CHOMP-021 declared the events in a
+    folder called Remotes, and src/ReplicatedStorage/Remotes.lua already syncs
+    as a ModuleScript called Remotes, so ReplicatedStorage had two children
+    with one name and WaitForChild returned the module rather than the folder.
+    The folder is now RemoteEvents (D-CHOMP-024). Confirmed against the built
+    place XML that ReplicatedStorage has no duplicate child names.
+  status: OPEN
+  handoff: >
+    Never give a declared instance the same name as a module that syncs into
+    the same parent — Rojo will create both and WaitForChild picks arbitrarily.
+    This is worth a check in the static load-order guard that HANDOVER.md task 3
+    calls for: duplicate child names under one parent in the built place should
+    fail the build, because the symptom appears at runtime on one side only and
+    reads as a missing instance.

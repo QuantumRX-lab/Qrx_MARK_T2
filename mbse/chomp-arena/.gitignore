@@ -1,0 +1,3 @@
+# Studio holds this open while a place is loaded. Never track it.
+*.rbxlx.lock
+*.rbxl.lock

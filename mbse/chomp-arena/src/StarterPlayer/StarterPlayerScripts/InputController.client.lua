@@ -2,12 +2,17 @@
 --[[
 	InputController — CHAIN-UI, CHOMP-SYS-032
 
-	Hold to turn, always driving forward, no buttons (D-CHOMP-015).
+	One stick. Push forward to drive, left and right to turn, back to turn
+	around (D-CHOMP-027).
 
-	Touch anywhere left of a dead zone to turn left, right to turn right, with
-	the turn rate proportional to how far out you hold. There is no origin to
-	lose, which is the entire reason this beats a virtual thumbstick for a
-	seven-year-old: any touch on the correct side works.
+	On touch the stick FLOATS: it anchors wherever the finger lands and reads
+	displacement from that anchor, so there is no fixed puck to find and nothing
+	to lose if the thumb drifts. That was the real objection to a thumbstick in
+	D-CHOMP-015, and a floating origin answers it without giving up a throttle.
+
+	The scheme this replaces gated movement on steering — hold left or right to
+	drive — which meant the vehicle could only ever travel in an arc. There was
+	no way to drive straight. It was wrong the moment it was played.
 
 	The client sends INTENT ONLY. It never sends a speed, a position or a turn
 	rate — the server owns all three (CHOMP-SYS-002).
@@ -43,68 +48,77 @@ local player = Players.LocalPlayer
 -- The server still gets the same intent through SetInputDirection, so it can
 -- validate; this table is how the local character turns without waiting for a
 -- round trip (D-CHOMP-018).
-local shared = _G.ChompInput or { steer = 0, flip = false }
+local shared = _G.ChompInput or { steer = 0, throttle = 0, flip = false }
 _G.ChompInput = shared
 
 local sendRate = 20  -- two thirds of the server's 30/s limit
 local sendInterval = 1 / sendRate
 
-local activeTouches: { [any]: Vector2 } = {}
-local keyboardSteer = 0
-local flipQueued = false
-local lastTapSide = 0
-local lastTapAt = 0
+-- ── Floating stick (touch) ──────────────────────────────────────────────
+-- One finger drives. A second finger is ignored rather than averaged in:
+-- averaging two touches is how a panicking player ends up going straight.
+local stickTouch: any = nil
+local stickOrigin = Vector2.zero
+local stickCurrent = Vector2.zero
 
--- Screen x (0..1) -> steer (-1..1), with a dead zone and a linear ramp to
--- full lock. Both sides held at once cancels to straight, which is what a
--- panicking player does with two thumbs.
-local function steerFromFraction(x: number): number
-	local fromCentre = x - 0.5
-	local dead = CONTROLS.DeadZoneFraction / 2
-	local full = CONTROLS.FullLockFraction
-	local magnitude = math.abs(fromCentre)
+-- Returns steer (-1..1) and throttle (-1..1) from the stick, or 0, 0.
+local function stickAxes(): (number, number)
+	if not stickTouch then
+		return 0, 0
+	end
+	local camera = workspace.CurrentCamera
+	local viewport = camera and camera.ViewportSize
+	if not viewport or viewport.Y <= 0 then
+		return 0, 0
+	end
+
+	-- Radius is a fraction of screen HEIGHT, so the stick is the same physical
+	-- size in portrait and landscape rather than stretching with width.
+	local radius = viewport.Y * CONTROLS.StickRadiusFraction
+	if radius <= 0 then
+		return 0, 0
+	end
+
+	local v = (stickCurrent - stickOrigin) / radius
+	if v.Magnitude > 1 then
+		v = v.Unit
+	end
+
+	local dead = CONTROLS.StickDeadZoneFraction
+	local magnitude = v.Magnitude
 	if magnitude <= dead then
-		return 0
+		return 0, 0
 	end
-	local ramped = math.clamp((magnitude - dead) / (full - dead), 0, 1)
-	return ramped * (fromCentre > 0 and 1 or -1)
+
+	-- Rescale so the dead-zone edge is zero and the rim is full deflection.
+	-- Without this the stick jumps to a noticeable value the instant it leaves
+	-- the dead zone, which reads as twitchy under a thumb.
+	local scaled = (magnitude - dead) / (1 - dead)
+	v = v.Unit * scaled
+
+	-- Screen Y grows downward, so forward is negative Y.
+	return v.X, -v.Y
 end
 
-local function currentSteer(): number
-	local sum = keyboardSteer
-	local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
-	if viewport and viewport.X > 0 then
-		for _, position in activeTouches do
-			sum += steerFromFraction(position.X / viewport.X)
-		end
-	end
-	return math.clamp(sum, -1, 1)
-end
-
--- ── Touch ───────────────────────────────────────────────────────────────
 UserInputService.TouchStarted:Connect(function(touch, processed)
-	if processed then return end
-	activeTouches[touch] = Vector2.new(touch.Position.X, touch.Position.Y)
-
-	local viewport = workspace.CurrentCamera.ViewportSize
-	local side = (touch.Position.X / viewport.X) > 0.5 and 1 or -1
-	local now = os.clock()
-	if side == lastTapSide and now - lastTapAt <= CONTROLS.FlipDoubleTapSeconds then
-		flipQueued = true
-		lastTapSide, lastTapAt = 0, 0
-	else
-		lastTapSide, lastTapAt = side, now
-	end
+	if processed or stickTouch then return end
+	stickTouch = touch
+	stickOrigin = Vector2.new(touch.Position.X, touch.Position.Y)
+	stickCurrent = stickOrigin
 end)
 
 UserInputService.TouchMoved:Connect(function(touch)
-	if activeTouches[touch] then
-		activeTouches[touch] = Vector2.new(touch.Position.X, touch.Position.Y)
+	if touch == stickTouch then
+		stickCurrent = Vector2.new(touch.Position.X, touch.Position.Y)
 	end
 end)
 
 local function endTouch(touch)
-	activeTouches[touch] = nil
+	if touch == stickTouch then
+		stickTouch = nil
+		stickOrigin = Vector2.zero
+		stickCurrent = Vector2.zero
+	end
 end
 UserInputService.TouchEnded:Connect(endTouch)
 
@@ -112,16 +126,29 @@ UserInputService.TouchEnded:Connect(endTouch)
 local heldKeys: { [Enum.KeyCode]: boolean } = {}
 local LEFT = { [Enum.KeyCode.A] = true, [Enum.KeyCode.Left] = true }
 local RIGHT = { [Enum.KeyCode.D] = true, [Enum.KeyCode.Right] = true }
+local FORWARD = { [Enum.KeyCode.W] = true, [Enum.KeyCode.Up] = true }
+local BACK = { [Enum.KeyCode.S] = true, [Enum.KeyCode.Down] = true }
+
+local keyboardSteer = 0
+local keyboardThrottle = 0
 
 local function recomputeKeyboard()
-	local left = false
-	local right = false
+	local left, right, forward, back = false, false, false, false
 	for key in heldKeys do
 		if LEFT[key] then left = true end
 		if RIGHT[key] then right = true end
+		if FORWARD[key] then forward = true end
+		if BACK[key] then back = true end
 	end
+	-- Both sides held cancels to straight, which is what a panicking player
+	-- does with two thumbs. Forward and back cancel the same way.
 	keyboardSteer = (right and 1 or 0) - (left and 1 or 0)
+	keyboardThrottle = (forward and 1 or 0) - (back and 1 or 0)
 end
+
+local flipQueued = false
+local lastTapSide = 0
+local lastTapAt = 0
 
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
@@ -149,15 +176,26 @@ end)
 -- ── Send ────────────────────────────────────────────────────────────────
 -- X is steer in [-1, 1]. Y is 1 on the frame a flip is requested, else 0.
 -- Neither is a quantity the server trusts for anything but intent.
+--
+-- Throttle is deliberately NOT on the wire yet. The remote's shape is fixed by
+-- service_contracts.md, and nothing server-side consumes input today; widening
+-- it means amending the contract and extending the exploit suite in the same
+-- commit (CHOMP-TC-042). Until MovementService validates travel against
+-- throttle, sending it would be a contract change that buys nothing.
 local accumulator = 0
 local lastSent = Vector2.zero
 
 RunService.Heartbeat:Connect(function(dt)
 	accumulator += dt
-	local steer = currentSteer()
+
+	local stickX, stickY = stickAxes()
+	local steer = math.clamp(keyboardSteer + stickX, -1, 1)
+	local throttle = math.clamp(keyboardThrottle + stickY, -1, 1)
+
 	local flip = flipQueued and 1 or 0
 
 	shared.steer = steer
+	shared.throttle = throttle
 	if flip == 1 then shared.flip = true end
 	local payload = Vector2.new(steer, flip)
 

@@ -10,11 +10,22 @@
 as_of: 2026-08-25
 build_status: IN_PROGRESS
 note: >
-  Building has started. Step 1 of the v1 order — camera and driving — is
-  written and awaits its acceptance run on the iPad (CHOMP-TC-040). Requirement
-  verification_status values stay NOT_STARTED until that run happens: code
-  existing is not the same as a requirement being verified, and this tree does
-  not get to pretend otherwise.
+  Step 1 of the v1 order — camera and driving — is now DRIVABLE in Studio, and
+  that is the first time anyone has been able to say so. Getting there took four
+  fixes in one local session: the default control script was never disabled and
+  was fighting the mover (D-CHOMP-023); a declared RemoteEvents folder collided
+  by name with the Remotes module and made the network surface unreachable
+  (D-CHOMP-024); per-frame CFrame writes were being reverted by the physics
+  solver so the vehicle could not turn at all (D-CHOMP-025); and the control
+  scheme went through two rejected shapes before settling on a floating stick
+  (D-CHOMP-026 then -026).
+
+  Requirement verification_status values stay NOT_STARTED regardless. Driving
+  well enough for its author to say "best test so far" is not CHOMP-TC-040, it
+  is not on the iPad, and it is not the seven-year-old. Code existing — even
+  code that plays — is not the same as a requirement being verified, and this
+  tree does not get to pretend otherwise. Handling tuning is deferred to the
+  game-mechanics work by owner decision.
 
 requirements:
   total: 62
@@ -62,30 +73,44 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 22
+  total: 27
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder — the daughter names it."
   - "Nine of the ten chains are unassigned; only CHAIN-VEHICLE has an owner (Codex)."
   - "Triangle counts on vehicle models are declared by the designer, not
      measured — Luau cannot read them. Confirm in the mesh tooling."
-  - "Control scheme, camera and map geometry are now decided (D-CHOMP-015 to
-     -017). Wall height is fixed at 7 studs, derived from the camera angle."
+  - "Camera and map geometry are decided (D-CHOMP-016, -017); wall height is
+     fixed at 7 studs, derived from the camera angle. The control scheme is
+     decided as of D-CHOMP-027 but has only ever been played on a keyboard."
+  - "Should reversing mirror the steering axis? It currently does not, so
+     holding back and left swings the nose the same way it would going
+     forward. That reads as turn-around rather than as reversing a car, and
+     nobody has felt it on a device."
+  - "Handling numbers — speed, turn rate, acceleration, braking, reverse
+     fraction — are all first guesses. Tuning is deliberately deferred to the
+     game-mechanics phase rather than done blind now."
 
 next_actions:
-  - "Build the camera on a throwaway two-deck test map before any real map.
-     It is the highest-risk item in the tree and everything else is built
-     against what it can see."
-  - "Codex: deliver Standard chassis first, so the camera test has something
-     real to follow."
-  - "Stand up the L0 conformance scans and the L1 unit spec harness before
-     writing gameplay logic — the maths must stay pure to be testable."
-  - "Re-run the drive test after the D-CHOMP-018 locomotion fix and the
-     D-CHOMP-020 retune. First playtest reported unusable handling: the server
-     was writing the character CFrame every frame against the client's own
-     network ownership."
-  - "Then CHOMP-TC-040 on the iPad: drive both decks, under the bridge and
-     around the tower, then call _G.ChompCameraReport(). Any breach of the
-     0.2 s occlusion ceiling is a failure and blocks real map building."
-  - "Codex: acknowledge the CHAIN-VEHICLE claim split in the log, and deliver
-     the Standard chassis so the camera has a real vehicle to follow."
+  - "CHOMP-TC-040 on the iPad, which is now unblocked because the vehicle
+     drives. Drive both decks, under the bridge and around the tower, then call
+     _G.ChompCameraReport() from the Command Bar with the context set to Client.
+     Any breach of the 0.2 s occlusion ceiling is a failure and blocks real map
+     building. Two breaches of exactly 0.20 s were already observed in Studio on
+     a trivial map, so expect this to fail and budget for redesigning the camera
+     rather than tuning it."
+  - "Exercise the touch stick on the device. Studio only ever tested the
+     keyboard path, so the floating anchor, the ignored second finger and the
+     dead-zone rescale are all unplayed."
+  - "Run the vehicle conformance scan in Edit mode and record the result in
+     CHAIN-VEHICLE: require(game.ServerStorage.ChompTools.VehicleConformance)
+     then S.report(S.checkAll()). It closes the last two open checks on Codex's
+     four chassis."
+  - "Stand up the static load-order guard and the Luau unit specs. The guard
+     should fail the build on duplicate child names under one parent — that is
+     exactly what D-CHOMP-024 was, and it presented at runtime on one side only,
+     disguised as a missing instance."
+  - "Then step 2 of the v1 order: drive and eat. Do not start combat until
+     banking is fun."
+  - "Codex: acknowledge the CHAIN-VEHICLE claim split on CHOMP-SYS-001, -002
+     and -051, which is still open and unacknowledged."

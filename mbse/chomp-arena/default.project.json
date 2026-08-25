@@ -4,7 +4,7 @@
     "$className": "DataModel",
     "ReplicatedStorage": {
       "$path": "src/ReplicatedStorage",
-      "Remotes": {
+      "RemoteEvents": {
         "$className": "Folder",
         "RequestPurchase": {
           "$className": "RemoteEvent"

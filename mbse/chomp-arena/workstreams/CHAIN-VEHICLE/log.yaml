@@ -351,3 +351,51 @@ entries:
     delete Standard.rbxm, append DELIVERED, and migrate HeavyJaw next. Engine
     owner should consider making VehicleConformance inspect weld constraints
     without requiring models to be parented to Workspace.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-001]
+  summary: >
+    First playtest run from a local session. Steering did not work: the
+    character only moved while a key was held and never turned. Cause was not
+    the input path but a second authority — nothing disabled Roblox's default
+    control script, which calls humanoid:Move() every frame and zeroes it when
+    no key is down, cancelling VehicleController's unconditional forward drive.
+    VehicleController now disables PlayerModule controls on startup
+    (D-CHOMP-023). Separately, the client reported RequestPurchase missing from
+    ReplicatedStorage.Remotes after the 10 s timeout, while both
+    default.project.json and the built place contain all three events — most
+    likely a Studio session holding a DataModel older than the place on disk,
+    not a code fault. Recorded rather than fixed, because it has not been
+    reproduced against a freshly opened place.
+  status: OPEN
+  handoff: >
+    The fix is written but NOT yet played. Someone must open a freshly built
+    place, press Play, and confirm two things: the vehicle drives forward with
+    no key held, and A/D turns it. Output should carry
+    "[VehicleController] default controls disabled". If the RequestPurchase
+    error recurs against a fresh place, it is a real bug and not a stale
+    session — reopen it as such.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-001]
+  summary: >
+    Instrumented the locomotion path in a live playtest rather than reasoning
+    about it. Input was never the fault: keyboardSteer reached plus and minus 1,
+    both controllers shared one _G.ChompInput table, and smoothedSteer ramped to
+    a full deflection with turnRate 240. The measured yaw of HumanoidRootPart
+    never accumulated past about four degrees and MoveDirection stayed pinned to
+    world north, which is why the vehicle drove into the boundary wall and stuck
+    there. The per-frame CFrame write was being reverted by the physics solver.
+    VehicleController now integrates a heading and passes it to humanoid:Move,
+    writing no transform at all; AutoRotate is true again (D-CHOMP-025).
+  status: OPEN
+  handoff: >
+    NOT yet played. Confirm three things on the next run: heading advances while
+    a steering key is held, the reported yaw follows heading within a few
+    degrees, and the vehicle curves rather than driving straight. Temporary
+    [VehDBG] and [InpDBG] prints are still in VehicleController and
+    InputController and must come out before this is committed. If heading
+    advances but yaw does not follow, AutoRotate is not being applied to the
+    character and the fault is in MovementService.apply rather than here.
