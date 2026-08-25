@@ -222,13 +222,58 @@ ChompConfig.Controls = {
 	-- Retained for the HUD and for the old hold-to-turn scheme's tests.
 	DeadZoneFraction = 0.20,      -- middle fifth of the screen steers nowhere
 	FullLockFraction = 0.42,      -- past this from centre, full turn rate
-	FlipDoubleTapSeconds = 0.35,  -- two taps this close on the far side = 180 flip
+	FlipDoubleTapSeconds = 0.35,
+	-- Firing on touch is a TAP, not a button (D-CHOMP-045). A touch that ends
+	-- quickly and barely moved was never a steering input, so it can mean
+	-- "use what I am holding" without adding a control to a scheme whose whole
+	-- premise is that there are none.
+	TapFireSeconds = 0.22,
+	TapFireSlopPixels = 14,  -- two taps this close on the far side = 180 flip
 	ThumbSafeZoneFraction = 0.30, -- bottom corners the HUD must keep clear
 }
 
 -- ── Camera (D-CHOMP-016) ────────────────────────────────────────────────
 -- World-locked yaw: the camera never rotates with the vehicle. Turning spins
 -- the model, not the world.
+
+-- ── Items (D-CHOMP-045) ─────────────────────────────────────────────────
+-- One slot. Picking anything up replaces what you were carrying, so the
+-- decision is always "is this better than what I have", never inventory
+-- management. Charges are spent per use and the slot empties at zero.
+ChompConfig.Items = {
+	SlotCount = 1,
+	RespawnSeconds = 20,        -- a collected pad comes back, so the map stays stocked
+	PickupRadiusStuds = 10,
+	UseRateLimit = 4,           -- per second, enforced server side
+
+	Definitions = {
+		JetPack = {
+			charges = 1,
+			-- A hop, not flight. Clearing a wall is a shortcut worth having;
+			-- flying over the maze would delete the maze.
+			impulseStuds = 70,
+			label = "JET",
+		},
+		Cannon = {
+			charges = 3,
+			projectileSpeed = 180,
+			rangeStuds = 260,
+			label = "CANNON",
+		},
+		HomingBomb = {
+			charges = 1,
+			projectileSpeed = 90,   -- slower than the cannon: it steers, so it must be dodgeable
+			turnRateDegrees = 140,
+			rangeStuds = 320,
+			label = "BOMB",
+		},
+		Shield = {
+			charges = 1,
+			durationSeconds = 8,
+			label = "SHIELD",
+		},
+	},
+}
 
 -- ── Level 1: the bowl (D-CHOMP-041) ─────────────────────────────────────
 -- Safety and reward as geography: learn and bank on the rim, take risks toward

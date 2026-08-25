@@ -9,7 +9,7 @@ owner: unassigned
 scope: 'Impact classification and everything downstream of it: head-on contests,
   bites, scatter, invulnerability, being chomped, falls and drop attacks. The signature
   mechanic — nothing here may depend on a client''s word.'
-requirement_count: 10
+requirement_count: 14
 requirements: &id001
 - CHOMP-STK-003
 - CHOMP-SYS-010
@@ -21,6 +21,10 @@ requirements: &id001
 - CHOMP-SYS-016
 - CHOMP-SYS-049
 - CHOMP-SYS-050
+- CHOMP-SYS-058
+- CHOMP-SYS-059
+- CHOMP-SYS-060
+- CHOMP-SYS-061
 phases:
 - v1
 - v2
@@ -52,3 +56,30 @@ entries:
     named in each doc comment are the spec: 44 versus 46 degrees, identical
     facings, clang symmetry, bar difference exceeding the loser's carry, an
     empty attacker bar, and the small-fry gap being inclusive at exactly 300.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-058, CHOMP-SYS-059, CHOMP-SYS-060, CHOMP-SYS-061]
+  summary: >
+    Item system built (D-CHOMP-045). Pads around Level 1, one slot per driver,
+    four items differing in kind rather than degree: JetPack hop, three-shot
+    Cannon, single slower HomingBomb, one-hit Shield. A fourth remote, UseItem,
+    carries no arguments at all - the server owns item, charges, aim, hit and
+    outcome, and reads the firing direction from the character transform it
+    wrote itself. CHOMP-TC-042 extended with five item attacks in the same
+    commit, as service_contracts.md requires of any fourth remote.
+  status: OPEN
+  handoff: >
+    NOT yet played. The cannon and the bomb currently have nothing to shoot:
+    there are no ghosts and usually one player in a session. They fire, travel,
+    steer, expire and hit-test correctly against other players - that is honest
+    rather than finished, and the first real test of them needs two clients.
+    Damage is a placeholder 20 to the Humanoid. Real combat is directional
+    (CHOMP-SYS-010 onward) - mouth versus flank - and projectiles have no
+    directional rule yet. Deciding whether a cannon hit respects facing, or
+    deliberately ignores it as the ranged exception, is a CHAIN-COMBAT design
+    call that has not been made.
+    The shield absorbs one hit by zeroing its own timer. That means a shield
+    spent on a hit does not run its remaining duration, which is intended, but
+    it also means two simultaneous hits both land. If that matters, it needs a
+    per-hit flag rather than a timestamp.

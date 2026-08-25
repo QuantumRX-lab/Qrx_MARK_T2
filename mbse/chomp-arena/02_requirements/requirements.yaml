@@ -1619,3 +1619,104 @@ requirements:
     created_date: 2026-08-25
     last_modified: 2026-08-25
     author: Claude (requirements session)
+
+  - id: CHOMP-SYS-058
+    title: A driver carries exactly one item
+    shall_statement: >
+      A player SHALL carry at most one item at a time, and collecting an item
+      SHALL replace whatever was carried without prompting or confirmation.
+    level: L2_system
+    status: DRAFT
+    priority: HIGH
+    derives_from: [CHOMP-STK-001, CHOMP-SYS-032]
+    verified_by: [CHOMP-TC-047]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      One slot turns every pickup into a single judgement - is this better than
+      what I am holding - instead of inventory management. A seven-year-old
+      driving at speed cannot open a bag, and a confirmation prompt at 24 studs
+      per second is a crash.
+    allocated_to: ServerScriptService/ChompEngine/ItemService
+    chain: CHAIN-COMBAT
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (local session)
+
+  - id: CHOMP-SYS-059
+    title: Items are used by intent alone
+    shall_statement: >
+      The client SHALL request item use with no arguments, and the server SHALL
+      determine the item, the remaining charges, the direction of any projectile
+      and every outcome, rejecting requests that exceed the rate limit or that
+      arrive with no item carried.
+    level: L2_system
+    status: DRAFT
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-006, CHOMP-SYS-034]
+    verified_by: [CHOMP-TC-042, CHOMP-TC-047]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A fourth remote is a fourth thing worth forging. Carrying no arguments
+      means there is nothing in the message to lie about: not the item, not the
+      charge count, not the aim, not the hit. The direction a shot travels is
+      read from the character transform the server itself wrote.
+    allocated_to: ReplicatedStorage/RemoteEvents/UseItem
+    chain: CHAIN-COMBAT
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (local session)
+
+  - id: CHOMP-SYS-060
+    title: Each item is a different decision
+    shall_statement: >
+      The item set SHALL provide a single vertical hop, a three-shot straight
+      projectile, a single steering projectile that is slower than the straight
+      one, and a shield that absorbs one hit or expires, with charges spent per
+      use and the slot emptying at zero.
+    level: L2_system
+    status: DRAFT
+    priority: HIGH
+    derives_from: [CHOMP-STK-001]
+    verified_by: [CHOMP-TC-047]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Four items that differ in kind rather than degree: mobility, volume,
+      accuracy, defence. The homing shot is deliberately slower than the
+      straight one, because a fast steering projectile is not a weapon but a
+      guaranteed hit, and nothing you cannot dodge is worth carrying a shield
+      to survive.
+    allocated_to: ServerScriptService/ChompEngine/ItemService
+    chain: CHAIN-COMBAT
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (local session)
+
+  - id: CHOMP-SYS-061
+    title: Item pads restock themselves
+    shall_statement: >
+      Collected item pads SHALL become uncollectable and return after a fixed
+      interval at the same position, and pad positions SHALL place higher-value
+      items closer to the centre of the map.
+    level: L2_system
+    status: DRAFT
+    priority: MEDIUM
+    derives_from: [CHOMP-SYS-047]
+    verified_by: [CHOMP-TC-047]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A map that empties stops being worth exploring, and one that never empties
+      removes the reason to remember where anything was. Placing the better
+      items further in makes the bowl worth the risk it already represents.
+    allocated_to: ServerScriptService/ChompEngine/ItemService
+    chain: CHAIN-COMBAT
+    phase: v1
+    created_date: 2026-08-25
+    last_modified: 2026-08-25
+    author: Claude (local session)

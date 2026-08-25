@@ -160,6 +160,7 @@ never be unable to steer because the network surface is not ready.
 | `RequestPurchase` | `(itemId: string)` | 4/s | Not in intermission or at own garage; unknown item; insufficient **banked**; prerequisite unmet |
 | `RequestBank` | `()` | 2/s | Not inside own garage volume; `garageLockedUntil` in the future; nothing carried |
 | `SetInputDirection` | `(intent: Vector2)` | 30/s | Not a Vector2; either component NaN; `X` outside [-1, 1]; player is respawning |
+| `UseItem` | `()` | 4/s | Over the rate limit; no item carried; charges exhausted; player dead or respawning; ANY argument present |
 
 `SetInputDirection`'s `X` is steering intent in [-1, 1] and `Y` is 1 on the
 frame a flip is requested. Neither is a quantity the server trusts for anything
@@ -169,6 +170,14 @@ progress is a rotation the server drives to completion.
 **No remote carries a quantity.** No price, no amount, no power, no hit, no
 position. Everything a remote can express is *intent*; the server supplies
 every number.
+
+`UseItem` takes that to its conclusion and carries *nothing at all* — not the
+item, not the charge count, not an aim vector, not a target. It means only "use
+what I am holding". The server knows what that is, how many charges remain, and
+which way the vehicle points, the last of which it reads from the character
+transform it wrote itself. A client that appends arguments is rejected rather
+than ignored, because a message that grew a field is a client that was modified
+(`D-CHOMP-045`, `CHOMP-SYS-059`).
 
 Rejections return silently to the client (a refusal sound is played locally on
 timeout) and are counted per player. A player exceeding a rate limit by 10x for

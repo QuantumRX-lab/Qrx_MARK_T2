@@ -63,6 +63,16 @@ local sendInterval = 1 / sendRate
 local stickTouch: any = nil
 local stickOrigin = Vector2.zero
 local stickCurrent = Vector2.zero
+local stickStartedAt = 0
+local stickMaxTravel = 0
+
+-- Firing is intent and nothing else: no target, no charge count, no item name.
+-- The server knows what you are holding (D-CHOMP-045).
+local function fire()
+	if Remotes and Remotes.UseItem then
+		Remotes.UseItem:FireServer()
+	end
+end
 
 -- Returns steer (-1..1) and throttle (-1..1) from the stick, or 0, 0.
 local function stickAxes(): (number, number)
@@ -108,16 +118,27 @@ UserInputService.TouchStarted:Connect(function(touch, processed)
 	stickTouch = touch
 	stickOrigin = Vector2.new(touch.Position.X, touch.Position.Y)
 	stickCurrent = stickOrigin
+	stickStartedAt = os.clock()
+	stickMaxTravel = 0
 end)
 
 UserInputService.TouchMoved:Connect(function(touch)
 	if touch == stickTouch then
 		stickCurrent = Vector2.new(touch.Position.X, touch.Position.Y)
+		local travel = (stickCurrent - stickOrigin).Magnitude
+		if travel > stickMaxTravel then stickMaxTravel = travel end
 	end
 end)
 
 local function endTouch(touch)
 	if touch == stickTouch then
+		-- Short and barely moved: that was never a steering input, so it fires.
+		-- Peak travel is used rather than final travel, so a flick out and back
+		-- is correctly read as steering rather than as a tap.
+		local quick = (os.clock() - stickStartedAt) <= CONTROLS.TapFireSeconds
+		if quick and stickMaxTravel <= CONTROLS.TapFireSlopPixels then
+			fire()
+		end
 		stickTouch = nil
 		stickOrigin = Vector2.zero
 		stickCurrent = Vector2.zero
@@ -153,6 +174,10 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 	heldKeys[input.KeyCode] = true
 	recomputeKeyboard()
+
+	if input.KeyCode == Enum.KeyCode.Space then
+		fire()
+	end
 
 end)
 

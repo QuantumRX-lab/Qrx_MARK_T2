@@ -739,14 +739,17 @@ test_cases:
 
   - id: CHOMP-TC-042
     title: Exploit regression suite
-    verifies: [CHOMP-STK-006]
+    verifies: [CHOMP-STK-006, CHOMP-SYS-059]
     type: INTEGRATION
     method: TEST
     preconditions: ["A scripted hostile client harness running in Studio"]
     test_data:
       attacks: ["forged WalkSpeed", "forged pellet claim", "forged purchase price", "forged Power at a gate",
                 "forged HUD values", "remote flooding at 1000/s", "purchase funded from carried rather than banked",
-                "banking at another player's garage", "claiming a hit on a player out of range"]
+                "banking at another player's garage", "claiming a hit on a player out of range",
+                "UseItem with no item carried", "UseItem flooded past its rate limit",
+                "UseItem with forged arguments appended", "UseItem while dead or respawning",
+                "UseItem after charges are exhausted"]
     procedure:
       - "Run every recorded attack against a live server as an automated suite"
       - "Assert the server-side economy, Power and combat state are unchanged by every one of them"
@@ -853,5 +856,31 @@ test_cases:
       - "upgrade gain and cost both identified before purchase"
       - "primary command changes from unavailable to BUY to DRIVE"
     automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-047
+    title: One slot, four items, server-owned outcomes
+    verifies: [CHOMP-SYS-058, CHOMP-SYS-059, CHOMP-SYS-060, CHOMP-SYS-061]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["A running Level 1 with item pads laid out", "Two players, one scripted"]
+    test_data: {items: ["JetPack", "Cannon", "HomingBomb", "Shield"], respawn_seconds: 20}
+    procedure:
+      - "Collect an item, then collect a second without using the first"
+      - "Fire the Cannon three times and once more"
+      - "Fire the HomingBomb past a moving second player and measure closing angle"
+      - "Take a hit with the Shield active, then take a second hit"
+      - "Collect a pad, then wait the respawn interval and collect it again"
+      - "Send UseItem from a hostile client with no item, with arguments, and flooded"
+    expected_result: The slot always holds exactly one item, charges deplete and empty the slot, the bomb steers but is outrun, the shield absorbs exactly one hit, pads return, and every hostile UseItem leaves server state unchanged.
+    pass_criteria:
+      - "second pickup replaces the first with no prompt"
+      - "fourth cannon press does nothing and the slot is empty"
+      - "homing turn rate does not exceed the configured degrees per second"
+      - "shield absorbs one hit and no more"
+      - "pad returns at the same position after the interval"
+      - "no hostile UseItem alters charges, health or position"
+    automation: AUTOMATED
     status: NOT_STARTED
     phase: v1

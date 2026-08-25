@@ -1046,3 +1046,44 @@ decisions:
       is a free run from the outer wall to the bowl, and short radial spokes stop
       a ring becoming a racetrack. The commitment boundary is deliberately not
       collidable: crossing under-powered must be possible and fatal, not blocked.
+
+  - id: D-CHOMP-045
+    date: 2026-08-25
+    title: One slot, four items, and a fourth remote that carries nothing
+    decision: >
+      Items lie on pads around Level 1 and a driver carries exactly one: a
+      JetPack hop, a three-shot Cannon, a single slower HomingBomb, or a Shield
+      that absorbs one hit. Collecting replaces what you held. A fourth remote,
+      UseItem, carries NO arguments; the server owns the item, the charges, the
+      aim, the hit and the outcome. Firing is Space on a keyboard and a short
+      tap on touch.
+    rationale: >
+      Owner direction. One slot because a pickup should be a single judgement -
+      is this better than what I am holding - rather than inventory management;
+      a seven-year-old at 24 studs per second cannot open a bag, and a
+      confirmation prompt at that speed is a crash.
+      The four differ in kind rather than degree: mobility, volume, accuracy,
+      defence. The homing bomb is deliberately SLOWER than the cannon, because a
+      fast steering projectile is not a weapon but a guaranteed hit, and nothing
+      you cannot dodge is worth carrying a shield to survive.
+      On the remote: service_contracts.md says a fourth means extending the
+      exploit suite in the same commit, and that is what happened - CHOMP-TC-042
+      gains five item attacks. UseItem takes no arguments at all, so there is
+      nothing in the message to forge: not the item, not the charge count, not
+      the aim, not the hit. The direction a shot travels is read from the
+      character transform the SERVER wrote, never from the client.
+      Tap-to-fire keeps the no-buttons promise (D-CHOMP-027). A touch that ends
+      inside 0.22s having moved under 14 pixels was never a steering input, so
+      it can mean "use what I am holding" without adding a control. Peak travel
+      is used rather than final travel, so a flick out and back reads as
+      steering rather than as a tap.
+    outcome: >
+      ItemService owns pads, carrying, charges, projectiles and hits. Charges
+      publish to the character as attributes, which the HUD reads and no client
+      can write. Pads hide and return rather than being destroyed and rebuilt,
+      so the map restocks without anything having to remember where pads were.
+      Better items sit closer to the centre, which is what makes the bowl worth
+      the risk it already represents.
+      Cannon and bomb currently have nothing to shoot: there are no ghosts and
+      usually one player. They fire, travel, steer, expire and are hit-tested
+      against other players correctly. That is honest rather than finished.

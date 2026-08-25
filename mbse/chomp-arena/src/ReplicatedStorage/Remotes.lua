@@ -27,7 +27,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local NAMES = { "RequestPurchase", "RequestBank", "SetInputDirection" }
+local NAMES = { "RequestPurchase", "RequestBank", "SetInputDirection", "UseItem" }
 local TIMEOUT = 10
 
 local Remotes = {}
@@ -51,6 +51,7 @@ Remotes.Limits = {
 	RequestPurchase = 4,
 	RequestBank = 2,
 	SetInputDirection = 30,
+	UseItem = 4,
 }
 
 --[[

@@ -32,14 +32,21 @@ Read `00_need/game_concept.md` first. It is written for a person.
 | | |
 |---|---|
 | Repo | `github.com/QuantumRX-lab/Qrx_MARK_T2` |
-| Branch | `claude/kitty-coaster-tycoon-7i4ebg` — the name is a fossil of an abandoned first idea; the contents are Chomp Arena |
+| Branch | `chomp-arena` |
 | Project root | `mbse/chomp-arena/` |
-| Working clone (Windows) | `C:\Users\wills\Documents\Codex\2026-08-25\what\work\Qrx_MARK_T2` |
+| Working clones (Windows) | both `Qrx_MARK_T2` and `Qrx_MARK_T2_specs` under `Documents/Codex/2026-08-25/what/work/`, both on `chomp-arena` |
 
-There are other clones on the machine (`C:\Users\wills\roblox-game` is a
-throwaway scaffold from a toolchain-install session; `C:\Qrx_MARK_T2` is
-referenced in older notes). **Use the Codex clone** — it is on the right branch
-and it is where the other agent pushes.
+Both working clones are on `chomp-arena` and both push to it. The fossil
+branches `claude/kitty-coaster-tycoon-7i4ebg` and
+`codex/hud-gameplay-requirements` were merged and deleted on 2026-08-25.
+
+Two other directories are NOT this project: `roblox-game` under the user
+profile is a throwaway scaffold from the toolchain-install session, and
+`C:/Qrx_MARK_T2` is a different repository entirely.
+
+**Check which branch a clone is on before trusting a `git pull`.** A clone
+sitting on another branch reports "Already up to date" while being several
+commits behind the one the game is built from. That cost an evening.
 
 ### Layout
 

@@ -230,13 +230,58 @@ ChompConfig.Controls = {
 	-- Retained for the HUD and for the old hold-to-turn scheme's tests.
 	DeadZoneFraction = 0.20,      -- middle fifth of the screen steers nowhere
 	FullLockFraction = 0.42,      -- past this from centre, full turn rate
-	FlipDoubleTapSeconds = 0.35,  -- two taps this close on the far side = 180 flip
+	FlipDoubleTapSeconds = 0.35,
+	-- Firing on touch is a TAP, not a button (D-CHOMP-045). A touch that ends
+	-- quickly and barely moved was never a steering input, so it can mean
+	-- "use what I am holding" without adding a control to a scheme whose whole
+	-- premise is that there are none.
+	TapFireSeconds = 0.22,
+	TapFireSlopPixels = 14,  -- two taps this close on the far side = 180 flip
 	ThumbSafeZoneFraction = 0.30, -- bottom corners the HUD must keep clear
 }
 
 -- ── Camera (D-CHOMP-016) ────────────────────────────────────────────────
 -- World-locked yaw: the camera never rotates with the vehicle. Turning spins
 -- the model, not the world.
+
+-- ── Items (D-CHOMP-045) ─────────────────────────────────────────────────
+-- One slot. Picking anything up replaces what you were carrying, so the
+-- decision is always "is this better than what I have", never inventory
+-- management. Charges are spent per use and the slot empties at zero.
+ChompConfig.Items = {
+	SlotCount = 1,
+	RespawnSeconds = 20,        -- a collected pad comes back, so the map stays stocked
+	PickupRadiusStuds = 10,
+	UseRateLimit = 4,           -- per second, enforced server side
+
+	Definitions = {
+		JetPack = {
+			charges = 1,
+			-- A hop, not flight. Clearing a wall is a shortcut worth having;
+			-- flying over the maze would delete the maze.
+			impulseStuds = 70,
+			label = "JET",
+		},
+		Cannon = {
+			charges = 3,
+			projectileSpeed = 180,
+			rangeStuds = 260,
+			label = "CANNON",
+		},
+		HomingBomb = {
+			charges = 1,
+			projectileSpeed = 90,   -- slower than the cannon: it steers, so it must be dodgeable
+			turnRateDegrees = 140,
+			rangeStuds = 320,
+			label = "BOMB",
+		},
+		Shield = {
+			charges = 1,
+			durationSeconds = 8,
+			label = "SHIELD",
+		},
+	},
+}
 
 -- ── Level 1: the bowl (D-CHOMP-041) ─────────────────────────────────────
 -- Safety and reward as geography: learn and bank on the rim, take risks toward
@@ -551,7 +596,7 @@ return Progression
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local NAMES = { "RequestPurchase", "RequestBank", "SetInputDirection" }
+local NAMES = { "RequestPurchase", "RequestBank", "SetInputDirection", "UseItem" }
 local TIMEOUT = 10
 
 local Remotes = {}
@@ -575,6 +620,7 @@ Remotes.Limits = {
 	RequestPurchase = 4,
 	RequestBank = 2,
 	SetInputDirection = 30,
+	UseItem = 4,
 }
 
 --[[
@@ -5528,17 +5574,22 @@ return {}
           <string name="Name">SetInputDirection</string>
         </Properties>
       </Item>
+      <Item class="RemoteEvent" referent="138">
+        <Properties>
+          <string name="Name">UseItem</string>
+        </Properties>
+      </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="138">
+  <Item class="ServerScriptService" referent="139">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="139">
+    <Item class="Folder" referent="140">
       <Properties>
         <string name="Name">ChompEngine</string>
       </Properties>
-      <Item class="Script" referent="140">
+      <Item class="Script" referent="141">
         <Properties>
           <string name="Name">ArenaMap</string>
           <token name="RunContext">0</token>
@@ -5988,7 +6039,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="141">
+      <Item class="Script" referent="142">
         <Properties>
           <string name="Name">BowlMap</string>
           <token name="RunContext">0</token>
@@ -6300,7 +6351,331 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="142">
+      <Item class="Script" referent="143">
+        <Properties>
+          <string name="Name">ItemService</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	ItemService — CHAIN-COMBAT, CHOMP-SYS-058 to -061
+
+	Four items lie around the map. You carry one. Picking anything up replaces
+	what you had, so the decision is always "is this better than what I am
+	holding" and never inventory management — which is the right shape for a
+	seven-year-old and, incidentally, for anyone driving at speed.
+
+	  JetPack     one hop, enough to clear a wall
+	  Cannon      three shots, straight along the heading
+	  HomingBomb  one shot, slower, steers toward the nearest target
+	  Shield      absorbs the next hit, or expires
+
+	THE SERVER OWNS EVERYTHING. The client sends UseItem with no arguments: it
+	is the intent "use whatever I am holding", nothing more. It does not say
+	which item, how many charges remain, where the shot goes or what it hit. All
+	of that is here, because a remote that carried any of it would be a remote
+	worth forging (CHOMP-SYS-034, and the rule in service_contracts.md).
+
+	The heading a shot travels along is read from the character's attributes,
+	which the server itself wrote — not from anything the client said.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+local Workspace = game:GetService("Workspace")
+local Debris = game:GetService("Debris")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
+
+local ITEMS = Config.Items
+local DEFS = ITEMS.Definitions
+
+local COLOURS = {
+	JetPack = Color3.fromRGB(76, 224, 210),
+	Cannon = Color3.fromRGB(255, 176, 32),
+	HomingBomb = Color3.fromRGB(255, 61, 138),
+	Shield = Color3.fromRGB(126, 217, 87),
+}
+
+type Held = { id: string, charges: number }
+local held: { [Player]: Held } = {}
+local shieldUntil: { [Player]: number } = {}
+
+local limiter = Remotes.makeLimiter(ITEMS.UseRateLimit)
+
+-- ── Pads ────────────────────────────────────────────────────────────────
+
+local padsFolder = Instance.new("Folder")
+padsFolder.Name = "ItemPads"
+padsFolder.Parent = Workspace
+
+local function makePad(id: string, position: Vector3)
+	local pad = Instance.new("Part")
+	pad.Name = "ItemPad_" .. id
+	pad.Shape = Enum.PartType.Ball
+	pad.Size = Vector3.new(6, 6, 6)
+	pad.Position = position
+	pad.Anchored = true
+	pad.CanCollide = false
+	pad.Material = Enum.Material.Neon
+	pad.Color = COLOURS[id] or Color3.new(1, 1, 1)
+	pad.Transparency = 0.25
+	pad:SetAttribute("ItemId", id)
+	-- Fadeable, or the camera treats a floating ball as a hard occluder and
+	-- reports a CHOMP-SYS-051 breach for it (D-CHOMP-043).
+	CollectionService:AddTag(pad, "Chomp_Decor")
+	pad.Parent = padsFolder
+	return pad
+end
+
+-- Laid out by ring so the good items are further in: the bowl is where the
+-- reward is, and an item is a reward (D-CHOMP-041).
+local function layOutPads()
+	local L = Config.Level1
+	if not L then return 0 end
+	local plan = {
+		{ id = "Shield", radius = L.RingRadii[3], count = 4, y = L.RimHeight + 4 },
+		{ id = "JetPack", radius = L.RingRadii[2], count = 4, y = L.RimHeight + 4 },
+		{ id = "Cannon", radius = L.RingRadii[1], count = 4, y = L.RimHeight + 4 },
+		{ id = "Cannon", radius = L.RimInner * 0.62, count = 4, y = 4 },
+		{ id = "HomingBomb", radius = L.RimInner * 0.28, count = 2, y = 4 },
+	}
+	local made = 0
+	for _, entry in plan do
+		for i = 0, entry.count - 1 do
+			local a = (math.pi * 2) * (i / entry.count) + (made * 0.37)
+			makePad(entry.id, Vector3.new(
+				math.cos(a) * entry.radius, entry.y, math.sin(a) * entry.radius))
+			made += 1
+		end
+	end
+	return made
+end
+
+-- ── Carrying ────────────────────────────────────────────────────────────
+
+local function publish(player: Player)
+	-- Attributes rather than a remote: the HUD reads them, and a value the
+	-- client only ever READS cannot be forged into the server (CHOMP-SYS-030).
+	local character = player.Character
+	if not character then return end
+	local h = held[player]
+	character:SetAttribute("ChompItem", h and h.id or "")
+	character:SetAttribute("ChompItemCharges", h and h.charges or 0)
+end
+
+local function give(player: Player, id: string)
+	local def = DEFS[id]
+	if not def then return end
+	held[player] = { id = id, charges = def.charges }
+	publish(player)
+end
+
+local function clear(player: Player)
+	held[player] = nil
+	publish(player)
+end
+
+-- ── Using ───────────────────────────────────────────────────────────────
+
+local function rootOf(player: Player): BasePart?
+	local character = player.Character
+	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+end
+
+-- The direction a shot travels. Taken from the character's own transform, which
+-- the server can see, rather than from anything the client sent.
+local function facing(root: BasePart): Vector3
+	local look = root.CFrame.LookVector
+	local flat = Vector3.new(look.X, 0, look.Z)
+	return flat.Magnitude > 0.001 and flat.Unit or Vector3.new(0, 0, -1)
+end
+
+local function nearestTarget(player: Player, from: Vector3, maxRange: number): BasePart?
+	local best, bestDistance = nil, maxRange
+	for _, other in Players:GetPlayers() do
+		if other ~= player then
+			local root = rootOf(other)
+			if root then
+				local d = (root.Position - from).Magnitude
+				if d < bestDistance then best, bestDistance = root, d end
+			end
+		end
+	end
+	return best
+end
+
+local function fireProjectile(player: Player, id: string)
+	local def = DEFS[id]
+	local root = rootOf(player)
+	if not root then return end
+
+	local shot = Instance.new("Part")
+	shot.Name = "ChompShot_" .. id
+	shot.Shape = Enum.PartType.Ball
+	shot.Size = Vector3.new(3, 3, 3)
+	shot.Color = COLOURS[id]
+	shot.Material = Enum.Material.Neon
+	shot.CanCollide = false
+	shot.Anchored = true
+	shot.CFrame = CFrame.new(root.Position + facing(root) * 8)
+	CollectionService:AddTag(shot, "Chomp_Decor")
+	shot.Parent = Workspace
+	Debris:AddItem(shot, 6)
+
+	local direction = facing(root)
+	local travelled = 0
+	local connection: RBXScriptConnection
+	connection = RunService.Heartbeat:Connect(function(dt)
+		if not shot.Parent then connection:Disconnect() return end
+
+		if id == "HomingBomb" then
+			local target = nearestTarget(player, shot.Position, def.rangeStuds)
+			if target then
+				-- Steer, do not snap. A bomb that turns instantly is not a
+				-- weapon, it is a guaranteed hit, and nothing you can dodge is
+				-- worth picking up to avoid.
+				local want = (target.Position - shot.Position)
+				want = Vector3.new(want.X, 0, want.Z)
+				if want.Magnitude > 0.001 then
+					local maxTurn = math.rad(def.turnRateDegrees) * dt
+					local current = direction
+					local angle = math.acos(math.clamp(current:Dot(want.Unit), -1, 1))
+					local t = angle > 0 and math.min(maxTurn / angle, 1) or 1
+					direction = current:Lerp(want.Unit, t).Unit
+				end
+			end
+		end
+
+		local step = def.projectileSpeed * dt
+		travelled += step
+		shot.CFrame = CFrame.new(shot.Position + direction * step)
+
+		if travelled >= def.rangeStuds then
+			shot:Destroy()
+			connection:Disconnect()
+			return
+		end
+
+		-- Hits are decided HERE, from positions the server holds. A client
+		-- never claims a hit (CHOMP-TC-042 covers the forged-hit attack).
+		for _, other in Players:GetPlayers() do
+			if other ~= player then
+				local otherRoot = rootOf(other)
+				if otherRoot and (otherRoot.Position - shot.Position).Magnitude < 7 then
+					if os.clock() < (shieldUntil[other] or 0) then
+						shieldUntil[other] = 0   -- the shield spends itself absorbing this
+					else
+						local humanoid = other.Character
+							and other.Character:FindFirstChildOfClass("Humanoid")
+						if humanoid then
+							humanoid:TakeDamage(20)
+						end
+					end
+					shot:Destroy()
+					connection:Disconnect()
+					return
+				end
+			end
+		end
+	end)
+end
+
+local function useHeld(player: Player)
+	if not limiter(player) then return end        -- flood protection, server side
+
+	local h = held[player]
+	if not h then return end                      -- firing with nothing is a no-op
+	local root = rootOf(player)
+	if not root then return end
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then return end
+
+	local def = DEFS[h.id]
+	if not def then clear(player) return end
+
+	if h.id == "JetPack" then
+		-- A hop. The character is the thing the engine moves, so this is an
+		-- impulse on it rather than a new mover (D-CHOMP-025).
+		local body = Instance.new("BodyVelocity")
+		body.MaxForce = Vector3.new(0, math.huge, 0)
+		body.Velocity = Vector3.new(0, def.impulseStuds, 0)
+		body.Parent = root
+		Debris:AddItem(body, 0.18)
+	elseif h.id == "Shield" then
+		shieldUntil[player] = os.clock() + def.durationSeconds
+		if player.Character then
+			player.Character:SetAttribute("ChompShieldUntil", shieldUntil[player])
+		end
+	else
+		fireProjectile(player, h.id)
+	end
+
+	h.charges -= 1
+	if h.charges <= 0 then
+		clear(player)
+	else
+		publish(player)
+	end
+end
+
+-- ── Collection ──────────────────────────────────────────────────────────
+
+local function collectionLoop()
+	while true do
+		task.wait(0.15)
+		for _, player in Players:GetPlayers() do
+			local root = rootOf(player)
+			if root then
+				for _, pad in padsFolder:GetChildren() do
+					if pad:IsA("BasePart") and pad.Transparency < 1
+						and (pad.Position - root.Position).Magnitude < ITEMS.PickupRadiusStuds then
+						local id = pad:GetAttribute("ItemId")
+						if typeof(id) == "string" then
+							give(player, id)
+							-- The pad is hidden and comes back, rather than being
+							-- destroyed and rebuilt: the map stays stocked without
+							-- anything having to remember where pads went.
+							pad.Transparency = 1
+							task.delay(ITEMS.RespawnSeconds, function()
+								if pad.Parent then pad.Transparency = 0.25 end
+							end)
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function()
+		clear(player)
+		shieldUntil[player] = 0
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	held[player] = nil
+	shieldUntil[player] = nil
+end)
+
+Remotes.UseItem.OnServerEvent:Connect(function(player: Player)
+	-- No arguments. Anything a client sent here would be a number worth forging.
+	useHeld(player)
+end)
+
+local count = layOutPads()
+task.spawn(collectionLoop)
+
+print(("[ItemService] running - %d pads, one slot, %d item types, %d/s use limit")
+	:format(count, 4, ITEMS.UseRateLimit))
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="144">
         <Properties>
           <string name="Name">MovementService</string>
           <token name="RunContext">0</token>
@@ -6431,7 +6806,7 @@ print("[MovementService] running — server owns the numbers, the client owns it
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="143">
+      <Item class="Script" referent="145">
         <Properties>
           <string name="Name">TestMap</string>
           <token name="RunContext">0</token>
@@ -6604,7 +6979,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="144">
+      <Item class="Script" referent="146">
         <Properties>
           <string name="Name">VehicleService</string>
           <token name="RunContext">0</token>
@@ -6881,15 +7256,15 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="145">
+  <Item class="ServerStorage" referent="147">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="146">
+    <Item class="Folder" referent="148">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="147">
+      <Item class="ModuleScript" referent="149">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -7174,7 +7549,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="148">
+      <Item class="ModuleScript" referent="150">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -7433,11 +7808,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="149">
+      <Item class="Folder" referent="151">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="150">
+        <Item class="ModuleScript" referent="152">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -7550,15 +7925,15 @@ return {
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="151">
+  <Item class="StarterPlayer" referent="153">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="152">
+    <Item class="StarterPlayerScripts" referent="154">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="153">
+      <Item class="LocalScript" referent="155">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -7810,7 +8185,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="154">
+      <Item class="LocalScript" referent="156">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -7951,7 +8326,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="155">
+      <Item class="LocalScript" referent="157">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -8019,6 +8394,16 @@ local sendInterval = 1 / sendRate
 local stickTouch: any = nil
 local stickOrigin = Vector2.zero
 local stickCurrent = Vector2.zero
+local stickStartedAt = 0
+local stickMaxTravel = 0
+
+-- Firing is intent and nothing else: no target, no charge count, no item name.
+-- The server knows what you are holding (D-CHOMP-045).
+local function fire()
+	if Remotes and Remotes.UseItem then
+		Remotes.UseItem:FireServer()
+	end
+end
 
 -- Returns steer (-1..1) and throttle (-1..1) from the stick, or 0, 0.
 local function stickAxes(): (number, number)
@@ -8064,16 +8449,27 @@ UserInputService.TouchStarted:Connect(function(touch, processed)
 	stickTouch = touch
 	stickOrigin = Vector2.new(touch.Position.X, touch.Position.Y)
 	stickCurrent = stickOrigin
+	stickStartedAt = os.clock()
+	stickMaxTravel = 0
 end)
 
 UserInputService.TouchMoved:Connect(function(touch)
 	if touch == stickTouch then
 		stickCurrent = Vector2.new(touch.Position.X, touch.Position.Y)
+		local travel = (stickCurrent - stickOrigin).Magnitude
+		if travel > stickMaxTravel then stickMaxTravel = travel end
 	end
 end)
 
 local function endTouch(touch)
 	if touch == stickTouch then
+		-- Short and barely moved: that was never a steering input, so it fires.
+		-- Peak travel is used rather than final travel, so a flick out and back
+		-- is correctly read as steering rather than as a tap.
+		local quick = (os.clock() - stickStartedAt) <= CONTROLS.TapFireSeconds
+		if quick and stickMaxTravel <= CONTROLS.TapFireSlopPixels then
+			fire()
+		end
 		stickTouch = nil
 		stickOrigin = Vector2.zero
 		stickCurrent = Vector2.zero
@@ -8109,6 +8505,10 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 	heldKeys[input.KeyCode] = true
 	recomputeKeyboard()
+
+	if input.KeyCode == Enum.KeyCode.Space then
+		fire()
+	end
 
 end)
 
@@ -8156,7 +8556,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="156">
+      <Item class="LocalScript" referent="158">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -8314,7 +8714,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="157">
+      <Item class="LocalScript" referent="159">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -8461,7 +8861,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="158">
+  <Item class="Workspace" referent="160">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>
