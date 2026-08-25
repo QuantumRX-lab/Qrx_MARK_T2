@@ -43,9 +43,15 @@ local WALL_T = M.WallThickness
 local DECK_H = M.DeckHeight
 local SLAB = M.SlabThickness
 
-local QUAD = M.QuadrantCells         -- 16, the authored quadrant
-local FULL = M.GroundDeckCells       -- 32, after mirroring
-local R2_HALF = M.Ring2InnerCells    -- 8, so ring 2 is 16 cells across
+-- Arena size is its own knob, not the v1 map's. map_geometry.md fixes the real
+-- map at 32 x 32 with a 16 x 16 authored quadrant; this is a place to drive, so
+-- it is deliberately smaller and more open.
+local FULL = M.ArenaCells or M.GroundDeckCells
+local QUAD = FULL // 2               -- one quadrant, rotated four times
+local DECKS = M.ArenaDecks or 2
+
+-- Ring 2 is a quarter of the grid on each side, so it scales with ArenaCells.
+local R2_HALF = FULL // 4
 local R2_SIZE = R2_HALF * 2
 local R2_LO = FULL // 2 - R2_HALF
 local R2_HI = R2_LO + R2_SIZE - 1
@@ -270,14 +276,18 @@ local function build()
 	local ground = mirror(generateQuadrant(QUAD, M.ArenaBraidChance), QUAD, FULL, 0)
 	openSeams(ground, FULL, 0, 3)
 
-	local ring2 = mirror(generateQuadrant(R2_HALF, M.ArenaBraidChance), R2_HALF, R2_SIZE, R2_LO)
-	openSeams(ring2, R2_SIZE, R2_LO, 3)
+	local ring2: EdgeSet = {}
+	if DECKS >= 2 then
+		ring2 = mirror(generateQuadrant(R2_HALF, M.ArenaBraidChance), R2_HALF, R2_SIZE, R2_LO)
+		openSeams(ring2, R2_SIZE, R2_LO, 3)
+	end
 
 	-- Garages: three per quadrant, 3 x 3 cells, hollowed out and opened to the
 	-- maze on one side. Mirrored, that is the twelve of CHOMP-SYS-007.
 	local G = M.GarageCells
 	local garages: { Cell } = {}
-	for _, corner in { { x = 1, z = 1 }, { x = 12, z = 1 }, { x = 1, z = 12 } } do
+	local far = math.max(QUAD - G - 1, 1)
+	for _, corner in { { x = 1, z = 1 }, { x = far, z = 1 }, { x = 1, z = far } } do
 		for _, o in rotations(corner, FULL) do
 			local x0 = math.clamp(o.x, 0, FULL - G)
 			local z0 = math.clamp(o.z, 0, FULL - G)
@@ -308,70 +318,73 @@ local function build()
 	-- Ramps and bridges are defined once in quadrant terms as a PAIR of cells,
 	-- then both ends rotated. That way the direction each one runs falls out of
 	-- the rotation instead of being four hand-written special cases.
-	local rampRun = cells(M.RampCells)
-	local rampLength = math.sqrt(rampRun ^ 2 + DECK_H ^ 2)
-	local rampAngle = math.atan2(DECK_H, rampRun)
-	local rampBase = { x = R2_LO - M.RampCells, z = FULL // 2 + 4 }
-	local rampLand = { x = R2_LO, z = FULL // 2 + 4 }
 	local rampBases: { Cell } = {}
+	if DECKS >= 2 then
+		local rampRun = cells(M.RampCells)
+		local rampLength = math.sqrt(rampRun ^ 2 + DECK_H ^ 2)
+		local rampAngle = math.atan2(DECK_H, rampRun)
+		local rampBase = { x = R2_LO - M.RampCells, z = FULL // 2 + 4 }
+		local rampLand = { x = R2_LO, z = FULL // 2 + 4 }
 
-	local baseR = rotations(rampBase, FULL)
-	local landR = rotations(rampLand, FULL)
-	for i = 1, 4 do
-		local a, b = baseR[i], landR[i]
-		local dx = math.sign(b.x - a.x)
-		local dz = math.sign(b.z - a.z)
+		local baseR = rotations(rampBase, FULL)
+		local landR = rotations(rampLand, FULL)
+		for i = 1, 4 do
+			local a, b = baseR[i], landR[i]
+			local dx = math.sign(b.x - a.x)
+			local dz = math.sign(b.z - a.z)
 
-		-- clear the ground approach, and punch the ring 2 perimeter at the top
-		for step = 0, M.RampCells - 1 do
-			local c1 = { x = a.x + dx * step, z = a.z + dz * step }
-			local c2 = { x = a.x + dx * (step + 1), z = a.z + dz * (step + 1) }
-			ground[edgeKey(c1, c2)] = true
+			-- clear the ground approach, and punch the ring 2 perimeter at the top
+			for step = 0, M.RampCells - 1 do
+				local c1 = { x = a.x + dx * step, z = a.z + dz * step }
+				local c2 = { x = a.x + dx * (step + 1), z = a.z + dz * (step + 1) }
+				ground[edgeKey(c1, c2)] = true
+			end
+			ring2[edgeKey(b, { x = b.x - dx, z = b.z - dz })] = true
+
+			-- Centre along the run, but centre WITHIN the cell across it. Using the
+			-- same expression for both axes offsets the ramp by half a cell.
+			local horizontal = dx ~= 0
+			local mid = horizontal
+				and Vector3.new((cells(a.x) + cells(b.x)) / 2, DECK_H / 2, cells(a.z) + CELL / 2)
+				or Vector3.new(cells(a.x) + CELL / 2, DECK_H / 2, (cells(a.z) + cells(b.z)) / 2)
+			local size = horizontal
+				and Vector3.new(rampLength, SLAB, cells(1))
+				or Vector3.new(cells(1), SLAB, rampLength)
+			-- Rotating about Z by +angle lifts the +X end; rotating about X by
+			-- +angle drops the +Z end, hence the asymmetry in these two signs.
+			local tilt = horizontal
+				and CFrame.Angles(0, 0, dx * rampAngle)
+				or CFrame.Angles(-dz * rampAngle, 0, 0)
+			local ramp = part("Ramp", size, CFrame.new(mid) * tilt, COLOUR_RAMP, links)
+			CollectionService:AddTag(ramp, "Chomp_Link")
+			table.insert(rampBases, a)
 		end
-		ring2[edgeKey(b, { x = b.x - dx, z = b.z - dz })] = true
 
-		-- Centre along the run, but centre WITHIN the cell across it. Using the
-		-- same expression for both axes offsets the ramp by half a cell.
-		local horizontal = dx ~= 0
-		local mid = horizontal
-			and Vector3.new((cells(a.x) + cells(b.x)) / 2, DECK_H / 2, cells(a.z) + CELL / 2)
-			or Vector3.new(cells(a.x) + CELL / 2, DECK_H / 2, (cells(a.z) + cells(b.z)) / 2)
-		local size = horizontal
-			and Vector3.new(rampLength, SLAB, cells(1))
-			or Vector3.new(cells(1), SLAB, rampLength)
-		-- Rotating about Z by +angle lifts the +X end; rotating about X by
-		-- +angle drops the +Z end, hence the asymmetry in these two signs.
-		local tilt = horizontal
-			and CFrame.Angles(0, 0, dx * rampAngle)
-			or CFrame.Angles(-dz * rampAngle, 0, 0)
-		local ramp = part("Ramp", size, CFrame.new(mid) * tilt, COLOUR_RAMP, links)
-		CollectionService:AddTag(ramp, "Chomp_Link")
-		table.insert(rampBases, a)
-	end
+		-- Bridges: attached to ring 2, cantilevered out over the ground corridors,
+		-- ending in nothing. Driving off is the mechanic, not a mistake
+		-- (CHOMP-SYS-049, CHOMP-TC-039).
+		local bridgeIn = { x = R2_LO, z = FULL // 2 - 5 }
+		local bridgeOut = { x = R2_LO - 5, z = FULL // 2 - 5 }
+		local inR = rotations(bridgeIn, FULL)
+		local outR = rotations(bridgeOut, FULL)
+		for i = 1, 4 do
+			local a, b = inR[i], outR[i]
+			local dx = math.sign(b.x - a.x)
+			local dz = math.sign(b.z - a.z)
+			ring2[edgeKey(a, { x = a.x + dx, z = a.z + dz })] = true
 
-	-- Bridges: attached to ring 2, cantilevered out over the ground corridors,
-	-- ending in nothing. Driving off is the mechanic, not a mistake
-	-- (CHOMP-SYS-049, CHOMP-TC-039).
-	local bridgeIn = { x = R2_LO, z = FULL // 2 - 5 }
-	local bridgeOut = { x = R2_LO - 5, z = FULL // 2 - 5 }
-	local inR = rotations(bridgeIn, FULL)
-	local outR = rotations(bridgeOut, FULL)
-	for i = 1, 4 do
-		local a, b = inR[i], outR[i]
-		local dx = math.sign(b.x - a.x)
-		local dz = math.sign(b.z - a.z)
-		ring2[edgeKey(a, { x = a.x + dx, z = a.z + dz })] = true
+			local span = math.max(math.abs(b.x - a.x), math.abs(b.z - a.z))
+			local horizontal = dx ~= 0
+			local mid = horizontal
+				and Vector3.new((cells(a.x) + cells(b.x)) / 2, DECK_H, cells(a.z) + CELL / 2)
+				or Vector3.new(cells(a.x) + CELL / 2, DECK_H, (cells(a.z) + cells(b.z)) / 2)
+			local size = horizontal
+				and Vector3.new(cells(span), SLAB, cells(M.BridgeWidthCells))
+				or Vector3.new(cells(M.BridgeWidthCells), SLAB, cells(span))
+			local bridge = part("Bridge", size, CFrame.new(mid), COLOUR_BRIDGE, links)
+			CollectionService:AddTag(bridge, "Chomp_Link")
+		end
 
-		local span = math.max(math.abs(b.x - a.x), math.abs(b.z - a.z))
-		local horizontal = dx ~= 0
-		local mid = horizontal
-			and Vector3.new((cells(a.x) + cells(b.x)) / 2, DECK_H, cells(a.z) + CELL / 2)
-			or Vector3.new(cells(a.x) + CELL / 2, DECK_H, (cells(a.z) + cells(b.z)) / 2)
-		local size = horizontal
-			and Vector3.new(cells(span), SLAB, cells(M.BridgeWidthCells))
-			or Vector3.new(cells(M.BridgeWidthCells), SLAB, cells(span))
-		local bridge = part("Bridge", size, CFrame.new(mid), COLOUR_BRIDGE, links)
-		CollectionService:AddTag(bridge, "Chomp_Link")
 	end
 
 	-- Floors, then walls — after every opening above has been applied.
@@ -379,9 +392,12 @@ local function build()
 		CFrame.new(cells(FULL) / 2, 0, cells(FULL) / 2), COLOUR_FLOOR, deck1)
 	local groundWalls = renderWalls(deck1, ground, 0, FULL - 1, 0, COLOUR_WALL)
 
-	part("Ring2Slab", Vector3.new(cells(R2_SIZE), SLAB, cells(R2_SIZE)),
-		CFrame.new(cells(FULL) / 2, DECK_H, cells(FULL) / 2), COLOUR_FLOOR2, deck2)
-	local ring2Walls = renderWalls(deck2, ring2, R2_LO, R2_HI, 1, COLOUR_WALL2)
+	local ring2Walls = 0
+	if DECKS >= 2 then
+		part("Ring2Slab", Vector3.new(cells(R2_SIZE), SLAB, cells(R2_SIZE)),
+			CFrame.new(cells(FULL) / 2, DECK_H, cells(FULL) / 2), COLOUR_FLOOR2, deck2)
+		ring2Walls = renderWalls(deck2, ring2, R2_LO, R2_HI, 1, COLOUR_WALL2)
+	end
 
 	-- Spawn inside a garage: you start where you bank.
 	local home = garages[1]
@@ -409,10 +425,11 @@ local function build()
 		end
 	end
 
-	print(("[ArenaMap] built: ground %dx%d (%d walls), ring 2 %dx%d (%d walls), " ..
-		"4 ramps, 4 bridges, %d garages, %d/%d cells reachable. cell %d wall %d deck %d seed %d")
-		:format(FULL, FULL, groundWalls, R2_SIZE, R2_SIZE, ring2Walls,
-			#garages, got, FULL * FULL, CELL, WALL_H, DECK_H, M.ArenaSeed))
+	print(("[ArenaMap] built: %d deck(s), ground %dx%d (%d walls), ring 2 %d walls, " ..
+		"%d ramps, %d garages, %d/%d cells reachable. cell %d wall %d braid %.2f seed %d")
+		:format(DECKS, FULL, FULL, groundWalls, ring2Walls,
+			#rampBases, #garages, got, FULL * FULL, CELL, WALL_H,
+			M.ArenaBraidChance, M.ArenaSeed))
 end
 
 build()

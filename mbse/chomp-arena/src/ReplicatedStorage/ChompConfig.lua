@@ -39,7 +39,20 @@ ChompConfig.StartingChassis = "Standard"
 ChompConfig.Movement = {
 	Acceleration = 60,       -- studs/s^2, deliberately snappy: arcade, not simulation
 	Braking = 90,
-	SteerRampSeconds = 0.12,      -- time for steering to reach the held value
+	-- Time for steering to reach the held value. Raised from 0.12 after the
+	-- first real drive, which read as twitchy: on a keyboard the input is either
+	-- 0 or full lock, so this ramp is the only thing standing between a tap and
+	-- a full-rate rotation.
+	--
+	-- There is a ceiling on it. A corridor cell is crossed in CellSize/BaseSpeed
+	-- seconds - about a third of a second at 8 studs and speed 24 - and steering
+	-- that has not engaged by then cannot make a junction. Keep this comfortably
+	-- under that, and re-derive it if either number moves.
+	SteerRampSeconds = 0.24,
+	-- Straightening is quicker than committing. Asymmetry is deliberate: the
+	-- twitch people feel is usually the vehicle still turning after they let go,
+	-- and a fast release fixes that without slowing the turn itself.
+	SteerReleaseSeconds = 0.10,
 	ReverseFlipSeconds = 0.45,
 	ReverseFlipSecondsAgile = 0.25,   -- with Agility II or better
 	AgilityLevelForFastReverse = 2,
@@ -215,7 +228,9 @@ ChompConfig.Map = {
 	-- the camera forces a geometry change.
 	Layout = "Arena",
 	ArenaSeed = 20260825,         -- change for a different maze, same rules
-	ArenaBraidChance = 0.28,      -- fraction of dead ends opened into loops
+	ArenaCells = 20,              -- full grid across; must be even, quadrant is half
+	ArenaDecks = 1,               -- 1 = ground only. 2 adds ring 2, ramps and bridges
+	ArenaBraidChance = 0.45,      -- higher is more loops and fewer dead ends
 }
 
 return ChompConfig

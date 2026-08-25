@@ -676,3 +676,35 @@ decisions:
       are eight, so it shows only when hugging a wall. Giving the vehicle a real
       collision body changes how the character is built and is not worth doing
       before CHOMP-TC-040 says the geometry survives at all.
+
+  - id: D-CHOMP-032
+    date: 2026-08-25
+    title: First tuning pass after the first real drive — one deck, looser maze, softer steering
+    decision: >
+      The arena drops to a single deck and a smaller, more open grid:
+      ArenaCells 20, ArenaDecks 1, ArenaBraidChance raised to 0.45. Ring 2,
+      ramps and bridges are gated behind ArenaDecks = 2 rather than removed.
+      Steering gains an asymmetric ramp: SteerRampSeconds raised from 0.12 to
+      0.24 to engage, and a new SteerReleaseSeconds of 0.10 to straighten.
+    rationale: >
+      Owner decision after the first drive of the full arena, which is the first
+      time anyone has driven this game with a map and a chassis. Two decks and a
+      32x32 braided maze is too much to evaluate handling in: you cannot tell
+      whether a corner feels wrong or you simply took the wrong one. Strip the
+      variables until the driving is right, then put the decks back — which is
+      why they are gated by a number rather than deleted.
+      On steering: the reported feel was twitchy. On a keyboard the input is
+      either zero or full lock, so the ramp is the only thing between a tap and
+      a full-rate rotation. Making engagement slower alone would risk the
+      opposite failure, because steering that has not engaged within one cell
+      crossing cannot make a junction — about a third of a second at 8 studs
+      and speed 24. So engagement softened only to 0.24 while release was made
+      quicker at 0.10. The twitch people actually feel is usually the vehicle
+      still turning after they let go, and that is a release problem, not an
+      engagement one.
+    outcome: >
+      ChompConfig carries both numbers with the junction-timing constraint
+      written next to them, so a future retune re-derives rather than guesses.
+      VehicleController picks the rate by whether the deflection is growing.
+      ArenaMap takes ArenaCells and ArenaDecks, and ring 2 sizing scales from
+      the grid so switching back to two decks needs no other change.

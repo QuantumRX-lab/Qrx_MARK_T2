@@ -97,3 +97,19 @@ entries:
     the output, so read the [ArenaMap] line before concluding the maze is fine:
     it reports how many of the 1024 ground cells are reachable from spawn.
     Change ChompConfig.Map.ArenaSeed for a different maze under the same rules.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-047]
+  summary: >
+    Arena stripped back after the first real drive (D-CHOMP-032): one deck,
+    ArenaCells 20 instead of 32, braid raised to 0.45 for a looser maze with
+    fewer dead ends. Ring 2, the four ramps and the four bridges are gated on
+    ArenaDecks = 2 rather than deleted, so restoring the second deck is one
+    number. Ring 2 sizing now scales from the grid rather than assuming 32.
+  status: OPEN
+  handoff: >
+    The two-deck path is now UNEXERCISED by default — it built and ran once at
+    32x32, and has not run since ring 2 sizing became a function of ArenaCells.
+    Set ArenaDecks = 2 and check the ramps still land on the ring 2 edge before
+    trusting it, because R2_LO moved from a constant to FULL // 4.

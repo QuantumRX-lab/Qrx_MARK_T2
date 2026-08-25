@@ -96,8 +96,16 @@ RunService.RenderStepped:Connect(function(dt)
 
 	-- Ramp the steering instead of applying it raw. Straight-through input is
 	-- twitchy at any turn rate high enough to make a junction.
-	local ramp = math.clamp(dt / MOVE.SteerRampSeconds, 0, 1)
-	smoothedSteer += (state.steer - smoothedSteer) * ramp
+	--
+	-- Engaging and releasing use different rates (D-CHOMP-032). Committing to a
+	-- turn should take a moment; coming out of one should not, because a vehicle
+	-- that keeps turning after the key is released is what actually reads as
+	-- twitchy.
+	local steerTarget = state.steer or 0
+	local engaging = math.abs(steerTarget) > math.abs(smoothedSteer)
+	local rampSeconds = engaging and MOVE.SteerRampSeconds or MOVE.SteerReleaseSeconds
+	local ramp = math.clamp(dt / rampSeconds, 0, 1)
+	smoothedSteer += (steerTarget - smoothedSteer) * ramp
 
 	if state.flip and flipRemaining <= 0 then
 		flipRemaining = MOVE.ReverseFlipSeconds
