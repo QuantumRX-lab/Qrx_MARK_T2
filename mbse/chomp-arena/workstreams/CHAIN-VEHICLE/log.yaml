@@ -228,3 +228,32 @@ entries:
     those two. Codex: the orientation convention in the contract was read
     correctly, so build HeavyJaw, Ravener and Apex on the same basis without
     waiting.
+- date: '2026-08-25'
+  agent: Claude (tree owner)
+  action: ACCEPTED
+  requirements: [CHOMP-SYS-054]
+  summary: >
+    All four chassis provisionally ACCEPTED. Geometry checked directly from the
+    CFrames in the Rojo-built XML place, so the checks that were blocked on a
+    Roblox runtime could be computed after all.
+
+    chassis   forward  centred  wedge   bounds x/y/z        parts
+    Standard   +2.15     0.00   +1.80   5.20/3.27/6.38      11
+    HeavyJaw   +2.25     0.00   +1.50   5.35/3.80/6.83      13
+    Ravener    +2.38     0.00   +1.50   5.55/4.00/7.26      18
+    Apex       +2.48     0.00   +1.50   5.75/4.15/7.51      21
+
+    Every mouth is ahead of its chassis origin along the LookVector, dead on
+    the centre line, opening the right way, inside the 6 x 6 x 8 bounds and
+    well inside the 60 part budget. The escalation is legible in the geometry
+    itself: each tier is longer, taller and carries more parts than the last,
+    and the mouth reaches further forward.
+  status: OPEN
+  handoff: >
+    Two checks remain and both need Studio or a human: the numeric attribute
+    values against ChompConfig, since AttributesSerialize is a binary blob that
+    was not decoded here, and the silhouette fraction, which the scanner only
+    approximates and which needs an eye on an iPad regardless. Run
+    Scan.report(Scan.checkAll()) to close the first. CHAIN-VEHICLE's model work
+    is otherwise complete; what is left on the chain is wiring a chassis onto
+    the character, which belongs with the engine claim.
