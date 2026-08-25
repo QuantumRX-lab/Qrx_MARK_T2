@@ -6275,9 +6275,20 @@ local function hide(d: Instance)
 	end
 end
 
+-- The vehicle is parented INTO the character, so every sweep has to skip it.
+-- Missing this on one of the two paths is what made the vehicle vanish along
+-- with the avatar: DescendantAdded excluded it, the appearance-loaded sweep did
+-- not, and whichever ran last decided (D-CHOMP-036).
+local function isVehicle(character: Model, d: Instance): boolean
+	local vehicle = character:FindFirstChild("Vehicle")
+	return vehicle ~= nil and (d == vehicle or d:IsDescendantOf(vehicle))
+end
+
 local function hideAll(character: Model)
 	for _, d in character:GetDescendants() do
-		hide(d)
+		if not isVehicle(character, d) then
+			hide(d)
+		end
 	end
 end
 
@@ -6288,11 +6299,7 @@ local function hideAvatar(player: Player, character: Model)
 	hideAll(character)
 
 	character.DescendantAdded:Connect(function(d)
-		-- except the vehicle, which is parented into the character on purpose
-		local vehicle = character:FindFirstChild("Vehicle")
-		if vehicle and (d == vehicle or d:IsDescendantOf(vehicle)) then
-			return
-		end
+		if isVehicle(character, d) then return end
 		hide(d)
 	end)
 

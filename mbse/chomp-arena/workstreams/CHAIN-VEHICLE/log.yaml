@@ -474,3 +474,22 @@ entries:
     Vehicle. Watch also for a first-person camera flip - the transparency
     controller is what normally hides your head when you zoom in, and it is now
     being overwritten every frame.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-001]
+  summary: >
+    Reported as "missing the vehicle and avatar" — the player saw nothing at
+    all. Cause was two sweeps hiding avatar parts and only one of them excluding
+    the vehicle: the CharacterAppearanceLoaded path called hideAll, which walked
+    every descendant, so an appearance landing after the chassis was welded on
+    painted the chassis invisible too. Both sweeps now share one isVehicle
+    predicate (D-CHOMP-036).
+  status: OPEN
+  handoff: >
+    If the vehicle is STILL missing after this, the cause is different and the
+    Output will say so: VehicleService warns by name when it cannot find a spec
+    or cannot build one. Check for "[VehicleService] no spec for chassis" or
+    "could not build". If neither appears and [VehicleService] running does,
+    the model was built and attached, and the problem is visibility rather than
+    construction.

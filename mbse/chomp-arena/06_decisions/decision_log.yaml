@@ -806,3 +806,26 @@ decisions:
       is parented in after the character spawns, so an early sweep can catch it,
       and dropping a part from the list stops the writes without undoing the
       last one. That would have produced an invisible vehicle.
+
+  - id: D-CHOMP-036
+    date: 2026-08-25
+    title: One exclusion predicate, used by every sweep that hides the avatar
+    decision: >
+      VehicleService has a single isVehicle(character, instance) predicate, and
+      both the DescendantAdded handler and the CharacterAppearanceLoaded sweep
+      go through it.
+    rationale: >
+      The vehicle disappeared along with the avatar. Two code paths hide avatar
+      parts — one when a descendant arrives, one when the appearance finishes
+      loading — and only the first excluded the vehicle. The appearance sweep
+      called hideAll, which walked every descendant unconditionally, so if the
+      appearance landed after the chassis was welded on it painted the chassis
+      invisible too. The player then saw nothing at all, because the avatar was
+      correctly hidden and the vehicle was incorrectly hidden.
+      The lesson is not "add the check in the second place". It is that a rule
+      copied into two call sites is a rule that will be enforced in one of them:
+      the same shape as the duplicated-name bug in D-CHOMP-024 and the
+      two-writer bugs in D-CHOMP-023, -025 and -035. Write the rule once.
+    outcome: >
+      isVehicle is defined once and both sweeps call it. Noted for whoever adds
+      a third sweep: it goes through the same predicate.
