@@ -1087,3 +1087,118 @@ decisions:
       Cannon and bomb currently have nothing to shoot: there are no ghosts and
       usually one player. They fire, travel, steer, expire and are hit-tested
       against other players correctly. That is honest rather than finished.
+
+  - id: D-CHOMP-046
+    date: 2026-08-25
+    title: Level 1 is one sealed level, twice the size, and lit
+    decision: >
+      Level 1 is a single-level disc 800 studs across with an unbroken boundary
+      wall. Seven concentric rings with offset gaps and short spokes, an open
+      arena in the middle, garages on the outer band, and the guardian chamber
+      carved INTO the outer band rather than hung off the edge. Walls alternate
+      NEON and BRICK ring by ring. Colours come from ChompConfig.Palette.
+      Supersedes the two-level bowl of D-CHOMP-044.
+    rationale: >
+      Owner direction and three separate reasons agreeing. A drop between decks
+      is a way to fall out of the map, and the bowl had one; a sealed disc has
+      nowhere to fall. The arena was too small to build speed in, so it doubled.
+      And alternating materials is navigation rather than decoration: at speed a
+      driver needs to know which ring they are on without counting, and "the
+      pink neon one" is a landmark where "the third identical corridor" is not.
+      Anything outside the boundary is an escape, which is why the guardian
+      chamber moved inside it. That was a real bug in D-CHOMP-044, not a
+      preference.
+    outcome: >
+      Level1Map replaces BowlMap, which is deleted. About 820 parts: 604 ring
+      segments, 180 boundary, 30 spokes. Corridors are 38 studs clear, 2.4 cells,
+      which is generous for a sweeping turn. The palette is one table, so
+      recolouring the whole game is one edit.
+
+  - id: D-CHOMP-047
+    date: 2026-08-25
+    title: An item looks like what it does
+    decision: >
+      Each item is a built model whose silhouette states its capability: the
+      JetPack is thrusters and flame, the Cannon a barrel on a mount, the
+      HomingBomb a finned body with a seeker eye, the Shield a ring around a
+      core. Pads spin and bob.
+    rationale: >
+      Owner direction, and correct. Four glowing balls in four colours is a
+      memory test, not a game: a child at 24 studs per second reads SHAPE long
+      before hue, and colour alone also fails anyone colour-blind — which is the
+      same objection CHOMP-SYS-056 already makes about the HUD.
+      Spinning matters more than it sounds. A static prop reads as scenery; a
+      moving one reads as a thing you are meant to drive into.
+    outcome: >
+      buildItemModel in ItemService. Pads are Models rather than parts, so
+      collection tests the pivot and hiding walks the descendants.
+
+  - id: D-CHOMP-048
+    date: 2026-08-25
+    title: Carried is risky, banked is safe, and banking has no button
+    decision: >
+      Pellets lie along every ring lane, worth more the closer to the middle,
+      with power pellets in the open centre. Eating adds to ChompCarried.
+      Driving onto a garage pad converts the whole carry to ChompDollars. Both
+      are attributes the server writes and the HUD only reads.
+    rationale: >
+      This is the economy CHOMP-SYS-005 describes, and the split is the game: a
+      ghost can take what you carry and can never touch what you banked, so
+      driving home with a full load is the tensest thing available.
+      Value rising toward the middle is not arbitrary. The centre is open, has
+      nothing to hide behind and is where ghosts converge, so it has to pay for
+      the exposure it costs.
+      Banking has no button, no prompt and no confirmation: it is a consequence
+      of driving somewhere, which is the one principle of D-CHOMP-015 that every
+      control scheme since has kept.
+    outcome: >
+      PelletService. Carried points do not survive death; dollars persist on the
+      player. Collection and banking share one 0.1s loop because both are "am I
+      near a thing".
+
+  - id: D-CHOMP-049
+    date: 2026-08-25
+    title: Ghosts are point thieves, and are frightening without being fast
+    decision: >
+      Ghosts hunt the nearest kart within 260 studs and take StealFraction of
+      carried points on contact, never touching banked dollars. They are slower
+      than a Standard chassis. Eyes track the nearest kart, the hem ripples, and
+      the bobbing STOPS as one closes in.
+    rationale: >
+      Scary is a design requirement here, and speed is the wrong lever for it —
+      a ghost that outruns you is a tax you cannot play against, while one that
+      only catches the careless is a threat. Ghosts.Speed is 21 against a kart's
+      24, deliberately.
+      What does the work instead: they are always looking at you, they never
+      stop coming, and they go still as they arrive. Stillness reads as intent,
+      and intent is frightening in a way that speed is not.
+      They are never tagged fadeable. The camera fades walls so you can see your
+      kart; fading the thing hunting you would be actively hostile.
+    outcome: >
+      GhostService. Ghosts are anchored puppets posed each frame rather than
+      physical bodies, because nothing about them needs to be simulated. With no
+      kart in range they drift a ring, so the map looks inhabited rather than
+      empty until something notices you.
+
+  - id: D-CHOMP-050
+    date: 2026-08-25
+    title: The HUD answers one question per corner
+    decision: >
+      Carried at top-left in pink, banked at top-right in gold, one contextual
+      objective at top-centre, held item and charges under the carry. The bottom
+      edge and both lower corners stay empty. Every value is read from a
+      server-written attribute.
+    rationale: >
+      Implements CHOMP-SYS-055 and -056 to Codex's zones. Carried and banked are
+      never the same colour, size or corner, because "is that safe?" has to be
+      answerable without reading a word.
+      One objective, not a list, and it is chosen by urgency: carrying a lot
+      outranks everything, since the thing most likely to be lost is the thing
+      worth being told about.
+      A theft flashes the screen. The number changing is not enough when your
+      eyes are on a corridor, which is exactly what CHOMP-SYS-056 means by
+      feedback that explains itself.
+    outcome: >
+      ChompHud reads attributes only and can decide nothing. CHOMP-TC-045 is the
+      child-facing demonstration and has not been run; this is the thing to run
+      it against.

@@ -288,19 +288,39 @@ ChompConfig.Items = {
 -- the middle. Radii are in studs and everything is a multiple of CellSize so
 -- the rim corridors are the same width as everywhere else.
 ChompConfig.Level1 = {
-	RimOuter = 240,          -- outer boundary wall
-	RimInner = 160,          -- where the rim ends and the drop into the bowl begins
-	RimHeight = 10,          -- the rim stands this far above the bowl floor
-	RampCount = 4,           -- one broad slope per quadrant
-	RampWidthStuds = 32,     -- two corridors wide: this is a slope, not a corridor
-	RampRunStuds = 48,       -- 10 studs of fall over 48 is about 12 degrees
-	RingRadii = { 176, 200, 224 },  -- the rim maze runs on three concentric rings
-	GapsPerRing = 5,         -- openings per ring, offset ring to ring
-	RadialsPerQuadrant = 2,  -- spokes that stop a ring becoming a racetrack
-	GarageCount = 4,         -- one per spawn quadrant, on the outer rim
-	GuardianAngleDegrees = 0,-- the chamber sits at world east, off the rim
-	GuardianChamberStuds = 56,
-	SegmentStuds = 8,        -- arc resolution; smaller is rounder and more parts
+	-- ONE LEVEL, fully enclosed. No decks, no drops, no way off the floor: the
+	-- arena is a sealed disc and the only vertical thing in it is a wall
+	-- (D-CHOMP-046).
+	OuterRadius = 400,        -- the boundary wall; nothing exists beyond it
+	CentreRadius = 120,       -- open arena in the middle, no rings inside this
+	RingSpacing = 40,         -- 2.5 corridors between rings
+	GapsPerRing = 6,          -- openings per ring, offset ring to ring
+	SpokesPerRing = 5,        -- short radial walls so a ring is not a racetrack
+	SegmentStuds = 14,        -- arc resolution; smaller is rounder and costs parts
+	GarageCount = 4,
+	GuardianChamberStuds = 72,
+	GuardianAngleDegrees = 0,
+	-- Alternating materials so the rings read as different places at speed
+	-- rather than as one repeating corridor.
+	NeonRings = true,
+}
+
+
+-- ── Palette (D-CHOMP-046) ───────────────────────────────────────────────
+-- Dark ground, hot neon, one gold accent. Driving fast past a lit wall is what
+-- makes speed legible, so the walls carry the colour and the floor stays out of
+-- the way.
+ChompConfig.Palette = {
+	Floor       = Color3.fromRGB(21, 14, 31),
+	FloorCentre = Color3.fromRGB(29, 19, 41),
+	NeonA       = Color3.fromRGB(76, 224, 210),
+	NeonB       = Color3.fromRGB(255, 61, 138),
+	Brick       = Color3.fromRGB(58, 44, 74),
+	BrickDark   = Color3.fromRGB(41, 31, 54),
+	Boundary    = Color3.fromRGB(88, 62, 110),
+	Gold        = Color3.fromRGB(255, 176, 32),
+	Danger      = Color3.fromRGB(255, 61, 61),
+	Ghost       = Color3.fromRGB(226, 232, 255),
 }
 
 ChompConfig.Camera = {
@@ -6041,313 +6061,230 @@ build()
       </Item>
       <Item class="Script" referent="142">
         <Properties>
-          <string name="Name">BowlMap</string>
+          <string name="Name">GhostService</string>
           <token name="RunContext">0</token>
           <string name="Source"><![CDATA[--!strict
 --[[
-	BowlMap — CHAIN-MAZE, Level 1 (D-CHOMP-041)
+	GhostService — CHAIN-GHOSTS (D-CHOMP-049)
 
-	Safety and reward as geography. A rim you can learn on, three concentric
-	rings of easy maze to bank in, four broad slopes down into an open central
-	bowl where the points and the fights are, and a guardian chamber off the rim
-	on the route to Level 2.
+	Ghosts hunt what you are carrying.
 
-	Everything is curved. That is not decoration: continuous steering
-	(D-CHOMP-042) leans into a bend, and the rectilinear arena it replaces
-	punished that by putting a flat wall and a square corner at the end of every
-	corridor. A ring you can hold a line around is the shape this driving model
-	was asking for.
+	They are point thieves, not killers. Being caught costs you the risky half of
+	your money and nothing else, which is what makes a full carry frightening
+	rather than merely inconvenient — you can always drive away, you just cannot
+	drive away with everything.
 
-	Built from ChompConfig.Level1, so a camera retune or a speed change
-	regenerates it rather than invalidating it.
+	Making them scary is a design requirement, not decoration. Three things do
+	the work and none of them is speed:
 
-	Arcs are chords. A ring at radius r is drawn as segments of about
-	SegmentStuds each, tangent to the circle — smaller segments are rounder and
-	cost more parts, and that trade is the one knob worth having.
+	  they are always looking at you   eyes track the nearest kart, so a ghost
+	                                   across the arena is still watching
+	  they never stop coming           no pathing cleverness, just relentless
+	  they go quiet when close         a ghost about to reach you stops bobbing
+	                                   and steadies, which reads as intent
 
-	EVERY wall is tagged Chomp_Wall. The camera fades only tagged parts and
-	treats anything else as a hard occluder, which is what made an untagged
-	arena look like a broken camera (D-CHOMP-043).
+	They are deliberately SLOWER than a Standard chassis (Ghosts.Speed 21 against
+	BaseSpeed 24). A ghost that can outrun you is a tax; one that can only catch
+	the careless is a threat you can play against.
+
+	Ghosts are NEVER tagged fadeable. The camera fades walls so you can see your
+	kart; fading the thing hunting you would be actively hostile (D-CHOMP-043).
 ]]
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
-local M = Config.Map
+local G = Config.Ghosts
 local L = Config.Level1
+local P = Config.Palette
 
-if M.Layout ~= "Level1" then
-	return   -- ArenaMap or TestMap builds instead; see ChompConfig.Map.Layout
-end
+local STEAL_RADIUS = 11
+local STEAL_COOLDOWN = 4
+local SENSE_RADIUS = 260
 
-local WALL_H = M.WallHeight
-local WALL_T = M.WallThickness
-local SLAB = M.SlabThickness
-local TAU = math.pi * 2
+local folder = Instance.new("Folder")
+folder.Name = "Ghosts"
+folder.Parent = Workspace
 
-local COLOUR_BOWL = Color3.fromRGB(31, 34, 48)
-local COLOUR_RIM = Color3.fromRGB(44, 48, 66)
-local COLOUR_WALL = Color3.fromRGB(64, 92, 176)
-local COLOUR_OUTER = Color3.fromRGB(52, 62, 120)
-local COLOUR_RAMP = Color3.fromRGB(84, 120, 200)
-local COLOUR_GARAGE = Color3.fromRGB(255, 176, 32)
-local COLOUR_CHAMBER = Color3.fromRGB(255, 61, 61)
+type Ghost = {
+	model: Model,
+	body: BasePart,
+	eyes: { BasePart },
+	angle: number,
+	radius: number,
+	lastSteal: number,
+}
 
-local function part(name: string, size: Vector3, cf: CFrame, colour: Color3, parent: Instance): Part
+local ghosts: { Ghost } = {}
+
+local function piece(parent: Instance, name: string, size: Vector3, colour: Color3,
+		material: Enum.Material, shape: Enum.PartType?): BasePart
 	local p = Instance.new("Part")
 	p.Name = name
 	p.Size = size
-	p.CFrame = cf
-	p.Anchored = true
-	p.Material = Enum.Material.SmoothPlastic
 	p.Color = colour
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Material = material
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	if shape then p.Shape = shape end
 	p.Parent = parent
 	return p
 end
 
-local function onCircle(radius: number, angle: number, y: number): Vector3
-	return Vector3.new(math.cos(angle) * radius, y, math.sin(angle) * radius)
-end
+local function buildGhost(): Ghost
+	local model = Instance.new("Model")
+	model.Name = "Ghost"
 
--- A CFrame whose local Z runs TANGENT to the circle at `angle`.
--- CFrame.Angles(0, t, 0) puts local Z along (sin t, 0, cos t); the tangent is
--- (-sin a, 0, cos a), so t = -a.
-local function tangentAt(radius: number, angle: number, y: number): CFrame
-	return CFrame.new(onCircle(radius, angle, y)) * CFrame.Angles(0, -angle, 0)
-end
+	-- A hood, not a ball: the silhouette has to read as a figure at distance.
+	local body = piece(model, "Body", Vector3.new(9, 9, 9), P.Ghost, Enum.Material.Neon, Enum.PartType.Ball)
+	body.Transparency = 0.28
+	local skirt = piece(model, "Skirt", Vector3.new(9, 7, 9), P.Ghost, Enum.Material.Neon)
+	skirt.Transparency = 0.35
 
--- A CFrame whose local Z runs OUTWARD along the radius at `angle`.
--- Local Z must be (cos a, 0, sin a), so t = pi/2 - a.
-local function radialAt(radius: number, angle: number, y: number): CFrame
-	return CFrame.new(onCircle(radius, angle, y)) * CFrame.Angles(0, math.pi / 2 - angle, 0)
-end
-
--- ── Arcs ────────────────────────────────────────────────────────────────
-
-local function arc(parent: Instance, name: string, radius: number, from: number, to: number,
-		y: number, height: number, thickness: number, colour: Color3, tag: string?): number
-	local span = to - from
-	if span <= 0 then return 0 end
-	local segments = math.max(1, math.ceil(radius * span / L.SegmentStuds))
-	for i = 0, segments - 1 do
-		local a0 = from + span * (i / segments)
-		local a1 = from + span * ((i + 1) / segments)
-		local mid = (a0 + a1) / 2
-		-- chord, not arc length: the box is straight and must meet its neighbours
-		local chord = 2 * radius * math.sin((a1 - a0) / 2)
-		local p = part(name, Vector3.new(thickness, height, chord + 0.4),
-			tangentAt(radius, mid, y), colour, parent)
-		if tag then CollectionService:AddTag(p, tag) end
-	end
-	return segments
-end
-
--- The rim floor is an annulus, drawn the same way: segments spanning the band.
-local function annulus(parent: Instance, name: string, inner: number, outer: number,
-		from: number, to: number, y: number, colour: Color3): number
-	local mid = (inner + outer) / 2
-	local band = outer - inner
-	local span = to - from
-	local segments = math.max(1, math.ceil(mid * span / L.SegmentStuds))
-	for i = 0, segments - 1 do
-		local a0 = from + span * (i / segments)
-		local a1 = from + span * ((i + 1) / segments)
-		local a = (a0 + a1) / 2
-		local chord = 2 * mid * math.sin((a1 - a0) / 2)
-		part(name, Vector3.new(band, SLAB, chord + 0.6), tangentAt(mid, a, y), colour, parent)
-	end
-	return segments
-end
-
--- ── Build ───────────────────────────────────────────────────────────────
-
-local function build()
-	local maps = Workspace:FindFirstChild("Maps") or Instance.new("Folder")
-	maps.Name = "Maps"
-	maps.Parent = Workspace
-
-	local existing = maps:FindFirstChild("Level1")
-	if existing then existing:Destroy() end
-
-	local map = Instance.new("Folder"); map.Name = "Level1"; map.Parent = maps
-	local bowl = Instance.new("Folder"); bowl.Name = "Bowl"; bowl.Parent = map
-	local rim = Instance.new("Folder"); rim.Name = "Rim"; rim.Parent = map
-	local links = Instance.new("Folder"); links.Name = "Links"; links.Parent = map
-	local bays = Instance.new("Folder"); bays.Name = "Garages"; bays.Parent = map
-
-	-- The bowl floor is one cylinder covering everything; the rim is a raised
-	-- annulus laid on top of it. That way the bowl is simply the part of the
-	-- floor the rim does not cover, and no primitive needs a hole in it.
-	local floor = part("BowlFloor", Vector3.new(SLAB, L.RimOuter * 2, L.RimOuter * 2),
-		CFrame.new(0, 0, 0) * CFrame.Angles(0, 0, math.rad(90)), COLOUR_BOWL, bowl)
-	floor.Shape = Enum.PartType.Cylinder
-
-	-- Ramp mouths: the annulus and the inner lip are omitted across these spans
-	-- so a slope has somewhere to land.
-	local rampHalf = math.atan((L.RampWidthStuds / 2) / L.RimInner)
-	local rampAngles = {}
-	for i = 0, L.RampCount - 1 do
-		table.insert(rampAngles, TAU * (i / L.RampCount) + math.pi / L.RampCount)
+	-- A ragged hem. Four lobes is enough to read as cloth and cheap enough to
+	-- put a dozen of these in a map.
+	for i = 0, 5 do
+		local a = (math.pi * 2) * (i / 6)
+		local lobe = piece(model, "Hem", Vector3.new(3.2, 3.2, 3.2), P.Ghost,
+			Enum.Material.Neon, Enum.PartType.Ball)
+		lobe.Transparency = 0.4
+		lobe:SetAttribute("HemAngle", a)
 	end
 
-	local function inRampMouth(a: number): boolean
-		for _, r in rampAngles do
-			local d = math.abs((a - r + math.pi) % TAU - math.pi)
-			if d < rampHalf * 1.6 then return true end
-		end
-		return false
-	end
-
-	-- Rim floor and the inner lip, in spans between the ramp mouths.
-	local rimSegments, lipSegments = 0, 0
-	local steps = 240
-	local runStart: number? = nil
-	for i = 0, steps do
-		local a = TAU * (i / steps)
-		local blocked = inRampMouth(a) or i == steps
-		if not blocked and runStart == nil then
-			runStart = a
-		elseif blocked and runStart ~= nil then
-			rimSegments += annulus(rim, "RimFloor", L.RimInner, L.RimOuter,
-				runStart, a, L.RimHeight, COLOUR_RIM)
-			-- the inner lip is what stops you driving off the rim by accident;
-			-- it is also the wall the camera has to fade when you hug it
-			lipSegments += arc(rim, "RimLip", L.RimInner, runStart, a,
-				L.RimHeight + SLAB / 2 + WALL_H / 2, WALL_H, WALL_T, COLOUR_WALL, "Chomp_Wall")
-			runStart = nil
-		end
-	end
-
-	-- Outer boundary: no gaps, this is the edge of the world.
-	local outerSegments = arc(rim, "OuterWall", L.RimOuter,
-		0, TAU, L.RimHeight + SLAB / 2 + WALL_H / 2, WALL_H, WALL_T, COLOUR_OUTER, "Chomp_Wall")
-
-	-- ── The rim maze ─────────────────────────────────────────────────────
-	-- Concentric rings with gaps, offset ring to ring so no single radial line
-	-- is a free run from the outer wall to the bowl. Radial spokes stop each
-	-- ring becoming a racetrack you can hold flat out.
-	local ringSegments, radialSegments = 0, 0
-	local y = L.RimHeight + SLAB / 2 + WALL_H / 2
-	for ringIndex, radius in ipairs(L.RingRadii) do
-		local gapHalf = math.atan((M.CellSize * 1.5) / radius)
-		local offset = (TAU / L.GapsPerRing) * ((ringIndex - 1) / #L.RingRadii)
-		for g = 0, L.GapsPerRing - 1 do
-			local from = offset + TAU * (g / L.GapsPerRing) + gapHalf
-			local to = offset + TAU * ((g + 1) / L.GapsPerRing) - gapHalf
-			ringSegments += arc(rim, "RingWall", radius, from, to, y,
-				WALL_H, WALL_T, COLOUR_WALL, "Chomp_Wall")
-		end
-	end
-
-	local radials = L.RadialsPerQuadrant * 4
-	for i = 0, radials - 1 do
-		local a = TAU * (i / radials) + TAU / (radials * 2)
-		if not inRampMouth(a) then
-			-- a spoke spans one gap between rings, never the whole band, or the
-			-- rim stops being navigable
-			local r0 = L.RingRadii[1 + (i % (#L.RingRadii - 1))]
-			local r1 = L.RingRadii[2 + (i % (#L.RingRadii - 1))]
-			local mid = (r0 + r1) / 2
-			local p = part("RadialWall", Vector3.new(WALL_T, WALL_H, r1 - r0),
-				radialAt(mid, a, y), COLOUR_WALL, rim)
-			CollectionService:AddTag(p, "Chomp_Wall")
-			radialSegments += 1
-		end
-	end
-
-	-- ── The slopes ───────────────────────────────────────────────────────
-	-- Broad, gentle and unmissable. This is the commitment from safety into the
-	-- bowl, so it should read as an invitation rather than a chute.
-	local rampPitch = math.atan2(L.RimHeight, L.RampRunStuds)
-	local rampLength = math.sqrt(L.RampRunStuds ^ 2 + L.RimHeight ^ 2)
-	for _, a in rampAngles do
-		local outer = L.RimInner
-		local inner = L.RimInner - L.RampRunStuds
-		local midRadius = (inner + outer) / 2
-		local cf = radialAt(midRadius, a, L.RimHeight / 2)
-			* CFrame.Angles(-rampPitch, 0, 0)
-		local ramp = part("Ramp", Vector3.new(L.RampWidthStuds, SLAB, rampLength),
-			cf, COLOUR_RAMP, links)
-		CollectionService:AddTag(ramp, "Chomp_Link")
-	end
-
-	-- ── Garages, one per spawn quadrant, on the outer rim ────────────────
-	local garages: { Vector3 } = {}
-	for i = 0, L.GarageCount - 1 do
-		local a = TAU * (i / L.GarageCount)
-		local r = (L.RingRadii[#L.RingRadii] + L.RimOuter) / 2
-		local pos = onCircle(r, a, L.RimHeight + SLAB / 2 + 0.2)
-		local pad = part("GarageFloor", Vector3.new(M.CellSize * 2, 0.4, M.CellSize * 2),
-			tangentAt(r, a, pos.Y), COLOUR_GARAGE, bays)
-		pad.Transparency = 0.55
-		pad.CanCollide = false
-		CollectionService:AddTag(pad, "Chomp_Garage")
-		table.insert(garages, pos)
-	end
-
-	-- ── Guardian chamber ─────────────────────────────────────────────────
-	-- Adjacent to the rim rather than across the route, so meeting the guardian
-	-- is a decision rather than a collision (D-CHOMP-041). The commitment
-	-- boundary is visible from outside and is deliberately not a wall.
-	local ga = math.rad(L.GuardianAngleDegrees)
-	local chamberR = L.RimOuter + L.GuardianChamberStuds / 2
-	local chamberCF = radialAt(chamberR, ga, L.RimHeight)
-	part("GuardianFloor", Vector3.new(L.GuardianChamberStuds, SLAB, L.GuardianChamberStuds),
-		chamberCF, COLOUR_RIM, map)
-
-	local half = L.GuardianChamberStuds / 2
-	local wallY = L.RimHeight + SLAB / 2 + WALL_H / 2
+	local eyes: { BasePart } = {}
 	for _, side in { -1, 1 } do
-		local p = part("ChamberWall", Vector3.new(WALL_T, WALL_H, L.GuardianChamberStuds),
-			radialAt(chamberR, ga, wallY) * CFrame.new(side * half, 0, 0), COLOUR_WALL, map)
-		CollectionService:AddTag(p, "Chomp_Wall")
+		local eye = piece(model, "Eye", Vector3.new(2.1, 2.6, 1.2), P.Danger,
+			Enum.Material.Neon, Enum.PartType.Ball)
+		eye:SetAttribute("Side", side)
+		table.insert(eyes, eye)
 	end
-	local back = part("ChamberWall", Vector3.new(L.GuardianChamberStuds, WALL_H, WALL_T),
-		radialAt(chamberR, ga, wallY) * CFrame.new(0, 0, half), COLOUR_WALL, map)
-	CollectionService:AddTag(back, "Chomp_Wall")
 
-	-- The boundary you cross knowingly. Not collidable: crossing under-powered
-	-- is meant to be possible and fatal, not blocked (D-CHOMP-041).
-	local boundary = part("CommitmentBoundary",
-		Vector3.new(L.GuardianChamberStuds, WALL_H, 1),
-		radialAt(chamberR, ga, wallY) * CFrame.new(0, 0, -half), COLOUR_CHAMBER, map)
-	boundary.Transparency = 0.65
-	boundary.CanCollide = false
-	CollectionService:AddTag(boundary, "Chomp_Boundary")
+	model.PrimaryPart = body
+	model.Parent = folder
+	return {
+		model = model, body = body, eyes = eyes,
+		angle = 0, radius = 0, lastSteal = 0,
+	}
+end
 
-	-- The outer wall has to open where the chamber meets it.
-	for _, p in rim:GetChildren() do
-		if p.Name == "OuterWall" and p:IsA("BasePart") then
-			local a = math.atan2(p.Position.Z, p.Position.X)
-			local d = math.abs((a - ga + math.pi) % TAU - math.pi)
-			if d < math.atan((L.GuardianChamberStuds / 2) / L.RimOuter) then
-				p:Destroy()
+local function ghostCount(): number
+	local players = math.max(1, #Players:GetPlayers())
+	local best = 2
+	for _, row in G.CountByPlayers do
+		if players <= row.players then
+			best = math.max(best, row.ghosts)
+		end
+	end
+	return best
+end
+
+local function nearestKart(from: Vector3): (BasePart?, number)
+	local best, bestDistance = nil, math.huge
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			local d = (root.Position - from).Magnitude
+			if d < bestDistance then best, bestDistance = root, d end
+		end
+	end
+	return best, bestDistance
+end
+
+local function spawnGhosts()
+	local wanted = ghostCount()
+	while #ghosts < wanted do
+		local g = buildGhost()
+		local index = #ghosts
+		g.radius = L.CentreRadius + L.RingSpacing * (1 + (index % 4))
+		g.angle = (math.pi * 2) * (index / math.max(1, wanted))
+		g.model:PivotTo(CFrame.new(math.cos(g.angle) * g.radius, 8, math.sin(g.angle) * g.radius))
+		table.insert(ghosts, g)
+	end
+end
+
+local t = 0
+RunService.Heartbeat:Connect(function(dt)
+	t += dt
+	for index, g in ghosts do
+		if not g.model.Parent then continue end
+
+		local here = g.model:GetPivot().Position
+		local target, distance = nearestKart(here)
+
+		local speed = G.Speed
+		local goal: Vector3
+		if target and distance < SENSE_RADIUS then
+			goal = target.Position
+		else
+			-- No one in range: drift around a ring, so the map always looks
+			-- inhabited rather than empty until something notices you.
+			g.angle += (dt * 0.25) * (index % 2 == 0 and 1 or -1)
+			goal = Vector3.new(math.cos(g.angle) * g.radius, 8, math.sin(g.angle) * g.radius)
+			speed = G.FleeSpeed
+		end
+
+		local flat = Vector3.new(goal.X - here.X, 0, goal.Z - here.Z)
+		local step = flat.Magnitude > 1 and flat.Unit * speed * dt or Vector3.zero
+
+		-- Close in, the bobbing stops. A ghost that steadies as it arrives reads
+		-- as deliberate, and deliberate is what makes it frightening.
+		local closing = target and distance < 60
+		local bob = closing and 0 or math.sin(t * 1.6 + index) * 1.6
+		local y = 8 + bob
+
+		local look = flat.Magnitude > 1 and flat.Unit or Vector3.new(0, 0, -1)
+		local pivot = CFrame.lookAt(Vector3.new(here.X + step.X, y, here.Z + step.Z),
+			Vector3.new(here.X + step.X + look.X, y, here.Z + step.Z + look.Z))
+		g.model:PivotTo(pivot)
+
+		-- Parts are positioned relative to the pivot each frame rather than
+		-- welded, because the whole thing is anchored and there is no physics to
+		-- respect — this is a puppet, not a body.
+		local base = pivot
+		for _, d in g.model:GetDescendants() do
+			if d:IsA("BasePart") then
+				if d.Name == "Skirt" then
+					d.CFrame = base * CFrame.new(0, -4.2, 0)
+				elseif d.Name == "Hem" then
+					local a = (d:GetAttribute("HemAngle") :: number?) or 0
+					local wobble = math.sin(t * 4 + a * 3) * 0.8
+					d.CFrame = base * CFrame.new(math.cos(a) * 3.4, -7.4 + wobble, math.sin(a) * 3.4)
+				elseif d.Name == "Eye" then
+					local side = (d:GetAttribute("Side") :: number?) or 1
+					d.CFrame = base * CFrame.new(side * 2.1, 1.4, -3.6)
+				end
+			end
+		end
+
+		-- The theft. Carried only: banked dollars are never touchable, which is
+		-- the entire point of banking (CHOMP-SYS-005).
+		if target and distance < STEAL_RADIUS and (os.clock() - g.lastSteal) > STEAL_COOLDOWN then
+			local character = target.Parent :: Model
+			local held = (character:GetAttribute("ChompCarried") :: number?) or 0
+			if held > 0 then
+				local taken = math.floor(held * G.StealFraction)
+				character:SetAttribute("ChompCarried", held - taken)
+				character:SetAttribute("ChompStolenAt", os.clock())
+				character:SetAttribute("ChompStolenAmount", taken)
+				g.lastSteal = os.clock()
 			end
 		end
 	end
+end)
 
-	-- ── Spawn ────────────────────────────────────────────────────────────
-	local home = garages[1]
-	local spawn = Instance.new("SpawnLocation")
-	spawn.Name = "Level1Spawn"
-	spawn.Size = Vector3.new(M.CellSize, 1, M.CellSize)
-	spawn.CFrame = CFrame.new(home + Vector3.new(0, 0.6, 0))
-	spawn.Anchored = true
-	spawn.CanCollide = false
-	spawn.Transparency = 0.7
-	spawn.Parent = map
+Players.PlayerAdded:Connect(function()
+	task.delay(G.RecalculateWithinSeconds, spawnGhosts)
+end)
 
-	print(("[BowlMap] Level 1 built: bowl r%d, rim %d-%d at height %d, %d ring segments, " ..
-		"%d radials, %d ramps, %d garages, outer %d segments. cell %d wall %d")
-		:format(L.RimInner, L.RimInner, L.RimOuter, L.RimHeight, ringSegments,
-			radialSegments, #rampAngles, #garages, outerSegments, M.CellSize, WALL_H))
-end
-
-build()
+spawnGhosts()
+print(("[GhostService] %d ghosts hunting carried points, %d%% per catch, speed %d vs kart %d")
+	:format(#ghosts, math.floor(G.StealFraction * 100), G.Speed,
+		Config.Chassis[Config.StartingChassis].BaseSpeed))
 ]]></string>
         </Properties>
       </Item>
@@ -6392,12 +6329,95 @@ local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local ITEMS = Config.Items
 local DEFS = ITEMS.Definitions
 
+local P = Config.Palette
+
 local COLOURS = {
-	JetPack = Color3.fromRGB(76, 224, 210),
-	Cannon = Color3.fromRGB(255, 176, 32),
-	HomingBomb = Color3.fromRGB(255, 61, 138),
+	JetPack = P.NeonA,
+	Cannon = P.Gold,
+	HomingBomb = P.NeonB,
 	Shield = Color3.fromRGB(126, 217, 87),
 }
+
+-- Each item is BUILT to look like what it does (D-CHOMP-047). Colour alone is
+-- not a capability: a child at speed reads silhouette long before hue, and
+-- three glowing balls in three colours is a memory test rather than a game.
+local function bit(model: Model, name: string, size: Vector3, offset: CFrame,
+		colour: Color3, material: Enum.Material, shape: Enum.PartType?): BasePart
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.Color = colour
+	p.Material = material
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	if shape then p.Shape = shape end
+	p.CFrame = offset
+	p.Parent = model
+	return p
+end
+
+local function buildItemModel(id: string): Model
+	local model = Instance.new("Model")
+	model.Name = "Item_" .. id
+	local c = COLOURS[id]
+
+	if id == "JetPack" then
+		-- Two thrusters and a pack. It points DOWN, because that is the way the
+		-- thrust goes and the way you are about to go is up.
+		bit(model, "Pack", Vector3.new(3, 3.4, 1.6), CFrame.new(0, 0.4, 0), c, Enum.Material.Metal)
+		for _, side in { -1, 1 } do
+			bit(model, "Thruster", Vector3.new(1.1, 2.6, 1.1),
+				CFrame.new(side * 1.9, -0.2, 0) * CFrame.Angles(0, 0, math.rad(90)),
+				c, Enum.Material.Neon, Enum.PartType.Cylinder)
+			bit(model, "Flame", Vector3.new(0.9, 1.4, 0.9),
+				CFrame.new(side * 1.9, -2.1, 0), P.Gold, Enum.Material.Neon, Enum.PartType.Ball)
+		end
+
+	elseif id == "Cannon" then
+		-- A barrel on a mount. Long, straight and obviously pointing somewhere.
+		bit(model, "Mount", Vector3.new(2.6, 1.4, 2.6), CFrame.new(0, -1.2, 0),
+			P.BrickDark, Enum.Material.Metal)
+		bit(model, "Barrel", Vector3.new(1.8, 5.6, 1.8),
+			CFrame.new(0, 0.6, -1.2) * CFrame.Angles(math.rad(90), 0, 0),
+			c, Enum.Material.Metal, Enum.PartType.Cylinder)
+		bit(model, "Muzzle", Vector3.new(2.2, 0.8, 2.2),
+			CFrame.new(0, 0.6, -3.9) * CFrame.Angles(math.rad(90), 0, 0),
+			P.Danger, Enum.Material.Neon, Enum.PartType.Cylinder)
+
+	elseif id == "HomingBomb" then
+		-- A finned bomb. Fins say it steers; a plain ball would not.
+		bit(model, "Body", Vector3.new(3.2, 3.2, 3.2), CFrame.new(0, 0, 0),
+			c, Enum.Material.Metal, Enum.PartType.Ball)
+		bit(model, "Eye", Vector3.new(1.2, 1.2, 1.2), CFrame.new(0, 0, -1.5),
+			P.NeonA, Enum.Material.Neon, Enum.PartType.Ball)
+		for i = 0, 3 do
+			local a = (math.pi / 2) * i
+			bit(model, "Fin", Vector3.new(0.35, 1.8, 2.2),
+				CFrame.new(math.cos(a) * 1.5, 0, math.sin(a) * 1.5) * CFrame.Angles(0, -a, 0),
+				P.BrickDark, Enum.Material.Metal)
+		end
+
+	else -- Shield
+		-- A ring around a core: something that surrounds you rather than fires.
+		bit(model, "Core", Vector3.new(1.8, 1.8, 1.8), CFrame.new(0, 0, 0),
+			c, Enum.Material.Neon, Enum.PartType.Ball)
+		local segments = 12
+		for i = 0, segments - 1 do
+			local a = (math.pi * 2) * (i / segments)
+			bit(model, "Ring", Vector3.new(0.5, 0.5, 1.5),
+				CFrame.new(math.cos(a) * 2.6, 0, math.sin(a) * 2.6) * CFrame.Angles(0, -a, 0),
+				c, Enum.Material.Neon)
+		end
+	end
+
+	local primary = model:FindFirstChildWhichIsA("BasePart")
+	model.PrimaryPart = primary
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then CollectionService:AddTag(d, "Chomp_Decor") end
+	end
+	return model
+end
 
 type Held = { id: string, charges: number }
 local held: { [Player]: Held } = {}
@@ -6412,40 +6432,71 @@ padsFolder.Name = "ItemPads"
 padsFolder.Parent = Workspace
 
 local function makePad(id: string, position: Vector3)
-	local pad = Instance.new("Part")
-	pad.Name = "ItemPad_" .. id
-	pad.Shape = Enum.PartType.Ball
-	pad.Size = Vector3.new(6, 6, 6)
-	pad.Position = position
-	pad.Anchored = true
-	pad.CanCollide = false
-	pad.Material = Enum.Material.Neon
-	pad.Color = COLOURS[id] or Color3.new(1, 1, 1)
-	pad.Transparency = 0.25
-	pad:SetAttribute("ItemId", id)
-	-- Fadeable, or the camera treats a floating ball as a hard occluder and
-	-- reports a CHOMP-SYS-051 breach for it (D-CHOMP-043).
-	CollectionService:AddTag(pad, "Chomp_Decor")
-	pad.Parent = padsFolder
-	return pad
+	local model = buildItemModel(id)
+	model:SetAttribute("ItemId", id)
+	model:SetAttribute("HomeY", position.Y)
+	model:PivotTo(CFrame.new(position))
+	model.Parent = padsFolder
+	return model
 end
 
--- Laid out by ring so the good items are further in: the bowl is where the
--- reward is, and an item is a reward (D-CHOMP-041).
-local function layOutPads()
+-- Spin and bob. A static prop reads as scenery; a moving one reads as a thing
+-- you are meant to drive into.
+local function animatePads()
+	local t = 0
+	RunService.Heartbeat:Connect(function(dt)
+		t += dt
+		for _, model in padsFolder:GetChildren() do
+			if model:IsA("Model") and model.PrimaryPart and model.PrimaryPart.Transparency < 1 then
+				local homeY = model:GetAttribute("HomeY")
+				if typeof(homeY) == "number" then
+					local pivot = model:GetPivot()
+					model:PivotTo(CFrame.new(pivot.Position.X, homeY + math.sin(t * 2) * 1.2, pivot.Position.Z)
+						* CFrame.Angles(0, t * 1.4, 0))
+				end
+			end
+		end
+	end)
+end
+
+-- Laid out by ring, with the better items further in. The centre arena is the
+-- exposed place with no walls to hide behind, so what is found there has to be
+-- worth standing in the open for (D-CHOMP-046).
+local function setCollected(model: Model, collected: boolean)
+	model:SetAttribute("Collected", collected)
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Transparency = collected and 1 or 0
+		end
+	end
+end
+
+local function layOutPads(): number
 	local L = Config.Level1
 	if not L then return 0 end
+
+	local radii = {}
+	local r = L.CentreRadius
+	while r <= L.OuterRadius - L.RingSpacing do
+		table.insert(radii, r)
+		r += L.RingSpacing
+	end
+	if #radii == 0 then return 0 end
+
+	local mid = function(i: number) return radii[math.clamp(i, 1, #radii)] + L.RingSpacing / 2 end
 	local plan = {
-		{ id = "Shield", radius = L.RingRadii[3], count = 4, y = L.RimHeight + 4 },
-		{ id = "JetPack", radius = L.RingRadii[2], count = 4, y = L.RimHeight + 4 },
-		{ id = "Cannon", radius = L.RingRadii[1], count = 4, y = L.RimHeight + 4 },
-		{ id = "Cannon", radius = L.RimInner * 0.62, count = 4, y = 4 },
-		{ id = "HomingBomb", radius = L.RimInner * 0.28, count = 2, y = 4 },
+		{ id = "Shield", radius = mid(#radii), count = 6, y = 4 },
+		{ id = "Shield", radius = mid(#radii - 1), count = 4, y = 4 },
+		{ id = "JetPack", radius = mid(#radii - 2), count = 5, y = 4 },
+		{ id = "Cannon", radius = mid(#radii - 3), count = 5, y = 4 },
+		{ id = "Cannon", radius = mid(2), count = 4, y = 4 },
+		{ id = "HomingBomb", radius = L.CentreRadius * 0.55, count = 3, y = 4 },
 	}
+
 	local made = 0
 	for _, entry in plan do
 		for i = 0, entry.count - 1 do
-			local a = (math.pi * 2) * (i / entry.count) + (made * 0.37)
+			local a = (math.pi * 2) * (i / entry.count) + (made * 0.41)
 			makePad(entry.id, Vector3.new(
 				math.cos(a) * entry.radius, entry.y, math.sin(a) * entry.radius))
 			made += 1
@@ -6625,23 +6676,25 @@ end
 
 local function collectionLoop()
 	while true do
-		task.wait(0.15)
+		task.wait(0.12)
 		for _, player in Players:GetPlayers() do
 			local root = rootOf(player)
 			if root then
-				for _, pad in padsFolder:GetChildren() do
-					if pad:IsA("BasePart") and pad.Transparency < 1
-						and (pad.Position - root.Position).Magnitude < ITEMS.PickupRadiusStuds then
-						local id = pad:GetAttribute("ItemId")
-						if typeof(id) == "string" then
-							give(player, id)
-							-- The pad is hidden and comes back, rather than being
-							-- destroyed and rebuilt: the map stays stocked without
-							-- anything having to remember where pads went.
-							pad.Transparency = 1
-							task.delay(ITEMS.RespawnSeconds, function()
-								if pad.Parent then pad.Transparency = 0.25 end
-							end)
+				for _, model in padsFolder:GetChildren() do
+					if model:IsA("Model") and model:GetAttribute("Collected") ~= true then
+						local pivot = model:GetPivot()
+						if (pivot.Position - root.Position).Magnitude < ITEMS.PickupRadiusStuds then
+							local id = model:GetAttribute("ItemId")
+							if typeof(id) == "string" then
+								give(player, id)
+								-- hidden and restored rather than destroyed and
+								-- rebuilt, so the map restocks without anything
+								-- having to remember where a pad was
+								setCollected(model, true)
+								task.delay(ITEMS.RespawnSeconds, function()
+									if model.Parent then setCollected(model, false) end
+								end)
+							end
 						end
 					end
 				end
@@ -6668,6 +6721,7 @@ Remotes.UseItem.OnServerEvent:Connect(function(player: Player)
 end)
 
 local count = layOutPads()
+animatePads()
 task.spawn(collectionLoop)
 
 print(("[ItemService] running - %d pads, one slot, %d item types, %d/s use limit")
@@ -6676,6 +6730,228 @@ print(("[ItemService] running - %d pads, one slot, %d item types, %d/s use limit
         </Properties>
       </Item>
       <Item class="Script" referent="144">
+        <Properties>
+          <string name="Name">Level1Map</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	Level1Map — CHAIN-MAZE (D-CHOMP-046)
+
+	One level, sealed, and big. A disc 800 studs across with a boundary wall you
+	cannot get past, concentric ring corridors you can hold a line around, and an
+	open arena in the middle where the reward is.
+
+	The bowl this replaces was two levels with a drop between them, and a drop is
+	a way to fall out of the map. Everything here is at y = 0. The only vertical
+	thing in the arena is a wall.
+
+	Walls alternate between NEON and BRICK, ring by ring. That is navigation, not
+	decoration: at speed a driver needs to know which ring they are on without
+	stopping to count, and "the pink neon one" is a landmark in a way that "the
+	third identical corridor" never is.
+
+	Every wall is tagged Chomp_Wall so the camera can fade it (D-CHOMP-043).
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+local Workspace = game:GetService("Workspace")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local M = Config.Map
+local L = Config.Level1
+local P = Config.Palette
+
+if M.Layout ~= "Level1" then
+	return
+end
+
+local WALL_H = M.WallHeight
+local WALL_T = M.WallThickness
+local SLAB = M.SlabThickness
+local TAU = math.pi * 2
+local WALL_Y = SLAB / 2 + WALL_H / 2
+
+local function part(name: string, size: Vector3, cf: CFrame, colour: Color3,
+		material: Enum.Material, parent: Instance): Part
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cf
+	p.Anchored = true
+	p.Material = material
+	p.Color = colour
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = parent
+	return p
+end
+
+local function onCircle(radius: number, angle: number, y: number): Vector3
+	return Vector3.new(math.cos(angle) * radius, y, math.sin(angle) * radius)
+end
+
+-- Local Z tangent to the circle: CFrame.Angles(0, t, 0) puts local Z along
+-- (sin t, 0, cos t), and the tangent at `angle` is (-sin a, 0, cos a), so t = -a.
+local function tangentAt(radius: number, angle: number, y: number): CFrame
+	return CFrame.new(onCircle(radius, angle, y)) * CFrame.Angles(0, -angle, 0)
+end
+
+-- Local Z outward along the radius: local Z must be (cos a, 0, sin a), t = pi/2 - a.
+local function radialAt(radius: number, angle: number, y: number): CFrame
+	return CFrame.new(onCircle(radius, angle, y)) * CFrame.Angles(0, math.pi / 2 - angle, 0)
+end
+
+local function arc(parent: Instance, name: string, radius: number, from: number, to: number,
+		y: number, height: number, thickness: number, colour: Color3,
+		material: Enum.Material): number
+	local span = to - from
+	if span <= 0 then return 0 end
+	local segments = math.max(1, math.ceil(radius * span / L.SegmentStuds))
+	for i = 0, segments - 1 do
+		local a0 = from + span * (i / segments)
+		local a1 = from + span * ((i + 1) / segments)
+		local mid = (a0 + a1) / 2
+		-- chord, not arc length: the box is straight and must meet its neighbours
+		local chord = 2 * radius * math.sin((a1 - a0) / 2)
+		local p = part(name, Vector3.new(thickness, height, chord + 0.4),
+			tangentAt(radius, mid, y), colour, material, parent)
+		CollectionService:AddTag(p, "Chomp_Wall")
+	end
+	return segments
+end
+
+local function build()
+	local maps = Workspace:FindFirstChild("Maps") or Instance.new("Folder")
+	maps.Name = "Maps"
+	maps.Parent = Workspace
+	for _, old in maps:GetChildren() do old:Destroy() end
+
+	local map = Instance.new("Folder"); map.Name = "Level1"; map.Parent = maps
+	local rings = Instance.new("Folder"); rings.Name = "Rings"; rings.Parent = map
+	local bays = Instance.new("Folder"); bays.Name = "Garages"; bays.Parent = map
+
+	-- ── Floor: one disc, and a lighter disc marking the centre arena ─────
+	local floor = part("Floor", Vector3.new(SLAB, L.OuterRadius * 2, L.OuterRadius * 2),
+		CFrame.new(0, 0, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		P.Floor, Enum.Material.SmoothPlastic, map)
+	floor.Shape = Enum.PartType.Cylinder
+
+	local centre = part("CentreFloor", Vector3.new(0.6, L.CentreRadius * 2, L.CentreRadius * 2),
+		CFrame.new(0, SLAB / 2 + 0.3, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		P.FloorCentre, Enum.Material.Neon, map)
+	centre.Shape = Enum.PartType.Cylinder
+	centre.Transparency = 0.55
+	centre.CanCollide = false
+	CollectionService:AddTag(centre, "Chomp_Decor")
+
+	-- ── Boundary: brick, taller than the rings, and unbroken ─────────────
+	-- Nothing is outside this. The guardian chamber is carved INTO the band
+	-- rather than hung off the edge, because anything outside the boundary is a
+	-- way to leave the map (D-CHOMP-046).
+	local outer = arc(map, "BoundaryWall", L.OuterRadius, 0, TAU,
+		SLAB / 2 + WALL_H * 0.9, WALL_H * 1.8, WALL_T * 1.5, P.Boundary, Enum.Material.Brick)
+
+	-- ── Rings ────────────────────────────────────────────────────────────
+	local radii = {}
+	local r = L.CentreRadius
+	while r <= L.OuterRadius - L.RingSpacing do
+		table.insert(radii, r)
+		r += L.RingSpacing
+	end
+
+	local guardianAngle = math.rad(L.GuardianAngleDegrees)
+	local guardianHalf = math.atan((L.GuardianChamberStuds / 2) / (L.OuterRadius - L.RingSpacing))
+
+	local segments, spokes = 0, 0
+	for index, radius in ipairs(radii) do
+		local neon = (index % 2 == 1)
+		local colour = neon and (index % 4 == 1 and P.NeonA or P.NeonB) or P.Brick
+		local material = neon and Enum.Material.Neon or Enum.Material.Brick
+		local gapHalf = math.atan((M.CellSize * 1.6) / radius)
+		-- offset gaps ring to ring so no radial line is a free run to the middle
+		local offset = (TAU / L.GapsPerRing) * (index / #radii)
+
+		for g = 0, L.GapsPerRing - 1 do
+			local from = offset + TAU * (g / L.GapsPerRing) + gapHalf
+			local to = offset + TAU * ((g + 1) / L.GapsPerRing) - gapHalf
+			-- leave the guardian chamber's mouth open on the outermost ring
+			local skip = index == #radii
+				and math.abs((((from + to) / 2) - guardianAngle + math.pi) % TAU - math.pi) < guardianHalf
+			if not skip then
+				segments += arc(rings, "RingWall", radius, from, to, WALL_Y,
+					WALL_H, WALL_T, colour, material)
+			end
+		end
+
+		-- Short spokes between this ring and the next, so a ring cannot be held
+		-- flat out all the way round.
+		if index < #radii then
+			local nextRadius = radii[index + 1]
+			for k = 0, L.SpokesPerRing - 1 do
+				local a = TAU * (k / L.SpokesPerRing) + (index * 0.21)
+				local mid = (radius + nextRadius) / 2
+				local p = part("SpokeWall", Vector3.new(WALL_T, WALL_H, nextRadius - radius),
+					radialAt(mid, a, WALL_Y), neon and P.Brick or P.NeonB,
+					neon and Enum.Material.Brick or Enum.Material.Neon, rings)
+				CollectionService:AddTag(p, "Chomp_Wall")
+				spokes += 1
+			end
+		end
+	end
+
+	-- ── Guardian chamber, carved into the outer band ─────────────────────
+	local chamberR = L.OuterRadius - L.RingSpacing / 2
+	local half = L.GuardianChamberStuds / 2
+	for _, side in { -1, 1 } do
+		local p = part("ChamberWall", Vector3.new(WALL_T, WALL_H, L.RingSpacing),
+			radialAt(chamberR, guardianAngle, WALL_Y) * CFrame.new(side * half, 0, 0),
+			P.Danger, Enum.Material.Neon, map)
+		CollectionService:AddTag(p, "Chomp_Wall")
+	end
+	local boundary = part("CommitmentBoundary",
+		Vector3.new(L.GuardianChamberStuds, WALL_H, 1),
+		radialAt(chamberR, guardianAngle, WALL_Y) * CFrame.new(0, 0, -L.RingSpacing / 2),
+		P.Danger, Enum.Material.Neon, map)
+	boundary.Transparency = 0.6
+	boundary.CanCollide = false
+	CollectionService:AddTag(boundary, "Chomp_Boundary")
+
+	-- ── Garages ──────────────────────────────────────────────────────────
+	local garages: { Vector3 } = {}
+	for i = 0, L.GarageCount - 1 do
+		local a = TAU * (i / L.GarageCount) + math.pi / L.GarageCount
+		local pos = onCircle(L.OuterRadius - L.RingSpacing / 2, a, SLAB / 2 + 0.2)
+		local pad = part("GarageFloor", Vector3.new(M.CellSize * 2, 0.4, M.CellSize * 2),
+			tangentAt(L.OuterRadius - L.RingSpacing / 2, a, pos.Y), P.Gold,
+			Enum.Material.Neon, bays)
+		pad.Transparency = 0.45
+		pad.CanCollide = false
+		CollectionService:AddTag(pad, "Chomp_Garage")
+		table.insert(garages, pos)
+	end
+
+	local home = garages[1]
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "Level1Spawn"
+	spawn.Size = Vector3.new(M.CellSize, 1, M.CellSize)
+	spawn.CFrame = CFrame.new(home + Vector3.new(0, 0.6, 0))
+	spawn.Anchored = true
+	spawn.CanCollide = false
+	spawn.Transparency = 1
+	spawn.Parent = map
+
+	print(("[Level1Map] one level, sealed: r%d disc, %d rings, %d ring segments, " ..
+		"%d spokes, boundary %d segments, %d garages. cell %d wall %d")
+		:format(L.OuterRadius, #radii, segments, spokes, outer, #garages,
+			M.CellSize, WALL_H))
+end
+
+build()
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="145">
         <Properties>
           <string name="Name">MovementService</string>
           <token name="RunContext">0</token>
@@ -6806,7 +7082,174 @@ print("[MovementService] running — server owns the numbers, the client owns it
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="145">
+      <Item class="Script" referent="146">
+        <Properties>
+          <string name="Name">PelletService</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	PelletService — CHAIN-ECONOMY (D-CHOMP-048)
+
+	Pellets to eat, points to carry, and a garage to bank them at.
+
+	Carried points are RISKY and banked dollars are SAFE, and that distinction is
+	the whole economy: a ghost can take what you are carrying and can never touch
+	what you banked. Driving back to a garage with a full load is meant to be the
+	tensest thing in the game.
+
+	Value rises with the ring. The middle of the map is open, has nothing to hide
+	behind, and is where the ghosts converge, so it pays more.
+
+	Both totals live as attributes on the character. The HUD reads them and
+	cannot write them (CHOMP-SYS-030): a number the client only ever reads is a
+	number it cannot forge.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local L = Config.Level1
+local E = Config.Economy
+local P = Config.Palette
+
+local PELLET_RADIUS = 9
+local BANK_RADIUS = 22
+
+local folder = Instance.new("Folder")
+folder.Name = "Pellets"
+folder.Parent = Workspace
+
+local function carried(character: Model): number
+	return (character:GetAttribute("ChompCarried") :: number?) or 0
+end
+
+local function dollars(character: Model): number
+	return (character:GetAttribute("ChompDollars") :: number?) or 0
+end
+
+local function makePellet(position: Vector3, value: number, power: boolean)
+	local p = Instance.new("Part")
+	p.Name = power and "PowerPellet" or "Pellet"
+	p.Shape = Enum.PartType.Ball
+	p.Size = power and Vector3.new(5, 5, 5) or Vector3.new(2.2, 2.2, 2.2)
+	p.Position = position
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.Material = Enum.Material.Neon
+	p.Color = power and P.Gold or P.NeonA
+	p:SetAttribute("Value", value)
+	-- Pellets are decisions, not scenery, but they are small enough that fading
+	-- one never hides anything that matters — and an unfadeable pellet between
+	-- the camera and the kart is a CHOMP-SYS-051 breach (D-CHOMP-043).
+	CollectionService:AddTag(p, "Chomp_Decor")
+	p.Parent = folder
+	return p
+end
+
+local function layOut(): number
+	local radii = {}
+	local r = L.CentreRadius
+	while r <= L.OuterRadius - L.RingSpacing do
+		table.insert(radii, r)
+		r += L.RingSpacing
+	end
+
+	local made = 0
+	for index, radius in ipairs(radii) do
+		local lane = radius + L.RingSpacing / 2
+		-- ring 1 is the innermost and pays most: value counts DOWN from the middle
+		local tier = math.clamp(#radii - index + 1, 1, 4)
+		local value = E.PelletValueByRing[tier] or 10
+		local spacing = 26
+		local count = math.max(8, math.floor((2 * math.pi * lane) / spacing))
+		for i = 0, count - 1 do
+			local a = (math.pi * 2) * (i / count) + index * 0.13
+			makePellet(Vector3.new(math.cos(a) * lane, 4, math.sin(a) * lane), value, false)
+			made += 1
+		end
+	end
+
+	-- Power pellets in the open middle, where there is nowhere to hide.
+	for i = 0, 3 do
+		local a = (math.pi * 2) * (i / 4) + math.pi / 4
+		makePellet(Vector3.new(math.cos(a) * (L.CentreRadius * 0.6), 4,
+			math.sin(a) * (L.CentreRadius * 0.6)), E.PowerPelletValue, true)
+		made += 1
+	end
+	return made
+end
+
+-- Collection and banking share a loop: both are "am I near a thing", and at
+-- 0.1s that is cheap enough not to deserve two.
+local function loop()
+	local lastBank: { [Player]: number } = {}
+	while true do
+		task.wait(0.1)
+		for _, player in Players:GetPlayers() do
+			local character = player.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if not (character and root) then continue end
+
+			for _, pellet in folder:GetChildren() do
+				if pellet:IsA("BasePart") and pellet.Transparency < 1
+					and (pellet.Position - root.Position).Magnitude < PELLET_RADIUS then
+					local value = (pellet:GetAttribute("Value") :: number?) or 0
+					character:SetAttribute("ChompCarried", carried(character) + value)
+					pellet.Transparency = 1
+					task.delay(E.PelletRespawnSeconds, function()
+						if pellet.Parent then pellet.Transparency = 0 end
+					end)
+				end
+			end
+
+			-- Banking: drive onto your garage pad and the carry becomes dollars.
+			-- No button, no prompt — it is a consequence of driving somewhere
+			-- (D-CHOMP-015's one surviving principle).
+			local now = os.clock()
+			if carried(character) > 0 and (now - (lastBank[player] or 0)) > E.GarageReentryCooldownSeconds then
+				for _, pad in CollectionService:GetTagged("Chomp_Garage") do
+					if pad:IsA("BasePart") and (pad.Position - root.Position).Magnitude < BANK_RADIUS then
+						local banked = math.floor(carried(character) * E.BankRate)
+						character:SetAttribute("ChompDollars", dollars(character) + banked)
+						character:SetAttribute("ChompCarried", 0)
+						character:SetAttribute("ChompBankedAt", now)
+						lastBank[player] = now
+						break
+					end
+				end
+			end
+		end
+	end
+end
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		-- Carried points do NOT survive death; dollars do. That is the risk.
+		local keep = 0
+		local previous = player:GetAttribute("ChompDollarsPersist")
+		if typeof(previous) == "number" then keep = previous end
+		character:SetAttribute("ChompCarried", 0)
+		character:SetAttribute("ChompDollars", keep)
+		character:GetAttributeChangedSignal("ChompDollars"):Connect(function()
+			player:SetAttribute("ChompDollarsPersist", dollars(character))
+		end)
+	end)
+end)
+
+local count = layOut()
+task.spawn(loop)
+
+print(("[PelletService] %d pellets laid, values %s, bank rate %.1f")
+	:format(count, "by ring from the middle out", E.BankRate))
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="147">
         <Properties>
           <string name="Name">TestMap</string>
           <token name="RunContext">0</token>
@@ -6979,7 +7422,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="146">
+      <Item class="Script" referent="148">
         <Properties>
           <string name="Name">VehicleService</string>
           <token name="RunContext">0</token>
@@ -7256,15 +7699,15 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="147">
+  <Item class="ServerStorage" referent="149">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="148">
+    <Item class="Folder" referent="150">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="149">
+      <Item class="ModuleScript" referent="151">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -7549,7 +7992,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="150">
+      <Item class="ModuleScript" referent="152">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -7808,11 +8251,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="151">
+      <Item class="Folder" referent="153">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="152">
+        <Item class="ModuleScript" referent="154">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -7925,15 +8368,15 @@ return {
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="153">
+  <Item class="StarterPlayer" referent="155">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="154">
+    <Item class="StarterPlayerScripts" referent="156">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="155">
+      <Item class="LocalScript" referent="157">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -8185,7 +8628,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="156">
+      <Item class="LocalScript" referent="158">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -8326,7 +8769,167 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="157">
+      <Item class="LocalScript" referent="159">
+        <Properties>
+          <string name="Name">ChompHud</string>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	ChompHud — CHAIN-UI, CHOMP-SYS-055 and -056 (D-CHOMP-050)
+
+	The play HUD, in the zones Codex specified.
+
+	  top left    what you are CARRYING, and what you are holding
+	  top centre  one contextual objective
+	  top right   what you have BANKED
+
+	Carried and banked are the whole economy, so they are never the same colour,
+	never the same size and never in the same corner. A child has to be able to
+	answer "is that safe?" without reading a word.
+
+	Nothing here decides anything. Every value is an attribute the SERVER wrote,
+	read-only on this side (CHOMP-SYS-030). The HUD cannot make you richer.
+
+	The bottom edge and both lower corners stay empty, because that is where
+	thumbs live (CHOMP-SYS-032).
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local P = Config.Palette
+local ITEMS = Config.Items
+
+local player = Players.LocalPlayer
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "ChompHud"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 50
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local function panel(name: string, anchor: Vector2, position: UDim2, size: UDim2): Frame
+	local f = Instance.new("Frame")
+	f.Name = name
+	f.AnchorPoint = anchor
+	f.Position = position
+	f.Size = size
+	f.BackgroundColor3 = P.Floor
+	f.BackgroundTransparency = 0.25
+	f.BorderSizePixel = 0
+	f.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 12)
+	corner.Parent = f
+	return f
+end
+
+local function label(parent: Instance, size: UDim2, position: UDim2, text: string,
+		colour: Color3, textSize: number, align: Enum.TextXAlignment): TextLabel
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.Size = size
+	t.Position = position
+	t.Text = text
+	t.TextColor3 = colour
+	t.TextSize = textSize
+	t.Font = Enum.Font.GothamBold
+	t.TextXAlignment = align
+	t.Parent = parent
+	return t
+end
+
+-- ── Top left: risky ─────────────────────────────────────────────────────
+local left = panel("Carried", Vector2.new(0, 0), UDim2.new(0, 16, 0, 16), UDim2.new(0, 210, 0, 92))
+local carriedValue = label(left, UDim2.new(1, -20, 0, 42), UDim2.new(0, 14, 0, 8),
+	"0", P.NeonB, 36, Enum.TextXAlignment.Left)
+label(left, UDim2.new(1, -20, 0, 18), UDim2.new(0, 14, 0, 48),
+	"CARRYING — AT RISK", P.NeonB, 13, Enum.TextXAlignment.Left)
+local itemLabel = label(left, UDim2.new(1, -20, 0, 20), UDim2.new(0, 14, 0, 68),
+	"no item", P.Ghost, 15, Enum.TextXAlignment.Left)
+
+-- ── Top right: safe ─────────────────────────────────────────────────────
+local right = panel("Banked", Vector2.new(1, 0), UDim2.new(1, -16, 0, 16), UDim2.new(0, 210, 0, 72))
+local bankedValue = label(right, UDim2.new(1, -20, 0, 42), UDim2.new(0, 6, 0, 8),
+	"$0", P.Gold, 36, Enum.TextXAlignment.Right)
+label(right, UDim2.new(1, -20, 0, 18), UDim2.new(0, 6, 0, 48),
+	"BANKED — SAFE", P.Gold, 13, Enum.TextXAlignment.Right)
+
+-- ── Top centre: one objective ───────────────────────────────────────────
+local centre = panel("Objective", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 280, 0, 48))
+local objective = label(centre, UDim2.new(1, -20, 1, -12), UDim2.new(0, 10, 0, 6),
+	"COLLECT", P.NeonA, 22, Enum.TextXAlignment.Center)
+
+-- ── A flash when something is taken ─────────────────────────────────────
+local flash = Instance.new("Frame")
+flash.Name = "StolenFlash"
+flash.Size = UDim2.new(1, 0, 1, 0)
+flash.BackgroundColor3 = P.Danger
+flash.BackgroundTransparency = 1
+flash.BorderSizePixel = 0
+flash.ZIndex = 0
+flash.Parent = gui
+
+local lastStolenAt = 0
+
+local function attribute(name: string): number
+	local character = player.Character
+	if not character then return 0 end
+	return (character:GetAttribute(name) :: number?) or 0
+end
+
+RunService.RenderStepped:Connect(function(dt)
+	local character = player.Character
+	if not character then return end
+
+	local carried = attribute("ChompCarried")
+	local banked = attribute("ChompDollars")
+	carriedValue.Text = tostring(carried)
+	bankedValue.Text = "$" .. tostring(banked)
+
+	local itemId = character:GetAttribute("ChompItem")
+	local charges = attribute("ChompItemCharges")
+	if typeof(itemId) == "string" and itemId ~= "" then
+		local def = ITEMS.Definitions[itemId]
+		local name = def and def.label or string.upper(itemId)
+		itemLabel.Text = charges > 1 and (name .. "  x" .. tostring(charges)) or name
+		itemLabel.TextColor3 = P.NeonA
+	else
+		itemLabel.Text = "no item"
+		itemLabel.TextColor3 = P.Brick
+	end
+
+	-- ONE objective, chosen by what is most urgent rather than listed.
+	-- Carrying a lot outranks everything: the thing most likely to be lost is
+	-- the thing worth being told about.
+	if carried >= 250 then
+		objective.Text = "BANK IT — GARAGE"
+		objective.TextColor3 = P.Danger
+	elseif carried > 0 then
+		objective.Text = "COLLECT — THEN BANK"
+		objective.TextColor3 = P.Gold
+	else
+		objective.Text = "COLLECT"
+		objective.TextColor3 = P.NeonA
+	end
+
+	-- A theft has to be FELT, not read. The number changing is not enough when
+	-- your eyes are on a corridor (CHOMP-SYS-056).
+	local stolenAt = attribute("ChompStolenAt")
+	if stolenAt > lastStolenAt then
+		lastStolenAt = stolenAt
+		flash.BackgroundTransparency = 0.55
+	end
+	if flash.BackgroundTransparency < 1 then
+		flash.BackgroundTransparency = math.min(1, flash.BackgroundTransparency + dt * 1.6)
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="160">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -8556,7 +9159,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="158">
+      <Item class="LocalScript" referent="161">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -8714,7 +9317,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="159">
+      <Item class="LocalScript" referent="162">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -8861,7 +9464,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="160">
+  <Item class="Workspace" referent="163">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

@@ -31,3 +31,23 @@ entries:
     02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.
   status: OPEN
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-017]
+  summary: >
+    Ghosts built (D-CHOMP-049): hooded translucent figures with tracking eyes
+    and a rippling hem, hunting the nearest kart within 260 studs and taking 25%
+    of CARRIED points on contact. Never touch banked dollars. Slower than a
+    Standard chassis on purpose. Bobbing stops as one closes in, because
+    stillness reads as intent.
+  status: OPEN
+  handoff: >
+    Behaviour is one Chaser, not the four personalities of CHOMP-SYS-040, and
+    there is no pathing: a ghost steers straight at its target and will sit
+    against a wall if one is between them. On a ring maze that mostly works and
+    occasionally looks stupid. Real multi-deck pathing is CHOMP-SYS-048 and is
+    not started.
+    Ghosts are anchored puppets posed per frame rather than physical bodies.
+    That is cheap and correct while they cannot be hit; the moment Full Jaw lets
+    a player EAT one (CHOMP-SYS-019) they will need a real hit test.

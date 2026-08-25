@@ -154,3 +154,22 @@ entries:
     Second, the rim maze is generated from ring gaps and spokes and has NOT been
     checked for reachability the way ArenaMap flood-fills its grid. A ring maze
     is much harder to seal by accident, but "harder" is not "checked".
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-047]
+  summary: >
+    Level 1 rebuilt as ONE sealed level, 800 studs across (D-CHOMP-046),
+    replacing the two-level bowl. Seven neon/brick rings with offset gaps and
+    spokes, open centre arena, garages on the outer band, guardian chamber
+    carved into the band rather than outside the boundary. BowlMap deleted.
+  status: OPEN
+  handoff: >
+    NOT yet driven. The two-deck requirement CHOMP-SYS-047 says the maze IS
+    multi-level, and Level 1 is now deliberately not - that is a real conflict
+    between the tree and the build, created by an owner decision that a drop is
+    a way to fall out of the map. Either CHOMP-SYS-047 is amended to make
+    multi-level a v2 property, or Level 1 is an exception the requirement should
+    name. It should not be left contradicting the code silently.
+    Ring reachability is still unchecked. Offset gaps make sealing unlikely but
+    unlikely is not checked, and a flood fill over the ring graph is cheap.

@@ -280,19 +280,39 @@ ChompConfig.Items = {
 -- the middle. Radii are in studs and everything is a multiple of CellSize so
 -- the rim corridors are the same width as everywhere else.
 ChompConfig.Level1 = {
-	RimOuter = 240,          -- outer boundary wall
-	RimInner = 160,          -- where the rim ends and the drop into the bowl begins
-	RimHeight = 10,          -- the rim stands this far above the bowl floor
-	RampCount = 4,           -- one broad slope per quadrant
-	RampWidthStuds = 32,     -- two corridors wide: this is a slope, not a corridor
-	RampRunStuds = 48,       -- 10 studs of fall over 48 is about 12 degrees
-	RingRadii = { 176, 200, 224 },  -- the rim maze runs on three concentric rings
-	GapsPerRing = 5,         -- openings per ring, offset ring to ring
-	RadialsPerQuadrant = 2,  -- spokes that stop a ring becoming a racetrack
-	GarageCount = 4,         -- one per spawn quadrant, on the outer rim
-	GuardianAngleDegrees = 0,-- the chamber sits at world east, off the rim
-	GuardianChamberStuds = 56,
-	SegmentStuds = 8,        -- arc resolution; smaller is rounder and more parts
+	-- ONE LEVEL, fully enclosed. No decks, no drops, no way off the floor: the
+	-- arena is a sealed disc and the only vertical thing in it is a wall
+	-- (D-CHOMP-046).
+	OuterRadius = 400,        -- the boundary wall; nothing exists beyond it
+	CentreRadius = 120,       -- open arena in the middle, no rings inside this
+	RingSpacing = 40,         -- 2.5 corridors between rings
+	GapsPerRing = 6,          -- openings per ring, offset ring to ring
+	SpokesPerRing = 5,        -- short radial walls so a ring is not a racetrack
+	SegmentStuds = 14,        -- arc resolution; smaller is rounder and costs parts
+	GarageCount = 4,
+	GuardianChamberStuds = 72,
+	GuardianAngleDegrees = 0,
+	-- Alternating materials so the rings read as different places at speed
+	-- rather than as one repeating corridor.
+	NeonRings = true,
+}
+
+
+-- ── Palette (D-CHOMP-046) ───────────────────────────────────────────────
+-- Dark ground, hot neon, one gold accent. Driving fast past a lit wall is what
+-- makes speed legible, so the walls carry the colour and the floor stays out of
+-- the way.
+ChompConfig.Palette = {
+	Floor       = Color3.fromRGB(21, 14, 31),
+	FloorCentre = Color3.fromRGB(29, 19, 41),
+	NeonA       = Color3.fromRGB(76, 224, 210),
+	NeonB       = Color3.fromRGB(255, 61, 138),
+	Brick       = Color3.fromRGB(58, 44, 74),
+	BrickDark   = Color3.fromRGB(41, 31, 54),
+	Boundary    = Color3.fromRGB(88, 62, 110),
+	Gold        = Color3.fromRGB(255, 176, 32),
+	Danger      = Color3.fromRGB(255, 61, 61),
+	Ghost       = Color3.fromRGB(226, 232, 255),
 }
 
 ChompConfig.Camera = {

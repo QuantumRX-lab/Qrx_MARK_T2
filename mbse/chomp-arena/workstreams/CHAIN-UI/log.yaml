@@ -169,3 +169,23 @@ entries:
     whichever axis crossed the press threshold most recently, which is a
     different feel from proportional steering and has only ever been reasoned
     about, never felt.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-055, CHOMP-SYS-056]
+  summary: >
+    Play HUD built to Codex's zones (D-CHOMP-050): carried top-left in pink,
+    banked top-right in gold, one urgency-ranked objective top-centre, held item
+    and charges beneath the carry, lower corners kept clear. A theft flashes the
+    screen red. Every value is a server-written attribute, read-only here.
+  status: OPEN
+  handoff: >
+    CHOMP-TC-045 is the child-facing demonstration and this is the thing to run
+    it against. Two of its pass criteria are already testable: whether carried
+    and banked are correctly identified as risky and safe, and whether the HUD
+    overlaps either lower 30% thumb zone.
+    CHOMP-SYS-057, the garage screen with five comparison bars, is NOT built.
+    Nor is CHOMP-SYS-056's requirement that values not be distinguished by
+    colour alone - carried and banked currently differ by colour, position AND
+    label, which satisfies it, but nothing tests that and the criterion is still
+    missing from CHOMP-TC-045.

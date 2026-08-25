@@ -47,3 +47,19 @@ entries:
     writer of bar, carried and banked, and every delta function returns what
     was actually applied after clamping — a caller assuming its request landed
     will drift from the truth the first time a clamp bites.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-005]
+  summary: >
+    Pellets and banking built (D-CHOMP-048). Pellets on every ring lane, worth
+    more toward the middle, power pellets in the open centre. Eating fills
+    ChompCarried; driving onto a garage pad converts the lot to ChompDollars
+    with no button or prompt. Carried dies with you, dollars persist.
+  status: OPEN
+  handoff: >
+    NOT yet played. Values come straight from Economy.PelletValueByRing and have
+    never been balanced against how long a lap takes - the first real question
+    is whether a full circuit is worth more or less than a trip to the middle,
+    and nobody has measured either.
+    The combo window, ComboWindowSeconds and ComboMax, is in config and unused.

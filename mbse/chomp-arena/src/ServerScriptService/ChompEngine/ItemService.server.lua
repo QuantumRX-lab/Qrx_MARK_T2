@@ -35,12 +35,95 @@ local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local ITEMS = Config.Items
 local DEFS = ITEMS.Definitions
 
+local P = Config.Palette
+
 local COLOURS = {
-	JetPack = Color3.fromRGB(76, 224, 210),
-	Cannon = Color3.fromRGB(255, 176, 32),
-	HomingBomb = Color3.fromRGB(255, 61, 138),
+	JetPack = P.NeonA,
+	Cannon = P.Gold,
+	HomingBomb = P.NeonB,
 	Shield = Color3.fromRGB(126, 217, 87),
 }
+
+-- Each item is BUILT to look like what it does (D-CHOMP-047). Colour alone is
+-- not a capability: a child at speed reads silhouette long before hue, and
+-- three glowing balls in three colours is a memory test rather than a game.
+local function bit(model: Model, name: string, size: Vector3, offset: CFrame,
+		colour: Color3, material: Enum.Material, shape: Enum.PartType?): BasePart
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.Color = colour
+	p.Material = material
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	if shape then p.Shape = shape end
+	p.CFrame = offset
+	p.Parent = model
+	return p
+end
+
+local function buildItemModel(id: string): Model
+	local model = Instance.new("Model")
+	model.Name = "Item_" .. id
+	local c = COLOURS[id]
+
+	if id == "JetPack" then
+		-- Two thrusters and a pack. It points DOWN, because that is the way the
+		-- thrust goes and the way you are about to go is up.
+		bit(model, "Pack", Vector3.new(3, 3.4, 1.6), CFrame.new(0, 0.4, 0), c, Enum.Material.Metal)
+		for _, side in { -1, 1 } do
+			bit(model, "Thruster", Vector3.new(1.1, 2.6, 1.1),
+				CFrame.new(side * 1.9, -0.2, 0) * CFrame.Angles(0, 0, math.rad(90)),
+				c, Enum.Material.Neon, Enum.PartType.Cylinder)
+			bit(model, "Flame", Vector3.new(0.9, 1.4, 0.9),
+				CFrame.new(side * 1.9, -2.1, 0), P.Gold, Enum.Material.Neon, Enum.PartType.Ball)
+		end
+
+	elseif id == "Cannon" then
+		-- A barrel on a mount. Long, straight and obviously pointing somewhere.
+		bit(model, "Mount", Vector3.new(2.6, 1.4, 2.6), CFrame.new(0, -1.2, 0),
+			P.BrickDark, Enum.Material.Metal)
+		bit(model, "Barrel", Vector3.new(1.8, 5.6, 1.8),
+			CFrame.new(0, 0.6, -1.2) * CFrame.Angles(math.rad(90), 0, 0),
+			c, Enum.Material.Metal, Enum.PartType.Cylinder)
+		bit(model, "Muzzle", Vector3.new(2.2, 0.8, 2.2),
+			CFrame.new(0, 0.6, -3.9) * CFrame.Angles(math.rad(90), 0, 0),
+			P.Danger, Enum.Material.Neon, Enum.PartType.Cylinder)
+
+	elseif id == "HomingBomb" then
+		-- A finned bomb. Fins say it steers; a plain ball would not.
+		bit(model, "Body", Vector3.new(3.2, 3.2, 3.2), CFrame.new(0, 0, 0),
+			c, Enum.Material.Metal, Enum.PartType.Ball)
+		bit(model, "Eye", Vector3.new(1.2, 1.2, 1.2), CFrame.new(0, 0, -1.5),
+			P.NeonA, Enum.Material.Neon, Enum.PartType.Ball)
+		for i = 0, 3 do
+			local a = (math.pi / 2) * i
+			bit(model, "Fin", Vector3.new(0.35, 1.8, 2.2),
+				CFrame.new(math.cos(a) * 1.5, 0, math.sin(a) * 1.5) * CFrame.Angles(0, -a, 0),
+				P.BrickDark, Enum.Material.Metal)
+		end
+
+	else -- Shield
+		-- A ring around a core: something that surrounds you rather than fires.
+		bit(model, "Core", Vector3.new(1.8, 1.8, 1.8), CFrame.new(0, 0, 0),
+			c, Enum.Material.Neon, Enum.PartType.Ball)
+		local segments = 12
+		for i = 0, segments - 1 do
+			local a = (math.pi * 2) * (i / segments)
+			bit(model, "Ring", Vector3.new(0.5, 0.5, 1.5),
+				CFrame.new(math.cos(a) * 2.6, 0, math.sin(a) * 2.6) * CFrame.Angles(0, -a, 0),
+				c, Enum.Material.Neon)
+		end
+	end
+
+	local primary = model:FindFirstChildWhichIsA("BasePart")
+	model.PrimaryPart = primary
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then CollectionService:AddTag(d, "Chomp_Decor") end
+	end
+	return model
+end
 
 type Held = { id: string, charges: number }
 local held: { [Player]: Held } = {}
@@ -55,40 +138,71 @@ padsFolder.Name = "ItemPads"
 padsFolder.Parent = Workspace
 
 local function makePad(id: string, position: Vector3)
-	local pad = Instance.new("Part")
-	pad.Name = "ItemPad_" .. id
-	pad.Shape = Enum.PartType.Ball
-	pad.Size = Vector3.new(6, 6, 6)
-	pad.Position = position
-	pad.Anchored = true
-	pad.CanCollide = false
-	pad.Material = Enum.Material.Neon
-	pad.Color = COLOURS[id] or Color3.new(1, 1, 1)
-	pad.Transparency = 0.25
-	pad:SetAttribute("ItemId", id)
-	-- Fadeable, or the camera treats a floating ball as a hard occluder and
-	-- reports a CHOMP-SYS-051 breach for it (D-CHOMP-043).
-	CollectionService:AddTag(pad, "Chomp_Decor")
-	pad.Parent = padsFolder
-	return pad
+	local model = buildItemModel(id)
+	model:SetAttribute("ItemId", id)
+	model:SetAttribute("HomeY", position.Y)
+	model:PivotTo(CFrame.new(position))
+	model.Parent = padsFolder
+	return model
 end
 
--- Laid out by ring so the good items are further in: the bowl is where the
--- reward is, and an item is a reward (D-CHOMP-041).
-local function layOutPads()
+-- Spin and bob. A static prop reads as scenery; a moving one reads as a thing
+-- you are meant to drive into.
+local function animatePads()
+	local t = 0
+	RunService.Heartbeat:Connect(function(dt)
+		t += dt
+		for _, model in padsFolder:GetChildren() do
+			if model:IsA("Model") and model.PrimaryPart and model.PrimaryPart.Transparency < 1 then
+				local homeY = model:GetAttribute("HomeY")
+				if typeof(homeY) == "number" then
+					local pivot = model:GetPivot()
+					model:PivotTo(CFrame.new(pivot.Position.X, homeY + math.sin(t * 2) * 1.2, pivot.Position.Z)
+						* CFrame.Angles(0, t * 1.4, 0))
+				end
+			end
+		end
+	end)
+end
+
+-- Laid out by ring, with the better items further in. The centre arena is the
+-- exposed place with no walls to hide behind, so what is found there has to be
+-- worth standing in the open for (D-CHOMP-046).
+local function setCollected(model: Model, collected: boolean)
+	model:SetAttribute("Collected", collected)
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Transparency = collected and 1 or 0
+		end
+	end
+end
+
+local function layOutPads(): number
 	local L = Config.Level1
 	if not L then return 0 end
+
+	local radii = {}
+	local r = L.CentreRadius
+	while r <= L.OuterRadius - L.RingSpacing do
+		table.insert(radii, r)
+		r += L.RingSpacing
+	end
+	if #radii == 0 then return 0 end
+
+	local mid = function(i: number) return radii[math.clamp(i, 1, #radii)] + L.RingSpacing / 2 end
 	local plan = {
-		{ id = "Shield", radius = L.RingRadii[3], count = 4, y = L.RimHeight + 4 },
-		{ id = "JetPack", radius = L.RingRadii[2], count = 4, y = L.RimHeight + 4 },
-		{ id = "Cannon", radius = L.RingRadii[1], count = 4, y = L.RimHeight + 4 },
-		{ id = "Cannon", radius = L.RimInner * 0.62, count = 4, y = 4 },
-		{ id = "HomingBomb", radius = L.RimInner * 0.28, count = 2, y = 4 },
+		{ id = "Shield", radius = mid(#radii), count = 6, y = 4 },
+		{ id = "Shield", radius = mid(#radii - 1), count = 4, y = 4 },
+		{ id = "JetPack", radius = mid(#radii - 2), count = 5, y = 4 },
+		{ id = "Cannon", radius = mid(#radii - 3), count = 5, y = 4 },
+		{ id = "Cannon", radius = mid(2), count = 4, y = 4 },
+		{ id = "HomingBomb", radius = L.CentreRadius * 0.55, count = 3, y = 4 },
 	}
+
 	local made = 0
 	for _, entry in plan do
 		for i = 0, entry.count - 1 do
-			local a = (math.pi * 2) * (i / entry.count) + (made * 0.37)
+			local a = (math.pi * 2) * (i / entry.count) + (made * 0.41)
 			makePad(entry.id, Vector3.new(
 				math.cos(a) * entry.radius, entry.y, math.sin(a) * entry.radius))
 			made += 1
@@ -268,23 +382,25 @@ end
 
 local function collectionLoop()
 	while true do
-		task.wait(0.15)
+		task.wait(0.12)
 		for _, player in Players:GetPlayers() do
 			local root = rootOf(player)
 			if root then
-				for _, pad in padsFolder:GetChildren() do
-					if pad:IsA("BasePart") and pad.Transparency < 1
-						and (pad.Position - root.Position).Magnitude < ITEMS.PickupRadiusStuds then
-						local id = pad:GetAttribute("ItemId")
-						if typeof(id) == "string" then
-							give(player, id)
-							-- The pad is hidden and comes back, rather than being
-							-- destroyed and rebuilt: the map stays stocked without
-							-- anything having to remember where pads went.
-							pad.Transparency = 1
-							task.delay(ITEMS.RespawnSeconds, function()
-								if pad.Parent then pad.Transparency = 0.25 end
-							end)
+				for _, model in padsFolder:GetChildren() do
+					if model:IsA("Model") and model:GetAttribute("Collected") ~= true then
+						local pivot = model:GetPivot()
+						if (pivot.Position - root.Position).Magnitude < ITEMS.PickupRadiusStuds then
+							local id = model:GetAttribute("ItemId")
+							if typeof(id) == "string" then
+								give(player, id)
+								-- hidden and restored rather than destroyed and
+								-- rebuilt, so the map restocks without anything
+								-- having to remember where a pad was
+								setCollected(model, true)
+								task.delay(ITEMS.RespawnSeconds, function()
+									if model.Parent then setCollected(model, false) end
+								end)
+							end
 						end
 					end
 				end
@@ -311,6 +427,7 @@ Remotes.UseItem.OnServerEvent:Connect(function(player: Player)
 end)
 
 local count = layOutPads()
+animatePads()
 task.spawn(collectionLoop)
 
 print(("[ItemService] running - %d pads, one slot, %d item types, %d/s use limit")

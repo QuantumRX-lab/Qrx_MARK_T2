@@ -1,0 +1,215 @@
+--!strict
+--[[
+	Level1Map — CHAIN-MAZE (D-CHOMP-046)
+
+	One level, sealed, and big. A disc 800 studs across with a boundary wall you
+	cannot get past, concentric ring corridors you can hold a line around, and an
+	open arena in the middle where the reward is.
+
+	The bowl this replaces was two levels with a drop between them, and a drop is
+	a way to fall out of the map. Everything here is at y = 0. The only vertical
+	thing in the arena is a wall.
+
+	Walls alternate between NEON and BRICK, ring by ring. That is navigation, not
+	decoration: at speed a driver needs to know which ring they are on without
+	stopping to count, and "the pink neon one" is a landmark in a way that "the
+	third identical corridor" never is.
+
+	Every wall is tagged Chomp_Wall so the camera can fade it (D-CHOMP-043).
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+local Workspace = game:GetService("Workspace")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local M = Config.Map
+local L = Config.Level1
+local P = Config.Palette
+
+if M.Layout ~= "Level1" then
+	return
+end
+
+local WALL_H = M.WallHeight
+local WALL_T = M.WallThickness
+local SLAB = M.SlabThickness
+local TAU = math.pi * 2
+local WALL_Y = SLAB / 2 + WALL_H / 2
+
+local function part(name: string, size: Vector3, cf: CFrame, colour: Color3,
+		material: Enum.Material, parent: Instance): Part
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cf
+	p.Anchored = true
+	p.Material = material
+	p.Color = colour
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = parent
+	return p
+end
+
+local function onCircle(radius: number, angle: number, y: number): Vector3
+	return Vector3.new(math.cos(angle) * radius, y, math.sin(angle) * radius)
+end
+
+-- Local Z tangent to the circle: CFrame.Angles(0, t, 0) puts local Z along
+-- (sin t, 0, cos t), and the tangent at `angle` is (-sin a, 0, cos a), so t = -a.
+local function tangentAt(radius: number, angle: number, y: number): CFrame
+	return CFrame.new(onCircle(radius, angle, y)) * CFrame.Angles(0, -angle, 0)
+end
+
+-- Local Z outward along the radius: local Z must be (cos a, 0, sin a), t = pi/2 - a.
+local function radialAt(radius: number, angle: number, y: number): CFrame
+	return CFrame.new(onCircle(radius, angle, y)) * CFrame.Angles(0, math.pi / 2 - angle, 0)
+end
+
+local function arc(parent: Instance, name: string, radius: number, from: number, to: number,
+		y: number, height: number, thickness: number, colour: Color3,
+		material: Enum.Material): number
+	local span = to - from
+	if span <= 0 then return 0 end
+	local segments = math.max(1, math.ceil(radius * span / L.SegmentStuds))
+	for i = 0, segments - 1 do
+		local a0 = from + span * (i / segments)
+		local a1 = from + span * ((i + 1) / segments)
+		local mid = (a0 + a1) / 2
+		-- chord, not arc length: the box is straight and must meet its neighbours
+		local chord = 2 * radius * math.sin((a1 - a0) / 2)
+		local p = part(name, Vector3.new(thickness, height, chord + 0.4),
+			tangentAt(radius, mid, y), colour, material, parent)
+		CollectionService:AddTag(p, "Chomp_Wall")
+	end
+	return segments
+end
+
+local function build()
+	local maps = Workspace:FindFirstChild("Maps") or Instance.new("Folder")
+	maps.Name = "Maps"
+	maps.Parent = Workspace
+	for _, old in maps:GetChildren() do old:Destroy() end
+
+	local map = Instance.new("Folder"); map.Name = "Level1"; map.Parent = maps
+	local rings = Instance.new("Folder"); rings.Name = "Rings"; rings.Parent = map
+	local bays = Instance.new("Folder"); bays.Name = "Garages"; bays.Parent = map
+
+	-- ── Floor: one disc, and a lighter disc marking the centre arena ─────
+	local floor = part("Floor", Vector3.new(SLAB, L.OuterRadius * 2, L.OuterRadius * 2),
+		CFrame.new(0, 0, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		P.Floor, Enum.Material.SmoothPlastic, map)
+	floor.Shape = Enum.PartType.Cylinder
+
+	local centre = part("CentreFloor", Vector3.new(0.6, L.CentreRadius * 2, L.CentreRadius * 2),
+		CFrame.new(0, SLAB / 2 + 0.3, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		P.FloorCentre, Enum.Material.Neon, map)
+	centre.Shape = Enum.PartType.Cylinder
+	centre.Transparency = 0.55
+	centre.CanCollide = false
+	CollectionService:AddTag(centre, "Chomp_Decor")
+
+	-- ── Boundary: brick, taller than the rings, and unbroken ─────────────
+	-- Nothing is outside this. The guardian chamber is carved INTO the band
+	-- rather than hung off the edge, because anything outside the boundary is a
+	-- way to leave the map (D-CHOMP-046).
+	local outer = arc(map, "BoundaryWall", L.OuterRadius, 0, TAU,
+		SLAB / 2 + WALL_H * 0.9, WALL_H * 1.8, WALL_T * 1.5, P.Boundary, Enum.Material.Brick)
+
+	-- ── Rings ────────────────────────────────────────────────────────────
+	local radii = {}
+	local r = L.CentreRadius
+	while r <= L.OuterRadius - L.RingSpacing do
+		table.insert(radii, r)
+		r += L.RingSpacing
+	end
+
+	local guardianAngle = math.rad(L.GuardianAngleDegrees)
+	local guardianHalf = math.atan((L.GuardianChamberStuds / 2) / (L.OuterRadius - L.RingSpacing))
+
+	local segments, spokes = 0, 0
+	for index, radius in ipairs(radii) do
+		local neon = (index % 2 == 1)
+		local colour = neon and (index % 4 == 1 and P.NeonA or P.NeonB) or P.Brick
+		local material = neon and Enum.Material.Neon or Enum.Material.Brick
+		local gapHalf = math.atan((M.CellSize * 1.6) / radius)
+		-- offset gaps ring to ring so no radial line is a free run to the middle
+		local offset = (TAU / L.GapsPerRing) * (index / #radii)
+
+		for g = 0, L.GapsPerRing - 1 do
+			local from = offset + TAU * (g / L.GapsPerRing) + gapHalf
+			local to = offset + TAU * ((g + 1) / L.GapsPerRing) - gapHalf
+			-- leave the guardian chamber's mouth open on the outermost ring
+			local skip = index == #radii
+				and math.abs((((from + to) / 2) - guardianAngle + math.pi) % TAU - math.pi) < guardianHalf
+			if not skip then
+				segments += arc(rings, "RingWall", radius, from, to, WALL_Y,
+					WALL_H, WALL_T, colour, material)
+			end
+		end
+
+		-- Short spokes between this ring and the next, so a ring cannot be held
+		-- flat out all the way round.
+		if index < #radii then
+			local nextRadius = radii[index + 1]
+			for k = 0, L.SpokesPerRing - 1 do
+				local a = TAU * (k / L.SpokesPerRing) + (index * 0.21)
+				local mid = (radius + nextRadius) / 2
+				local p = part("SpokeWall", Vector3.new(WALL_T, WALL_H, nextRadius - radius),
+					radialAt(mid, a, WALL_Y), neon and P.Brick or P.NeonB,
+					neon and Enum.Material.Brick or Enum.Material.Neon, rings)
+				CollectionService:AddTag(p, "Chomp_Wall")
+				spokes += 1
+			end
+		end
+	end
+
+	-- ── Guardian chamber, carved into the outer band ─────────────────────
+	local chamberR = L.OuterRadius - L.RingSpacing / 2
+	local half = L.GuardianChamberStuds / 2
+	for _, side in { -1, 1 } do
+		local p = part("ChamberWall", Vector3.new(WALL_T, WALL_H, L.RingSpacing),
+			radialAt(chamberR, guardianAngle, WALL_Y) * CFrame.new(side * half, 0, 0),
+			P.Danger, Enum.Material.Neon, map)
+		CollectionService:AddTag(p, "Chomp_Wall")
+	end
+	local boundary = part("CommitmentBoundary",
+		Vector3.new(L.GuardianChamberStuds, WALL_H, 1),
+		radialAt(chamberR, guardianAngle, WALL_Y) * CFrame.new(0, 0, -L.RingSpacing / 2),
+		P.Danger, Enum.Material.Neon, map)
+	boundary.Transparency = 0.6
+	boundary.CanCollide = false
+	CollectionService:AddTag(boundary, "Chomp_Boundary")
+
+	-- ── Garages ──────────────────────────────────────────────────────────
+	local garages: { Vector3 } = {}
+	for i = 0, L.GarageCount - 1 do
+		local a = TAU * (i / L.GarageCount) + math.pi / L.GarageCount
+		local pos = onCircle(L.OuterRadius - L.RingSpacing / 2, a, SLAB / 2 + 0.2)
+		local pad = part("GarageFloor", Vector3.new(M.CellSize * 2, 0.4, M.CellSize * 2),
+			tangentAt(L.OuterRadius - L.RingSpacing / 2, a, pos.Y), P.Gold,
+			Enum.Material.Neon, bays)
+		pad.Transparency = 0.45
+		pad.CanCollide = false
+		CollectionService:AddTag(pad, "Chomp_Garage")
+		table.insert(garages, pos)
+	end
+
+	local home = garages[1]
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "Level1Spawn"
+	spawn.Size = Vector3.new(M.CellSize, 1, M.CellSize)
+	spawn.CFrame = CFrame.new(home + Vector3.new(0, 0.6, 0))
+	spawn.Anchored = true
+	spawn.CanCollide = false
+	spawn.Transparency = 1
+	spawn.Parent = map
+
+	print(("[Level1Map] one level, sealed: r%d disc, %d rings, %d ring segments, " ..
+		"%d spokes, boundary %d segments, %d garages. cell %d wall %d")
+		:format(L.OuterRadius, #radii, segments, spokes, outer, #garages,
+			M.CellSize, WALL_H))
+end
+
+build()
