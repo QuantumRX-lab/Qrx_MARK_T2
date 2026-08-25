@@ -971,3 +971,50 @@ decisions:
       are amended on the HUD/gameplay requirements branch. Cooperative entry,
       interference by other players and Full Jaw interaction remain explicit
       open decisions before implementation.
+
+  - id: D-CHOMP-042
+    date: 2026-08-25
+    title: Continuous steering, because a bowl has no cardinal directions
+    decision: >
+      Steering is proportional again: hold forward to drive, steer left and
+      right by amount, pull back to reverse. Supersedes the grid driving of
+      D-CHOMP-033. The asymmetric steer ramp from D-CHOMP-032 is kept.
+    rationale: >
+      Owner decision, and unlike the previous four control changes this one is
+      forced by the design rather than by feel. Level 1 is a bowl with a rim
+      (D-CHOMP-041) and a curve has no cardinal directions to snap to — grid
+      driving cannot follow a bend, it can only chord across it in four-step
+      approximations. Weapons settle the remainder: a cannon that fires along
+      the heading needs a heading finer than four steps, or aiming is a
+      quarter-turn lottery.
+      Grid driving was the right answer to the question it was asked. The
+      question changed.
+    outcome: >
+      VehicleController holds a heading and a smoothed steer scalar again, with
+      the signed throttle and coast behaviour intact. It still never writes a
+      transform. InputController was not touched — it always published two axes
+      and left the meaning to the controller, which is why this reversal cost
+      one file. _G.ChompHeading is exposed for weapons to aim along.
+
+  - id: D-CHOMP-043
+    date: 2026-08-25
+    title: Every wall must carry a fade tag, or the camera calls it a breach
+    decision: >
+      ArenaMap tags every generated wall Chomp_Wall, the tag the camera fades.
+    rationale: >
+      The camera reported a 0.92s occlusion against a 0.20s ceiling and looked
+      like the project's highest risk materialising. It was not. isFadeable only
+      fades parts carrying Chomp_Wall, Chomp_Decor or Chomp_Link, and treats
+      anything else between camera and vehicle as a hard occluder — correctly,
+      since a ghost or a gate must never be faded away. TestMap tagged its walls
+      inside its wall() helper. ArenaMap tagged ramps, bridges and garages and
+      never tagged a wall, so every wall in the arena was a hard occluder.
+      The camera was doing exactly what it was told. A generated map that omits
+      a tag the camera depends on is a map bug wearing a camera's clothes, and
+      it would have been tuned for hours before anyone read isFadeable.
+    outcome: >
+      Tagging happens in renderWalls, so it cannot be forgotten per wall. The
+      reason is written above the function rather than left as a bare AddTag,
+      because the failure it prevents appears nowhere near the cause.
+      CHOMP-TC-040 still has not run; this removes a false signal rather than
+      producing a real one.

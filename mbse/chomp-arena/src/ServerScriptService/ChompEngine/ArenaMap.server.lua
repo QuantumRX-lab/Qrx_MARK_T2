@@ -207,6 +207,12 @@ end
 -- One pass over every cell, drawing all four boundary planes and de-duping.
 -- Perimeter falls out of this for free, which is what lets a ramp or a bridge
 -- punch through it simply by opening that edge.
+--
+-- EVERY wall is tagged Chomp_Wall (D-CHOMP-043). The camera only fades parts
+-- carrying a fade tag; anything untagged between the camera and the vehicle is
+-- treated as a hard occluder and breaches CHOMP-SYS-051 immediately. Untagged
+-- walls are what produced a 0.92s occlusion against a 0.20s ceiling and made
+-- the camera look broken when it was doing exactly what it was told.
 
 local function renderWalls(parent: Instance, open: EdgeSet,
 		lo: number, hi: number, deck: number, colour: Color3): number
@@ -220,8 +226,9 @@ local function renderWalls(parent: Instance, open: EdgeSet,
 				if not open[k] and not drawn[k] then
 					drawn[k] = true
 					local bx = tonumber(k:match("^V:(%d+):")) :: number
-					part("Wall", Vector3.new(WALL_T, WALL_H, cells(1)),
+					local w = part("Wall", Vector3.new(WALL_T, WALL_H, cells(1)),
 						CFrame.new(cells(bx), y, cells(z) + CELL / 2), colour, parent)
+					CollectionService:AddTag(w, "Chomp_Wall")
 					count += 1
 				end
 			end
@@ -229,8 +236,9 @@ local function renderWalls(parent: Instance, open: EdgeSet,
 				if not open[k] and not drawn[k] then
 					drawn[k] = true
 					local bz = tonumber(k:match(":(%d+)$")) :: number
-					part("Wall", Vector3.new(cells(1), WALL_H, WALL_T),
+					local w = part("Wall", Vector3.new(cells(1), WALL_H, WALL_T),
 						CFrame.new(cells(x) + CELL / 2, y, cells(bz)), colour, parent)
+					CollectionService:AddTag(w, "Chomp_Wall")
 					count += 1
 				end
 			end
