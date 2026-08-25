@@ -306,3 +306,26 @@ entries:
     commands are buildAll, then the conformance scan, then preview to look at
     it. The factory and the scan are engine-side: if either is wrong, log
     BLOCKED rather than editing across the boundary.
+- date: '2026-08-25'
+  agent: Codex (vehicle design)
+  action: BLOCKED
+  requirements: [CHOMP-SYS-054]
+  summary: >
+    Re-authored Standard as a reviewable Luau spec at
+    VehicleSpecs/Standard.lua without changing the engine-owned factory or
+    scanner and without deleting the working Standard.rbxm. The spec contains
+    11 basic parts, no tuning attributes, exactly one Chassis, MouthUpper,
+    MouthLower and TeamColour, and no scripts or prohibited instances. Static
+    geometry checks give a mouth centre at Z=-2.15, upper-to-lower separation
+    of 1.80 studs, bounds of 5.20 x 3.275 x 6.375 studs, and an approximate
+    frontal mouth fraction of 72 percent. Runtime completion is blocked because
+    this environment has no Roblox Studio, Rojo or Luau executable: buildAll,
+    VehicleConformance and the human camera-angle preview were not run and no
+    pass is claimed.
+  status: BLOCKED
+  handoff: >
+    Sync the clean branch in Studio, run VehicleFactory.buildAll(), then
+    VehicleConformance.checkAll(), then preview Standard at the 38-degree game
+    angle. Keep Standard.rbxm until all three gates pass. Return full factory
+    and conformance output plus the human facing-readability result; only then
+    delete the binary and append DELIVERED.
