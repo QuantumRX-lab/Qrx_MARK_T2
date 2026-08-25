@@ -282,3 +282,27 @@ entries:
     the retune that prompted it would have failed all four on a mismatch that
     says nothing about the models. Models carry identity and shape; ChompConfig
     carries tuning.
+- date: '2026-08-25'
+  agent: Claude (engine)
+  action: DECIDED
+  requirements: [CHOMP-SYS-054]
+  summary: >
+    Chassis authoring moves from binary .rbxm to Luau spec tables
+    (D-CHOMP-022). VehicleFactory.lua added: it builds a model from a spec,
+    welds and enforces the physics rules itself rather than trusting the spec,
+    reads Tier, BarCapacity, Power and MouthArcDegrees from ChompConfig so a
+    model can never disagree with the game's numbers, and asserts the contract
+    at build time — including that the mouth sits forward of the origin, which
+    it refuses to build without. Work instruction written at
+    workstreams/CHAIN-VEHICLE/BUILD-AND-TEST.md, with a worked template at
+    VehicleSpecs/EXAMPLE_TEMPLATE.lua.
+  status: OPEN
+  handoff: >
+    Codex: your four .rbxm files stay and keep working until replaced. Re-author
+    them as specs one at a time, Standard first, and only delete a binary after
+    its spec builds, scans clean and has been looked at — do not delete four and
+    then discover the factory disagrees with your reading of the mouth
+    convention. Everything you need is in BUILD-AND-TEST.md; the three Studio
+    commands are buildAll, then the conformance scan, then preview to look at
+    it. The factory and the scan are engine-side: if either is wrong, log
+    BLOCKED rather than editing across the boundary.

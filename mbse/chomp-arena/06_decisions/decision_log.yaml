@@ -397,3 +397,26 @@ decisions:
       default.project.json declares ReplicatedStorage.Remotes and its three
       events; Remotes.lua creates nothing; InputController holds the module
       optionally and only fires when it is present.
+
+  - id: D-CHOMP-022
+    date: 2026-08-25
+    title: Chassis models are authored as Luau specs, not binary .rbxm files
+    decision: >
+      A chassis is a declarative spec table in
+      src/ServerStorage/ChompTools/VehicleSpecs/, built into a Model by
+      VehicleFactory. The four delivered .rbxm files stay until replaced one at
+      a time, Standard first.
+    rationale: >
+      A binary model cannot be diffed, cannot be reviewed, and cannot be
+      regenerated after a tuning or convention change — and an agent with no
+      Roblox runtime cannot inspect what it just produced, which is why this
+      chain correctly logged BLOCKED twice rather than guess. A spec table is
+      text: it reviews, it regenerates, and one command in Studio turns it into
+      something you can look at.
+    outcome: >
+      VehicleFactory.lua builds and asserts the contract at build time rather
+      than reporting violations later — notably that the mouth sits forward of
+      the origin, since a backwards vehicle does not look wrong, it inverts
+      combat. Attributes are read from ChompConfig rather than written into the
+      spec, so a model cannot drift from the numbers the game uses. Work
+      instruction in workstreams/CHAIN-VEHICLE/BUILD-AND-TEST.md.
