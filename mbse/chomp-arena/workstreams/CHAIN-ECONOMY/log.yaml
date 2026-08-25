@@ -29,3 +29,21 @@ entries:
     02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.
   status: OPEN
+- date: '2026-08-25'
+  agent: Claude (tree owner)
+  action: NOTE
+  requirements: [CHOMP-SYS-009]
+  summary: >
+    Decomposed progression into pure functions:
+    src/ReplicatedStorage/ChompLogic/Progression.lua holds computePower,
+    effectiveStats, costOf, carryBand and catchUpGrant as typed stubs.
+    effectiveStats is where the upgrade trade-offs actually live — Speed levels
+    reduce turn, Agility levels reduce speed — with a floor at half the chassis
+    base so no build can be immobilised.
+  status: OPEN
+  handoff: >
+    computePower is the only place power is calculated; PlayerState.power is a
+    cache asserted equal to it in debug builds. EconomyService is the sole
+    writer of bar, carried and banked, and every delta function returns what
+    was actually applied after clamping — a caller assuming its request landed
+    will drift from the truth the first time a clamp bites.

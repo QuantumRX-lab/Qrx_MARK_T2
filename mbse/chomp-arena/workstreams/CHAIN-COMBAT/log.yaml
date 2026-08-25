@@ -34,3 +34,21 @@ entries:
     See 02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.
   status: OPEN
+- date: '2026-08-25'
+  agent: Claude (tree owner)
+  action: NOTE
+  requirements: [CHOMP-SYS-010, CHOMP-SYS-011, CHOMP-SYS-012]
+  summary: >
+    Decomposed the combat maths into pure functions with specified boundary
+    cases: src/ReplicatedStorage/ChompLogic/Impact.lua holds classify,
+    resolveHeadOn, resolveFlank, resolveChomp and resolveFall as typed stubs.
+    They take facings and numbers and return deltas — no player objects, no
+    DataModel — so CHOMP-TC-016 and CHOMP-TC-017 can be written as unit specs
+    before any of it is implemented.
+  status: OPEN
+  handoff: >
+    CombatService must not write bar or carried; it computes an ImpactResult
+    and hands the deltas to EconomyService (D-CHOMP-014). The boundary cases
+    named in each doc comment are the spec: 44 versus 46 degrees, identical
+    facings, clang symmetry, bar difference exceeding the loser's carry, an
+    empty attacker bar, and the small-fry gap being inclusive at exactly 300.

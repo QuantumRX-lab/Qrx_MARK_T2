@@ -19,6 +19,8 @@ recomputes every rollup), scoped to a game rather than to hosting.
 | `01_stakeholders/stakeholders.md` | Who depends on this and what breaks it for them, including the tensions between them |
 | `02_requirements/requirements.yaml` | 62 requirements — 8 stakeholder, 54 system — phased v1/v2/v3, each on a decomposition chain |
 | `03_architecture/system_architecture.md` | Where everything lives in the DataModel, the client/server rule, the whole remote surface |
+| `03_architecture/player_state.md` | The player record, which service may write each field, and the invariants |
+| `03_architecture/service_contracts.md` | What each service owns, exposes and must not touch. The complete three-remote client surface |
 | `03_architecture/vehicle_contract.md` | The interface a chassis model must satisfy. Handed to an external agent, checked by scan |
 | `03_architecture/authoring_kit.md` | v3: how the children build their own maps without scripting |
 | `04_verification/verification_strategy.md` | The five test levels and the publish gate |
@@ -27,6 +29,7 @@ recomputes every rollup), scoped to a game rather than to hosting.
 | `06_decisions/decision_log.yaml` | 11 decisions with rationale |
 | `08_status/dashboard.yaml` | Hand-maintained rollup, checked against the records on every validate run |
 | `workstreams/` | One folder and one append-only log per decomposition chain. How several agents work this tree without colliding |
+| `src/` | Authored Luau, DataModel-shaped, synced into Studio (`D-CHOMP-012`). `ChompConfig` is the authoritative numbers; `ChompLogic/` holds the pure functions; `ChompTools/` holds the conformance scan |
 
 ## Phases
 

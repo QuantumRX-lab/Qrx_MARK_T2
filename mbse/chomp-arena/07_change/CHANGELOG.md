@@ -1,5 +1,23 @@
 # Chomp Arena — Change Log
 
+## 2026-08-25 — Design decomposition: state, contracts, pure logic
+- `src/ReplicatedStorage/Types.lua` — the shared vocabulary: `PlayerState`,
+  `OwnView`, `PublicView`, `ImpactResult`, `Junction`, `WorldView`,
+  `GhostBehaviour`. The `WorldView` a ghost behaviour receives is now actually
+  defined rather than referenced in two documents and specified in neither.
+- `03_architecture/player_state.md` — the single-writer ownership table
+  (`D-CHOMP-014`), the client view split, lifecycle, and six invariants worth
+  asserting in a debug build.
+- `03_architecture/service_contracts.md` — per-service owns / exposes / must
+  not touch, and the complete three-remote client surface with rate limits and
+  rejection rules. No remote carries a quantity.
+- `src/ReplicatedStorage/ChompLogic/Impact.lua` and `Progression.lua` — typed
+  pure-function stubs with their boundary cases specified, so the unit specs
+  for `CHOMP-TC-016`, `-017` and the progression maths can be written before
+  the implementations exist.
+- `D-CHOMP-013`: other players' carried totals are shown as a band
+  (Light/Heavy/Fat), not a number.
+
 ## 2026-08-25 — CHAIN-VEHICLE blocker resolved; source moves into the repo
 - CHAIN-VEHICLE claimed its requirements and correctly logged `BLOCKED` rather
   than guessing: the vehicle contract asked for attributes mirroring a

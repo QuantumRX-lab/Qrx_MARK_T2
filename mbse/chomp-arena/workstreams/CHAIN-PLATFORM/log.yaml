@@ -52,3 +52,21 @@ entries:
     documented in the scanner rather than hidden: triangle count is declared by
     the model, not measured, and the silhouette check is a bounding-box
     approximation that does not replace looking at the vehicle on an iPad.
+- date: '2026-08-25'
+  agent: Claude (platform)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-038]
+  summary: >
+    Added the shared vocabulary every chain builds against:
+    src/ReplicatedStorage/Types.lua (PlayerState, OwnView, PublicView,
+    ImpactResult, Junction, WorldView, GhostBehaviour),
+    03_architecture/player_state.md (the single-writer ownership table and the
+    invariants), and 03_architecture/service_contracts.md (what each service
+    owns, exposes and must not touch, plus the complete three-remote client
+    surface with rate limits).
+  status: OPEN
+  handoff: >
+    Two rules bind every chain from here. One: a field has exactly one writing
+    service, and you ask rather than write. Two: no remote carries a quantity —
+    intent only, the server supplies every number, and adding a fourth remote
+    means extending the exploit suite in the same commit.

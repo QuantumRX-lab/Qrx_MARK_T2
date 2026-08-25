@@ -60,7 +60,7 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 12
+  total: 14
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder — the daughter names it."
@@ -78,3 +78,7 @@ next_actions:
      real to follow."
   - "Stand up the L0 conformance scans and the L1 unit spec harness before
      writing gameplay logic — the maths must stay pure to be testable."
+  - "Still to decompose before building: the camera specification (angle,
+     distance, FOV, fade rule) and the map geometry specification (grid size,
+     deck height, ramp slope, ring radii, prefab piece list). Both are
+     blocked on the touch control scheme, which is an owner decision."

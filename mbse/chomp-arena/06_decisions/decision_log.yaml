@@ -195,3 +195,44 @@ decisions:
       CHOMP-SYS-037) and src/ServerStorage/ChompTools/VehicleConformance.lua
       (the executable form of CHOMP-TC-044) added, unblocking CHAIN-VEHICLE.
       The place file becomes a build output rather than the source of truth.
+
+  - id: D-CHOMP-013
+    date: 2026-08-25
+    title: Other players' carried totals are shown as a band, not a number
+    decision: >
+      A client receives its own full state, but only a PublicView of everyone
+      else — chassis, power, deck, ring, Full Jaw state, and a carry band of
+      Light, Heavy or Fat rather than an exact carried total.
+    rationale: >
+      Knowing who is worth chasing is half the strategy and is what makes
+      banking a real decision rather than a chore, so the information has to be
+      there in some form. The exact figure is a different thing: it hands an
+      exploiter a target list ranked by precise value and lets them compute
+      exactly what a hit will yield before committing to it. A band preserves
+      the decision and removes the calculator. It is also more readable to a
+      seven-year-old — "that one is Fat" registers at a glance where "413" does
+      not.
+    outcome: >
+      PublicView in src/ReplicatedStorage/Types.lua; thresholds in ChompConfig;
+      Progression.carryBand is the only place the banding is computed.
+
+  - id: D-CHOMP-014
+    date: 2026-08-25
+    title: Single-writer rule on the player state record
+    decision: >
+      Every field of PlayerState has exactly one service permitted to write it.
+      Other services request changes through a named function on the owner, and
+      every mutating call carries a reason string.
+    rationale: >
+      Two services writing the same at-risk pool is how points silently go
+      missing: combat subtracts, banking adds, both read a stale value and one
+      write lands on top of the other. It surfaces weeks later as "she banked
+      400 and only got 250" and is close to untraceable. The notable
+      consequence is that CombatService does not write bar or carried at all —
+      it computes deltas with pure logic and hands them to EconomyService,
+      which keeps the combat maths unit-testable and puts all income accounting
+      in one place.
+    outcome: >
+      03_architecture/player_state.md ownership table;
+      03_architecture/service_contracts.md; the reason strings are what make
+      the CHOMP-TC-043 fairness assertions computable at all.
