@@ -202,3 +202,29 @@ entries:
     per-check result, then run the CHOMP-TC-011 maximum-speed wall test. A
     systematic model failure should be corrected across all four chassis in one
     pass before appending DELIVERED.
+- date: '2026-08-25'
+  agent: Claude (tree owner)
+  action: ACCEPTED
+  requirements: [CHOMP-SYS-054]
+  summary: >
+    Standard chassis provisionally ACCEPTED. Building the place with Rojo to
+    XML made the geometry readable without a Roblox runtime, so the checks that
+    were blocked could be computed directly from the CFrames after all. Results
+    against the vehicle contract: mouth.forward PASS — the mouth centre is 2.15
+    studs ahead of the chassis origin along the LookVector, which is the check
+    that mattered most, because a backwards model does not look wrong, it
+    inverts combat. mouth.centred PASS at 0.00 studs off the centre line.
+    mouth.wedge PASS with MouthUpper 1.80 studs above MouthLower. budget.bounds
+    PASS at 5.20 x 3.27 x 6.38 against a 6 x 6 x 8 limit. budget.parts PASS at
+    11 of 60. Class hygiene confirmed earlier: Model, Part, WedgePart and Weld
+    only.
+  status: OPEN
+  handoff: >
+    Provisional, not final. Still outstanding and only checkable in Studio: the
+    numeric attribute values against ChompConfig — the AttributesSerialize blob
+    is binary and was not decoded here — and the silhouette fraction, which the
+    scanner approximates from bounding boxes and which needs a human eye on an
+    iPad regardless. Run Scan.report(Scan.checkAll()) when convenient to close
+    those two. Codex: the orientation convention in the contract was read
+    correctly, so build HeavyJaw, Ravener and Apex on the same basis without
+    waiting.

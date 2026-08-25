@@ -1,0 +1,2490 @@
+<roblox version="4">
+  <Item class="ReplicatedStorage" referent="0">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="ModuleScript" referent="1">
+      <Properties>
+        <string name="Name">ChompConfig</string>
+        <string name="Source"><![CDATA[--[[
+	ChompConfig — every tunable number in the game, defined exactly once.
+
+	CHOMP-SYS-037: no balance value may appear as a literal anywhere in engine
+	logic. If you find yourself typing a number into a service, it belongs here.
+
+	This file is the authoritative source for the vehicle attributes required by
+	03_architecture/vehicle_contract.md. A delivered chassis model must mirror
+	these values in its attributes, and VehicleConformance.lua checks that it
+	does — that mirroring exists so a model and the config cannot silently
+	disagree.
+
+	Units:
+		speed      studs per second
+		turn       degrees per second
+		arc        degrees, total width (45 either side of LookVector for 90)
+		durations  seconds
+]]
+
+local ChompConfig = {}
+
+-- ── Chassis ─────────────────────────────────────────────────────────────
+-- Bigger chassis carry more charge but turn worse, so a tier is a trade
+-- rather than a straight upgrade. An Apex that has just respawned with an
+-- empty bar is genuinely beatable by a topped-up Standard.
+
+ChompConfig.Chassis = {
+	Standard = { Tier = 1, BarCapacity = 100, Power = 100, BaseSpeed = 24, BaseTurn = 540, MouthArcDegrees = 90,  Cost = 0 },
+	HeavyJaw = { Tier = 2, BarCapacity = 175, Power = 250, BaseSpeed = 23, BaseTurn = 480, MouthArcDegrees = 90,  Cost = 500 },
+	Ravener  = { Tier = 3, BarCapacity = 275, Power = 450, BaseSpeed = 26, BaseTurn = 450, MouthArcDegrees = 100, Cost = 1500 },
+	Apex     = { Tier = 4, BarCapacity = 400, Power = 700, BaseSpeed = 28, BaseTurn = 420, MouthArcDegrees = 110, Cost = 3500 },
+}
+
+ChompConfig.StartingChassis = "Standard"
+
+-- Movement shared by every chassis. Corridors are 8 studs wide and vehicles
+-- are at most 6, so turning has to complete inside roughly a third of a
+-- second or junctions become unmissable at speed.
+ChompConfig.Movement = {
+	Acceleration = 60,       -- studs/s^2, deliberately snappy: arcade, not simulation
+	Braking = 90,
+	ReverseFlipSeconds = 0.45,
+	ReverseFlipSecondsAgile = 0.25,   -- with Agility II or better
+	AgilityLevelForFastReverse = 2,
+}
+
+-- ── Upgrades ────────────────────────────────────────────────────────────
+-- Each track gives something and takes something. Per level, applied
+-- additively on top of the chassis base.
+
+ChompConfig.Upgrades = {
+	Costs = { 150, 400, 900 },        -- level I, II, III
+	PowerPerLevel = 40,
+	MaxLevel = 3,
+
+	Speed       = { Speed =  3, Turn = -25 },              -- faster, wider turning circle
+	Agility     = { Turn  = 60, Speed = -1.5 },            -- corners better, lower top speed
+	Consumption = { MouthArcDegrees = 10, PelletMultiplier = 0.25, HitboxRadius = 0.25 },
+}
+
+-- ── Combat ──────────────────────────────────────────────────────────────
+
+ChompConfig.Combat = {
+	HeadOnArcDegrees = 45,     -- within this of nose-to-nose is a head-on
+	HeadOnBarLoss = 0.40,      -- both players, of their own bar
+	ClangToleranceFraction = 0.10,
+	BiteBarCost = 0.30,        -- the attacker spends this to bite
+	ChompScatterFraction = 0.50,
+	InvulnerabilitySeconds = 1.50,
+	RespawnSeconds = 4.0,
+	ScatterLifetimeSeconds = 20,
+	SmallFryPowerGap = 300,    -- above this gap, a hit scatters nothing
+	FallScatterFraction = 0.10,
+}
+
+-- ── Economy ─────────────────────────────────────────────────────────────
+
+ChompConfig.Economy = {
+	BankRate = 1.0,                     -- carried to dollars
+	GarageReentryCooldownSeconds = 5,
+	PelletRespawnSeconds = 12,
+	ComboWindowSeconds = 1.5,
+	ComboMax = 5,                       -- v2 (CHOMP-SYS-006)
+	PelletValueByRing = { [1] = 10, [2] = 25, [3] = 60, [4] = 150 },
+	PowerPelletValue = 100,
+	EdibleGhostValue = 200,
+	GuardianBonus = 500,
+}
+
+-- ── Ghosts ──────────────────────────────────────────────────────────────
+
+ChompConfig.Ghosts = {
+	StealFraction = 0.25,
+	Speed = 21,                         -- slower than a Standard chassis on purpose
+	FleeSpeed = 14,
+	FullJawSeconds = 8,
+	-- CHOMP-SYS-053: the maze fills up when the lobby empties.
+	-- Highest player count whose threshold is met wins.
+	CountByPlayers = {
+		{ players = 2,  ghosts = 6 },
+		{ players = 5,  ghosts = 5 },
+		{ players = 8,  ghosts = 4 },
+		{ players = 12, ghosts = 2 },
+	},
+	RecalculateWithinSeconds = 10,
+	V1Behaviours = { "Chaser", "GreedyOne" },
+}
+
+-- ── Rings and gate guardians ────────────────────────────────────────────
+
+ChompConfig.Rings = {
+	Threat = { [2] = 250, [3] = 500, [4] = 800 },
+	UnderPoweredScatterFraction = 0.50,
+	GateOpenSeconds = 60,
+	GuardianReformSeconds = 60,
+}
+
+-- ── Match ───────────────────────────────────────────────────────────────
+
+ChompConfig.Match = {
+	RoundSeconds = 360,
+	RoundsPerMatch = 5,
+	IntermissionSeconds = 30,
+	MaxPlayers = 12,
+	GaragesPerQuadrant = 3,
+}
+
+-- ── Budgets (the iPad is the reference platform, CHOMP-STK-007) ─────────
+
+ChompConfig.Budgets = {
+	VehicleParts = 60,
+	VehicleTriangles = 5000,
+	VehicleBounds = Vector3.new(6, 6, 8),
+	VehicleTextures = 2,
+	VehicleTextureResolution = 512,
+	MouthSilhouetteFraction = 0.30,
+	PlaceParts = 4000,
+	TargetFPS = 30,
+	CorridorWidth = 8,
+}
+
+-- ── Controls (D-CHOMP-015) ──────────────────────────────────────────────
+-- Hold to turn, always driving forward. There is no accelerator, no brake and
+-- no action button in the entire game.
+
+ChompConfig.Controls = {
+	DeadZoneFraction = 0.20,      -- middle fifth of the screen steers nowhere
+	FullLockFraction = 0.42,      -- past this from centre, full turn rate
+	FlipDoubleTapSeconds = 0.35,  -- two taps this close on the far side = 180 flip
+	ThumbSafeZoneFraction = 0.30, -- bottom corners the HUD must keep clear
+}
+
+-- ── Camera (D-CHOMP-016) ────────────────────────────────────────────────
+-- World-locked yaw: the camera never rotates with the vehicle. Turning spins
+-- the model, not the world.
+
+ChompConfig.Camera = {
+	PitchDegrees = 35,
+	Distance = 42,
+	FieldOfView = 55,
+	TargetScreenHeight = 0.55,    -- vehicle sits slightly below centre
+	LookAheadStuds = 6,
+	DeckEaseSeconds = 0.35,
+	OccluderFadeInSeconds = 0.12,
+	OccluderFadeOutSeconds = 0.25,
+	OccluderTransparency = 0.75,
+	MaxOcclusionSeconds = 0.20,   -- CHOMP-SYS-051 hard limit
+	HitShakeSeconds = 0.15,
+	HitShakeStuds = 0.6,
+}
+
+-- ── Map geometry (D-CHOMP-017) ──────────────────────────────────────────
+-- Everything on an 8-stud grid. Wall height is a camera constraint, not an
+-- art choice: taller than this and the camera cannot see over it at 35 degrees.
+
+ChompConfig.Map = {
+	CellSize = 8,
+	WallHeight = 7,
+	WallThickness = 1,
+	DeckHeight = 16,              -- floor to floor
+	SlabThickness = 2,
+	RampCells = 4,                -- 32 studs run for a 16 stud rise, ~26.6 degrees
+	BridgeWidthCells = 1,
+	QuadrantCells = 16,           -- authored quadrant is 16 x 16 cells
+	GroundDeckCells = 32,         -- full ground deck after mirroring
+	Ring2InnerCells = 8,          -- central 16 x 16 becomes the raised ring
+	GarageCells = 3,              -- garages are 3 x 3 cells
+	PelletsPerOpenCell = 1,
+}
+
+return ChompConfig
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Folder" referent="2">
+      <Properties>
+        <string name="Name">ChompLogic</string>
+      </Properties>
+      <Item class="ModuleScript" referent="3">
+        <Properties>
+          <string name="Name">Impact</string>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	ChompLogic.Impact — CHAIN-COMBAT
+
+	Pure functions. No DataModel access, no services, no os.clock. Given two
+	facings and two bars, return the deltas to apply. This is what makes
+	CHOMP-TC-016 and CHOMP-TC-017 writable as unit specs rather than as
+	"load the game and drive into someone".
+
+	STATUS: signatures and specification only. CHAIN-COMBAT implements.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Types = require(ReplicatedStorage:WaitForChild("Types"))
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+
+type ImpactResult = Types.ImpactResult
+
+local Impact = {}
+
+--[[
+	classify(facingA, facingB, aboveB) -> ImpactKind
+
+	facingA, facingB : unit XZ vectors, each vehicle's LookVector
+	aboveB           : true when A initiated contact from a higher deck
+
+	Rules:
+	  * aboveB is true                     -> "Flank" (a mouth never points at
+	                                          the ceiling, CHOMP-SYS-050)
+	  * angle between the two facings is
+	    within 180 +/- HeadOnArcDegrees    -> "HeadOn" (nose to nose)
+	  * otherwise                          -> "Flank"
+
+	Boundary cases the spec must cover: exactly 44 degrees off nose-to-nose
+	classifies HeadOn, exactly 46 does not; identical facings (one rear-ending
+	another) is Flank; a drop attack from above is Flank regardless of facings.
+]]
+function Impact.classify(facingA: Vector3, facingB: Vector3, aboveB: boolean): Types.ImpactKind
+	error("not implemented — CHAIN-COMBAT")
+end
+
+--[[
+	resolveHeadOn(barA, barB) -> ImpactResult
+
+	Both lose HeadOnBarLoss of their OWN bar. The lower bar additionally loses
+	carried points equal to the difference between the two bars. Bars within
+	ClangToleranceFraction of each other are a "Clang": bar loss only, no carry
+	loss, both bounce.
+
+	Scatter goes to "Midpoint" for a head-on, since neither player owns the
+	fight's location.
+
+	Boundary cases: equal bars (clang, symmetric result); one bar at zero
+	(the empty player is chomped — the caller checks that, this function still
+	returns the deltas); bar difference larger than the loser's carry (clamps,
+	and scatterAmount equals what was actually taken, never more).
+]]
+function Impact.resolveHeadOn(barA: number, barB: number, carryA: number, carryB: number): ImpactResult
+	error("not implemented — CHAIN-COMBAT")
+end
+
+--[[
+	resolveFlank(attackerBar, defenderBar, defenderCarry, powerGap) -> ImpactResult
+
+	The attacker spends BiteBarCost of their own bar. That amount comes off the
+	defender's bar first and their carried points second. Scatter is at
+	"Defender".
+
+	powerGap = attackerPower - defenderPower. Above SmallFryPowerGap the result
+	is a valid hit that scatters NOTHING and awards nothing (CHOMP-SYS-016) —
+	the defender still gets invulnerability, so a strong player can still shove
+	a weak one out of the way, they just cannot farm them.
+
+	Boundary cases: attacker bar empty (no bite is possible, return kind
+	"None"); defender bar absorbs the whole bite (zero carry loss); powerGap
+	exactly at the threshold (inclusive — at exactly 300 nothing scatters).
+]]
+function Impact.resolveFlank(
+	attackerBar: number,
+	defenderBar: number,
+	defenderCarry: number,
+	powerGap: number
+): ImpactResult
+	error("not implemented — CHAIN-COMBAT")
+end
+
+--[[
+	resolveChomp(carried) -> ImpactResult
+	A hit taken at an empty bar. ChompScatterFraction of carried scatters at
+	the defender; the caller handles the respawn timer and leaves upgrades
+	alone (CHOMP-SYS-015).
+]]
+function Impact.resolveChomp(carried: number): ImpactResult
+	error("not implemented — CHAIN-COMBAT")
+end
+
+--[[
+	resolveFall(carried) -> ImpactResult
+	FallScatterFraction of carried, scattered where they land. Never lethal,
+	never a respawn (CHOMP-SYS-049).
+]]
+function Impact.resolveFall(carried: number): ImpactResult
+	error("not implemented — CHAIN-COMBAT")
+end
+
+return Impact
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="4">
+        <Properties>
+          <string name="Name">Progression</string>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	ChompLogic.Progression — CHAIN-ECONOMY
+
+	Pure functions over chassis and upgrade levels. No player objects.
+
+	STATUS: signatures and specification only. CHAIN-ECONOMY implements.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Types = require(ReplicatedStorage:WaitForChild("Types"))
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+
+local Progression = {}
+
+--[[
+	computePower(chassis, upgrades) -> number
+
+	Chassis Power plus PowerPerLevel for every upgrade level held. This is the
+	ONLY place power is calculated; PlayerState.power is a cache of it and is
+	asserted equal in debug builds.
+
+	Boundary cases: fresh Standard is exactly 100; Apex with all nine levels is
+	exactly 1060; an unknown chassis id is an error, not a zero.
+]]
+function Progression.computePower(chassis: Types.ChassisId, upgrades: Types.UpgradeLevels): number
+	error("not implemented — CHAIN-ECONOMY")
+end
+
+--[[
+	effectiveStats(chassis, upgrades) -> {speed, turn, mouthArcDegrees, hitboxRadius, pelletMultiplier}
+
+	Applies the upgrade deltas to the chassis base, INCLUDING the costs: Speed
+	levels reduce turn, Agility levels reduce speed. Clamp so no stat can go
+	below half its chassis base — a player who dumps everything into Agility
+	must still be able to move.
+
+	Boundary cases: no upgrades returns the chassis base unchanged; three
+	Agility levels on Apex still leaves speed above the floor; Consumption
+	widens the mouth arc and the hitbox together, since a bigger mouth is a
+	bigger target (that trade is the point).
+]]
+function Progression.effectiveStats(chassis: Types.ChassisId, upgrades: Types.UpgradeLevels)
+	error("not implemented — CHAIN-ECONOMY")
+end
+
+--[[
+	costOf(itemId, upgrades) -> number?
+	itemId is either a chassis id or "Speed"/"Agility"/"Consumption". For a
+	track, the cost is the next unowned level's price; nil when already at
+	MaxLevel or when a chassis is already owned or is a downgrade.
+]]
+function Progression.costOf(itemId: string, chassis: Types.ChassisId, upgrades: Types.UpgradeLevels): number?
+	error("not implemented — CHAIN-ECONOMY")
+end
+
+--[[
+	carryBand(carried) -> "Light" | "Heavy" | "Fat"
+	What other players are allowed to see (D-CHOMP-013).
+]]
+function Progression.carryBand(carried: number): string
+	error("not implemented — CHAIN-ECONOMY")
+end
+
+--[[
+	catchUpGrant(matchElapsedSeconds) -> number
+	Dollars given to a player joining mid-match, scaled to elapsed time so that
+	a round-four joiner is not driving a Standard against Raveners with nothing
+	(CHOMP-SYS-029, v2). Zero at match start; never enough to leapfrog the
+	leader.
+]]
+function Progression.catchUpGrant(matchElapsedSeconds: number): number
+	error("not implemented — CHAIN-ECONOMY")
+end
+
+return Progression
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+    <Item class="ModuleScript" referent="5">
+      <Properties>
+        <string name="Name">Remotes</string>
+        <string name="Source"><![CDATA[--!strict
+--[[
+	Remotes — CHAIN-PLATFORM
+
+	The entire client-to-server surface, created once and found by name. Three
+	remotes, and none of them carries a quantity: no price, no amount, no
+	power, no hit, no position. Everything a client can express is intent; the
+	server supplies every number.
+
+	Adding a fourth remote means extending the exploit regression suite
+	(CHOMP-TC-042) in the same commit. That is not a guideline.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local NAMES = { "RequestPurchase", "RequestBank", "SetInputDirection" }
+
+local Remotes = {}
+
+local folder = ReplicatedStorage:FindFirstChild("Remotes")
+if not folder and RunService:IsServer() then
+	folder = Instance.new("Folder")
+	folder.Name = "Remotes"
+	folder.Parent = ReplicatedStorage
+end
+if RunService:IsServer() then
+	for _, name in ipairs(NAMES) do
+		if not folder:FindFirstChild(name) then
+			local remote = Instance.new("RemoteEvent")
+			remote.Name = name
+			remote.Parent = folder
+		end
+	end
+else
+	folder = ReplicatedStorage:WaitForChild("Remotes")
+end
+
+for _, name in ipairs(NAMES) do
+	Remotes[name] = folder:WaitForChild(name) :: RemoteEvent
+end
+
+-- Rate limits from service_contracts.md, enforced server-side.
+Remotes.Limits = {
+	RequestPurchase = 4,
+	RequestBank = 2,
+	SetInputDirection = 30,
+}
+
+--[[
+	makeLimiter(perSecond) -> (player) -> boolean
+
+	Returns false when the caller is over budget. A rejected call is dropped
+	silently; the client plays its own refusal feedback on timeout. Sustained
+	abuse is logged with the userId — in a Friends-only game that is a
+	conversation, not a ban.
+]]
+function Remotes.makeLimiter(perSecond: number)
+	local counts: { [number]: { n: number, windowStart: number, warned: boolean } } = {}
+	return function(player: Player): boolean
+		local now = os.clock()
+		local record = counts[player.UserId]
+		if not record or now - record.windowStart >= 1 then
+			counts[player.UserId] = { n = 1, windowStart = now, warned = false }
+			return true
+		end
+		record.n += 1
+		if record.n <= perSecond then
+			return true
+		end
+		if record.n > perSecond * 10 and not record.warned then
+			record.warned = true
+			warn(("[Remotes] %s (%d) exceeded a rate limit tenfold")
+				:format(player.Name, player.UserId))
+		end
+		return false
+	end
+end
+
+return Remotes
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="6">
+      <Properties>
+        <string name="Name">Types</string>
+        <string name="Source"><![CDATA[--!strict
+--[[
+	Types — the shared vocabulary of the whole game.
+
+	Every service reads and writes the same player record, and every pure logic
+	module takes and returns the shapes defined here. If a chain invents its own
+	shape for something in this file, two chains will disagree and the bug will
+	surface as "points went missing" three weeks later.
+
+	See 03_architecture/player_state.md for which service is allowed to WRITE
+	each field. Anyone may read.
+]]
+
+export type Direction = "North" | "South" | "East" | "West" | "Up" | "Down"
+
+export type ChassisId = "Standard" | "HeavyJaw" | "Ravener" | "Apex"
+
+export type UpgradeTrack = "Speed" | "Agility" | "Consumption"
+
+export type UpgradeLevels = {
+	Speed: number,       -- 0..3
+	Agility: number,     -- 0..3
+	Consumption: number, -- 0..3
+}
+
+-- The authoritative per-player record. Server-side only; clients receive the
+-- filtered views below.
+export type PlayerState = {
+	userId: number,
+	garageSlot: number,          -- 1..12, assigned on join
+
+	-- progression
+	chassis: ChassisId,
+	upgrades: UpgradeLevels,
+	power: number,               -- derived from chassis + upgrades, cached
+	banked: number,              -- safe dollars
+
+	-- at risk
+	bar: number,                 -- 0..chassis BarCapacity
+	carried: number,             -- unbanked points
+
+	-- position in the world
+	deck: number,                -- 1 = ground
+	ring: number,                -- 1 = outer
+
+	-- transient effects, all absolute timestamps from os.clock()
+	combo: number,               -- 1..ComboMax
+	comboExpiresAt: number,
+	invulnerableUntil: number,
+	fullJawUntil: number,
+	garageLockedUntil: number,
+	gatePassUsed: boolean,       -- Full Jaw's one free gate, consumed
+	respawnAt: number?,          -- nil while alive
+
+	-- bookkeeping
+	joinedAtMatchTime: number,   -- seconds into the match, for the catch-up grant
+	saveBlocked: boolean,        -- a failed profile read must never be written back
+}
+
+-- What a client is told about ITSELF: everything.
+export type OwnView = PlayerState
+
+-- What a client is told about EVERYONE ELSE. Deliberately not the full record:
+-- see D-CHOMP-013. Enough to decide who to hunt, not enough to compute the
+-- exact value of hitting them.
+export type PublicView = {
+	userId: number,
+	chassis: ChassisId,
+	power: number,
+	deck: number,
+	ring: number,
+	fullJawActive: boolean,
+	carryBand: "Light" | "Heavy" | "Fat",
+}
+
+-- ── Combat ──────────────────────────────────────────────────────────────
+
+export type ImpactKind = "HeadOn" | "Clang" | "Flank" | "None"
+
+export type ImpactResult = {
+	kind: ImpactKind,
+	-- Deltas to APPLY, never the resulting values. Positive numbers are
+	-- losses; the caller subtracts. Keeping these as deltas is what lets the
+	-- pure function be unit-tested without a player object.
+	attackerBarLoss: number,
+	defenderBarLoss: number,
+	defenderCarryLoss: number,
+	attackerCarryLoss: number,
+	scatterAt: "Attacker" | "Defender" | "Midpoint" | "None",
+	scatterAmount: number,
+}
+
+-- ── Ghosts ──────────────────────────────────────────────────────────────
+
+export type Junction = {
+	id: string,
+	position: Vector3,
+	deck: number,
+	ring: number,
+	exits: { Direction },       -- only directions that actually lead somewhere
+}
+
+-- The read-only window a ghost behaviour module gets. A behaviour may call
+-- nothing else — no game:GetService, no direct DataModel access — which is
+-- what keeps behaviours pure, testable, and safe to hand to a child in v3.
+export type WorldView = {
+	junctionAt: (position: Vector3) -> Junction?,
+	neighbour: (junction: Junction, direction: Direction) -> Junction?,
+
+	players: () -> { PublicView },
+	positionOf: (userId: number) -> Vector3?,
+	facingOf: (userId: number) -> Vector3?,
+	playerWithMostCarried: () -> PublicView?,
+	nearestPlayer: (position: Vector3) -> PublicView?,
+
+	-- Direction helpers. Each returns nil when no exit satisfies it, and the
+	-- behaviour must then fall back to something; never assume non-nil.
+	directionToward: (junction: Junction, target: Vector3) -> Direction?,
+	directionAhead: (junction: Junction, userId: number, tiles: number) -> Direction?,
+	directionAvoidingMouth: (junction: Junction, userId: number) -> Direction?,
+	directionAwayFrom: (junction: Junction, target: Vector3) -> Direction?,
+
+	-- Deterministic per-ghost randomness, so a behaviour stays reproducible in
+	-- a unit spec. Behaviours must not call math.random directly.
+	random: (ghostId: string) -> number,
+}
+
+export type GhostBehaviour = (ghostId: string, junction: Junction, world: WorldView) -> Direction
+
+return {}
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Folder" referent="7">
+      <Properties>
+        <string name="Name">Vehicles</string>
+      </Properties>
+      <Item class="Model" referent="8">
+        <Properties>
+          <string name="Name">Standard</string>
+          <BinaryString name="AttributesSerialize">BwAAAAsAAABCYXJDYXBhY2l0eQYAAAAAAABZQAkAAABCYXNlU3BlZWQGAAAAAAAAOEAIAAAAQmFzZVR1cm4GAAAAAADggEAPAAAATW91dGhBcmNEZWdyZWVzBgAAAAAAgFZABQAAAFBvd2VyBgAAAAAAAFlABAAAAFRpZXIGAAAAAAAA8D8NAAAAVHJpYW5nbGVDb3VudAYAAAAAAIBgQA==</BinaryString>
+          <bool name="NeedsPivotMigration">false</bool>
+          <Ref name="PrimaryPart">9</Ref>
+          <BinaryString name="Tags">Q2hvbXBfVmVoaWNsZQ==</BinaryString>
+        </Properties>
+        <Item class="Part" referent="9">
+          <Properties>
+            <string name="Name">Chassis</string>
+            <bool name="Anchored">false</bool>
+            <CoordinateFrame name="CFrame">
+              <X>0</X>
+              <Y>0.2</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="CanCollide">true</bool>
+            <bool name="CanQuery">true</bool>
+            <bool name="CanTouch">true</bool>
+            <Color3uint8 name="Color3uint8">16762632</Color3uint8>
+            <bool name="Massless">false</bool>
+            <CoordinateFrame name="PivotOffset">
+              <X>0</X>
+              <Y>-0.2</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <Vector3 name="size">
+              <X>4.6</X>
+              <Y>0.4</Y>
+              <Z>5.4</Z>
+            </Vector3>
+            <float name="Transparency">1</float>
+          </Properties>
+        </Item>
+        <Item class="Part" referent="10">
+          <Properties>
+            <string name="Name">BodyShell</string>
+            <bool name="Anchored">false</bool>
+            <CoordinateFrame name="CFrame">
+              <X>0</X>
+              <Y>1.55</Y>
+              <Z>0.75</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="CanCollide">false</bool>
+            <bool name="CanQuery">true</bool>
+            <bool name="CanTouch">true</bool>
+            <Color3uint8 name="Color3uint8">16762632</Color3uint8>
+            <bool name="Massless">true</bool>
+            <CoordinateFrame name="PivotOffset">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <Vector3 name="size">
+              <X>4.8</X>
+              <Y>2.4</Y>
+              <Z>3.2</Z>
+            </Vector3>
+            <float name="Transparency">0</float>
+          </Properties>
+        </Item>
+        <Item class="WedgePart" referent="11">
+          <Properties>
+            <string name="Name">MouthUpper</string>
+            <bool name="Anchored">false</bool>
+            <CoordinateFrame name="CFrame">
+              <X>0</X>
+              <Y>2.55</Y>
+              <Z>-2.15</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="CanCollide">false</bool>
+            <bool name="CanQuery">true</bool>
+            <bool name="CanTouch">true</bool>
+            <Color3uint8 name="Color3uint8">16762632</Color3uint8>
+            <bool name="Massless">true</bool>
+            <CoordinateFrame name="PivotOffset">
+              <X>0</X>
+              <Y>-0.625</Y>
+              <Z>1.35</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <Vector3 name="size">
+              <X>5.2</X>
+              <Y>1.25</Y>
+              <Z>2.7</Z>
+            </Vector3>
+            <float name="Transparency">0</float>
+          </Properties>
+        </Item>
+        <Item class="WedgePart" referent="12">
+          <Properties>
+            <string name="Name">MouthLower</string>
+            <bool name="Anchored">false</bool>
+            <CoordinateFrame name="CFrame">
+              <X>0</X>
+              <Y>0.75</Y>
+              <Z>-2.15</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="CanCollide">false</bool>
+            <bool name="CanQuery">true</bool>
+            <bool name="CanTouch">true</bool>
+            <Color3uint8 name="Color3uint8">15897605</Color3uint8>
+            <bool name="Massless">true</bool>
+            <CoordinateFrame name="PivotOffset">
+              <X>0</X>
+              <Y>0.55</Y>
+              <Z>1.35</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <Vector3 name="size">
+              <X>5.2</X>
+              <Y>1.1</Y>
+              <Z>2.7</Z>
+            </Vector3>
+            <float name="Transparency">0</float>
+          </Properties>
+        </Item>
+        <Item class="Part" referent="13">
+          <Properties>
+            <string name="Name">MouthInterior</string>
+            <bool name="Anchored">false</bool>
+            <CoordinateFrame name="CFrame">
+              <X>0</X>
+              <Y>1.6</Y>
+              <Z>-2</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="CanCollide">false</bool>
+            <bool name="CanQuery">true</bool>
+            <bool name="CanTouch">true</bool>
+            <Color3uint8 name="Color3uint8">2034189</Color3uint8>
+            <bool name="Massless">true</bool>
+            <CoordinateFrame name="PivotOffset">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <Vector3 name="size">
+              <X>4.7</X>
+              <Y>0.5</Y>
+              <Z>2.35</Z>
+            </Vector3>
+            <float name="Transparency">0</float>
+          </Properties>
+        </Item>
+        <Item class="Part" referent="14">
+          <Properties>
+            <string name="Name">TeamColour</string>
+            <bool name="Anchored">false</bool>
+            <CoordinateFrame name="CFrame">
+              <X>0</X>
+              <Y>2.7</Y>
+              <Z>0.65</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="CanCollide">false</bool>
+            <bool name="CanQuery">true</bool>
+            <bool name="CanTouch">true</bool>
+            <Color3uint8 name="Color3uint8">888063</Color3uint8>
+            <bool name="Massless">true</bool>
+            <CoordinateFrame name="PivotOffset">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <Vector3 name="size">
+              <X>4.9</X>
+              <Y>0.35</Y>
+              <Z>1.15</Z>
+            </Vector3>
+            <float name="Transparency">0</float>
+          </Properties>
+        </Item>
+        <Item class="Part" referent="15">
+          <Properties>
+            <string name="Name">EyeLeft</string>
+            <bool name="Anchored">false</bool>
+            <CoordinateFrame name="CFrame">
+              <X>-1.25</X>
+              <Y>2.55</Y>
+              <Z>-3.5</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="CanCollide">false</bool>
+            <bool name="CanQuery">true</bool>
+            <bool name="CanTouch">true</bool>
+            <Color3uint8 name="Color3uint8">15923967</Color3uint8>
+            <bool name="Massless">true</bool>
+            <CoordinateFrame name="PivotOffset">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <Vector3 name="size">
+              <X>0.65</X>
+              <Y>0.65</Y>
+              <Z>0.35</Z>
+            </Vector3>
+            <float name="Transparency">0</float>
+          </Properties>
+        </Item>
+        <Item class="Part" referent="16">
+          <Properties>
+            <string name="Name">EyeRight</string>
+            <bool name="Anchored">false</bool>
+            <CoordinateFrame name="CFrame">
+              <X>1.25</X>
+              <Y>2.55</Y>
+              <Z>-3.5</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="CanCollide">false</bool>
+            <bool name="CanQuery">true</bool>
+            <bool name="CanTouch">true</bool>
+            <Color3uint8 name="Color3uint8">15923967</Color3uint8>
+            <bool name="Massless">true</bool>
+            <CoordinateFrame name="PivotOffset">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <Vector3 name="size">
+              <X>0.65</X>
+              <Y>0.65</Y>
+              <Z>0.35</Z>
+            </Vector3>
+            <float name="Transparency">0</float>
+          </Properties>
+        </Item>
+        <Item class="Part" referent="17">
+          <Properties>
+            <string name="Name">Canopy</string>
+            <bool name="Anchored">false</bool>
+            <CoordinateFrame name="CFrame">
+              <X>0</X>
+              <Y>2.55</Y>
+              <Z>0.65</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="CanCollide">false</bool>
+            <bool name="CanQuery">true</bool>
+            <bool name="CanTouch">true</bool>
+            <Color3uint8 name="Color3uint8">5883903</Color3uint8>
+            <bool name="Massless">true</bool>
+            <CoordinateFrame name="PivotOffset">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <Vector3 name="size">
+              <X>3.5</X>
+              <Y>1.45</Y>
+              <Z>2.25</Z>
+            </Vector3>
+            <float name="Transparency">0.48</float>
+          </Properties>
+        </Item>
+        <Item class="Part" referent="18">
+          <Properties>
+            <string name="Name">SkidLeft</string>
+            <bool name="Anchored">false</bool>
+            <CoordinateFrame name="CFrame">
+              <X>-2.15</X>
+              <Y>0.45</Y>
+              <Z>0.25</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="CanCollide">false</bool>
+            <bool name="CanQuery">true</bool>
+            <bool name="CanTouch">true</bool>
+            <Color3uint8 name="Color3uint8">1711910</Color3uint8>
+            <bool name="Massless">true</bool>
+            <CoordinateFrame name="PivotOffset">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <Vector3 name="size">
+              <X>0.55</X>
+              <Y>0.55</Y>
+              <Z>3.7</Z>
+            </Vector3>
+            <float name="Transparency">0</float>
+          </Properties>
+        </Item>
+        <Item class="Part" referent="19">
+          <Properties>
+            <string name="Name">SkidRight</string>
+            <bool name="Anchored">false</bool>
+            <CoordinateFrame name="CFrame">
+              <X>2.15</X>
+              <Y>0.45</Y>
+              <Z>0.25</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="CanCollide">false</bool>
+            <bool name="CanQuery">true</bool>
+            <bool name="CanTouch">true</bool>
+            <Color3uint8 name="Color3uint8">1711910</Color3uint8>
+            <bool name="Massless">true</bool>
+            <CoordinateFrame name="PivotOffset">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <Vector3 name="size">
+              <X>0.55</X>
+              <Y>0.55</Y>
+              <Z>3.7</Z>
+            </Vector3>
+            <float name="Transparency">0</float>
+          </Properties>
+        </Item>
+        <Item class="Weld" referent="20">
+          <Properties>
+            <string name="Name">WeldBody</string>
+            <CoordinateFrame name="C0">
+              <X>0</X>
+              <Y>1.3499999</Y>
+              <Z>0.75</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <CoordinateFrame name="C1">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="Enabled">true</bool>
+            <Ref name="Part0">9</Ref>
+            <Ref name="Part1">10</Ref>
+          </Properties>
+        </Item>
+        <Item class="Weld" referent="21">
+          <Properties>
+            <string name="Name">WeldMouthUpper</string>
+            <CoordinateFrame name="C0">
+              <X>0</X>
+              <Y>2.35</Y>
+              <Z>-2.15</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <CoordinateFrame name="C1">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="Enabled">true</bool>
+            <Ref name="Part0">9</Ref>
+            <Ref name="Part1">11</Ref>
+          </Properties>
+        </Item>
+        <Item class="Weld" referent="22">
+          <Properties>
+            <string name="Name">WeldMouthLower</string>
+            <CoordinateFrame name="C0">
+              <X>0</X>
+              <Y>0.55</Y>
+              <Z>-2.15</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <CoordinateFrame name="C1">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="Enabled">true</bool>
+            <Ref name="Part0">9</Ref>
+            <Ref name="Part1">12</Ref>
+          </Properties>
+        </Item>
+        <Item class="Weld" referent="23">
+          <Properties>
+            <string name="Name">WeldMouthInterior</string>
+            <CoordinateFrame name="C0">
+              <X>0</X>
+              <Y>1.4</Y>
+              <Z>-2</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <CoordinateFrame name="C1">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="Enabled">true</bool>
+            <Ref name="Part0">9</Ref>
+            <Ref name="Part1">13</Ref>
+          </Properties>
+        </Item>
+        <Item class="Weld" referent="24">
+          <Properties>
+            <string name="Name">WeldTeamColour</string>
+            <CoordinateFrame name="C0">
+              <X>0</X>
+              <Y>2.5</Y>
+              <Z>0.65</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <CoordinateFrame name="C1">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="Enabled">true</bool>
+            <Ref name="Part0">9</Ref>
+            <Ref name="Part1">14</Ref>
+          </Properties>
+        </Item>
+        <Item class="Weld" referent="25">
+          <Properties>
+            <string name="Name">WeldEyeLeft</string>
+            <CoordinateFrame name="C0">
+              <X>-1.25</X>
+              <Y>2.35</Y>
+              <Z>-3.5</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <CoordinateFrame name="C1">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="Enabled">true</bool>
+            <Ref name="Part0">9</Ref>
+            <Ref name="Part1">15</Ref>
+          </Properties>
+        </Item>
+        <Item class="Weld" referent="26">
+          <Properties>
+            <string name="Name">WeldEyeRight</string>
+            <CoordinateFrame name="C0">
+              <X>1.25</X>
+              <Y>2.35</Y>
+              <Z>-3.5</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <CoordinateFrame name="C1">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="Enabled">true</bool>
+            <Ref name="Part0">9</Ref>
+            <Ref name="Part1">16</Ref>
+          </Properties>
+        </Item>
+        <Item class="Weld" referent="27">
+          <Properties>
+            <string name="Name">WeldCanopy</string>
+            <CoordinateFrame name="C0">
+              <X>0</X>
+              <Y>2.35</Y>
+              <Z>0.65</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <CoordinateFrame name="C1">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="Enabled">true</bool>
+            <Ref name="Part0">9</Ref>
+            <Ref name="Part1">17</Ref>
+          </Properties>
+        </Item>
+        <Item class="Weld" referent="28">
+          <Properties>
+            <string name="Name">WeldSkidLeft</string>
+            <CoordinateFrame name="C0">
+              <X>-2.15</X>
+              <Y>0.24999999</Y>
+              <Z>0.25</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <CoordinateFrame name="C1">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="Enabled">true</bool>
+            <Ref name="Part0">9</Ref>
+            <Ref name="Part1">18</Ref>
+          </Properties>
+        </Item>
+        <Item class="Weld" referent="29">
+          <Properties>
+            <string name="Name">WeldSkidRight</string>
+            <CoordinateFrame name="C0">
+              <X>2.15</X>
+              <Y>0.24999999</Y>
+              <Z>0.25</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <CoordinateFrame name="C1">
+              <X>0</X>
+              <Y>0</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="Enabled">true</bool>
+            <Ref name="Part0">9</Ref>
+            <Ref name="Part1">19</Ref>
+          </Properties>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="30">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="Folder" referent="31">
+      <Properties>
+        <string name="Name">ChompEngine</string>
+      </Properties>
+      <Item class="Script" referent="32">
+        <Properties>
+          <string name="Name">MovementService</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	MovementService — CHAIN-VEHICLE, CHOMP-SYS-001 and CHOMP-SYS-002
+
+	The vehicle is the standard character controller in a costume, never a
+	physics vehicle (D-CHOMP-002). Locomotion here is: the server holds the
+	speed and turn rate, the client sends steering intent only, and the server
+	rotates the character and drives it forward every heartbeat.
+
+	Always driving forward is the control scheme, not a placeholder
+	(D-CHOMP-015). There is no accelerator and no brake.
+
+	WalkSpeed is the single most exploited property in Roblox, so it is
+	re-asserted from server state on a timer rather than set once.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
+
+local MOVE = Config.Movement
+
+type Intent = {
+	steer: number,
+	flipUntil: number,
+	flipFrom: CFrame?,
+	chassis: string,
+	lastAssert: number,
+}
+
+local intents: { [Player]: Intent } = {}
+local allowInput = Remotes.makeLimiter(Remotes.Limits.SetInputDirection)
+
+-- TODO(CHAIN-ECONOMY): once Progression.effectiveStats is implemented, take
+-- speed and turn from it so upgrades apply. Until then these are the chassis
+-- base values, which is correct for a player with no upgrades.
+local function statsFor(chassisId: string)
+	local chassis = Config.Chassis[chassisId] or Config.Chassis[Config.StartingChassis]
+	return chassis.BaseSpeed, chassis.BaseTurn
+end
+
+local function intentFor(player: Player): Intent
+	local intent = intents[player]
+	if not intent then
+		intent = {
+			steer = 0,
+			flipUntil = 0,
+			flipFrom = nil,
+			chassis = Config.StartingChassis,
+			lastAssert = 0,
+		}
+		intents[player] = intent
+	end
+	return intent
+end
+
+Remotes.SetInputDirection.OnServerEvent:Connect(function(player, payload)
+	if not allowInput(player) then return end
+
+	-- Validate shape before anything else. A client may send whatever it likes.
+	if typeof(payload) ~= "Vector2" then return end
+	if payload.X ~= payload.X or payload.Y ~= payload.Y then return end -- NaN
+	if math.abs(payload.X) > 1.001 then return end
+
+	local intent = intentFor(player)
+	intent.steer = math.clamp(payload.X, -1, 1)
+
+	if payload.Y >= 0.5 and os.clock() >= intent.flipUntil then
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			local _, turn = statsFor(intent.chassis)
+			local agile = false -- TODO(CHAIN-ECONOMY): read Agility level
+			local duration = agile and MOVE.ReverseFlipSecondsAgile or MOVE.ReverseFlipSeconds
+			intent.flipFrom = root.CFrame
+			intent.flipUntil = os.clock() + duration
+		end
+	end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	intents[player] = nil
+end)
+
+RunService.Heartbeat:Connect(function(dt)
+	local now = os.clock()
+	for player, intent in intents do
+		local character = player.Character
+		if not character then continue end
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not (humanoid and root) then continue end
+
+		local speed, turnRate = statsFor(intent.chassis)
+
+		-- Re-assert server-held movement values (CHOMP-SYS-002). A client that
+		-- sets its own WalkSpeed is corrected well inside the 1 second the
+		-- requirement allows.
+		if now - intent.lastAssert > 0.25 then
+			if humanoid.WalkSpeed ~= speed then
+				humanoid.WalkSpeed = speed
+			end
+			humanoid.AutoRotate = false
+			intent.lastAssert = now
+		end
+
+		if now < intent.flipUntil and intent.flipFrom then
+			-- A flip is a rotation the server owns outright; steering is
+			-- ignored until it completes, so a flip cannot be steered out of.
+			local duration = MOVE.ReverseFlipSeconds
+			local elapsed = duration - (intent.flipUntil - now)
+			local alpha = math.clamp(elapsed / duration, 0, 1)
+			root.CFrame = CFrame.new(root.Position)
+				* (intent.flipFrom - intent.flipFrom.Position)
+				* CFrame.Angles(0, math.pi * alpha, 0)
+		else
+			intent.flipFrom = nil
+			if intent.steer ~= 0 then
+				local yaw = -math.rad(turnRate) * intent.steer * dt
+				root.CFrame = CFrame.new(root.Position)
+					* (root.CFrame - root.Position)
+					* CFrame.Angles(0, yaw, 0)
+			end
+		end
+
+		-- Always forward. This is the game, not a placeholder.
+		local facing = root.CFrame.LookVector
+		humanoid:Move(Vector3.new(facing.X, 0, facing.Z), false)
+	end
+end)
+
+print("[MovementService] running — server-held speed and turn, always forward")
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="33">
+        <Properties>
+          <string name="Name">TestMap</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	TestMap — CHAIN-MAZE
+
+	Builds the throwaway two-deck test map that CHOMP-TC-040 needs: snapped
+	walls, a ramp, a bridge crossing a corridor, and a tower core to drive
+	around. Everything comes from ChompConfig.Map, so if the grid or the wall
+	height changes, this map changes with it.
+
+	This is not the v1 map. It exists so the camera — the highest-risk item in
+	the tree (RISK-CHOMP-012) — can be built and judged before anybody spends a
+	weekend building real geometry against a camera that turns out not to work.
+
+	Set ChompConfig.Map.BuildTestMap or just leave this script in place; it
+	builds on server start into Workspace/Maps/TestMap.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+local Workspace = game:GetService("Workspace")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local M = Config.Map
+
+local CELL = M.CellSize
+local WALL_H = M.WallHeight
+local WALL_T = M.WallThickness
+local DECK_H = M.DeckHeight
+local SLAB = M.SlabThickness
+
+local function cells(n: number): number
+	return n * CELL
+end
+
+local function part(name: string, size: Vector3, cf: CFrame, colour: Color3, parent: Instance): Part
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cf
+	p.Anchored = true
+	p.Material = Enum.Material.SmoothPlastic
+	p.Color = colour
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = parent
+	return p
+end
+
+local COLOUR_FLOOR = Color3.fromRGB(38, 42, 58)
+local COLOUR_WALL = Color3.fromRGB(64, 92, 176)
+local COLOUR_RAMP = Color3.fromRGB(84, 120, 200)
+local COLOUR_BRIDGE = Color3.fromRGB(96, 104, 140)
+local COLOUR_TOWER = Color3.fromRGB(52, 58, 80)
+
+-- A wall runs along +X or +Z from a cell corner, `length` cells long.
+local function wall(parent: Instance, x: number, z: number, length: number, axis: string, deck: number)
+	local y = deck * DECK_H + SLAB / 2 + WALL_H / 2
+	local size, centre
+	if axis == "X" then
+		size = Vector3.new(cells(length), WALL_H, WALL_T)
+		centre = Vector3.new(cells(x) + cells(length) / 2, y, cells(z))
+	else
+		size = Vector3.new(WALL_T, WALL_H, cells(length))
+		centre = Vector3.new(cells(x), y, cells(z) + cells(length) / 2)
+	end
+	local p = part("Wall", size, CFrame.new(centre), COLOUR_WALL, parent)
+	CollectionService:AddTag(p, "Chomp_Wall")
+	return p
+end
+
+local function slab(parent: Instance, x: number, z: number, w: number, d: number, deck: number, colour: Color3?)
+	local y = deck * DECK_H
+	local p = part("Floor",
+		Vector3.new(cells(w), SLAB, cells(d)),
+		CFrame.new(cells(x) + cells(w) / 2, y, cells(z) + cells(d) / 2),
+		colour or COLOUR_FLOOR, parent)
+	return p
+end
+
+local function build()
+	local maps = Workspace:FindFirstChild("Maps") or Instance.new("Folder")
+	maps.Name = "Maps"
+	maps.Parent = Workspace
+
+	local existing = maps:FindFirstChild("TestMap")
+	if existing then existing:Destroy() end
+
+	local map = Instance.new("Folder")
+	map.Name = "TestMap"
+	map.Parent = maps
+
+	local deck1 = Instance.new("Folder"); deck1.Name = "Deck1"; deck1.Parent = map
+	local deck2 = Instance.new("Folder"); deck2.Name = "Deck2"; deck2.Parent = map
+	local links = Instance.new("Folder"); links.Name = "Links"; links.Parent = map
+
+	-- ── Deck 1: a 24 x 24 cell ground plate ──────────────────────────────
+	slab(deck1, 0, 0, 24, 24, 0)
+
+	-- Perimeter walls
+	wall(deck1, 0, 0, 24, "X", 0)
+	wall(deck1, 0, 24, 24, "X", 0)
+	wall(deck1, 0, 0, 24, "Z", 0)
+	wall(deck1, 24, 0, 24, "Z", 0)
+
+	-- A corridor to drive down, and something to hide behind. The bridge
+	-- above crosses this corridor, which is the occlusion case that matters.
+	wall(deck1, 6, 8, 12, "X", 0)
+	wall(deck1, 6, 16, 12, "X", 0)
+
+	-- Tower core: the camera has to fade this when you drive behind it.
+	local towerY = SLAB / 2 + (DECK_H * 1.5) / 2
+	local tower = part("TowerCore",
+		Vector3.new(cells(4), DECK_H * 1.5, cells(4)),
+		CFrame.new(cells(10) + cells(2), towerY, cells(10) + cells(2)),
+		COLOUR_TOWER, deck1)
+	CollectionService:AddTag(tower, "Chomp_Wall")
+
+	-- ── Ramp: 4 cells of run for a 16 stud rise (about 26.6 degrees) ─────
+	local rampRun = cells(M.RampCells)
+	local rampRise = DECK_H
+	local rampLength = math.sqrt(rampRun ^ 2 + rampRise ^ 2)
+	local rampAngle = math.atan2(rampRise, rampRun)
+	local rampCentre = Vector3.new(
+		cells(20) + cells(2),
+		rampRise / 2,
+		cells(4) + rampRun / 2 - rampRun / 2 + cells(2)
+	)
+	local ramp = part("Ramp",
+		Vector3.new(cells(2), SLAB, rampLength),
+		CFrame.new(rampCentre) * CFrame.Angles(-rampAngle, 0, 0),
+		COLOUR_RAMP, links)
+	CollectionService:AddTag(ramp, "Chomp_Link")
+
+	-- ── Deck 2: a raised 8 x 8 cell platform, reached by the ramp ─────────
+	slab(deck2, 16, 0, 8, 8, 1)
+	wall(deck2, 16, 0, 8, "X", 1)
+	wall(deck2, 24, 0, 8, "Z", 1)
+
+	-- ── Bridge: crosses the deck-1 corridor at deck-2 height ─────────────
+	-- No railings. Falling off is a mechanic (CHOMP-SYS-049), and this is
+	-- where CHOMP-TC-039 gets tested.
+	local bridge = part("Bridge",
+		Vector3.new(cells(M.BridgeWidthCells), SLAB, cells(12)),
+		CFrame.new(cells(18), DECK_H, cells(8) + cells(6)),
+		COLOUR_BRIDGE, links)
+	CollectionService:AddTag(bridge, "Chomp_Link")
+
+	-- ── Spawn ────────────────────────────────────────────────────────────
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "TestSpawn"
+	spawn.Size = Vector3.new(cells(1), 1, cells(1))
+	spawn.CFrame = CFrame.new(cells(3), SLAB + 0.5, cells(3))
+	spawn.Anchored = true
+	spawn.CanCollide = false
+	spawn.Transparency = 0.6
+	spawn.Parent = map
+
+	print(("[TestMap] built: 24x24 ground deck, %d-cell ramp, bridge, tower core. " ..
+		"Cell %d, wall %d, deck height %d."):format(M.RampCells, CELL, WALL_H, DECK_H))
+end
+
+build()
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerStorage" referent="34">
+    <Properties>
+      <string name="Name">ServerStorage</string>
+    </Properties>
+    <Item class="Folder" referent="35">
+      <Properties>
+        <string name="Name">ChompTools</string>
+      </Properties>
+      <Item class="ModuleScript" referent="36">
+        <Properties>
+          <string name="Name">VehicleConformance</string>
+          <string name="Source"><![CDATA[--[[
+	VehicleConformance — the executable form of CHOMP-TC-044.
+
+	Checks a delivered chassis model against 03_architecture/vehicle_contract.md
+	so that models are accepted by scan rather than by eye (CHOMP-SYS-054).
+
+	Usage, from a Studio command bar or a test script:
+
+		local Scan = require(game.ServerStorage.ChompTools.VehicleConformance)
+		Scan.report(Scan.checkAll())          -- every model in ReplicatedStorage.Vehicles
+		Scan.report({ Scan.check(someModel) })
+
+	Returns a plain table so it can also be driven from an automated harness:
+		{ name = "Standard", pass = false, checks = { {id=..., pass=..., detail=...}, ... } }
+
+	TWO HONEST LIMITS, both reported rather than hidden:
+
+	  * Triangle count is not readable from Luau. The model must declare a
+	    `TriangleCount` attribute; the scan checks the declared number against
+	    the budget and marks it DECLARED, not measured. Verify the real figure
+	    in the mesh tooling before trusting it.
+	  * Silhouette fraction is approximated from bounding boxes along the camera
+	    axis. It catches a mouth that is obviously too small; it cannot replace
+	    looking at the thing on an iPad.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+
+local VehicleConformance = {}
+
+local REQUIRED_ATTRIBUTES = {
+	"Tier", "BarCapacity", "Power", "BaseSpeed", "BaseTurn", "MouthArcDegrees",
+}
+local BANNED_CLASSES = {
+	Script = true, LocalScript = true, ModuleScript = true,
+	VehicleSeat = true, UnionOperation = true, NegateOperation = true,
+	Motor6D = false,  -- allowed: animation joints are fine, motors driving wheels are not
+	HingeConstraint = true, CylindricalConstraint = true, SpringConstraint = true,
+	Torque = true, LinearVelocity = true, AngularVelocity = true, VectorForce = true,
+}
+
+local function result(id, pass, detail)
+	return { id = id, pass = pass, detail = detail }
+end
+
+local function descendantsOfClass(model, className)
+	local out = {}
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA(className) then
+			table.insert(out, d)
+		end
+	end
+	return out
+end
+
+-- Is the mouth wedge on the forward side of the chassis?
+-- The contract's single most important rule: the mouth faces
+-- PrimaryPart.CFrame.LookVector. A model built backwards does not look wrong,
+-- it inverts the combat system, so this is checked first and reported first.
+local function checkMouthOrientation(model, checks)
+	local primary = model.PrimaryPart
+	local upper = model:FindFirstChild("MouthUpper", true)
+	local lower = model:FindFirstChild("MouthLower", true)
+
+	if not (upper and lower) then
+		table.insert(checks, result("mouth.parts", false,
+			"MouthUpper and MouthLower must both exist (found upper=" ..
+			tostring(upper ~= nil) .. ", lower=" .. tostring(lower ~= nil) .. ")"))
+		return
+	end
+	table.insert(checks, result("mouth.parts", true, "MouthUpper and MouthLower present"))
+
+	if not primary then return end
+
+	local originCF = primary.CFrame
+	local mouthCentre = (upper.Position + lower.Position) / 2
+	local localMouth = originCF:PointToObjectSpace(mouthCentre)
+
+	-- LookVector is -Z in object space, so a forward mouth has negative Z.
+	local forwardOffset = -localMouth.Z
+	local lateralOffset = math.abs(localMouth.X)
+
+	table.insert(checks, result("mouth.forward", forwardOffset > 0,
+		string.format(
+			"mouth centre is %.2f studs %s of the chassis origin along LookVector " ..
+			"(must be forward; negative means the model is built backwards and combat will invert)",
+			math.abs(forwardOffset), forwardOffset > 0 and "ahead" or "BEHIND")))
+
+	table.insert(checks, result("mouth.centred", lateralOffset < 0.75,
+		string.format("mouth is %.2f studs off the centre line (tolerance 0.75)", lateralOffset)))
+
+	-- The jaw must open across the LookVector: upper above lower in object space.
+	local dy = originCF:PointToObjectSpace(upper.Position).Y - originCF:PointToObjectSpace(lower.Position).Y
+	table.insert(checks, result("mouth.wedge", dy > 0,
+		string.format("MouthUpper sits %.2f studs above MouthLower (must be positive)", dy)))
+end
+
+local function checkAttributes(model, checks)
+	local spec = Config.Chassis[model.Name]
+	if not spec then
+		table.insert(checks, result("attributes.known", false,
+			"model name '" .. model.Name .. "' is not a chassis in ChompConfig.Chassis"))
+		return
+	end
+	table.insert(checks, result("attributes.known", true, "matches ChompConfig.Chassis." .. model.Name))
+
+	for _, key in ipairs(REQUIRED_ATTRIBUTES) do
+		local actual = model:GetAttribute(key)
+		local expected = spec[key]
+		if actual == nil then
+			table.insert(checks, result("attributes." .. key, false, "missing (expected " .. tostring(expected) .. ")"))
+		elseif expected ~= nil and actual ~= expected then
+			table.insert(checks, result("attributes." .. key, false,
+				string.format("is %s, ChompConfig says %s — the model and the config disagree",
+					tostring(actual), tostring(expected))))
+		else
+			table.insert(checks, result("attributes." .. key, true, tostring(actual)))
+		end
+	end
+end
+
+local function checkStructure(model, checks)
+	local primary = model.PrimaryPart
+	table.insert(checks, result("structure.primary", primary ~= nil and primary.Name == "Chassis",
+		primary and ("PrimaryPart is '" .. primary.Name .. "' (must be 'Chassis')") or "PrimaryPart is not set"))
+
+	table.insert(checks, result("structure.tag", CollectionService:HasTag(model, "Chomp_Vehicle"),
+		"Chomp_Vehicle tag"))
+
+	local teamColour = {}
+	for _, d in ipairs(model:GetDescendants()) do
+		if d.Name == "TeamColour" then table.insert(teamColour, d) end
+	end
+	table.insert(checks, result("structure.teamcolour", #teamColour == 1,
+		#teamColour .. " parts named TeamColour (must be exactly 1)"))
+
+	local banned = {}
+	for _, d in ipairs(model:GetDescendants()) do
+		if BANNED_CLASSES[d.ClassName] then
+			table.insert(banned, d.ClassName .. " '" .. d.Name .. "'")
+		end
+	end
+	table.insert(checks, result("structure.banned", #banned == 0,
+		#banned == 0 and "no scripts, unions, seats or motion constraints"
+		or ("found " .. table.concat(banned, ", "))))
+end
+
+local function checkPhysics(model, checks)
+	local primary = model.PrimaryPart
+	local badMass, badCollide, anchored, unwelded = {}, {}, {}, {}
+
+	for _, part in ipairs(descendantsOfClass(model, "BasePart")) do
+		if part ~= primary then
+			if not part.Massless then table.insert(badMass, part.Name) end
+			if part.CanCollide then table.insert(badCollide, part.Name) end
+			if #part:GetJoints() == 0 then table.insert(unwelded, part.Name) end
+		end
+		if part.Anchored then table.insert(anchored, part.Name) end
+	end
+
+	table.insert(checks, result("physics.massless", #badMass == 0,
+		#badMass == 0 and "all non-primary parts Massless" or ("not Massless: " .. table.concat(badMass, ", "))))
+	table.insert(checks, result("physics.collide", #badCollide == 0,
+		#badCollide == 0 and "only Chassis collides" or ("CanCollide true on: " .. table.concat(badCollide, ", "))))
+	table.insert(checks, result("physics.anchored", #anchored == 0,
+		#anchored == 0 and "nothing anchored" or ("anchored: " .. table.concat(anchored, ", "))))
+	table.insert(checks, result("physics.welded", #unwelded == 0,
+		#unwelded == 0 and "all parts jointed to the chassis" or ("no joints: " .. table.concat(unwelded, ", "))))
+end
+
+local function checkBudgets(model, checks)
+	local budgets = Config.Budgets
+	local parts = descendantsOfClass(model, "BasePart")
+
+	table.insert(checks, result("budget.parts", #parts <= budgets.VehicleParts,
+		#parts .. " parts (limit " .. budgets.VehicleParts .. ")"))
+
+	local _, size = model:GetBoundingBox()
+	local limit = budgets.VehicleBounds
+	local fits = size.X <= limit.X and size.Y <= limit.Y and size.Z <= limit.Z
+	table.insert(checks, result("budget.bounds", fits,
+		string.format("%.2f x %.2f x %.2f studs (limit %s)", size.X, size.Y, size.Z, tostring(limit))))
+
+	local declared = model:GetAttribute("TriangleCount")
+	if declared == nil then
+		table.insert(checks, result("budget.triangles", false,
+			"no TriangleCount attribute — Luau cannot measure this, so the model must declare it"))
+	else
+		table.insert(checks, result("budget.triangles", declared <= budgets.VehicleTriangles,
+			string.format("DECLARED %d (limit %d) — declared, not measured; confirm in the mesh tooling",
+				declared, budgets.VehicleTriangles)))
+	end
+
+	local textures = 0
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("Decal") or d:IsA("Texture") or (d:IsA("MeshPart") and d.TextureID ~= "") then
+			textures += 1
+		end
+	end
+	table.insert(checks, result("budget.textures", textures <= budgets.VehicleTextures,
+		textures .. " textures (limit " .. budgets.VehicleTextures .. ")"))
+end
+
+-- Approximate: mouth frontal area over chassis frontal area, both measured
+-- across the axes perpendicular to LookVector. Catches an obviously
+-- unreadable mouth. Does not replace looking at it on the device.
+local function checkSilhouette(model, checks)
+	local upper = model:FindFirstChild("MouthUpper", true)
+	local lower = model:FindFirstChild("MouthLower", true)
+	if not (upper and lower) then return end
+
+	local _, whole = model:GetBoundingBox()
+	local wholeArea = whole.X * whole.Y
+	local mouthArea = math.max(upper.Size.X, lower.Size.X) * (upper.Size.Y + lower.Size.Y)
+	local fraction = wholeArea > 0 and (mouthArea / wholeArea) or 0
+	local target = Config.Budgets.MouthSilhouetteFraction
+
+	table.insert(checks, result("readability.silhouette", fraction >= target,
+		string.format("mouth is approximately %.0f%% of the frontal silhouette (target %.0f%%) " ..
+			"— APPROXIMATE, confirm visually on an iPad", fraction * 100, target * 100)))
+end
+
+function VehicleConformance.check(model)
+	local checks = {}
+	checkStructure(model, checks)
+	checkMouthOrientation(model, checks)
+	checkAttributes(model, checks)
+	checkPhysics(model, checks)
+	checkBudgets(model, checks)
+	checkSilhouette(model, checks)
+
+	local pass = true
+	for _, c in ipairs(checks) do
+		if not c.pass then pass = false end
+	end
+	return { name = model.Name, pass = pass, checks = checks }
+end
+
+function VehicleConformance.checkAll()
+	local folder = ReplicatedStorage:FindFirstChild("Vehicles")
+	if not folder then
+		return {}, "ReplicatedStorage.Vehicles does not exist"
+	end
+	local results = {}
+	for _, model in ipairs(folder:GetChildren()) do
+		if model:IsA("Model") then
+			table.insert(results, VehicleConformance.check(model))
+		end
+	end
+	return results
+end
+
+function VehicleConformance.report(results)
+	local allPass = true
+	for _, r in ipairs(results) do
+		print(("── %s: %s"):format(r.name, r.pass and "PASS" or "FAIL"))
+		for _, c in ipairs(r.checks) do
+			if not c.pass then
+				print(("   FAIL  %-24s %s"):format(c.id, c.detail))
+			end
+		end
+		if not r.pass then allPass = false end
+	end
+	if #results == 0 then
+		print("no vehicle models found")
+		allPass = false
+	end
+	print(allPass and "CONFORMANCE: PASS" or "CONFORMANCE: FAIL")
+	return allPass
+end
+
+return VehicleConformance
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="StarterPlayer" referent="37">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="38">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="LocalScript" referent="39">
+        <Properties>
+          <string name="Name">CameraController</string>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	CameraController — CHAIN-VEHICLE, CHOMP-SYS-051
+
+	The implementation of 03_architecture/camera_spec.md, and the highest-risk
+	item in the project (RISK-CHOMP-012).
+
+	World-locked yaw: the camera never rotates with the vehicle. In a maze you
+	turn constantly, and a camera that follows every turn swings the whole world
+	several times a second — nauseating on a tablet and fatal to junction
+	learnability. The cost is that facing is read from the model, which is why
+	the vehicle's mouth has to be 30% of its silhouette.
+
+	Every number comes from ChompConfig.Camera. Nothing here is a literal.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local C = Config.Camera
+local MAP = Config.Map
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- ── Fixed world-space offset ────────────────────────────────────────────
+-- Yaw is locked, so this vector never changes. North is always up.
+local pitch = math.rad(C.PitchDegrees)
+local OFFSET = Vector3.new(0, math.sin(pitch) * C.Distance, math.cos(pitch) * C.Distance)
+
+-- To sit the vehicle at TargetScreenHeight (below centre) the camera looks
+-- slightly above it. Roblox FieldOfView is vertical, so the angular offset is
+-- the fraction of the screen we want to shift by, times the vertical FOV.
+local FOCUS_RAISE = math.tan(math.rad((C.TargetScreenHeight - 0.5) * C.FieldOfView)) * C.Distance
+
+-- ── Critically damped spring for deck changes ───────────────────────────
+-- Critically damped, not linear and not bouncy: a linear ease lurches at both
+-- ends, and any overshoot on a tablet reads as the floor moving.
+local OMEGA = 4 / C.DeckEaseSeconds
+local springY = 0
+local springV = 0
+local springReady = false
+
+local function stepSpring(target: number, dt: number): number
+	if not springReady then
+		springY, springV, springReady = target, 0, true
+		return springY
+	end
+	-- semi-implicit, stable at large dt
+	local accel = -2 * OMEGA * springV - (OMEGA * OMEGA) * (springY - target)
+	springV += accel * dt
+	springY += springV * dt
+	return springY
+end
+
+-- ── Occluder fading ─────────────────────────────────────────────────────
+-- Fade in fast (0.12 s, leaving margin under the 0.2 s ceiling), restore slow
+-- (0.25 s) so geometry does not flicker behind a moving player.
+local faded: { [BasePart]: number } = {}
+
+local FADEABLE_TAGS = { Chomp_Wall = true, Chomp_Decor = true, Chomp_Link = true }
+
+local function isFadeable(part: BasePart): boolean
+	-- Never fade anything a decision depends on: players, ghosts, guardians,
+	-- pellets, gates. If it matters, it stays solid.
+	if part:IsDescendantOf(workspace) == false then return false end
+	local model = part:FindFirstAncestorOfClass("Model")
+	if model and Players:GetPlayerFromCharacter(model) then return false end
+	for tag in FADEABLE_TAGS do
+		if part:HasTag(tag) then return true end
+	end
+	return false
+end
+
+local function updateFades(obscuring: { BasePart }, dt: number)
+	local nowObscuring: { [BasePart]: boolean } = {}
+	for _, part in ipairs(obscuring) do
+		if isFadeable(part) then
+			nowObscuring[part] = true
+			local current = faded[part] or 0
+			local step = dt / C.OccluderFadeInSeconds * C.OccluderTransparency
+			local nextValue = math.min(current + step, C.OccluderTransparency)
+			faded[part] = nextValue
+			part.LocalTransparencyModifier = nextValue
+		end
+	end
+
+	for part, value in faded do
+		if not nowObscuring[part] then
+			local step = dt / C.OccluderFadeOutSeconds * C.OccluderTransparency
+			local nextValue = value - step
+			if nextValue <= 0 or not part.Parent then
+				if part.Parent then part.LocalTransparencyModifier = 0 end
+				faded[part] = nil
+			else
+				faded[part] = nextValue
+				part.LocalTransparencyModifier = nextValue
+			end
+		end
+	end
+end
+
+-- ── Occlusion measurement (CHOMP-TC-040) ────────────────────────────────
+-- The requirement is a hard ceiling on how long the vehicle can be hidden.
+-- Measuring it is the only way to know, so the camera logs its own failures.
+local occludedFor = 0
+local worstOcclusion = 0
+local breaches = 0
+
+local function measureOcclusion(obscuring: { BasePart }, dt: number)
+	local hidden = false
+	for _, part in ipairs(obscuring) do
+		if isFadeable(part) then
+			if (faded[part] or 0) < C.OccluderTransparency * 0.5 then
+				hidden = true
+				break
+			end
+		else
+			hidden = true -- something unfadeable is in the way: a real breach
+			break
+		end
+	end
+
+	if hidden then
+		occludedFor += dt
+		if occludedFor > worstOcclusion then worstOcclusion = occludedFor end
+		if occludedFor > C.MaxOcclusionSeconds and occludedFor - dt <= C.MaxOcclusionSeconds then
+			breaches += 1
+			warn(("[Camera] occlusion breach #%d: hidden for %.2fs (limit %.2fs)")
+				:format(breaches, occludedFor, C.MaxOcclusionSeconds))
+		end
+	else
+		occludedFor = 0
+	end
+end
+
+-- Call from the command bar after a test circuit.
+_G.ChompCameraReport = function()
+	print(("[Camera] worst occlusion %.3fs, breaches over %.2fs: %d")
+		:format(worstOcclusion, C.MaxOcclusionSeconds, breaches))
+	return worstOcclusion, breaches
+end
+
+-- ── Hit shake ───────────────────────────────────────────────────────────
+local shakeUntil = 0
+local function shakeOffset(): Vector3
+	if os.clock() >= shakeUntil then return Vector3.zero end
+	local remaining = (shakeUntil - os.clock()) / C.HitShakeSeconds
+	local magnitude = C.HitShakeStuds * remaining
+	return Vector3.new(
+		(math.random() - 0.5) * 2 * magnitude,
+		(math.random() - 0.5) * 2 * magnitude,
+		0
+	)
+end
+
+_G.ChompCameraShake = function()
+	shakeUntil = os.clock() + C.HitShakeSeconds
+end
+
+-- ── The loop ────────────────────────────────────────────────────────────
+local function onRenderStep(dt: number)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		springReady = false
+		return
+	end
+
+	camera.CameraType = Enum.CameraType.Scriptable
+	camera.FieldOfView = C.FieldOfView
+
+	-- Deck is derived from height, so a fall eases down exactly as a ramp
+	-- eases up. No jump cuts, including when a player falls (CHOMP-SYS-049).
+	local deck = math.floor(root.Position.Y / MAP.DeckHeight + 0.5)
+	local deckY = stepSpring(deck * MAP.DeckHeight, dt)
+
+	local facing = root.CFrame.LookVector
+	local flatFacing = Vector3.new(facing.X, 0, facing.Z)
+	if flatFacing.Magnitude > 0.01 then
+		flatFacing = flatFacing.Unit
+	else
+		flatFacing = Vector3.new(0, 0, -1)
+	end
+
+	local focus = Vector3.new(root.Position.X, deckY, root.Position.Z)
+		+ flatFacing * C.LookAheadStuds
+		+ Vector3.new(0, FOCUS_RAISE, 0)
+
+	local position = focus + OFFSET + shakeOffset()
+	camera.CFrame = CFrame.lookAt(position, focus)
+
+	local obscuring = camera:GetPartsObscuringTarget({ root.Position }, { character })
+	updateFades(obscuring, dt)
+	measureOcclusion(obscuring, dt)
+end
+
+RunService:BindToRenderStep("ChompCamera", Enum.RenderPriority.Camera.Value, onRenderStep)
+
+player.CharacterRemoving:Connect(function()
+	for part in faded do
+		if part.Parent then part.LocalTransparencyModifier = 0 end
+	end
+	table.clear(faded)
+	springReady = false
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="40">
+        <Properties>
+          <string name="Name">InputController</string>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	InputController — CHAIN-UI, CHOMP-SYS-032
+
+	Hold to turn, always driving forward, no buttons (D-CHOMP-015).
+
+	Touch anywhere left of a dead zone to turn left, right to turn right, with
+	the turn rate proportional to how far out you hold. There is no origin to
+	lose, which is the entire reason this beats a virtual thumbstick for a
+	seven-year-old: any touch on the correct side works.
+
+	The client sends INTENT ONLY. It never sends a speed, a position or a turn
+	rate — the server owns all three (CHOMP-SYS-002).
+]]
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
+local CONTROLS = Config.Controls
+
+local player = Players.LocalPlayer
+local sendRate = Remotes.Limits.SetInputDirection * 0.66  -- stay inside the limit
+local sendInterval = 1 / sendRate
+
+local activeTouches: { [any]: Vector2 } = {}
+local keyboardSteer = 0
+local flipQueued = false
+local lastTapSide = 0
+local lastTapAt = 0
+
+-- Screen x (0..1) -> steer (-1..1), with a dead zone and a linear ramp to
+-- full lock. Both sides held at once cancels to straight, which is what a
+-- panicking player does with two thumbs.
+local function steerFromFraction(x: number): number
+	local fromCentre = x - 0.5
+	local dead = CONTROLS.DeadZoneFraction / 2
+	local full = CONTROLS.FullLockFraction
+	local magnitude = math.abs(fromCentre)
+	if magnitude <= dead then
+		return 0
+	end
+	local ramped = math.clamp((magnitude - dead) / (full - dead), 0, 1)
+	return ramped * (fromCentre > 0 and 1 or -1)
+end
+
+local function currentSteer(): number
+	local sum = keyboardSteer
+	local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
+	if viewport and viewport.X > 0 then
+		for _, position in activeTouches do
+			sum += steerFromFraction(position.X / viewport.X)
+		end
+	end
+	return math.clamp(sum, -1, 1)
+end
+
+-- ── Touch ───────────────────────────────────────────────────────────────
+UserInputService.TouchStarted:Connect(function(touch, processed)
+	if processed then return end
+	activeTouches[touch] = Vector2.new(touch.Position.X, touch.Position.Y)
+
+	local viewport = workspace.CurrentCamera.ViewportSize
+	local side = (touch.Position.X / viewport.X) > 0.5 and 1 or -1
+	local now = os.clock()
+	if side == lastTapSide and now - lastTapAt <= CONTROLS.FlipDoubleTapSeconds then
+		flipQueued = true
+		lastTapSide, lastTapAt = 0, 0
+	else
+		lastTapSide, lastTapAt = side, now
+	end
+end)
+
+UserInputService.TouchMoved:Connect(function(touch)
+	if activeTouches[touch] then
+		activeTouches[touch] = Vector2.new(touch.Position.X, touch.Position.Y)
+	end
+end)
+
+local function endTouch(touch)
+	activeTouches[touch] = nil
+end
+UserInputService.TouchEnded:Connect(endTouch)
+
+-- ── Keyboard, for building in Studio ────────────────────────────────────
+local heldKeys: { [Enum.KeyCode]: boolean } = {}
+local LEFT = { [Enum.KeyCode.A] = true, [Enum.KeyCode.Left] = true }
+local RIGHT = { [Enum.KeyCode.D] = true, [Enum.KeyCode.Right] = true }
+
+local function recomputeKeyboard()
+	local left = false
+	local right = false
+	for key in heldKeys do
+		if LEFT[key] then left = true end
+		if RIGHT[key] then right = true end
+	end
+	keyboardSteer = (right and 1 or 0) - (left and 1 or 0)
+end
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+	heldKeys[input.KeyCode] = true
+	recomputeKeyboard()
+
+	local side = LEFT[input.KeyCode] and -1 or (RIGHT[input.KeyCode] and 1 or 0)
+	if side ~= 0 then
+		local now = os.clock()
+		if side == lastTapSide and now - lastTapAt <= CONTROLS.FlipDoubleTapSeconds then
+			flipQueued = true
+			lastTapSide, lastTapAt = 0, 0
+		else
+			lastTapSide, lastTapAt = side, now
+		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+	heldKeys[input.KeyCode] = nil
+	recomputeKeyboard()
+end)
+
+-- ── Send ────────────────────────────────────────────────────────────────
+-- X is steer in [-1, 1]. Y is 1 on the frame a flip is requested, else 0.
+-- Neither is a quantity the server trusts for anything but intent.
+local accumulator = 0
+local lastSent = Vector2.zero
+
+RunService.Heartbeat:Connect(function(dt)
+	accumulator += dt
+	local steer = currentSteer()
+	local flip = flipQueued and 1 or 0
+	local payload = Vector2.new(steer, flip)
+
+	local changed = math.abs(payload.X - lastSent.X) > 0.02 or flip == 1
+	if accumulator >= sendInterval and changed then
+		Remotes.SetInputDirection:FireServer(payload)
+		lastSent = payload
+		accumulator = 0
+		flipQueued = false
+	elseif accumulator >= sendInterval then
+		accumulator = 0
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="Workspace" referent="41">
+    <Properties>
+      <string name="Name">Workspace</string>
+      <bool name="FilteringEnabled">true</bool>
+      <bool name="NeedsPivotMigration">false</bool>
+    </Properties>
+  </Item>
+</roblox>
