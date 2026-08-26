@@ -26,6 +26,7 @@ because the built place is what the game actually loads.
            the built tree.
   Check 3  Every chassis spec, once scaled by ChompConfig, still fits inside
            Budgets.VehicleBounds.
+  Check 4  No local function is called before the line that defines it.
 
 What it deliberately does NOT do: catch runtime behaviour. D-CHOMP-025 — the
 physics solver reverting per-frame CFrame writes — was invisible to any static
@@ -323,6 +324,52 @@ def check_vehicle_bounds(report):
         report.note(f"{checked} chassis spec(s) fit VehicleBounds at scale {scale}")
 
 
+# ── Use before definition ───────────────────────────────────────────────
+
+LOCAL_FUNCTION = re.compile(r'^local function (\w+)', re.M)
+FORWARD_DECL = re.compile(r'^local (\w+)\s*(?::[^=]+)?$', re.M)
+
+
+def check_use_before_define(report):
+    """Check 4 - a local function called above its own definition.
+
+    In Luau `local function f` is only in scope from its own line onward, so a
+    call above it silently resolves to a nil global and fails at RUN time, not
+    load time. Editing a large file by replacing a span is exactly how this
+    happens: a block moves, the calls do not, and nothing complains until
+    someone plays the game and one feature quietly does nothing.
+
+    That is precisely what happened to the bomb and the lock-on, so it becomes a
+    check rather than a lesson.
+    """
+    offenders = 0
+    scanned = 0
+    for path in sorted(SRC.rglob("*.lua")):
+        text = path.read_text(encoding="utf-8")
+        scanned += 1
+        forward = {m.group(1) for m in FORWARD_DECL.finditer(text)}
+        for match in LOCAL_FUNCTION.finditer(text):
+            name = match.group(1)
+            if name in forward:
+                continue  # forward-declared, so a call above it is legitimate
+            before = text[: match.start()]
+            call = re.search(r'(?<![\w.:])' + re.escape(name) + r'\s*\(', before)
+            if not call:
+                continue
+            line = before.count(chr(10), 0, call.start()) + 1
+            stripped = before.splitlines()[line - 1].strip()
+            if stripped.startswith("--"):
+                continue
+            offenders += 1
+            report.fail(
+                f"{path.relative_to(HERE)}:{line}: calls {name}() above the "
+                f"'local function {name}' that defines it. In Luau that resolves "
+                f"to a nil global and fails at runtime"
+            )
+    if not offenders:
+        report.note(f"no local function is used before its definition ({scanned} files)")
+
+
 def build_place(report):
     rojo = shutil.which("rojo")
     if not rojo:
@@ -358,6 +405,7 @@ def main():
 
     check_duplicate_names(PLACE, report)
     check_vehicle_bounds(report)
+    check_use_before_define(report)
     place = load_place(PLACE)
     report.note(f"{len(place)} instances in the built place")
     check_waitforchild(place, report)

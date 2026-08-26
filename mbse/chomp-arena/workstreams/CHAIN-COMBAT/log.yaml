@@ -124,3 +124,24 @@ entries:
     Ten charges at nine shots a second is barely over a second of fire. If that
     feels miserly the honest fix is to make a charge mean a BURST rather than a
     pellet, not to raise the number until it stops meaning anything.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: NOTE
+  requirements: [CHOMP-SYS-059]
+  summary: >
+    REGRESSION, self-inflicted and now fixed. Reworking the cannon into a
+    machine gun (D-CHOMP-056) replaced the whole span between fireProjectile and
+    useHeld, and the auto-lock and dropped-bomb code lived inside that span. It
+    was deleted while every call to it remained, so the bomb never dropped, the
+    reticle never appeared and the turret never turned. Restored from 5c2ae28
+    and placed ABOVE the gun, since fireCannon depends on it.
+    guard.py gains Check 4: no local function may be called above the line that
+    defines it. In Luau such a call resolves to a nil global and fails at run
+    time rather than load time, which is why nothing complained.
+  status: OPEN
+  handoff: >
+    Verified in both directions - Check 4 fails when the block is moved back
+    below the gun and passes where it now sits. It scans 26 files.
+    The wider lesson for anyone editing these files programmatically: replacing
+    a SPAN between two anchors deletes whatever was inserted between them since.
+    Prefer replacing an exact known string over slicing between landmarks.

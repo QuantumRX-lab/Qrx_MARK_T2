@@ -311,6 +311,161 @@ local function nearestTarget(player: Player, from: Vector3, maxRange: number): B
 	return best
 end
 
+-- ── Auto-lock (D-CHOMP-054) ─────────────────────────────────────────────
+-- The turret finds the nearest ghost in front, tracks it, and locks after
+-- holding it. Aiming while steering is not a skill worth demanding of a
+-- seven-year-old; deciding WHEN to fire is.
+--
+-- The lock lives on the SERVER. The client draws a reticle from it and cannot
+-- create one: a client-declared target would be a client-declared hit.
+local lastShot: { [Player]: number } = {}
+local lockTarget: { [Player]: Model? } = {}
+local lockSince: { [Player]: number } = {}
+
+local function ghostsAlive(): { Model }
+	local out: { Model } = {}
+	for _, g in CollectionService:GetTagged("Chomp_Ghost") do
+		if g:IsA("Model") and g:GetAttribute("Dead") ~= true then
+			table.insert(out, g)
+		end
+	end
+	return out
+end
+
+local function updateLock(player: Player, dt: number)
+	local h = held[player]
+	local root = rootOf(player)
+	local character = player.Character
+	if not (character and root and h and h.id == "Cannon") then
+		lockTarget[player] = nil
+		lockSince[player] = 0
+		if character then
+			character:SetAttribute("ChompLockState", "none")
+			character:SetAttribute("ChompLockTarget", "")
+		end
+		return
+	end
+
+	local def = DEFS.Cannon
+	local forward = facing(root)
+	local best, bestDistance = nil, def.lockRangeStuds
+	for _, ghost in ghostsAlive() do
+		local to = ghost:GetPivot().Position - root.Position
+		local flat = Vector3.new(to.X, 0, to.Z)
+		local distance = flat.Magnitude
+		if distance < bestDistance and distance > 1 then
+			local angle = math.deg(math.acos(math.clamp(forward:Dot(flat.Unit), -1, 1)))
+			if angle <= def.lockAngleDegrees then
+				best, bestDistance = ghost, distance
+			end
+		end
+	end
+
+	if best ~= lockTarget[player] then
+		lockTarget[player] = best
+		lockSince[player] = best and os.clock() or 0
+	end
+
+	local state = "none"
+	if best then
+		state = (os.clock() - (lockSince[player] or 0)) >= def.lockSeconds and "locked" or "tracking"
+	end
+	character:SetAttribute("ChompLockState", state)
+	character:SetAttribute("ChompLockTarget", best and best.Name or "")
+
+	-- Swing the barrel. Turning at a rate rather than snapping is what makes a
+	-- lock feel earned instead of automatic.
+	local vehicle = character:FindFirstChild("Vehicle")
+	local primary = vehicle and vehicle:FindFirstChild("Chassis") :: BasePart?
+	local motor = primary and primary:FindFirstChild("TurretMotor") :: Motor6D?
+	if motor then
+		local wanted = 0
+		if best then
+			local to = best:GetPivot().Position - root.Position
+			local flat = Vector3.new(to.X, 0, to.Z)
+			if flat.Magnitude > 0.001 then
+				local worldYaw = math.atan2(-flat.Unit.X, -flat.Unit.Z)
+				local kartYaw = math.atan2(-forward.X, -forward.Z)
+				wanted = (worldYaw - kartYaw + math.pi) % (math.pi * 2) - math.pi
+			end
+		end
+		local _, current = motor.Transform:ToOrientation()
+		local diff = (wanted - current + math.pi) % (math.pi * 2) - math.pi
+		local step = math.rad(def.turretTurnDegrees) * dt
+		local applied = math.abs(diff) <= step and wanted or current + (diff > 0 and step or -step)
+		motor.Transform = CFrame.Angles(0, applied, 0)
+	end
+end
+
+RunService.Heartbeat:Connect(function(dt)
+	for _, player in Players:GetPlayers() do
+		updateLock(player, dt)
+	end
+end)
+
+-- ── The dropped bomb ────────────────────────────────────────────────────
+local deployed: { [Player]: BasePart? } = {}
+
+local function detonate(player: Player, bomb: BasePart)
+	deployed[player] = nil
+	local centre = bomb.Position
+	local def = DEFS.HomingBomb
+
+	local blast = Instance.new("Part")
+	blast.Shape = Enum.PartType.Ball
+	blast.Size = Vector3.new(def.blastRadiusStuds * 2, def.blastRadiusStuds * 2, def.blastRadiusStuds * 2)
+	blast.Position = centre
+	blast.Anchored = true
+	blast.CanCollide = false
+	blast.CanQuery = false
+	blast.Material = Enum.Material.Neon
+	blast.Color = P.NeonB
+	blast.Transparency = 0.55
+	CollectionService:AddTag(blast, "Chomp_Decor")
+	blast.Parent = Workspace
+	Debris:AddItem(blast, 0.35)
+	bomb:Destroy()
+
+	for _, ghost in ghostsAlive() do
+		if (ghost:GetPivot().Position - centre).Magnitude < def.blastRadiusStuds then
+			ghost:SetAttribute("KilledBy", player.UserId)
+			ghost:SetAttribute("Health", 0)
+		end
+	end
+end
+
+local function dropBomb(player: Player)
+	local root = rootOf(player)
+	if not root then return end
+	local def = DEFS.HomingBomb
+
+	local bomb = Instance.new("Part")
+	bomb.Name = "ChompBomb"
+	bomb.Shape = Enum.PartType.Ball
+	bomb.Size = Vector3.new(4.5, 4.5, 4.5)
+	bomb.Position = root.Position - facing(root) * def.dropBehindStuds
+	bomb.Anchored = true
+	bomb.CanCollide = false
+	bomb.CanQuery = false
+	bomb.Material = Enum.Material.Neon
+	bomb.Color = P.NeonB
+	bomb:SetAttribute("ArmedAt", os.clock() + def.armSeconds)
+	CollectionService:AddTag(bomb, "Chomp_Decor")
+	bomb.Parent = Workspace
+	deployed[player] = bomb
+
+	-- It expires on its own, so a forgotten bomb does not sit in the map
+	-- forever holding a charge hostage.
+	task.delay(def.lifetimeSeconds, function()
+		if deployed[player] == bomb then
+			deployed[player] = nil
+			if bomb.Parent then bomb:Destroy() end
+			local h = held[player]
+			if h and h.id == "HomingBomb" then clear(player) end
+		end
+	end)
+end
+
 -- Where the barrel actually points. Shots leave the MUZZLE, not the middle of
 -- the kart, or they read as something dropped rather than fired (D-CHOMP-056).
 local function muzzle(player: Player, root: BasePart): (Vector3, Vector3)
