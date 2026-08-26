@@ -64,6 +64,12 @@ ChompConfig.Vehicle = {
 	-- not a margin when R15 head heights vary by avatar. 1.4 clears by 0.12.
 	-- Above about 1.5 the head pushes through the glass.
 	DriverHeadScale = 1.4,
+	-- Wheels read as the vehicle's contact with the ground, and at 1.4 scale the
+	-- kart's were lost under the shell. This multiplies wheels ONLY, on top of
+	-- Scale (D-CHOMP-051).
+	WheelScale = 1.45,
+	NamePlate = true,          -- driver name floating above the kart
+	MountHeldItem = true,      -- the cannon is visible, mounted on the roof
 }
 
 -- Movement shared by every chassis. Corridors are 16 studs wide and vehicles
@@ -145,6 +151,13 @@ ChompConfig.Economy = {
 
 ChompConfig.Ghosts = {
 	StealFraction = 0.25,
+	-- Ghosts now HURT as well as steal (D-CHOMP-051). Contact damage is small
+	-- and on a cooldown: the danger is being worn down while you are greedy,
+	-- not being deleted by one mistake.
+	ContactDamage = 14,
+	ContactCooldownSeconds = 1.6,
+	Health = 2,                -- cannon shots to kill; the bomb kills outright
+	RespawnSeconds = 12,
 	Speed = 21,                         -- slower than a Standard chassis on purpose
 	FleeSpeed = 14,
 	FullJawSeconds = 8,

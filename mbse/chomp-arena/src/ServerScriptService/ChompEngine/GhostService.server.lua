@@ -29,6 +29,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
@@ -99,6 +100,11 @@ local function buildGhost(): Ghost
 	end
 
 	model.PrimaryPart = body
+	model:SetAttribute("Health", G.Health)
+	model:SetAttribute("Dead", false)
+	-- Tagged so weapons can find them. NOT tagged fadeable: the camera must
+	-- never hide the thing hunting you (D-CHOMP-043).
+	CollectionService:AddTag(model, "Chomp_Ghost")
 	model.Parent = folder
 	return {
 		model = model, body = body, eyes = eyes,
@@ -196,8 +202,34 @@ RunService.Heartbeat:Connect(function(dt)
 			end
 		end
 
-		-- The theft. Carried only: banked dollars are never touchable, which is
-		-- the entire point of banking (CHOMP-SYS-005).
+		-- Killed by a weapon: hide, then come back. Ghosts are a pressure, not a
+		-- population to exterminate, so clearing one buys time rather than
+		-- removing it from the game (D-CHOMP-051).
+		if ((g.model:GetAttribute("Health") :: number?) or 1) <= 0
+			and g.model:GetAttribute("Dead") ~= true then
+			g.model:SetAttribute("Dead", true)
+			for _, d in g.model:GetDescendants() do
+				if d:IsA("BasePart") then d.Transparency = 1 end
+			end
+			task.delay(G.RespawnSeconds, function()
+				if not g.model.Parent then return end
+				g.model:SetAttribute("Health", G.Health)
+				g.model:SetAttribute("Dead", false)
+				for _, d in g.model:GetDescendants() do
+					if d:IsA("BasePart") then
+						if d.Name == "Eye" then d.Transparency = 0
+						elseif d.Name == "Body" then d.Transparency = 0.28
+						else d.Transparency = 0.4 end
+					end
+				end
+			end)
+		end
+		if g.model:GetAttribute("Dead") == true then continue end
+
+		-- Contact STEALS and HURTS. Carried only for the theft: banked dollars
+		-- are never touchable, which is the entire point of banking
+		-- (CHOMP-SYS-005). Damage is small and on a cooldown, so the danger is
+		-- being worn down while greedy rather than deleted by one mistake.
 		if target and distance < STEAL_RADIUS and (os.clock() - g.lastSteal) > STEAL_COOLDOWN then
 			local character = target.Parent :: Model
 			local held = (character:GetAttribute("ChompCarried") :: number?) or 0
@@ -206,8 +238,22 @@ RunService.Heartbeat:Connect(function(dt)
 				character:SetAttribute("ChompCarried", held - taken)
 				character:SetAttribute("ChompStolenAt", os.clock())
 				character:SetAttribute("ChompStolenAmount", taken)
-				g.lastSteal = os.clock()
 			end
+
+			local shieldUntil = (character:GetAttribute("ChompShieldUntil") :: number?) or 0
+			if os.clock() < shieldUntil then
+				-- The shield spends itself stopping this, and throws the ghost
+				-- clear rather than merely bouncing it.
+				character:SetAttribute("ChompShieldUntil", 0)
+				g.model:PivotTo(g.model:GetPivot() * CFrame.new(0, 0, 40))
+			else
+				local humanoid = character:FindFirstChildOfClass("Humanoid")
+				if humanoid and humanoid.Health > 0 then
+					humanoid:TakeDamage(G.ContactDamage)
+					character:SetAttribute("ChompHurtAt", os.clock())
+				end
+			end
+			g.lastSteal = os.clock()
 		end
 	end
 end)

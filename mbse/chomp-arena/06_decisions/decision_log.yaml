@@ -1202,3 +1202,43 @@ decisions:
       ChompHud reads attributes only and can decide nothing. CHOMP-TC-045 is the
       child-facing demonstration and has not been run; this is the thing to run
       it against.
+
+  - id: D-CHOMP-051
+    date: 2026-08-25
+    title: Ghosts can hurt you and can be killed, and the kart shows what it is carrying
+    decision: >
+      Ghost contact now deals ContactDamage as well as stealing carried points,
+      on a cooldown. Ghosts have Health, take a hit from a cannon shot, die
+      outright to the homing bomb, vanish and return after RespawnSeconds. An
+      active shield absorbs the contact and throws the ghost clear instead.
+      Running out of health is an ordinary Roblox death and respawn.
+      Visually: the held item is mounted on the kart roof, the shield is a
+      shimmering ring of light around it, the driver's name floats above, and
+      wheels are scaled 1.45 on top of the vehicle scale.
+    rationale: >
+      Owner direction, and it closes the loop the weapons were missing: before
+      this, the cannon and the bomb had nothing to shoot, so carrying one was a
+      promise the game never kept.
+      Damage is small and cooled down rather than lethal per touch. The danger
+      being modelled is being worn down while greedy — the same shape as the
+      carried-points risk — not being deleted by one mistake, which would make
+      the middle of the map simply not worth entering.
+      Ghosts respawn because they are a pressure, not a population to
+      exterminate. A player who could clear the map would have removed the
+      reason to bank.
+      The mounted item matters more than it sounds. A cannon visible on the roof
+      tells everyone in the arena what you can do to them, which is most of what
+      makes carrying one feel like something; the same information in a HUD
+      corner is private and therefore inert.
+    outcome: >
+      GhostService owns health, death and respawn; ItemService's projectiles
+      test against the Chomp_Ghost tag before testing against players.
+      ShieldEffect draws the ring on the CLIENT from the server's
+      ChompShieldUntil, because a shield that looks up while the server thinks
+      otherwise would be a lie. Shimmer is three effects out of phase - rotation,
+      a wave running round the ring, and a slow rise and fall - since any one
+      alone reads as a spinning prop.
+      WheelScale multiplies wheel SIZE only. Scaling the offset too would push
+      the wheels out of the arches and off the chassis.
+      The HUD gains a health bar whose colour carries the reading, and two
+      distinct flashes: pink for a theft, red for damage.

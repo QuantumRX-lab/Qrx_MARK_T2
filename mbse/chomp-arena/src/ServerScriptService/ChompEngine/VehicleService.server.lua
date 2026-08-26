@@ -44,11 +44,18 @@ end
 -- Sizes and offsets scale; rotations do not, being degrees.
 local function scaled(spec, k: number)
 	if k == 1 then return spec end
+	local wheelScale = (Config.Vehicle and Config.Vehicle.WheelScale) or 1
 	local parts = {}
 	for i, p in ipairs(spec.parts) do
 		local copy = table.clone(p)
 		copy.size = p.size * k
 		copy.offset = p.offset * k
+		-- Wheels get an extra multiplier on their SIZE only. Scaling the offset
+		-- too would push them out of the arches and off the chassis
+		-- (D-CHOMP-051).
+		if wheelScale ~= 1 and (string.find(p.name, "Wheel") or string.find(p.name, "Hub")) then
+			copy.size = copy.size * wheelScale
+		end
 		parts[i] = copy
 	end
 	local out = table.clone(spec)
@@ -159,6 +166,30 @@ local function hideAvatar(player: Player, character: Model)
 	end
 end
 
+-- Who is that? In a Friends-only game with four karts that look identical until
+-- someone buys a chassis, a name is the only way to tell (D-CHOMP-051).
+local function nameplate(player: Player, model: Model, anchor: BasePart)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "NamePlate"
+	gui.Size = UDim2.new(0, 200, 0, 44)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 7.5, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 320
+	gui.Adornee = anchor
+	gui.Parent = model
+
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.Text = player.DisplayName
+	label.TextColor3 = Config.Palette.Ghost
+	label.TextStrokeColor3 = Config.Palette.Floor
+	label.TextStrokeTransparency = 0.2
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = gui
+end
+
 local function fitVehicle(player: Player, character: Model)
 	if character:FindFirstChild("Vehicle") then return end
 
@@ -236,6 +267,26 @@ local function fitVehicle(player: Player, character: Model)
 	weld.Parent = primary
 
 	model.Parent = character
+
+	-- A mount point on the roof. Held items attach here so a cannon is visible
+	-- on the kart rather than only in the HUD (D-CHOMP-051).
+	local mount = Instance.new("Part")
+	mount.Name = "ItemMount"
+	mount.Size = Vector3.new(0.4, 0.4, 0.4)
+	mount.Transparency = 1
+	mount.CanCollide = false
+	mount.CanQuery = false
+	mount.Massless = true
+	mount.CFrame = primary.CFrame * CFrame.new(0, 5.2, 0)
+	mount.Parent = model
+	local mountWeld = Instance.new("WeldConstraint")
+	mountWeld.Part0 = primary
+	mountWeld.Part1 = mount
+	mountWeld.Parent = mount
+
+	if Config.Vehicle and Config.Vehicle.NamePlate then
+		nameplate(player, model, primary)
+	end
 end
 
 local function onCharacter(player: Player, character: Model)

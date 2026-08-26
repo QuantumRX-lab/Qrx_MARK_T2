@@ -72,6 +72,12 @@ ChompConfig.Vehicle = {
 	-- not a margin when R15 head heights vary by avatar. 1.4 clears by 0.12.
 	-- Above about 1.5 the head pushes through the glass.
 	DriverHeadScale = 1.4,
+	-- Wheels read as the vehicle's contact with the ground, and at 1.4 scale the
+	-- kart's were lost under the shell. This multiplies wheels ONLY, on top of
+	-- Scale (D-CHOMP-051).
+	WheelScale = 1.45,
+	NamePlate = true,          -- driver name floating above the kart
+	MountHeldItem = true,      -- the cannon is visible, mounted on the roof
 }
 
 -- Movement shared by every chassis. Corridors are 16 studs wide and vehicles
@@ -153,6 +159,13 @@ ChompConfig.Economy = {
 
 ChompConfig.Ghosts = {
 	StealFraction = 0.25,
+	-- Ghosts now HURT as well as steal (D-CHOMP-051). Contact damage is small
+	-- and on a cooldown: the danger is being worn down while you are greedy,
+	-- not being deleted by one mistake.
+	ContactDamage = 14,
+	ContactCooldownSeconds = 1.6,
+	Health = 2,                -- cannon shots to kill; the bomb kills outright
+	RespawnSeconds = 12,
 	Speed = 21,                         -- slower than a Standard chassis on purpose
 	FleeSpeed = 14,
 	FullJawSeconds = 8,
@@ -6094,6 +6107,7 @@ build()
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
@@ -6164,6 +6178,11 @@ local function buildGhost(): Ghost
 	end
 
 	model.PrimaryPart = body
+	model:SetAttribute("Health", G.Health)
+	model:SetAttribute("Dead", false)
+	-- Tagged so weapons can find them. NOT tagged fadeable: the camera must
+	-- never hide the thing hunting you (D-CHOMP-043).
+	CollectionService:AddTag(model, "Chomp_Ghost")
 	model.Parent = folder
 	return {
 		model = model, body = body, eyes = eyes,
@@ -6261,8 +6280,34 @@ RunService.Heartbeat:Connect(function(dt)
 			end
 		end
 
-		-- The theft. Carried only: banked dollars are never touchable, which is
-		-- the entire point of banking (CHOMP-SYS-005).
+		-- Killed by a weapon: hide, then come back. Ghosts are a pressure, not a
+		-- population to exterminate, so clearing one buys time rather than
+		-- removing it from the game (D-CHOMP-051).
+		if ((g.model:GetAttribute("Health") :: number?) or 1) <= 0
+			and g.model:GetAttribute("Dead") ~= true then
+			g.model:SetAttribute("Dead", true)
+			for _, d in g.model:GetDescendants() do
+				if d:IsA("BasePart") then d.Transparency = 1 end
+			end
+			task.delay(G.RespawnSeconds, function()
+				if not g.model.Parent then return end
+				g.model:SetAttribute("Health", G.Health)
+				g.model:SetAttribute("Dead", false)
+				for _, d in g.model:GetDescendants() do
+					if d:IsA("BasePart") then
+						if d.Name == "Eye" then d.Transparency = 0
+						elseif d.Name == "Body" then d.Transparency = 0.28
+						else d.Transparency = 0.4 end
+					end
+				end
+			end)
+		end
+		if g.model:GetAttribute("Dead") == true then continue end
+
+		-- Contact STEALS and HURTS. Carried only for the theft: banked dollars
+		-- are never touchable, which is the entire point of banking
+		-- (CHOMP-SYS-005). Damage is small and on a cooldown, so the danger is
+		-- being worn down while greedy rather than deleted by one mistake.
 		if target and distance < STEAL_RADIUS and (os.clock() - g.lastSteal) > STEAL_COOLDOWN then
 			local character = target.Parent :: Model
 			local held = (character:GetAttribute("ChompCarried") :: number?) or 0
@@ -6271,8 +6316,22 @@ RunService.Heartbeat:Connect(function(dt)
 				character:SetAttribute("ChompCarried", held - taken)
 				character:SetAttribute("ChompStolenAt", os.clock())
 				character:SetAttribute("ChompStolenAmount", taken)
-				g.lastSteal = os.clock()
 			end
+
+			local shieldUntil = (character:GetAttribute("ChompShieldUntil") :: number?) or 0
+			if os.clock() < shieldUntil then
+				-- The shield spends itself stopping this, and throws the ghost
+				-- clear rather than merely bouncing it.
+				character:SetAttribute("ChompShieldUntil", 0)
+				g.model:PivotTo(g.model:GetPivot() * CFrame.new(0, 0, 40))
+			else
+				local humanoid = character:FindFirstChildOfClass("Humanoid")
+				if humanoid and humanoid.Health > 0 then
+					humanoid:TakeDamage(G.ContactDamage)
+					character:SetAttribute("ChompHurtAt", os.clock())
+				end
+			end
+			g.lastSteal = os.clock()
 		end
 	end
 end)
@@ -6517,16 +6576,59 @@ local function publish(player: Player)
 	character:SetAttribute("ChompItemCharges", h and h.charges or 0)
 end
 
+-- What you are holding should be visible ON the kart, not only in the HUD
+-- (D-CHOMP-051). A cannon that appears bolted to the roof tells everyone in the
+-- arena what you can do to them, which is most of what makes carrying one feel
+-- like something.
+local function unmount(character: Model)
+	local vehicle = character:FindFirstChild("Vehicle")
+	local existing = vehicle and vehicle:FindFirstChild("MountedItem")
+	if existing then existing:Destroy() end
+end
+
+local function mount(character: Model, id: string)
+	if not (Config.Vehicle and Config.Vehicle.MountHeldItem) then return end
+	unmount(character)
+	local vehicle = character:FindFirstChild("Vehicle")
+	local point = vehicle and vehicle:FindFirstChild("ItemMount") :: BasePart?
+	if not (vehicle and point) then return end
+
+	local model = buildItemModel(id)
+	model.Name = "MountedItem"
+	-- Smaller than the pickup, and facing forward: a mounted gun points where
+	-- the kart points, which is also where it fires.
+	local scale = 0.85
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Size = d.Size * scale
+			d.Massless = true
+			d.Anchored = false
+		end
+	end
+	model:PivotTo(point.CFrame)
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = point
+			weld.Part1 = d
+			weld.Parent = d
+		end
+	end
+	model.Parent = vehicle
+end
+
 local function give(player: Player, id: string)
 	local def = DEFS[id]
 	if not def then return end
 	held[player] = { id = id, charges = def.charges }
 	publish(player)
+	if player.Character then mount(player.Character, id) end
 end
 
 local function clear(player: Player)
 	held[player] = nil
 	publish(player)
+	if player.Character then unmount(player.Character) end
 end
 
 -- ── Using ───────────────────────────────────────────────────────────────
@@ -6608,6 +6710,24 @@ local function fireProjectile(player: Player, id: string)
 			shot:Destroy()
 			connection:Disconnect()
 			return
+		end
+
+		-- Ghosts are what these weapons are actually FOR. A ghost takes damage
+		-- from the cannon and dies outright to the bomb, which is the whole
+		-- reason the bomb is a single charge (D-CHOMP-051).
+		for _, ghost in CollectionService:GetTagged("Chomp_Ghost") do
+			if ghost:IsA("Model") and ghost:GetAttribute("Dead") ~= true then
+				local pivot = ghost:GetPivot()
+				if (pivot.Position - shot.Position).Magnitude < 11 then
+					local damage = (id == "HomingBomb") and 99 or 1
+					local hp = ((ghost:GetAttribute("Health") :: number?) or 1) - damage
+					ghost:SetAttribute("Health", hp)
+					ghost:SetAttribute("HitAt", os.clock())
+					shot:Destroy()
+					connection:Disconnect()
+					return
+				end
+			end
 		end
 
 		-- Hits are decided HERE, from positions the server holds. A client
@@ -7472,11 +7592,18 @@ end
 -- Sizes and offsets scale; rotations do not, being degrees.
 local function scaled(spec, k: number)
 	if k == 1 then return spec end
+	local wheelScale = (Config.Vehicle and Config.Vehicle.WheelScale) or 1
 	local parts = {}
 	for i, p in ipairs(spec.parts) do
 		local copy = table.clone(p)
 		copy.size = p.size * k
 		copy.offset = p.offset * k
+		-- Wheels get an extra multiplier on their SIZE only. Scaling the offset
+		-- too would push them out of the arches and off the chassis
+		-- (D-CHOMP-051).
+		if wheelScale ~= 1 and (string.find(p.name, "Wheel") or string.find(p.name, "Hub")) then
+			copy.size = copy.size * wheelScale
+		end
 		parts[i] = copy
 	end
 	local out = table.clone(spec)
@@ -7587,6 +7714,30 @@ local function hideAvatar(player: Player, character: Model)
 	end
 end
 
+-- Who is that? In a Friends-only game with four karts that look identical until
+-- someone buys a chassis, a name is the only way to tell (D-CHOMP-051).
+local function nameplate(player: Player, model: Model, anchor: BasePart)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "NamePlate"
+	gui.Size = UDim2.new(0, 200, 0, 44)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 7.5, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 320
+	gui.Adornee = anchor
+	gui.Parent = model
+
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.Text = player.DisplayName
+	label.TextColor3 = Config.Palette.Ghost
+	label.TextStrokeColor3 = Config.Palette.Floor
+	label.TextStrokeTransparency = 0.2
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = gui
+end
+
 local function fitVehicle(player: Player, character: Model)
 	if character:FindFirstChild("Vehicle") then return end
 
@@ -7664,6 +7815,26 @@ local function fitVehicle(player: Player, character: Model)
 	weld.Parent = primary
 
 	model.Parent = character
+
+	-- A mount point on the roof. Held items attach here so a cannon is visible
+	-- on the kart rather than only in the HUD (D-CHOMP-051).
+	local mount = Instance.new("Part")
+	mount.Name = "ItemMount"
+	mount.Size = Vector3.new(0.4, 0.4, 0.4)
+	mount.Transparency = 1
+	mount.CanCollide = false
+	mount.CanQuery = false
+	mount.Massless = true
+	mount.CFrame = primary.CFrame * CFrame.new(0, 5.2, 0)
+	mount.Parent = model
+	local mountWeld = Instance.new("WeldConstraint")
+	mountWeld.Part0 = primary
+	mountWeld.Part1 = mount
+	mountWeld.Parent = mount
+
+	if Config.Vehicle and Config.Vehicle.NamePlate then
+		nameplate(player, model, primary)
+	end
 end
 
 local function onCharacter(player: Player, character: Model)
@@ -8872,7 +9043,33 @@ flash.BorderSizePixel = 0
 flash.ZIndex = 0
 flash.Parent = gui
 
+-- Health sits under the carry, because both answer "how much trouble am I in".
+local healthBack = Instance.new("Frame")
+healthBack.Name = "HealthBack"
+healthBack.AnchorPoint = Vector2.new(0, 0)
+healthBack.Position = UDim2.new(0, 16, 0, 114)
+healthBack.Size = UDim2.new(0, 210, 0, 14)
+healthBack.BackgroundColor3 = P.Floor
+healthBack.BackgroundTransparency = 0.25
+healthBack.BorderSizePixel = 0
+healthBack.Parent = gui
+local hbCorner = Instance.new("UICorner")
+hbCorner.CornerRadius = UDim.new(0, 7)
+hbCorner.Parent = healthBack
+
+local healthFill = Instance.new("Frame")
+healthFill.Name = "HealthFill"
+healthFill.Position = UDim2.new(0, 3, 0, 3)
+healthFill.Size = UDim2.new(1, -6, 1, -6)
+healthFill.BackgroundColor3 = P.NeonA
+healthFill.BorderSizePixel = 0
+healthFill.Parent = healthBack
+local hfCorner = Instance.new("UICorner")
+hfCorner.CornerRadius = UDim.new(0, 5)
+hfCorner.Parent = healthFill
+
 local lastStolenAt = 0
+local lastHurtAt = 0
 
 local function attribute(name: string): number
 	local character = player.Character
@@ -8915,12 +9112,32 @@ RunService.RenderStepped:Connect(function(dt)
 		objective.TextColor3 = P.NeonA
 	end
 
-	-- A theft has to be FELT, not read. The number changing is not enough when
-	-- your eyes are on a corridor (CHOMP-SYS-056).
+	-- Health. Colour carries the reading, so a glance is enough: green is fine,
+	-- gold is careful, red is one more hit.
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.MaxHealth > 0 then
+		local fraction = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+		healthFill.Size = UDim2.new(fraction, -6, 1, -6)
+		healthFill.BackgroundColor3 = if fraction > 0.6 then P.NeonA
+			elseif fraction > 0.3 then P.Gold
+			else P.Danger
+	end
+
+	-- A hit has to be FELT, not read: a number changing is not enough when your
+	-- eyes are on a corridor (CHOMP-SYS-056). Two flashes, because they mean
+	-- different things - losing points is pink, like the carry it came from,
+	-- and taking damage is red.
 	local stolenAt = attribute("ChompStolenAt")
 	if stolenAt > lastStolenAt then
 		lastStolenAt = stolenAt
-		flash.BackgroundTransparency = 0.55
+		flash.BackgroundColor3 = P.NeonB
+		flash.BackgroundTransparency = 0.6
+	end
+	local hurtAt = attribute("ChompHurtAt")
+	if hurtAt > lastHurtAt then
+		lastHurtAt = hurtAt
+		flash.BackgroundColor3 = P.Danger
+		flash.BackgroundTransparency = 0.45
 	end
 	if flash.BackgroundTransparency < 1 then
 		flash.BackgroundTransparency = math.min(1, flash.BackgroundTransparency + dt * 1.6)
@@ -9161,6 +9378,100 @@ end)
       </Item>
       <Item class="LocalScript" referent="161">
         <Properties>
+          <string name="Name">ShieldEffect</string>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	ShieldEffect — CHAIN-COMBAT (D-CHOMP-051)
+
+	The shield you can see: a ring of light around the kart that turns, pulses
+	and shimmers while it is up.
+
+	Built on the client because it decides nothing. The server owns whether the
+	shield is active and writes ChompShieldUntil onto the character; this reads
+	that and draws. A shield that LOOKS active while the server thinks otherwise
+	would be a lie, so the only value here is the server's.
+
+	Shimmer is three things out of phase — rotation, a transparency wave running
+	round the ring, and a slow rise and fall of the whole thing. One alone reads
+	as a spinning prop; together they read as energy.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local P = Config.Palette
+
+local SEGMENTS = 18
+local RADIUS = 7.5
+local COLOUR = Color3.fromRGB(126, 217, 87)
+
+local player = Players.LocalPlayer
+
+local rig = Instance.new("Model")
+rig.Name = "ChompShieldRig"
+rig.Parent = workspace:FindFirstChild("Camera") or workspace
+
+local blades: { BasePart } = {}
+for i = 1, SEGMENTS do
+	local p = Instance.new("Part")
+	p.Name = "ShieldBlade"
+	p.Size = Vector3.new(0.45, 3.2, 2.6)
+	p.Color = COLOUR
+	p.Material = Enum.Material.Neon
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Transparency = 1
+	p.Parent = rig
+	table.insert(blades, p)
+end
+
+local function hide()
+	for _, blade in blades do
+		if blade.Transparency < 1 then blade.Transparency = 1 end
+	end
+end
+
+local t = 0
+RunService.RenderStepped:Connect(function(dt)
+	t += dt
+
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not (character and root) then hide() return end
+
+	local until_ = (character:GetAttribute("ChompShieldUntil") :: number?) or 0
+	local remaining = until_ - os.clock()
+	if remaining <= 0 then hide() return end
+
+	-- The last second flickers. A shield about to fail should say so while you
+	-- can still do something about it, rather than simply stopping.
+	local failing = remaining < 1 and (math.sin(t * 40) > 0)
+
+	local centre = root.Position
+	for i, blade in blades do
+		local a = (math.pi * 2) * ((i - 1) / SEGMENTS) + t * 1.6
+		local wave = math.sin(a * 3 - t * 6)
+		local lift = math.sin(t * 2.2) * 0.5
+
+		blade.CFrame = CFrame.new(
+			centre.X + math.cos(a) * RADIUS,
+			centre.Y - 1.2 + lift + wave * 0.4,
+			centre.Z + math.sin(a) * RADIUS
+		) * CFrame.Angles(0, -a, 0) * CFrame.Angles(0, 0, wave * 0.25)
+
+		blade.Transparency = failing and 1 or (0.35 + wave * 0.28)
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="162">
+        <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
 --[[
@@ -9317,7 +9628,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="162">
+      <Item class="LocalScript" referent="163">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -9464,7 +9775,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="163">
+  <Item class="Workspace" referent="164">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

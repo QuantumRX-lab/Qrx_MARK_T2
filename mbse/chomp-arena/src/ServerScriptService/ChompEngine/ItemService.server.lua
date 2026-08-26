@@ -223,16 +223,59 @@ local function publish(player: Player)
 	character:SetAttribute("ChompItemCharges", h and h.charges or 0)
 end
 
+-- What you are holding should be visible ON the kart, not only in the HUD
+-- (D-CHOMP-051). A cannon that appears bolted to the roof tells everyone in the
+-- arena what you can do to them, which is most of what makes carrying one feel
+-- like something.
+local function unmount(character: Model)
+	local vehicle = character:FindFirstChild("Vehicle")
+	local existing = vehicle and vehicle:FindFirstChild("MountedItem")
+	if existing then existing:Destroy() end
+end
+
+local function mount(character: Model, id: string)
+	if not (Config.Vehicle and Config.Vehicle.MountHeldItem) then return end
+	unmount(character)
+	local vehicle = character:FindFirstChild("Vehicle")
+	local point = vehicle and vehicle:FindFirstChild("ItemMount") :: BasePart?
+	if not (vehicle and point) then return end
+
+	local model = buildItemModel(id)
+	model.Name = "MountedItem"
+	-- Smaller than the pickup, and facing forward: a mounted gun points where
+	-- the kart points, which is also where it fires.
+	local scale = 0.85
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Size = d.Size * scale
+			d.Massless = true
+			d.Anchored = false
+		end
+	end
+	model:PivotTo(point.CFrame)
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = point
+			weld.Part1 = d
+			weld.Parent = d
+		end
+	end
+	model.Parent = vehicle
+end
+
 local function give(player: Player, id: string)
 	local def = DEFS[id]
 	if not def then return end
 	held[player] = { id = id, charges = def.charges }
 	publish(player)
+	if player.Character then mount(player.Character, id) end
 end
 
 local function clear(player: Player)
 	held[player] = nil
 	publish(player)
+	if player.Character then unmount(player.Character) end
 end
 
 -- ── Using ───────────────────────────────────────────────────────────────
@@ -314,6 +357,24 @@ local function fireProjectile(player: Player, id: string)
 			shot:Destroy()
 			connection:Disconnect()
 			return
+		end
+
+		-- Ghosts are what these weapons are actually FOR. A ghost takes damage
+		-- from the cannon and dies outright to the bomb, which is the whole
+		-- reason the bomb is a single charge (D-CHOMP-051).
+		for _, ghost in CollectionService:GetTagged("Chomp_Ghost") do
+			if ghost:IsA("Model") and ghost:GetAttribute("Dead") ~= true then
+				local pivot = ghost:GetPivot()
+				if (pivot.Position - shot.Position).Magnitude < 11 then
+					local damage = (id == "HomingBomb") and 99 or 1
+					local hp = ((ghost:GetAttribute("Health") :: number?) or 1) - damage
+					ghost:SetAttribute("Health", hp)
+					ghost:SetAttribute("HitAt", os.clock())
+					shot:Destroy()
+					connection:Disconnect()
+					return
+				end
+			end
 		end
 
 		-- Hits are decided HERE, from positions the server holds. A client

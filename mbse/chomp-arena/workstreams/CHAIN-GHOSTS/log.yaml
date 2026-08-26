@@ -51,3 +51,25 @@ entries:
     Ghosts are anchored puppets posed per frame rather than physical bodies.
     That is cheap and correct while they cannot be hit; the moment Full Jaw lets
     a player EAT one (CHOMP-SYS-019) they will need a real hit test.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-017]
+  summary: >
+    Ghosts are now dangerous and killable (D-CHOMP-051). Contact deals 14 damage
+    on a 1.6s cooldown as well as stealing; two cannon hits or one bomb kills
+    one; they vanish and return after 12s. An active shield absorbs the contact
+    and throws the ghost clear. Running out of health is an ordinary death and
+    respawn.
+  status: OPEN
+  handoff: >
+    NOT yet played, and the balance is entirely unmeasured: 14 damage against
+    100 health is seven touches, and nobody knows whether that is generous or
+    brutal at this map size. ContactDamage, ContactCooldownSeconds and
+    Ghosts.Health are the three numbers to move.
+    Ghosts still have no pathing and will press against a wall between them and
+    you. Now that they can be shot, that also means they can be farmed from
+    behind a wall - a player safe on one side of a ring can kill a ghost stuck
+    on the other. That is a real exploit of the movement model rather than a
+    cosmetic flaw, and it wants either pathing or a line-of-sight test on the
+    projectile.

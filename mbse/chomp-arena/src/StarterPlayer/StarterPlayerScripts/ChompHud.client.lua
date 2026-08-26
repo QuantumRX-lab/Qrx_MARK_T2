@@ -98,7 +98,33 @@ flash.BorderSizePixel = 0
 flash.ZIndex = 0
 flash.Parent = gui
 
+-- Health sits under the carry, because both answer "how much trouble am I in".
+local healthBack = Instance.new("Frame")
+healthBack.Name = "HealthBack"
+healthBack.AnchorPoint = Vector2.new(0, 0)
+healthBack.Position = UDim2.new(0, 16, 0, 114)
+healthBack.Size = UDim2.new(0, 210, 0, 14)
+healthBack.BackgroundColor3 = P.Floor
+healthBack.BackgroundTransparency = 0.25
+healthBack.BorderSizePixel = 0
+healthBack.Parent = gui
+local hbCorner = Instance.new("UICorner")
+hbCorner.CornerRadius = UDim.new(0, 7)
+hbCorner.Parent = healthBack
+
+local healthFill = Instance.new("Frame")
+healthFill.Name = "HealthFill"
+healthFill.Position = UDim2.new(0, 3, 0, 3)
+healthFill.Size = UDim2.new(1, -6, 1, -6)
+healthFill.BackgroundColor3 = P.NeonA
+healthFill.BorderSizePixel = 0
+healthFill.Parent = healthBack
+local hfCorner = Instance.new("UICorner")
+hfCorner.CornerRadius = UDim.new(0, 5)
+hfCorner.Parent = healthFill
+
 local lastStolenAt = 0
+local lastHurtAt = 0
 
 local function attribute(name: string): number
 	local character = player.Character
@@ -141,12 +167,32 @@ RunService.RenderStepped:Connect(function(dt)
 		objective.TextColor3 = P.NeonA
 	end
 
-	-- A theft has to be FELT, not read. The number changing is not enough when
-	-- your eyes are on a corridor (CHOMP-SYS-056).
+	-- Health. Colour carries the reading, so a glance is enough: green is fine,
+	-- gold is careful, red is one more hit.
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.MaxHealth > 0 then
+		local fraction = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+		healthFill.Size = UDim2.new(fraction, -6, 1, -6)
+		healthFill.BackgroundColor3 = if fraction > 0.6 then P.NeonA
+			elseif fraction > 0.3 then P.Gold
+			else P.Danger
+	end
+
+	-- A hit has to be FELT, not read: a number changing is not enough when your
+	-- eyes are on a corridor (CHOMP-SYS-056). Two flashes, because they mean
+	-- different things - losing points is pink, like the carry it came from,
+	-- and taking damage is red.
 	local stolenAt = attribute("ChompStolenAt")
 	if stolenAt > lastStolenAt then
 		lastStolenAt = stolenAt
-		flash.BackgroundTransparency = 0.55
+		flash.BackgroundColor3 = P.NeonB
+		flash.BackgroundTransparency = 0.6
+	end
+	local hurtAt = attribute("ChompHurtAt")
+	if hurtAt > lastHurtAt then
+		lastHurtAt = hurtAt
+		flash.BackgroundColor3 = P.Danger
+		flash.BackgroundTransparency = 0.45
 	end
 	if flash.BackgroundTransparency < 1 then
 		flash.BackgroundTransparency = math.min(1, flash.BackgroundTransparency + dt * 1.6)
