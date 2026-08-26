@@ -147,9 +147,23 @@ ChompConfig.Economy = {
 	BankRate = 1.0,                     -- carried to dollars
 	GarageReentryCooldownSeconds = 5,
 	PelletRespawnSeconds = 12,
+	-- Reach for eating and for banking, moved out of PelletService where they
+	-- were literals against CHOMP-SYS-037 (D-CHOMP-066).
+	PelletPickupRadiusStuds = 9,
+	BankRadiusStuds = 22,
 	ComboWindowSeconds = 1.5,
 	ComboMax = 5,                       -- v2 (CHOMP-SYS-006)
-	PelletValueByRing = { [1] = 10, [2] = 25, [3] = 60, [4] = 150 },
+	-- One value per LANE, counting inward (D-CHOMP-066). There are seven lanes
+	-- and there were four values, clamped - so the inner FOUR lanes all paid
+	-- 150 and the whole inner half of the map was flat. "Do I go one ring
+	-- deeper" is the game's core question and it only had an answer across the
+	-- outer three rings.
+	--
+	-- Each step inward is about 1.5x, so the gradient is felt rather than
+	-- read, and the centre is unambiguously the jackpot it costs the most to
+	-- reach. Add entries here if a map grows rings; PelletService indexes by
+	-- #PelletValueByRing rather than a fixed 4.
+	PelletValueByRing = { 10, 20, 35, 60, 90, 130, 180 },
 	PowerPelletValue = 100,
 	EdibleGhostValue = 200,
 	GuardianBonus = 500,
@@ -163,11 +177,20 @@ ChompConfig.Ghosts = {
 	-- and on a cooldown: the danger is being worn down while you are greedy,
 	-- not being deleted by one mistake.
 	ContactDamage = 14,
+	-- Now read, at last (D-CHOMP-066). This is the PER-PLAYER window: however
+	-- many ghosts are on you, one contact costs you one steal and one hit, and
+	-- staying in the pack keeps costing. Worn down, not deleted.
 	ContactCooldownSeconds = 1.6,
 	Health = 1,                -- one clean hit; ghosts fly apart (D-CHOMP-054)
 	KillRewardDollars = 200,   -- paid straight to BANKED, never to the carry
 	RespawnSeconds = 12,
 	Speed = 21,                         -- slower than a Standard chassis on purpose
+	-- Reach, rate and sight. These were literals inside GhostService against
+	-- CHOMP-SYS-037, and they are three of the first numbers anyone reaches
+	-- for when the game is too hard or too easy (D-CHOMP-066).
+	StealRadiusStuds = 11,
+	StealCooldownSeconds = 4,
+	SenseRadiusStuds = 260,
 	FleeSpeed = 14,
 	FullJawSeconds = 8,
 	-- CHOMP-SYS-053: the maze fills up when the lobby empties.
@@ -285,14 +308,22 @@ ChompConfig.Waves = {
 	-- thirty seconds decide whether anyone plays the second wave.
 	StartCount = 9,
 	AddPerWave = 3,
+	StartCountByPlayers = {
+		{ players = 1, count = 5 },
+		{ players = 3, count = 7 },
+		{ players = 6, count = 9 },
+		{ players = 12, count = 12 },
+	},
 	-- Ghosts arrive AROUND the player rather than parked on rings, so a wave
 	-- starts as an event instead of a rumour.
 	SpawnNearPlayerStuds = 150,
 	SpawnMinDistanceStuds = 55,
 	MaxCount = 22,
 	SpeedPerWave = 0.7,        -- studs/s added each wave
+	MaxSpeed = 24,             -- always outrunnable by a Standard
 	RewardPerWave = 60,        -- extra banked dollars per kill, per wave
-	BreakSeconds = 6,          -- breathing room between waves
+	BreakSeconds = 15,         -- enough time to bank and read the next wave
+	RevealLastAt = 2,
 }
 
 -- ── The garage store (D-CHOMP-055) ──────────────────────
@@ -716,7 +747,7 @@ return Impact
 
 	Pure functions over chassis and upgrade levels. No player objects.
 
-	STATUS: signatures and specification only. CHAIN-ECONOMY implements.
+	This module is the one source of truth for derived progression values.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -736,7 +767,10 @@ local Progression = {}
 	exactly 1060; an unknown chassis id is an error, not a zero.
 ]]
 function Progression.computePower(chassis: Types.ChassisId, upgrades: Types.UpgradeLevels): number
-	error("not implemented — CHAIN-ECONOMY")
+	local base = Config.Chassis[chassis]
+	assert(base, "unknown chassis: " .. tostring(chassis))
+	local levels = upgrades.Speed + upgrades.Agility + upgrades.Consumption
+	return base.Power + levels * Config.Upgrades.PowerPerLevel
 end
 
 --[[
@@ -753,7 +787,23 @@ end
 	bigger target (that trade is the point).
 ]]
 function Progression.effectiveStats(chassis: Types.ChassisId, upgrades: Types.UpgradeLevels)
-	error("not implemented — CHAIN-ECONOMY")
+	local base = Config.Chassis[chassis]
+	assert(base, "unknown chassis: " .. tostring(chassis))
+	local speed = base.BaseSpeed
+		+ upgrades.Speed * Config.Upgrades.Speed.Speed
+		+ upgrades.Agility * Config.Upgrades.Agility.Speed
+	local turn = base.BaseTurn
+		+ upgrades.Speed * Config.Upgrades.Speed.Turn
+		+ upgrades.Agility * Config.Upgrades.Agility.Turn
+	return {
+		speed = math.max(base.BaseSpeed * 0.5, speed),
+		turn = math.max(base.BaseTurn * 0.5, turn),
+		mouthArcDegrees = base.MouthArcDegrees
+			+ upgrades.Consumption * Config.Upgrades.Consumption.MouthArcDegrees,
+		hitboxRadius = upgrades.Consumption * Config.Upgrades.Consumption.HitboxRadius,
+		pelletMultiplier = 1
+			+ upgrades.Consumption * Config.Upgrades.Consumption.PelletMultiplier,
+	}
 end
 
 --[[
@@ -763,7 +813,18 @@ end
 	MaxLevel or when a chassis is already owned or is a downgrade.
 ]]
 function Progression.costOf(itemId: string, chassis: Types.ChassisId, upgrades: Types.UpgradeLevels): number?
-	error("not implemented — CHAIN-ECONOMY")
+	local track = Config.Upgrades[itemId]
+	if track then
+		local level = if itemId == "Speed" then upgrades.Speed
+			elseif itemId == "Agility" then upgrades.Agility
+			else upgrades.Consumption
+		if typeof(level) ~= "number" or level >= Config.Upgrades.MaxLevel then return nil end
+		return Config.Upgrades.Costs[level + 1]
+	end
+	local current = Config.Chassis[chassis]
+	local wanted = Config.Chassis[itemId]
+	if not (current and wanted) or wanted.Tier <= current.Tier then return nil end
+	return wanted.Cost
 end
 
 --[[
@@ -771,7 +832,9 @@ end
 	What other players are allowed to see (D-CHOMP-013).
 ]]
 function Progression.carryBand(carried: number): string
-	error("not implemented — CHAIN-ECONOMY")
+	if carried < 200 then return "Light" end
+	if carried < 600 then return "Heavy" end
+	return "Fat"
 end
 
 --[[
@@ -782,7 +845,10 @@ end
 	leader.
 ]]
 function Progression.catchUpGrant(matchElapsedSeconds: number): number
-	error("not implemented — CHAIN-ECONOMY")
+	-- A modest $100 per elapsed round, capped below Ravener's price. MatchService
+	-- may clamp this further against the live median when it owns standings.
+	local rounds = math.floor(math.max(0, matchElapsedSeconds) / Config.Match.RoundSeconds)
+	return math.min(1000, rounds * 100)
 end
 
 return Progression
@@ -6302,8 +6368,15 @@ build()
 	charge pays immediately, in the one move that gets you out of trouble. That
 	gives a frightened player something to do other than run.
 
-	A jump costs the WHOLE bar. A move you can spam is a move you stop thinking
-	about, and the point of this one is the decision.
+	A jump costs JumpCost, not the whole bar (D-CHOMP-066). It used to zero the
+	meter, which quietly taxed anyone who kept eating past the threshold up to
+	40 charge - and the HUD draws the fill as charge/JumpCost, so the loss was
+	not even visible. D-CHOMP-064 had already decided the jump costs 60 of 100;
+	the code just never stopped zeroing.
+
+	A full bar now buys a jump AND a 40-charge head start on the next one, which
+	makes topping up worth doing. It is still a decision - 15 pellets is most of
+	a corridor - but it is no longer "jump the instant it lights or waste it".
 ]]
 
 local Players = game:GetService("Players")
@@ -6330,7 +6403,7 @@ Remotes.UseCharge.OnServerEvent:Connect(function(player: Player)
 	if not (character and root and humanoid) or humanoid.Health <= 0 then return end
 	if charge(character) < C.JumpCost then return end
 
-	character:SetAttribute("ChompCharge", 0)
+	character:SetAttribute("ChompCharge", charge(character) - C.JumpCost)
 	character:SetAttribute("ChompJumpedAt", os.clock())
 
 	-- Up AND forward. A purely vertical hop lands you where you were, which is
@@ -6353,11 +6426,96 @@ Players.PlayerAdded:Connect(function(player)
 	end)
 end)
 
-print(("[ChargeService] jump costs %d charge, %d per pellet"):format(C.JumpCost, C.PerPellet))
+print(("[ChargeService] jump spends %d charge of %d max, %d per pellet"):format(C.JumpCost, C.Max, C.PerPellet))
 ]]></string>
         </Properties>
       </Item>
       <Item class="Script" referent="146">
+        <Properties>
+          <string name="Name">DeathService</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	DeathService — CHAIN-COMBAT (D-CHOMP-066)
+
+	Being caught, made into an event.
+
+	Until now nothing in the game handled death at all. The humanoid died, the
+	default five-second Roblox respawn ran, and the world-locked camera sat on
+	the corpse the whole time with no message. A child went from fine to frozen
+	to back-at-the-garage with an empty belt and no idea what had happened - and
+	since a pack could land its whole wave of damage in about a second, "fine"
+	and "dead" were often the same moment.
+
+	That is the single most likely place for a session to end in tears, so it
+	gets the same treatment every other important moment gets: a burst you can
+	see, a stamp the HUD can read, and a countdown that says you are coming
+	back.
+
+	Combat.RespawnSeconds has been sitting in ChompConfig unread since the
+	beginning. Four seconds instead of five is not the point; being TOLD is.
+
+	This amends D-CHOMP-051's "an ordinary Roblox death and respawn", which was
+	decided before waves existed and before anything could swarm you.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+local Workspace = game:GetService("Workspace")
+local Debris = game:GetService("Debris")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local P = Config.Palette
+
+Players.RespawnTime = Config.Combat.RespawnSeconds
+
+-- The same fly-apart the ghosts get, in your colours. A kart that simply stops
+-- is a freeze; one that comes to pieces is a death, and the difference is
+-- whether the player believes something happened to them (D-CHOMP-054).
+local function burst(at: Vector3)
+	for i = 1, 12 do
+		local shard = Instance.new("Part")
+		shard.Size = Vector3.new(2.2, 2.2, 2.2)
+		shard.Shape = Enum.PartType.Ball
+		shard.Color = i <= 4 and P.Danger or P.Gold
+		shard.Material = Enum.Material.Neon
+		shard.Transparency = 0.2
+		shard.CanCollide = false
+		shard.CanQuery = false
+		shard.CastShadow = false
+		shard.Position = at + Vector3.new(
+			math.random(-30, 30) / 10, math.random(-10, 40) / 10, math.random(-30, 30) / 10)
+		shard.AssemblyLinearVelocity = Vector3.new(
+			math.random(-70, 70), math.random(30, 80), math.random(-70, 70))
+		CollectionService:AddTag(shard, "Chomp_Decor")
+		shard.Parent = Workspace
+		Debris:AddItem(shard, 1.8)
+	end
+end
+
+local function watch(character: Model)
+	local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
+	if not humanoid then return end
+	humanoid.Died:Connect(function()
+		-- The stamp is what the HUD counts down from. The server owns it, like
+		-- every other value the HUD reads (CHOMP-SYS-030).
+		character:SetAttribute("ChompDiedAt", os.clock())
+		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then burst(root.Position) end
+	end)
+end
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(watch)
+	if player.Character then watch(player.Character) end
+end)
+
+print(("[DeathService] respawn %.1fs, announced"):format(Config.Combat.RespawnSeconds))
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="147">
         <Properties>
           <string name="Name">GarageService</string>
           <token name="RunContext">0</token>
@@ -6404,6 +6562,7 @@ local Workspace = game:GetService("Workspace")
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local VehicleFactory = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleFactory"))
 local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
+local Progression = require(ReplicatedStorage:WaitForChild("ChompLogic"):WaitForChild("Progression"))
 
 local L = Config.Level1
 local P = Config.Palette
@@ -6462,6 +6621,37 @@ local function priceLabel(plinth: BasePart, title: string, dollars: number, robu
 end
 
 type Offer = { id: string, kind: string, title: string, dollars: number, robux: number? }
+
+local TRACKS = { "Speed", "Agility", "Consumption" }
+
+local function upgradesOf(player: Player)
+	return {
+		Speed = (player:GetAttribute("ChompUpgradeSpeed") :: number?) or 0,
+		Agility = (player:GetAttribute("ChompUpgradeAgility") :: number?) or 0,
+		Consumption = (player:GetAttribute("ChompUpgradeConsumption") :: number?) or 0,
+	}
+end
+
+local function owns(player: Player, chassisId: string): boolean
+	local raw = (player:GetAttribute("ChompOwnedChassis") :: string?) or "Standard"
+	return string.find("," .. raw .. ",", "," .. chassisId .. ",", 1, true) ~= nil
+end
+
+local function addOwned(player: Player, chassisId: string)
+	if owns(player, chassisId) then return end
+	local raw = (player:GetAttribute("ChompOwnedChassis") :: string?) or "Standard"
+	player:SetAttribute("ChompOwnedChassis", raw .. "," .. chassisId)
+end
+
+local function publishProgression(player: Player, character: Model)
+	local chassisId = (player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis
+	local upgrades = upgradesOf(player)
+	local stats = Progression.effectiveStats(chassisId, upgrades)
+	character:SetAttribute("ChompPower", Progression.computePower(chassisId, upgrades))
+	character:SetAttribute("ChompBarCapacity", Config.Chassis[chassisId].BarCapacity)
+	character:SetAttribute("ChompMouthArcDegrees", stats.mouthArcDegrees)
+	character:SetAttribute("ChompPelletMultiplier", stats.pelletMultiplier)
+end
 
 -- Resolved lazily: this script and ItemService are both server scripts with no
 -- guaranteed order, so asking for the hook at require time is a race.
@@ -6717,13 +6907,25 @@ local function buy(player: Player, offer: Offer): boolean
 	local character = player.Character
 	if not character then return false end
 	local dollars = (character:GetAttribute("ChompDollars") :: number?) or 0
-	if dollars < offer.dollars then return false end
+	local price = offer.dollars
 
 	if offer.kind == "chassis" then
-		if character:GetAttribute("ChompChassis") == offer.id then return false end
+		if owns(player, offer.id) then
+			player:SetAttribute("ChompEquippedChassis", offer.id)
+			character:SetAttribute("ChompChassis", offer.id)
+			publishProgression(player, character)
+			refitVehicle(player)
+			return true
+		end
+		if not SPECS:FindFirstChild(offer.id) then return false end
+		if dollars < price then return false end
+		addOwned(player, offer.id)
+		player:SetAttribute("ChompEquippedChassis", offer.id)
 		character:SetAttribute("ChompChassis", offer.id)
+		publishProgression(player, character)
 		refitVehicle(player)
 	elseif offer.kind == "item" then
+		if dollars < price then return false end
 		-- Hand it over FIRST. give() refuses a full belt, and a refusal must
 		-- cost nothing - the player drives away with their money and the plinth
 		-- still stocked (D-CHOMP-064).
@@ -6737,13 +6939,18 @@ local function buy(player: Player, offer: Offer): boolean
 		end)
 		if not (ok and granted == true) then return false end
 	else
+		price = Progression.costOf(offer.id,
+			(player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis,
+			upgradesOf(player)) or -1
+		if price < 0 or dollars < price then return false end
 		local key = "ChompUpgrade" .. offer.id
-		local level = (character:GetAttribute(key) :: number?) or 0
-		if level >= UP.MaxLevel then return false end
+		local level = (player:GetAttribute(key) :: number?) or 0
+		player:SetAttribute(key, level + 1)
 		character:SetAttribute(key, level + 1)
+		publishProgression(player, character)
 	end
 
-	character:SetAttribute("ChompDollars", dollars - offer.dollars)
+	character:SetAttribute("ChompDollars", dollars - price)
 	character:SetAttribute("ChompBoughtWhat", offer.title)
 	character:SetAttribute("ChompBoughtAt", os.clock())
 	return true
@@ -6785,12 +6992,23 @@ local function dwellLoop()
 end
 
 Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(function(character)
-		-- Everyone starts in the basic chassis, in the garage, with the ladder
-		-- in front of them.
-		if character:GetAttribute("ChompChassis") == nil then
-			character:SetAttribute("ChompChassis", Config.StartingChassis)
+	if player:GetAttribute("ChompOwnedChassis") == nil then player:SetAttribute("ChompOwnedChassis", "Standard") end
+	if player:GetAttribute("ChompEquippedChassis") == nil then
+		player:SetAttribute("ChompEquippedChassis", Config.StartingChassis)
+	end
+	for _, track in TRACKS do
+		if player:GetAttribute("ChompUpgrade" .. track) == nil then
+			player:SetAttribute("ChompUpgrade" .. track, 0)
 		end
+	end
+	player.CharacterAdded:Connect(function(character)
+		character:SetAttribute("ChompChassis",
+			player:GetAttribute("ChompEquippedChassis") or Config.StartingChassis)
+		for _, track in TRACKS do
+			character:SetAttribute("ChompUpgrade" .. track,
+				player:GetAttribute("ChompUpgrade" .. track) or 0)
+		end
+		publishProgression(player, character)
 	end)
 end)
 
@@ -6808,7 +7026,7 @@ print(("[GarageService] %d plinths (%d of them weapons), dwell %.1fs to buy, " .
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="147">
+      <Item class="Script" referent="148">
         <Properties>
           <string name="Name">GhostService</string>
           <token name="RunContext">0</token>
@@ -6853,9 +7071,13 @@ local W = Config.Waves
 local L = Config.Level1
 local P = Config.Palette
 
-local STEAL_RADIUS = 11
-local STEAL_COOLDOWN = 4
-local SENSE_RADIUS = 260
+-- These were literals here, against CHOMP-SYS-037's rule that no balance value
+-- may appear in engine logic. They govern how close a ghost has to get, how
+-- often one may take from you, and how far one can see - three of the numbers
+-- most likely to be reached for in a balancing pass (D-CHOMP-066).
+local STEAL_RADIUS = G.StealRadiusStuds
+local STEAL_COOLDOWN = G.StealCooldownSeconds
+local SENSE_RADIUS = G.SenseRadiusStuds
 
 local folder = Instance.new("Folder")
 folder.Name = "Ghosts"
@@ -6980,15 +7202,12 @@ local function buildGhost(): Ghost
 	}
 end
 
-local function ghostCount(): number
-	local players = math.max(1, #Players:GetPlayers())
-	local best = 2
-	for _, row in G.CountByPlayers do
-		if players <= row.players then
-			best = math.max(best, row.ghosts)
-		end
+local function waveStartCount(): number
+	local count = math.max(1, #Players:GetPlayers())
+	for _, row in W.StartCountByPlayers do
+		if count <= row.players then return row.count end
 	end
-	return best
+	return W.StartCount
 end
 
 local function nearestKart(from: Vector3): (BasePart?, number)
@@ -7016,7 +7235,7 @@ local function startWave(n: number)
 	waveActive = true
 	clearGhosts()
 
-	local wanted = math.min(W.MaxCount, W.StartCount + W.AddPerWave * (n - 1))
+	local wanted = math.min(W.MaxCount, waveStartCount() + W.AddPerWave * (n - 1))
 
 	-- Arrive AROUND somebody (D-CHOMP-062). Ghosts parked on distant rings made
 	-- a wave a rumour: you were told it started and then drove for ten seconds
@@ -7072,10 +7291,11 @@ local function startWave(n: number)
 		if character then
 			character:SetAttribute("ChompWave", wave)
 			character:SetAttribute("ChompWaveCount", wanted)
+			character:SetAttribute("ChompWaveAlive", wanted)
 		end
 	end
 	print(("[GhostService] wave %d: %d ghosts, speed %.1f, kill pays $%d")
-		:format(wave, wanted, G.Speed + W.SpeedPerWave * (n - 1),
+		:format(wave, wanted, math.min(W.MaxSpeed, G.Speed + W.SpeedPerWave * (n - 1)),
 			G.KillRewardDollars + W.RewardPerWave * (n - 1)))
 end
 
@@ -7092,7 +7312,12 @@ end
 task.spawn(function()
 	while true do
 		task.wait(1)
-		if waveActive and #ghosts > 0 and aliveCount() == 0 then
+		local alive = aliveCount()
+		for _, player in Players:GetPlayers() do
+			local character = player.Character
+			if character then character:SetAttribute("ChompWaveAlive", alive) end
+		end
+		if waveActive and #ghosts > 0 and alive == 0 then
 			waveActive = false
 			for _, player in Players:GetPlayers() do
 				local character = player.Character
@@ -7108,13 +7333,29 @@ RunService.Heartbeat:Connect(function(dt)
 	t += dt
 	for index, g in ghosts do
 		if not g.model.Parent then continue end
+		-- A dead ghost is invisible and unreachable, and until now it kept
+		-- moving and puppeting all ten of its parts every frame until the wave
+		-- ended - the Dead check sat AFTER the movement it was meant to skip.
+		-- At 22 ghosts that is 220 anchored parts replicating for nothing
+		-- (D-CHOMP-066).
+		-- Safe to skip everything: the kill-detection block below only ever
+		-- fires on a ghost that is NOT yet Dead, so nothing is missed.
+		if g.model:GetAttribute("Dead") == true then continue end
 
 		local here = g.model:GetPivot().Position
 		local target, distance = nearestKart(here)
 
 		local speed = G.Speed
 		local goal: Vector3
-		if target and distance < SENSE_RADIUS then
+		local targetCharacter = target and target.Parent
+		local fullJaw = targetCharacter
+			and os.clock() < (((targetCharacter :: Model):GetAttribute("ChompFullJawUntil") :: number?) or 0)
+		local sense = aliveCount() <= W.RevealLastAt and math.huge or SENSE_RADIUS
+		if target and fullJaw then
+			local away = here - target.Position
+			goal = here + (away.Magnitude > 0.01 and away.Unit or Vector3.new(1, 0, 0)) * 80
+			speed = G.FleeSpeed
+		elseif target and distance < sense then
 			goal = target.Position
 		else
 			-- No one in range: drift around a ring, so the map always looks
@@ -7124,7 +7365,7 @@ RunService.Heartbeat:Connect(function(dt)
 			speed = G.FleeSpeed
 		end
 
-		speed += W.SpeedPerWave * math.max(0, wave - 1)
+		speed = math.min(W.MaxSpeed, speed + W.SpeedPerWave * math.max(0, wave - 1))
 
 		local flat = Vector3.new(goal.X - here.X, 0, goal.Z - here.Z)
 		local step = flat.Magnitude > 1 and flat.Unit * speed * dt or Vector3.zero
@@ -7238,30 +7479,56 @@ RunService.Heartbeat:Connect(function(dt)
 		-- was already inside when the pads were read, or one carried in by a
 		-- shove, still cannot touch you there.
 		local safe = target and sanctuaryAt(target.Position) ~= nil
-		if target and not safe and distance < STEAL_RADIUS
-			and (os.clock() - g.lastSteal) > STEAL_COOLDOWN then
-			local character = target.Parent :: Model
-			local held = (character:GetAttribute("ChompCarried") :: number?) or 0
-			if held > 0 then
-				local taken = math.floor(held * G.StealFraction)
-				character:SetAttribute("ChompCarried", held - taken)
-				character:SetAttribute("ChompStolenAt", os.clock())
-				character:SetAttribute("ChompStolenAmount", taken)
-			end
+		local character = target and target.Parent :: Model
+		-- TWO cooldowns, and they answer different questions (D-CHOMP-066).
+		-- g.lastSteal stops ONE ghost machine-gunning you. The per-character
+		-- window stops a PACK doing in one instant what a ghost may only do
+		-- every few seconds: four ghosts used to land four independent steals
+		-- and four lots of damage in the same frame, which is 68% of a carry
+		-- and 56 of 100 health from a single brush. The config already carried
+		-- ContactCooldownSeconds for exactly this and nothing read it.
+		local lastContact = character
+			and ((character:GetAttribute("ChompLastContactAt") :: number?) or 0) or 0
+		local packReady = (os.clock() - lastContact) > G.ContactCooldownSeconds
 
+		local fullJawActive = character
+			and os.clock() < ((character:GetAttribute("ChompFullJawUntil") :: number?) or 0)
+		if character and not safe and distance < STEAL_RADIUS and fullJawActive then
+			local eater = Players:GetPlayerFromCharacter(character)
+			if eater then
+				g.model:SetAttribute("KilledBy", eater.UserId)
+				g.model:SetAttribute("Health", 0)
+			end
+		elseif character and not safe and distance < STEAL_RADIUS and packReady
+			and (os.clock() - g.lastSteal) > STEAL_COOLDOWN then
+			-- The shield is checked FIRST, and it stops the whole contact
+			-- (D-CHOMP-066). It used to be consulted after the theft had
+			-- already happened, so it swapped damage for a knockback and let
+			-- 25% of the carry go anyway. Ghosts are point thieves - the steal
+			-- IS the hit - so a shield that does not stop it does nothing on
+			-- the one run you bought it for. D-CHOMP-051 said "absorbs the
+			-- contact"; this is that.
 			local shieldUntil = (character:GetAttribute("ChompShieldUntil") :: number?) or 0
 			if os.clock() < shieldUntil then
-				-- The shield spends itself stopping this, and throws the ghost
-				-- clear rather than merely bouncing it.
 				character:SetAttribute("ChompShieldUntil", 0)
+				character:SetAttribute("ChompShieldBrokeAt", os.clock())
 				g.model:PivotTo(g.model:GetPivot() * CFrame.new(0, 0, 40))
 			else
+				local held = (character:GetAttribute("ChompCarried") :: number?) or 0
+				if held > 0 then
+					local taken = math.floor(held * G.StealFraction)
+					character:SetAttribute("ChompCarried", held - taken)
+					character:SetAttribute("ChompStolenAt", os.clock())
+					character:SetAttribute("ChompStolenAmount", taken)
+				end
+
 				local humanoid = character:FindFirstChildOfClass("Humanoid")
 				if humanoid and humanoid.Health > 0 then
 					humanoid:TakeDamage(G.ContactDamage)
 					character:SetAttribute("ChompHurtAt", os.clock())
 				end
 			end
+			character:SetAttribute("ChompLastContactAt", os.clock())
 			g.lastSteal = os.clock()
 		end
 	end
@@ -7287,6 +7554,7 @@ end)
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function(character)
 		character:SetAttribute("ChompWave", wave)
+		character:SetAttribute("ChompWaveAlive", aliveCount())
 	end)
 end)
 
@@ -7299,7 +7567,7 @@ print(("[GhostService] waves live: %d sanctuaries, %d%% stolen per catch, " ..
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="148">
+      <Item class="Script" referent="149">
         <Properties>
           <string name="Name">ItemService</string>
           <token name="RunContext">0</token>
@@ -8117,9 +8385,19 @@ local function collectionLoop()
 end
 
 Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(function()
-		clearBelt(player)
+	belt[player] = belt[player] or {}
+	active[player] = active[player] or 1
+	player.CharacterAdded:Connect(function(character)
+		-- The belt is match loadout, not character state. Death rebuilds its HUD
+		-- and roof mount without erasing weapons the player already earned.
 		shieldUntil[player] = 0
+		task.defer(function()
+			if character.Parent then
+				publish(player)
+				local current = activeItem(player)
+				if current then mount(character, current.id) end
+			end
+		end)
 	end)
 end)
 
@@ -8184,7 +8462,7 @@ print(("[ItemService] running - %d pads, %d slots, %d item types, %d/s use limit
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="149">
+      <Item class="Script" referent="150">
         <Properties>
           <string name="Name">Level1Map</string>
           <token name="RunContext">0</token>
@@ -8432,7 +8710,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="150">
+      <Item class="Script" referent="151">
         <Properties>
           <string name="Name">MovementService</string>
           <token name="RunContext">0</token>
@@ -8464,6 +8742,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local Progression = require(ReplicatedStorage:WaitForChild("ChompLogic"):WaitForChild("Progression"))
 
 type Tracked = {
 	chassis: string,
@@ -8474,11 +8753,18 @@ type Tracked = {
 
 local tracked: { [Player]: Tracked } = {}
 
--- TODO(CHAIN-ECONOMY): swap to Progression.effectiveStats once implemented,
--- so upgrades apply. Chassis base is correct for an unupgraded player.
-local function statsFor(chassisId: string): (number, number)
-	local chassis = Config.Chassis[chassisId] or Config.Chassis[Config.StartingChassis]
-	return chassis.BaseSpeed, chassis.BaseTurn
+local function upgradesFor(character: Model)
+	return {
+		Speed = (character:GetAttribute("ChompUpgradeSpeed") :: number?) or 0,
+		Agility = (character:GetAttribute("ChompUpgradeAgility") :: number?) or 0,
+		Consumption = (character:GetAttribute("ChompUpgradeConsumption") :: number?) or 0,
+	}
+end
+
+local function statsFor(character: Model): (number, number)
+	local chassisId = character:GetAttribute("ChompChassis") or Config.StartingChassis
+	local stats = Progression.effectiveStats(chassisId, upgradesFor(character))
+	return stats.speed, stats.turn
 end
 
 local function apply(player: Player, character: Model)
@@ -8487,7 +8773,7 @@ local function apply(player: Player, character: Model)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not humanoid then return end
 
-	local speed, turn = statsFor(record.chassis)
+	local speed, turn = statsFor(character)
 	humanoid.WalkSpeed = speed
 	-- AutoRotate turns the character to face its MoveDirection, and since
 	-- D-CHOMP-025 that direction IS the vehicle's heading — the client hands the
@@ -8506,6 +8792,11 @@ local function onCharacter(player: Player, character: Model)
 	tracked[player] = tracked[player] or { chassis = Config.StartingChassis, lastCheck = 0, strikes = 0 }
 	tracked[player].lastPosition = nil
 	apply(player, character)
+	for _, name in { "ChompChassis", "ChompUpgradeSpeed", "ChompUpgradeAgility", "ChompUpgradeConsumption" } do
+		character:GetAttributeChangedSignal(name):Connect(function()
+			if character.Parent then apply(player, character) end
+		end)
+	end
 end
 
 Players.PlayerAdded:Connect(function(player)
@@ -8535,7 +8826,7 @@ RunService.Heartbeat:Connect(function()
 		local elapsed = now - record.lastCheck
 		record.lastCheck = now
 
-		local speed = statsFor(record.chassis)
+		local speed = statsFor(character)
 		if humanoid.WalkSpeed ~= speed then
 			apply(player, character)
 		end
@@ -8563,7 +8854,7 @@ print("[MovementService] running — server owns the numbers, the client owns it
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="151">
+      <Item class="Script" referent="152">
         <Properties>
           <string name="Name">PelletService</string>
           <token name="RunContext">0</token>
@@ -8597,8 +8888,10 @@ local L = Config.Level1
 local E = Config.Economy
 local P = Config.Palette
 
-local PELLET_RADIUS = 9
-local BANK_RADIUS = 22
+-- Reach, not taste, but still balance: how close counts as eating, and how
+-- close counts as banking. Literals here breached CHOMP-SYS-037 (D-CHOMP-066).
+local PELLET_RADIUS = E.PelletPickupRadiusStuds
+local BANK_RADIUS = E.BankRadiusStuds
 
 local folder = Instance.new("Folder")
 folder.Name = "Pellets"
@@ -8624,6 +8917,7 @@ local function makePellet(position: Vector3, value: number, power: boolean)
 	p.Material = Enum.Material.Neon
 	p.Color = power and P.Gold or P.NeonA
 	p:SetAttribute("Value", value)
+	p:SetAttribute("PowerPellet", power)
 	-- Pellets are decisions, not scenery, but they are small enough that fading
 	-- one never hides anything that matters — and an unfadeable pellet between
 	-- the camera and the kart is a CHOMP-SYS-051 breach (D-CHOMP-043).
@@ -8632,7 +8926,45 @@ local function makePellet(position: Vector3, value: number, power: boolean)
 	return p
 end
 
+-- Sanctuary circles, read the same way GhostService reads them. Pellets do not
+-- go inside one (D-CHOMP-066).
+--
+-- D-CHOMP-065 made garages ghost-proof and dropped that circle straight on top
+-- of four existing pellet lanes, one of them the richest on the map. The result
+-- was about 1,750 points a sweep, next to the bank, respawning every 12
+-- seconds, with nothing able to touch you - so the best possible play was to
+-- orbit the spawn and never leave. That is the farm D-CHOMP-065's own
+-- reasoning warned about: "a sanctuary you can hide in is a sanctuary that
+-- ends the game."
+local function sanctuaries(): { { centre: Vector3, radius: number } }
+	local out = {}
+	for _, pad in CollectionService:GetTagged("Chomp_Garage") do
+		if pad:IsA("BasePart") then
+			table.insert(out, {
+				centre = Vector3.new(pad.Position.X, 0, pad.Position.Z),
+				radius = pad:GetAttribute("Home") == true
+					and L.HomeSafeRadiusStuds or L.GarageSafeRadiusStuds,
+			})
+		end
+	end
+	return out
+end
+
 local function layOut(): number
+	local safe = sanctuaries()
+	-- The rim value still appears inside a sanctuary. The first minute has to
+	-- teach eat-then-bank somewhere, and a trail of the CHEAPEST pellets does
+	-- that without paying anyone to stay home.
+	local rimValue = E.PelletValueByRing[1]
+	local function blocked(position: Vector3, value: number): boolean
+		if value <= rimValue then return false end
+		local flat = Vector3.new(position.X, 0, position.Z)
+		for _, zone in safe do
+			if (flat - zone.centre).Magnitude < zone.radius then return true end
+		end
+		return false
+	end
+
 	local radii = {}
 	local r = L.CentreRadius
 	while r <= L.OuterRadius - L.RingSpacing do
@@ -8644,14 +8976,17 @@ local function layOut(): number
 	for index, radius in ipairs(radii) do
 		local lane = radius + L.RingSpacing / 2
 		-- ring 1 is the innermost and pays most: value counts DOWN from the middle
-		local tier = math.clamp(#radii - index + 1, 1, 4)
+		local tier = math.clamp(#radii - index + 1, 1, #E.PelletValueByRing)
 		local value = E.PelletValueByRing[tier] or 10
 		local spacing = 26
 		local count = math.max(8, math.floor((2 * math.pi * lane) / spacing))
 		for i = 0, count - 1 do
 			local a = (math.pi * 2) * (i / count) + index * 0.13
-			makePellet(Vector3.new(math.cos(a) * lane, 4, math.sin(a) * lane), value, false)
-			made += 1
+			local at = Vector3.new(math.cos(a) * lane, 4, math.sin(a) * lane)
+			if not blocked(at, value) then
+				makePellet(at, value, false)
+				made += 1
+			end
 		end
 	end
 
@@ -8679,8 +9014,14 @@ local function loop()
 			for _, pellet in folder:GetChildren() do
 				if pellet:IsA("BasePart") and pellet.Transparency < 1
 					and (pellet.Position - root.Position).Magnitude < PELLET_RADIUS then
-					local value = (pellet:GetAttribute("Value") :: number?) or 0
+					local baseValue = (pellet:GetAttribute("Value") :: number?) or 0
+					local multiplier = (character:GetAttribute("ChompPelletMultiplier") :: number?) or 1
+					local value = math.floor(baseValue * multiplier)
 					character:SetAttribute("ChompCarried", carried(character) + value)
+					if pellet:GetAttribute("PowerPellet") == true then
+						character:SetAttribute("ChompFullJawUntil", os.clock() + Config.Ghosts.FullJawSeconds)
+						character:SetAttribute("ChompFullJawStartedAt", os.clock())
+					end
 					-- Announce the GAIN, not just the new total. A number that
 					-- ticks up in a corner is invisible to someone watching a
 					-- corridor; "+25" above the kart is not (D-CHOMP-052).
@@ -8743,7 +9084,7 @@ print(("[PelletService] %d pellets laid, values %s, bank rate %.1f")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="152">
+      <Item class="Script" referent="153">
         <Properties>
           <string name="Name">TestMap</string>
           <token name="RunContext">0</token>
@@ -8916,7 +9257,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="153">
+      <Item class="Script" referent="154">
         <Properties>
           <string name="Name">VehicleService</string>
           <token name="RunContext">0</token>
@@ -9324,15 +9665,15 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="154">
+  <Item class="ServerStorage" referent="155">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="155">
+    <Item class="Folder" referent="156">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="156">
+      <Item class="ModuleScript" referent="157">
         <Properties>
           <string name="Name">ItemModels</string>
           <string name="Source"><![CDATA[--!strict
@@ -9448,7 +9789,7 @@ return ItemModels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="157">
+      <Item class="ModuleScript" referent="158">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -9733,7 +10074,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="158">
+      <Item class="ModuleScript" referent="159">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -9992,11 +10333,38 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="159">
+      <Item class="Folder" referent="160">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="160">
+        <Item class="ModuleScript" referent="161">
+          <Properties>
+            <string name="Name">Apex</string>
+            <string name="Source"><![CDATA[--!strict
+local variant = require(script.Parent:WaitForChild("Variant"))
+return variant("Apex", Color3.fromRGB(96, 72, 176), Color3.fromRGB(255, 207, 55), 4)
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="162">
+          <Properties>
+            <string name="Name">HeavyJaw</string>
+            <string name="Source"><![CDATA[--!strict
+local variant = require(script.Parent:WaitForChild("Variant"))
+return variant("HeavyJaw", Color3.fromRGB(238, 145, 26), Color3.fromRGB(255, 230, 92), 2)
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="163">
+          <Properties>
+            <string name="Name">Ravener</string>
+            <string name="Source"><![CDATA[--!strict
+local variant = require(script.Parent:WaitForChild("Variant"))
+return variant("Ravener", Color3.fromRGB(208, 64, 104), Color3.fromRGB(95, 235, 255), 3)
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="164">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -10106,18 +10474,59 @@ return {
 ]]></string>
           </Properties>
         </Item>
+        <Item class="ModuleScript" referent="165">
+          <Properties>
+            <string name="Name">Variant</string>
+            <string name="Source"><![CDATA[--!strict
+
+-- Produces a visually distinct, contract-compatible chassis from Standard.
+-- Geometry remains inside the proven vehicle envelope while colour, armour and
+-- upgrade ports communicate the tier until bespoke silhouettes replace these.
+
+local Standard = require(script.Parent:WaitForChild("Standard"))
+
+return function(id: string, body: Color3, accent: Color3, portCount: number)
+	local spec = table.clone(Standard)
+	spec.chassisId = id
+	spec.parts = {}
+	for _, source in Standard.parts do
+		local p = table.clone(source)
+		if p.name == "BodyShell" or p.name == "RearShell" or string.find(p.name, "Mouth") then
+			if p.name ~= "MouthInterior" then p.color = body end
+		elseif string.find(p.name, "WheelHub") or p.name == "TeamColour" then
+			p.color = accent
+		end
+		table.insert(spec.parts, p)
+	end
+	local portOffsets = {
+		Vector3.new(-2.5, 1.5, 0.9),
+		Vector3.new(-2.5, 2.2, 0.9),
+		Vector3.new(-2.5, 2.9, 0.9),
+	}
+	for i = 2, portCount do
+		table.insert(spec.parts, {
+			name = "UpgradePort" .. tostring(i), size = Vector3.new(0.35, 1.0, 1.0),
+			shape = "Cylinder", offset = portOffsets[i - 1],
+			color = accent, material = Enum.Material.Neon,
+		})
+	end
+	return spec
+end
+]]></string>
+          </Properties>
+        </Item>
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="161">
+  <Item class="StarterPlayer" referent="166">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="162">
+    <Item class="StarterPlayerScripts" referent="167">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="163">
+      <Item class="LocalScript" referent="168">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -10369,7 +10778,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="164">
+      <Item class="LocalScript" referent="169">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -10510,7 +10919,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="165">
+      <Item class="LocalScript" referent="170">
         <Properties>
           <string name="Name">ChompHud</string>
           <string name="Source"><![CDATA[--!strict
@@ -11008,7 +11417,9 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 
 	local waveNumber = attribute("ChompWave")
-	waveLabel.Text = waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1"
+	local waveAlive = attribute("ChompWaveAlive")
+	waveLabel.Text = (waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1")
+		.. "  •  " .. tostring(waveAlive) .. " LEFT"
 
 	-- Health. Colour carries the reading, so a glance is enough: green is fine,
 	-- gold is careful, red is one more hit.
@@ -11044,7 +11455,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="166">
+      <Item class="LocalScript" referent="171">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -11107,9 +11518,10 @@ local sendRate = 20  -- two thirds of the server's 30/s limit
 local sendInterval = 1 / sendRate
 
 -- ── Floating stick (touch) ──────────────────────────────────────────────
--- One finger drives. A second finger is ignored rather than averaged in:
--- averaging two touches is how a panicking player ends up going straight.
+-- One finger drives. A second finger is the action trigger and is never mixed
+-- into steering.
 local stickTouch: any = nil
+local fireTouch: any = nil
 local stickOrigin = Vector2.zero
 local stickCurrent = Vector2.zero
 local stickStartedAt = 0
@@ -11163,7 +11575,14 @@ local function stickAxes(): (number, number)
 end
 
 UserInputService.TouchStarted:Connect(function(touch, processed)
-	if processed or stickTouch then return end
+	if processed then return end
+	if stickTouch then
+		if not fireTouch then
+			fireTouch = touch
+			fire()
+		end
+		return
+	end
 	stickTouch = touch
 	stickOrigin = Vector2.new(touch.Position.X, touch.Position.Y)
 	stickCurrent = stickOrigin
@@ -11180,6 +11599,10 @@ UserInputService.TouchMoved:Connect(function(touch)
 end)
 
 local function endTouch(touch)
+	if touch == fireTouch then
+		fireTouch = nil
+		return
+	end
 	if touch == stickTouch then
 		-- Short and barely moved: that was never a steering input, so it fires.
 		-- Peak travel is used rather than final travel, so a flick out and back
@@ -11249,10 +11672,16 @@ end)
 -- commit (CHOMP-TC-042). Until MovementService validates travel against
 -- throttle, sending it would be a contract change that buys nothing.
 local accumulator = 0
+local fireAccumulator = 0
 local lastSent = Vector2.zero
 
 RunService.Heartbeat:Connect(function(dt)
 	accumulator += dt
+	fireAccumulator += dt
+	if fireTouch and fireAccumulator >= 0.1 then
+		fireAccumulator = 0
+		fire()
+	end
 
 	local stickX, stickY = stickAxes()
 	local steer = math.clamp(keyboardSteer + stickX, -1, 1)
@@ -11282,7 +11711,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="167">
+      <Item class="LocalScript" referent="172">
         <Properties>
           <string name="Name">PickupFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -11399,7 +11828,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="168">
+      <Item class="LocalScript" referent="173">
         <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
@@ -11493,7 +11922,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="169">
+      <Item class="LocalScript" referent="174">
         <Properties>
           <string name="Name">TargetReticle</string>
           <string name="Source"><![CDATA[--!strict
@@ -11617,7 +12046,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="170">
+      <Item class="LocalScript" referent="175">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -11775,7 +12204,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="171">
+      <Item class="LocalScript" referent="176">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -11922,7 +12351,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="172">
+  <Item class="Workspace" referent="177">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

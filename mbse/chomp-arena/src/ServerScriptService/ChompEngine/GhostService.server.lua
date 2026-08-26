@@ -39,9 +39,13 @@ local W = Config.Waves
 local L = Config.Level1
 local P = Config.Palette
 
-local STEAL_RADIUS = 11
-local STEAL_COOLDOWN = 4
-local SENSE_RADIUS = 260
+-- These were literals here, against CHOMP-SYS-037's rule that no balance value
+-- may appear in engine logic. They govern how close a ghost has to get, how
+-- often one may take from you, and how far one can see - three of the numbers
+-- most likely to be reached for in a balancing pass (D-CHOMP-066).
+local STEAL_RADIUS = G.StealRadiusStuds
+local STEAL_COOLDOWN = G.StealCooldownSeconds
+local SENSE_RADIUS = G.SenseRadiusStuds
 
 local folder = Instance.new("Folder")
 folder.Name = "Ghosts"
@@ -166,15 +170,12 @@ local function buildGhost(): Ghost
 	}
 end
 
-local function ghostCount(): number
-	local players = math.max(1, #Players:GetPlayers())
-	local best = 2
-	for _, row in G.CountByPlayers do
-		if players <= row.players then
-			best = math.max(best, row.ghosts)
-		end
+local function waveStartCount(): number
+	local count = math.max(1, #Players:GetPlayers())
+	for _, row in W.StartCountByPlayers do
+		if count <= row.players then return row.count end
 	end
-	return best
+	return W.StartCount
 end
 
 local function nearestKart(from: Vector3): (BasePart?, number)
@@ -202,7 +203,7 @@ local function startWave(n: number)
 	waveActive = true
 	clearGhosts()
 
-	local wanted = math.min(W.MaxCount, W.StartCount + W.AddPerWave * (n - 1))
+	local wanted = math.min(W.MaxCount, waveStartCount() + W.AddPerWave * (n - 1))
 
 	-- Arrive AROUND somebody (D-CHOMP-062). Ghosts parked on distant rings made
 	-- a wave a rumour: you were told it started and then drove for ten seconds
@@ -258,10 +259,11 @@ local function startWave(n: number)
 		if character then
 			character:SetAttribute("ChompWave", wave)
 			character:SetAttribute("ChompWaveCount", wanted)
+			character:SetAttribute("ChompWaveAlive", wanted)
 		end
 	end
 	print(("[GhostService] wave %d: %d ghosts, speed %.1f, kill pays $%d")
-		:format(wave, wanted, G.Speed + W.SpeedPerWave * (n - 1),
+		:format(wave, wanted, math.min(W.MaxSpeed, G.Speed + W.SpeedPerWave * (n - 1)),
 			G.KillRewardDollars + W.RewardPerWave * (n - 1)))
 end
 
@@ -278,7 +280,12 @@ end
 task.spawn(function()
 	while true do
 		task.wait(1)
-		if waveActive and #ghosts > 0 and aliveCount() == 0 then
+		local alive = aliveCount()
+		for _, player in Players:GetPlayers() do
+			local character = player.Character
+			if character then character:SetAttribute("ChompWaveAlive", alive) end
+		end
+		if waveActive and #ghosts > 0 and alive == 0 then
 			waveActive = false
 			for _, player in Players:GetPlayers() do
 				local character = player.Character
@@ -294,13 +301,29 @@ RunService.Heartbeat:Connect(function(dt)
 	t += dt
 	for index, g in ghosts do
 		if not g.model.Parent then continue end
+		-- A dead ghost is invisible and unreachable, and until now it kept
+		-- moving and puppeting all ten of its parts every frame until the wave
+		-- ended - the Dead check sat AFTER the movement it was meant to skip.
+		-- At 22 ghosts that is 220 anchored parts replicating for nothing
+		-- (D-CHOMP-066).
+		-- Safe to skip everything: the kill-detection block below only ever
+		-- fires on a ghost that is NOT yet Dead, so nothing is missed.
+		if g.model:GetAttribute("Dead") == true then continue end
 
 		local here = g.model:GetPivot().Position
 		local target, distance = nearestKart(here)
 
 		local speed = G.Speed
 		local goal: Vector3
-		if target and distance < SENSE_RADIUS then
+		local targetCharacter = target and target.Parent
+		local fullJaw = targetCharacter
+			and os.clock() < (((targetCharacter :: Model):GetAttribute("ChompFullJawUntil") :: number?) or 0)
+		local sense = aliveCount() <= W.RevealLastAt and math.huge or SENSE_RADIUS
+		if target and fullJaw then
+			local away = here - target.Position
+			goal = here + (away.Magnitude > 0.01 and away.Unit or Vector3.new(1, 0, 0)) * 80
+			speed = G.FleeSpeed
+		elseif target and distance < sense then
 			goal = target.Position
 		else
 			-- No one in range: drift around a ring, so the map always looks
@@ -310,7 +333,7 @@ RunService.Heartbeat:Connect(function(dt)
 			speed = G.FleeSpeed
 		end
 
-		speed += W.SpeedPerWave * math.max(0, wave - 1)
+		speed = math.min(W.MaxSpeed, speed + W.SpeedPerWave * math.max(0, wave - 1))
 
 		local flat = Vector3.new(goal.X - here.X, 0, goal.Z - here.Z)
 		local step = flat.Magnitude > 1 and flat.Unit * speed * dt or Vector3.zero
@@ -424,30 +447,56 @@ RunService.Heartbeat:Connect(function(dt)
 		-- was already inside when the pads were read, or one carried in by a
 		-- shove, still cannot touch you there.
 		local safe = target and sanctuaryAt(target.Position) ~= nil
-		if target and not safe and distance < STEAL_RADIUS
-			and (os.clock() - g.lastSteal) > STEAL_COOLDOWN then
-			local character = target.Parent :: Model
-			local held = (character:GetAttribute("ChompCarried") :: number?) or 0
-			if held > 0 then
-				local taken = math.floor(held * G.StealFraction)
-				character:SetAttribute("ChompCarried", held - taken)
-				character:SetAttribute("ChompStolenAt", os.clock())
-				character:SetAttribute("ChompStolenAmount", taken)
-			end
+		local character = target and target.Parent :: Model
+		-- TWO cooldowns, and they answer different questions (D-CHOMP-066).
+		-- g.lastSteal stops ONE ghost machine-gunning you. The per-character
+		-- window stops a PACK doing in one instant what a ghost may only do
+		-- every few seconds: four ghosts used to land four independent steals
+		-- and four lots of damage in the same frame, which is 68% of a carry
+		-- and 56 of 100 health from a single brush. The config already carried
+		-- ContactCooldownSeconds for exactly this and nothing read it.
+		local lastContact = character
+			and ((character:GetAttribute("ChompLastContactAt") :: number?) or 0) or 0
+		local packReady = (os.clock() - lastContact) > G.ContactCooldownSeconds
 
+		local fullJawActive = character
+			and os.clock() < ((character:GetAttribute("ChompFullJawUntil") :: number?) or 0)
+		if character and not safe and distance < STEAL_RADIUS and fullJawActive then
+			local eater = Players:GetPlayerFromCharacter(character)
+			if eater then
+				g.model:SetAttribute("KilledBy", eater.UserId)
+				g.model:SetAttribute("Health", 0)
+			end
+		elseif character and not safe and distance < STEAL_RADIUS and packReady
+			and (os.clock() - g.lastSteal) > STEAL_COOLDOWN then
+			-- The shield is checked FIRST, and it stops the whole contact
+			-- (D-CHOMP-066). It used to be consulted after the theft had
+			-- already happened, so it swapped damage for a knockback and let
+			-- 25% of the carry go anyway. Ghosts are point thieves - the steal
+			-- IS the hit - so a shield that does not stop it does nothing on
+			-- the one run you bought it for. D-CHOMP-051 said "absorbs the
+			-- contact"; this is that.
 			local shieldUntil = (character:GetAttribute("ChompShieldUntil") :: number?) or 0
 			if os.clock() < shieldUntil then
-				-- The shield spends itself stopping this, and throws the ghost
-				-- clear rather than merely bouncing it.
 				character:SetAttribute("ChompShieldUntil", 0)
+				character:SetAttribute("ChompShieldBrokeAt", os.clock())
 				g.model:PivotTo(g.model:GetPivot() * CFrame.new(0, 0, 40))
 			else
+				local held = (character:GetAttribute("ChompCarried") :: number?) or 0
+				if held > 0 then
+					local taken = math.floor(held * G.StealFraction)
+					character:SetAttribute("ChompCarried", held - taken)
+					character:SetAttribute("ChompStolenAt", os.clock())
+					character:SetAttribute("ChompStolenAmount", taken)
+				end
+
 				local humanoid = character:FindFirstChildOfClass("Humanoid")
 				if humanoid and humanoid.Health > 0 then
 					humanoid:TakeDamage(G.ContactDamage)
 					character:SetAttribute("ChompHurtAt", os.clock())
 				end
 			end
+			character:SetAttribute("ChompLastContactAt", os.clock())
 			g.lastSteal = os.clock()
 		end
 	end
@@ -473,6 +522,7 @@ end)
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function(character)
 		character:SetAttribute("ChompWave", wave)
+		character:SetAttribute("ChompWaveAlive", aliveCount())
 	end)
 end)
 

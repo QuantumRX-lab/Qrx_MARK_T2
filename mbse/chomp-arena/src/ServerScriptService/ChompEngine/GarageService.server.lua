@@ -41,6 +41,7 @@ local Workspace = game:GetService("Workspace")
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local VehicleFactory = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleFactory"))
 local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
+local Progression = require(ReplicatedStorage:WaitForChild("ChompLogic"):WaitForChild("Progression"))
 
 local L = Config.Level1
 local P = Config.Palette
@@ -99,6 +100,37 @@ local function priceLabel(plinth: BasePart, title: string, dollars: number, robu
 end
 
 type Offer = { id: string, kind: string, title: string, dollars: number, robux: number? }
+
+local TRACKS = { "Speed", "Agility", "Consumption" }
+
+local function upgradesOf(player: Player)
+	return {
+		Speed = (player:GetAttribute("ChompUpgradeSpeed") :: number?) or 0,
+		Agility = (player:GetAttribute("ChompUpgradeAgility") :: number?) or 0,
+		Consumption = (player:GetAttribute("ChompUpgradeConsumption") :: number?) or 0,
+	}
+end
+
+local function owns(player: Player, chassisId: string): boolean
+	local raw = (player:GetAttribute("ChompOwnedChassis") :: string?) or "Standard"
+	return string.find("," .. raw .. ",", "," .. chassisId .. ",", 1, true) ~= nil
+end
+
+local function addOwned(player: Player, chassisId: string)
+	if owns(player, chassisId) then return end
+	local raw = (player:GetAttribute("ChompOwnedChassis") :: string?) or "Standard"
+	player:SetAttribute("ChompOwnedChassis", raw .. "," .. chassisId)
+end
+
+local function publishProgression(player: Player, character: Model)
+	local chassisId = (player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis
+	local upgrades = upgradesOf(player)
+	local stats = Progression.effectiveStats(chassisId, upgrades)
+	character:SetAttribute("ChompPower", Progression.computePower(chassisId, upgrades))
+	character:SetAttribute("ChompBarCapacity", Config.Chassis[chassisId].BarCapacity)
+	character:SetAttribute("ChompMouthArcDegrees", stats.mouthArcDegrees)
+	character:SetAttribute("ChompPelletMultiplier", stats.pelletMultiplier)
+end
 
 -- Resolved lazily: this script and ItemService are both server scripts with no
 -- guaranteed order, so asking for the hook at require time is a race.
@@ -354,13 +386,25 @@ local function buy(player: Player, offer: Offer): boolean
 	local character = player.Character
 	if not character then return false end
 	local dollars = (character:GetAttribute("ChompDollars") :: number?) or 0
-	if dollars < offer.dollars then return false end
+	local price = offer.dollars
 
 	if offer.kind == "chassis" then
-		if character:GetAttribute("ChompChassis") == offer.id then return false end
+		if owns(player, offer.id) then
+			player:SetAttribute("ChompEquippedChassis", offer.id)
+			character:SetAttribute("ChompChassis", offer.id)
+			publishProgression(player, character)
+			refitVehicle(player)
+			return true
+		end
+		if not SPECS:FindFirstChild(offer.id) then return false end
+		if dollars < price then return false end
+		addOwned(player, offer.id)
+		player:SetAttribute("ChompEquippedChassis", offer.id)
 		character:SetAttribute("ChompChassis", offer.id)
+		publishProgression(player, character)
 		refitVehicle(player)
 	elseif offer.kind == "item" then
+		if dollars < price then return false end
 		-- Hand it over FIRST. give() refuses a full belt, and a refusal must
 		-- cost nothing - the player drives away with their money and the plinth
 		-- still stocked (D-CHOMP-064).
@@ -374,13 +418,18 @@ local function buy(player: Player, offer: Offer): boolean
 		end)
 		if not (ok and granted == true) then return false end
 	else
+		price = Progression.costOf(offer.id,
+			(player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis,
+			upgradesOf(player)) or -1
+		if price < 0 or dollars < price then return false end
 		local key = "ChompUpgrade" .. offer.id
-		local level = (character:GetAttribute(key) :: number?) or 0
-		if level >= UP.MaxLevel then return false end
+		local level = (player:GetAttribute(key) :: number?) or 0
+		player:SetAttribute(key, level + 1)
 		character:SetAttribute(key, level + 1)
+		publishProgression(player, character)
 	end
 
-	character:SetAttribute("ChompDollars", dollars - offer.dollars)
+	character:SetAttribute("ChompDollars", dollars - price)
 	character:SetAttribute("ChompBoughtWhat", offer.title)
 	character:SetAttribute("ChompBoughtAt", os.clock())
 	return true
@@ -422,12 +471,23 @@ local function dwellLoop()
 end
 
 Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(function(character)
-		-- Everyone starts in the basic chassis, in the garage, with the ladder
-		-- in front of them.
-		if character:GetAttribute("ChompChassis") == nil then
-			character:SetAttribute("ChompChassis", Config.StartingChassis)
+	if player:GetAttribute("ChompOwnedChassis") == nil then player:SetAttribute("ChompOwnedChassis", "Standard") end
+	if player:GetAttribute("ChompEquippedChassis") == nil then
+		player:SetAttribute("ChompEquippedChassis", Config.StartingChassis)
+	end
+	for _, track in TRACKS do
+		if player:GetAttribute("ChompUpgrade" .. track) == nil then
+			player:SetAttribute("ChompUpgrade" .. track, 0)
 		end
+	end
+	player.CharacterAdded:Connect(function(character)
+		character:SetAttribute("ChompChassis",
+			player:GetAttribute("ChompEquippedChassis") or Config.StartingChassis)
+		for _, track in TRACKS do
+			character:SetAttribute("ChompUpgrade" .. track,
+				player:GetAttribute("ChompUpgrade" .. track) or 0)
+		end
+		publishProgression(player, character)
 	end)
 end)
 

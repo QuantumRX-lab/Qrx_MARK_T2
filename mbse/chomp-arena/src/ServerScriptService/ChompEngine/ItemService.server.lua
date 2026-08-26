@@ -812,9 +812,19 @@ local function collectionLoop()
 end
 
 Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(function()
-		clearBelt(player)
+	belt[player] = belt[player] or {}
+	active[player] = active[player] or 1
+	player.CharacterAdded:Connect(function(character)
+		-- The belt is match loadout, not character state. Death rebuilds its HUD
+		-- and roof mount without erasing weapons the player already earned.
 		shieldUntil[player] = 0
+		task.defer(function()
+			if character.Parent then
+				publish(player)
+				local current = activeItem(player)
+				if current then mount(character, current.id) end
+			end
+		end)
 	end)
 end)
 

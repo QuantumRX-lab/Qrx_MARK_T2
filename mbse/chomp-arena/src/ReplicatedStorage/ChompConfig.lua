@@ -139,9 +139,23 @@ ChompConfig.Economy = {
 	BankRate = 1.0,                     -- carried to dollars
 	GarageReentryCooldownSeconds = 5,
 	PelletRespawnSeconds = 12,
+	-- Reach for eating and for banking, moved out of PelletService where they
+	-- were literals against CHOMP-SYS-037 (D-CHOMP-066).
+	PelletPickupRadiusStuds = 9,
+	BankRadiusStuds = 22,
 	ComboWindowSeconds = 1.5,
 	ComboMax = 5,                       -- v2 (CHOMP-SYS-006)
-	PelletValueByRing = { [1] = 10, [2] = 25, [3] = 60, [4] = 150 },
+	-- One value per LANE, counting inward (D-CHOMP-066). There are seven lanes
+	-- and there were four values, clamped - so the inner FOUR lanes all paid
+	-- 150 and the whole inner half of the map was flat. "Do I go one ring
+	-- deeper" is the game's core question and it only had an answer across the
+	-- outer three rings.
+	--
+	-- Each step inward is about 1.5x, so the gradient is felt rather than
+	-- read, and the centre is unambiguously the jackpot it costs the most to
+	-- reach. Add entries here if a map grows rings; PelletService indexes by
+	-- #PelletValueByRing rather than a fixed 4.
+	PelletValueByRing = { 10, 20, 35, 60, 90, 130, 180 },
 	PowerPelletValue = 100,
 	EdibleGhostValue = 200,
 	GuardianBonus = 500,
@@ -155,11 +169,20 @@ ChompConfig.Ghosts = {
 	-- and on a cooldown: the danger is being worn down while you are greedy,
 	-- not being deleted by one mistake.
 	ContactDamage = 14,
+	-- Now read, at last (D-CHOMP-066). This is the PER-PLAYER window: however
+	-- many ghosts are on you, one contact costs you one steal and one hit, and
+	-- staying in the pack keeps costing. Worn down, not deleted.
 	ContactCooldownSeconds = 1.6,
 	Health = 1,                -- one clean hit; ghosts fly apart (D-CHOMP-054)
 	KillRewardDollars = 200,   -- paid straight to BANKED, never to the carry
 	RespawnSeconds = 12,
 	Speed = 21,                         -- slower than a Standard chassis on purpose
+	-- Reach, rate and sight. These were literals inside GhostService against
+	-- CHOMP-SYS-037, and they are three of the first numbers anyone reaches
+	-- for when the game is too hard or too easy (D-CHOMP-066).
+	StealRadiusStuds = 11,
+	StealCooldownSeconds = 4,
+	SenseRadiusStuds = 260,
 	FleeSpeed = 14,
 	FullJawSeconds = 8,
 	-- CHOMP-SYS-053: the maze fills up when the lobby empties.
@@ -277,14 +300,22 @@ ChompConfig.Waves = {
 	-- thirty seconds decide whether anyone plays the second wave.
 	StartCount = 9,
 	AddPerWave = 3,
+	StartCountByPlayers = {
+		{ players = 1, count = 5 },
+		{ players = 3, count = 7 },
+		{ players = 6, count = 9 },
+		{ players = 12, count = 12 },
+	},
 	-- Ghosts arrive AROUND the player rather than parked on rings, so a wave
 	-- starts as an event instead of a rumour.
 	SpawnNearPlayerStuds = 150,
 	SpawnMinDistanceStuds = 55,
 	MaxCount = 22,
 	SpeedPerWave = 0.7,        -- studs/s added each wave
+	MaxSpeed = 24,             -- always outrunnable by a Standard
 	RewardPerWave = 60,        -- extra banked dollars per kill, per wave
-	BreakSeconds = 6,          -- breathing room between waves
+	BreakSeconds = 15,         -- enough time to bank and read the next wave
+	RevealLastAt = 2,
 }
 
 -- ── The garage store (D-CHOMP-055) ──────────────────────

@@ -493,7 +493,9 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 
 	local waveNumber = attribute("ChompWave")
-	waveLabel.Text = waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1"
+	local waveAlive = attribute("ChompWaveAlive")
+	waveLabel.Text = (waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1")
+		.. "  •  " .. tostring(waveAlive) .. " LEFT"
 
 	-- Health. Colour carries the reading, so a glance is enough: green is fine,
 	-- gold is careful, red is one more hit.

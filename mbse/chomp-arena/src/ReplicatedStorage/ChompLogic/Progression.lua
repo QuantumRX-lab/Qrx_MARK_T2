@@ -4,7 +4,7 @@
 
 	Pure functions over chassis and upgrade levels. No player objects.
 
-	STATUS: signatures and specification only. CHAIN-ECONOMY implements.
+	This module is the one source of truth for derived progression values.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -24,7 +24,10 @@ local Progression = {}
 	exactly 1060; an unknown chassis id is an error, not a zero.
 ]]
 function Progression.computePower(chassis: Types.ChassisId, upgrades: Types.UpgradeLevels): number
-	error("not implemented — CHAIN-ECONOMY")
+	local base = Config.Chassis[chassis]
+	assert(base, "unknown chassis: " .. tostring(chassis))
+	local levels = upgrades.Speed + upgrades.Agility + upgrades.Consumption
+	return base.Power + levels * Config.Upgrades.PowerPerLevel
 end
 
 --[[
@@ -41,7 +44,23 @@ end
 	bigger target (that trade is the point).
 ]]
 function Progression.effectiveStats(chassis: Types.ChassisId, upgrades: Types.UpgradeLevels)
-	error("not implemented — CHAIN-ECONOMY")
+	local base = Config.Chassis[chassis]
+	assert(base, "unknown chassis: " .. tostring(chassis))
+	local speed = base.BaseSpeed
+		+ upgrades.Speed * Config.Upgrades.Speed.Speed
+		+ upgrades.Agility * Config.Upgrades.Agility.Speed
+	local turn = base.BaseTurn
+		+ upgrades.Speed * Config.Upgrades.Speed.Turn
+		+ upgrades.Agility * Config.Upgrades.Agility.Turn
+	return {
+		speed = math.max(base.BaseSpeed * 0.5, speed),
+		turn = math.max(base.BaseTurn * 0.5, turn),
+		mouthArcDegrees = base.MouthArcDegrees
+			+ upgrades.Consumption * Config.Upgrades.Consumption.MouthArcDegrees,
+		hitboxRadius = upgrades.Consumption * Config.Upgrades.Consumption.HitboxRadius,
+		pelletMultiplier = 1
+			+ upgrades.Consumption * Config.Upgrades.Consumption.PelletMultiplier,
+	}
 end
 
 --[[
@@ -51,7 +70,18 @@ end
 	MaxLevel or when a chassis is already owned or is a downgrade.
 ]]
 function Progression.costOf(itemId: string, chassis: Types.ChassisId, upgrades: Types.UpgradeLevels): number?
-	error("not implemented — CHAIN-ECONOMY")
+	local track = Config.Upgrades[itemId]
+	if track then
+		local level = if itemId == "Speed" then upgrades.Speed
+			elseif itemId == "Agility" then upgrades.Agility
+			else upgrades.Consumption
+		if typeof(level) ~= "number" or level >= Config.Upgrades.MaxLevel then return nil end
+		return Config.Upgrades.Costs[level + 1]
+	end
+	local current = Config.Chassis[chassis]
+	local wanted = Config.Chassis[itemId]
+	if not (current and wanted) or wanted.Tier <= current.Tier then return nil end
+	return wanted.Cost
 end
 
 --[[
@@ -59,7 +89,9 @@ end
 	What other players are allowed to see (D-CHOMP-013).
 ]]
 function Progression.carryBand(carried: number): string
-	error("not implemented — CHAIN-ECONOMY")
+	if carried < 200 then return "Light" end
+	if carried < 600 then return "Heavy" end
+	return "Fat"
 end
 
 --[[
@@ -70,7 +102,10 @@ end
 	leader.
 ]]
 function Progression.catchUpGrant(matchElapsedSeconds: number): number
-	error("not implemented — CHAIN-ECONOMY")
+	-- A modest $100 per elapsed round, capped below Ravener's price. MatchService
+	-- may clamp this further against the live median when it owns standings.
+	local rounds = math.floor(math.max(0, matchElapsedSeconds) / Config.Match.RoundSeconds)
+	return math.min(1000, rounds * 100)
 end
 
 return Progression

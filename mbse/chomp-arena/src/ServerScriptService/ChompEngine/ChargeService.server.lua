@@ -12,8 +12,15 @@
 	charge pays immediately, in the one move that gets you out of trouble. That
 	gives a frightened player something to do other than run.
 
-	A jump costs the WHOLE bar. A move you can spam is a move you stop thinking
-	about, and the point of this one is the decision.
+	A jump costs JumpCost, not the whole bar (D-CHOMP-066). It used to zero the
+	meter, which quietly taxed anyone who kept eating past the threshold up to
+	40 charge - and the HUD draws the fill as charge/JumpCost, so the loss was
+	not even visible. D-CHOMP-064 had already decided the jump costs 60 of 100;
+	the code just never stopped zeroing.
+
+	A full bar now buys a jump AND a 40-charge head start on the next one, which
+	makes topping up worth doing. It is still a decision - 15 pellets is most of
+	a corridor - but it is no longer "jump the instant it lights or waste it".
 ]]
 
 local Players = game:GetService("Players")
@@ -40,7 +47,7 @@ Remotes.UseCharge.OnServerEvent:Connect(function(player: Player)
 	if not (character and root and humanoid) or humanoid.Health <= 0 then return end
 	if charge(character) < C.JumpCost then return end
 
-	character:SetAttribute("ChompCharge", 0)
+	character:SetAttribute("ChompCharge", charge(character) - C.JumpCost)
 	character:SetAttribute("ChompJumpedAt", os.clock())
 
 	-- Up AND forward. A purely vertical hop lands you where you were, which is
@@ -63,4 +70,4 @@ Players.PlayerAdded:Connect(function(player)
 	end)
 end)
 
-print(("[ChargeService] jump costs %d charge, %d per pellet"):format(C.JumpCost, C.PerPellet))
+print(("[ChargeService] jump spends %d charge of %d max, %d per pellet"):format(C.JumpCost, C.Max, C.PerPellet))

@@ -58,9 +58,10 @@ local sendRate = 20  -- two thirds of the server's 30/s limit
 local sendInterval = 1 / sendRate
 
 -- ── Floating stick (touch) ──────────────────────────────────────────────
--- One finger drives. A second finger is ignored rather than averaged in:
--- averaging two touches is how a panicking player ends up going straight.
+-- One finger drives. A second finger is the action trigger and is never mixed
+-- into steering.
 local stickTouch: any = nil
+local fireTouch: any = nil
 local stickOrigin = Vector2.zero
 local stickCurrent = Vector2.zero
 local stickStartedAt = 0
@@ -114,7 +115,14 @@ local function stickAxes(): (number, number)
 end
 
 UserInputService.TouchStarted:Connect(function(touch, processed)
-	if processed or stickTouch then return end
+	if processed then return end
+	if stickTouch then
+		if not fireTouch then
+			fireTouch = touch
+			fire()
+		end
+		return
+	end
 	stickTouch = touch
 	stickOrigin = Vector2.new(touch.Position.X, touch.Position.Y)
 	stickCurrent = stickOrigin
@@ -131,6 +139,10 @@ UserInputService.TouchMoved:Connect(function(touch)
 end)
 
 local function endTouch(touch)
+	if touch == fireTouch then
+		fireTouch = nil
+		return
+	end
 	if touch == stickTouch then
 		-- Short and barely moved: that was never a steering input, so it fires.
 		-- Peak travel is used rather than final travel, so a flick out and back
@@ -200,10 +212,16 @@ end)
 -- commit (CHOMP-TC-042). Until MovementService validates travel against
 -- throttle, sending it would be a contract change that buys nothing.
 local accumulator = 0
+local fireAccumulator = 0
 local lastSent = Vector2.zero
 
 RunService.Heartbeat:Connect(function(dt)
 	accumulator += dt
+	fireAccumulator += dt
+	if fireTouch and fireAccumulator >= 0.1 then
+		fireAccumulator = 0
+		fire()
+	end
 
 	local stickX, stickY = stickAxes()
 	local steer = math.clamp(keyboardSteer + stickX, -1, 1)

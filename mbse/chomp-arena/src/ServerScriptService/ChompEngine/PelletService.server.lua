@@ -28,8 +28,10 @@ local L = Config.Level1
 local E = Config.Economy
 local P = Config.Palette
 
-local PELLET_RADIUS = 9
-local BANK_RADIUS = 22
+-- Reach, not taste, but still balance: how close counts as eating, and how
+-- close counts as banking. Literals here breached CHOMP-SYS-037 (D-CHOMP-066).
+local PELLET_RADIUS = E.PelletPickupRadiusStuds
+local BANK_RADIUS = E.BankRadiusStuds
 
 local folder = Instance.new("Folder")
 folder.Name = "Pellets"
@@ -55,6 +57,7 @@ local function makePellet(position: Vector3, value: number, power: boolean)
 	p.Material = Enum.Material.Neon
 	p.Color = power and P.Gold or P.NeonA
 	p:SetAttribute("Value", value)
+	p:SetAttribute("PowerPellet", power)
 	-- Pellets are decisions, not scenery, but they are small enough that fading
 	-- one never hides anything that matters — and an unfadeable pellet between
 	-- the camera and the kart is a CHOMP-SYS-051 breach (D-CHOMP-043).
@@ -63,7 +66,45 @@ local function makePellet(position: Vector3, value: number, power: boolean)
 	return p
 end
 
+-- Sanctuary circles, read the same way GhostService reads them. Pellets do not
+-- go inside one (D-CHOMP-066).
+--
+-- D-CHOMP-065 made garages ghost-proof and dropped that circle straight on top
+-- of four existing pellet lanes, one of them the richest on the map. The result
+-- was about 1,750 points a sweep, next to the bank, respawning every 12
+-- seconds, with nothing able to touch you - so the best possible play was to
+-- orbit the spawn and never leave. That is the farm D-CHOMP-065's own
+-- reasoning warned about: "a sanctuary you can hide in is a sanctuary that
+-- ends the game."
+local function sanctuaries(): { { centre: Vector3, radius: number } }
+	local out = {}
+	for _, pad in CollectionService:GetTagged("Chomp_Garage") do
+		if pad:IsA("BasePart") then
+			table.insert(out, {
+				centre = Vector3.new(pad.Position.X, 0, pad.Position.Z),
+				radius = pad:GetAttribute("Home") == true
+					and L.HomeSafeRadiusStuds or L.GarageSafeRadiusStuds,
+			})
+		end
+	end
+	return out
+end
+
 local function layOut(): number
+	local safe = sanctuaries()
+	-- The rim value still appears inside a sanctuary. The first minute has to
+	-- teach eat-then-bank somewhere, and a trail of the CHEAPEST pellets does
+	-- that without paying anyone to stay home.
+	local rimValue = E.PelletValueByRing[1]
+	local function blocked(position: Vector3, value: number): boolean
+		if value <= rimValue then return false end
+		local flat = Vector3.new(position.X, 0, position.Z)
+		for _, zone in safe do
+			if (flat - zone.centre).Magnitude < zone.radius then return true end
+		end
+		return false
+	end
+
 	local radii = {}
 	local r = L.CentreRadius
 	while r <= L.OuterRadius - L.RingSpacing do
@@ -75,14 +116,17 @@ local function layOut(): number
 	for index, radius in ipairs(radii) do
 		local lane = radius + L.RingSpacing / 2
 		-- ring 1 is the innermost and pays most: value counts DOWN from the middle
-		local tier = math.clamp(#radii - index + 1, 1, 4)
+		local tier = math.clamp(#radii - index + 1, 1, #E.PelletValueByRing)
 		local value = E.PelletValueByRing[tier] or 10
 		local spacing = 26
 		local count = math.max(8, math.floor((2 * math.pi * lane) / spacing))
 		for i = 0, count - 1 do
 			local a = (math.pi * 2) * (i / count) + index * 0.13
-			makePellet(Vector3.new(math.cos(a) * lane, 4, math.sin(a) * lane), value, false)
-			made += 1
+			local at = Vector3.new(math.cos(a) * lane, 4, math.sin(a) * lane)
+			if not blocked(at, value) then
+				makePellet(at, value, false)
+				made += 1
+			end
 		end
 	end
 
@@ -110,8 +154,14 @@ local function loop()
 			for _, pellet in folder:GetChildren() do
 				if pellet:IsA("BasePart") and pellet.Transparency < 1
 					and (pellet.Position - root.Position).Magnitude < PELLET_RADIUS then
-					local value = (pellet:GetAttribute("Value") :: number?) or 0
+					local baseValue = (pellet:GetAttribute("Value") :: number?) or 0
+					local multiplier = (character:GetAttribute("ChompPelletMultiplier") :: number?) or 1
+					local value = math.floor(baseValue * multiplier)
 					character:SetAttribute("ChompCarried", carried(character) + value)
+					if pellet:GetAttribute("PowerPellet") == true then
+						character:SetAttribute("ChompFullJawUntil", os.clock() + Config.Ghosts.FullJawSeconds)
+						character:SetAttribute("ChompFullJawStartedAt", os.clock())
+					end
 					-- Announce the GAIN, not just the new total. A number that
 					-- ticks up in a corner is invisible to someone watching a
 					-- corridor; "+25" above the kart is not (D-CHOMP-052).

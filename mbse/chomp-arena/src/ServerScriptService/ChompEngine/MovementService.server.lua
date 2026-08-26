@@ -26,6 +26,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local Progression = require(ReplicatedStorage:WaitForChild("ChompLogic"):WaitForChild("Progression"))
 
 type Tracked = {
 	chassis: string,
@@ -36,11 +37,18 @@ type Tracked = {
 
 local tracked: { [Player]: Tracked } = {}
 
--- TODO(CHAIN-ECONOMY): swap to Progression.effectiveStats once implemented,
--- so upgrades apply. Chassis base is correct for an unupgraded player.
-local function statsFor(chassisId: string): (number, number)
-	local chassis = Config.Chassis[chassisId] or Config.Chassis[Config.StartingChassis]
-	return chassis.BaseSpeed, chassis.BaseTurn
+local function upgradesFor(character: Model)
+	return {
+		Speed = (character:GetAttribute("ChompUpgradeSpeed") :: number?) or 0,
+		Agility = (character:GetAttribute("ChompUpgradeAgility") :: number?) or 0,
+		Consumption = (character:GetAttribute("ChompUpgradeConsumption") :: number?) or 0,
+	}
+end
+
+local function statsFor(character: Model): (number, number)
+	local chassisId = character:GetAttribute("ChompChassis") or Config.StartingChassis
+	local stats = Progression.effectiveStats(chassisId, upgradesFor(character))
+	return stats.speed, stats.turn
 end
 
 local function apply(player: Player, character: Model)
@@ -49,7 +57,7 @@ local function apply(player: Player, character: Model)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not humanoid then return end
 
-	local speed, turn = statsFor(record.chassis)
+	local speed, turn = statsFor(character)
 	humanoid.WalkSpeed = speed
 	-- AutoRotate turns the character to face its MoveDirection, and since
 	-- D-CHOMP-025 that direction IS the vehicle's heading — the client hands the
@@ -68,6 +76,11 @@ local function onCharacter(player: Player, character: Model)
 	tracked[player] = tracked[player] or { chassis = Config.StartingChassis, lastCheck = 0, strikes = 0 }
 	tracked[player].lastPosition = nil
 	apply(player, character)
+	for _, name in { "ChompChassis", "ChompUpgradeSpeed", "ChompUpgradeAgility", "ChompUpgradeConsumption" } do
+		character:GetAttributeChangedSignal(name):Connect(function()
+			if character.Parent then apply(player, character) end
+		end)
+	end
 end
 
 Players.PlayerAdded:Connect(function(player)
@@ -97,7 +110,7 @@ RunService.Heartbeat:Connect(function()
 		local elapsed = now - record.lastCheck
 		record.lastCheck = now
 
-		local speed = statsFor(record.chassis)
+		local speed = statsFor(character)
 		if humanoid.WalkSpeed ~= speed then
 			apply(player, character)
 		end
