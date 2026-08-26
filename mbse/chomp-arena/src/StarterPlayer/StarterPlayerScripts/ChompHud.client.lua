@@ -433,7 +433,12 @@ RunService.RenderStepped:Connect(function(dt)
 	-- ONE objective, chosen by what is most urgent rather than listed.
 	-- Carrying a lot outranks everything: the thing most likely to be lost is
 	-- the thing worth being told about.
-	if carried >= 250 then
+	-- Safe outranks everything, including a big carry: the whole reason to know
+	-- you are safe is that you were not a moment ago (D-CHOMP-065).
+	if character:GetAttribute("ChompSafe") == true then
+		objective.Text = "SAFE — SHOP OR BANK"
+		objective.TextColor3 = P.Shield
+	elseif carried >= 250 then
 		objective.Text = "BANK IT — GARAGE"
 		objective.TextColor3 = P.Danger
 	elseif carried > 0 then

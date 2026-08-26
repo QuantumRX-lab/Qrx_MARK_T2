@@ -112,3 +112,22 @@ entries:
     reaction time without making the wave feel thin.
     With more than one player the anchor is a RANDOM player, so a second player
     across the arena sees nothing arrive. That is fine for now and wrong later.
+- date: '2026-08-26'
+  agent: Claude (local session)
+  action: DECIDED
+  requirements: [CHOMP-SYS-019, CHOMP-SYS-021]
+  summary: >
+    Garages are sanctuaries (D-CHOMP-065). Ghosts cannot spawn inside, walk in,
+    steal from or damage anyone within one. Home 150 studs, the other three 60.
+    Blocked ghosts keep tangential motion and circle the line. Wave spawns
+    anchored on a player already inside start from outside the radius.
+  status: OPEN
+  handoff: >
+    sanctuaries is read ONCE at startup from Chomp_Garage tagged pads, which
+    Level1Map builds first. A map that creates pads late must call
+    readSanctuaries() again - there is no listener.
+    Both spawn halves are needed. pushClear alone puts the whole wave on the
+    sanctuary line, which is a wall of ghosts at the exit; the spread rule is
+    what actually distributes them, and pushClear is only the backstop.
+    Still open: ghosts have no pathing and walk through maze walls, so the
+    sanctuary is currently the only geometry they respect.

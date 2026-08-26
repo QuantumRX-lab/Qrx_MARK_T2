@@ -60,6 +60,56 @@ local ghosts: { Ghost } = {}
 local wave = 0
 local waveActive = false
 
+-- ── Sanctuaries (D-CHOMP-065) ───────────────────────────────────────────
+-- A garage is somewhere ghosts may not go. Not "spawn away from", which only
+-- buys a second - may not GO: no spawning inside, no walking in, no stealing
+-- from and no hurting anyone who is inside one.
+--
+-- The reason is the spawn. A wave anchors on a random player and arrives in a
+-- ring 55 to 150 studs around them, and a player who has just spawned has not
+-- moved yet, so nine ghosts landed on top of somebody sitting still in the
+-- shop. That is not difficulty, it is arriving dead.
+--
+-- Read once and cached: the pads are built by Level1Map before this runs and
+-- never move. If a future map builds them late, this is the thing to revisit.
+local sanctuaries: { { centre: Vector3, radius: number } } = {}
+local function readSanctuaries()
+	table.clear(sanctuaries)
+	for _, pad in CollectionService:GetTagged("Chomp_Garage") do
+		if pad:IsA("BasePart") then
+			local home = pad:GetAttribute("Home") == true
+			table.insert(sanctuaries, {
+				centre = Vector3.new(pad.Position.X, 0, pad.Position.Z),
+				radius = home and L.HomeSafeRadiusStuds or L.GarageSafeRadiusStuds,
+			})
+		end
+	end
+end
+
+-- The sanctuary a point is inside, or nil.
+local function sanctuaryAt(position: Vector3): { centre: Vector3, radius: number }?
+	local flat = Vector3.new(position.X, 0, position.Z)
+	for _, s in sanctuaries do
+		if (flat - s.centre).Magnitude < s.radius then return s end
+	end
+	return nil
+end
+
+-- Push a point to the nearest spot OUTSIDE every sanctuary. Used for spawning:
+-- a ghost that would appear in the garage appears at its edge instead, which
+-- keeps the wave the size it was meant to be rather than quietly dropping it.
+local function pushClear(position: Vector3): Vector3
+	local flat = Vector3.new(position.X, 0, position.Z)
+	for _ = 1, #sanctuaries + 1 do
+		local inside = sanctuaryAt(flat)
+		if not inside then break end
+		local out = flat - inside.centre
+		out = out.Magnitude > 0.001 and out.Unit or Vector3.new(1, 0, 0)
+		flat = inside.centre + out * (inside.radius + 6)
+	end
+	return Vector3.new(flat.X, position.Y, flat.Z)
+end
+
 local function piece(parent: Instance, name: string, size: Vector3, colour: Color3,
 		material: Enum.Material, shape: Enum.PartType?): BasePart
 	local p = Instance.new("Part")
@@ -172,10 +222,21 @@ local function startWave(n: number)
 		g.model.Name = "Ghost_" .. tostring(index + 1)
 
 		local a = (math.pi * 2) * (index / wanted) + math.random() * 0.4
-		local spread = W.SpawnMinDistanceStuds
-			+ math.random() * math.max(1, W.SpawnNearPlayerStuds - W.SpawnMinDistanceStuds)
+		-- If the anchor is standing in a garage, spawn from the OUTSIDE of it
+		-- rather than close in (D-CHOMP-065). Relying on pushClear alone would
+		-- shove the whole wave onto the sanctuary line - a wall of ghosts
+		-- waiting exactly where the player has to come out, which is worse than
+		-- what it was meant to fix.
+		local anchorSafe = sanctuaryAt(anchorPoint)
+		local near = anchorSafe and (anchorSafe.radius + 40) or W.SpawnMinDistanceStuds
+		local far = math.max(near + 40, W.SpawnNearPlayerStuds)
+		local spread = near + math.random() * (far - near)
 		local x = anchorPoint.X + math.cos(a) * spread
 		local z = anchorPoint.Z + math.sin(a) * spread
+
+		-- Never inside a garage, however the anchor fell (D-CHOMP-065).
+		local clear = pushClear(Vector3.new(x, 0, z))
+		x, z = clear.X, clear.Z
 
 		-- Keep them inside the arena; a ghost outside the boundary wall cannot
 		-- reach anyone and just looks broken.
@@ -253,6 +314,22 @@ RunService.Heartbeat:Connect(function(dt)
 
 		local flat = Vector3.new(goal.X - here.X, 0, goal.Z - here.Z)
 		local step = flat.Magnitude > 1 and flat.Unit * speed * dt or Vector3.zero
+
+		-- A ghost may not walk into a garage (D-CHOMP-065). Rather than
+		-- stopping dead at the line, strip the component pointing at the pad
+		-- and keep the rest, so it CIRCLES the sanctuary waiting for you to
+		-- come out. That is the behaviour worth having: it reads as patient
+		-- rather than broken, and it makes leaving the garage a decision.
+		if step.Magnitude > 0 then
+			local blocking = sanctuaryAt(Vector3.new(here.X + step.X, 0, here.Z + step.Z))
+			if blocking and not sanctuaryAt(here) then
+				local inward = blocking.centre - Vector3.new(here.X, 0, here.Z)
+				if inward.Magnitude > 0.001 then
+					inward = inward.Unit
+					step = step - inward * math.max(0, step:Dot(inward))
+				end
+			end
+		end
 
 		-- Close in, the bobbing stops. A ghost that steadies as it arrives reads
 		-- as deliberate, and deliberate is what makes it frightening.
@@ -342,7 +419,13 @@ RunService.Heartbeat:Connect(function(dt)
 		-- are never touchable, which is the entire point of banking
 		-- (CHOMP-SYS-005). Damage is small and on a cooldown, so the danger is
 		-- being worn down while greedy rather than deleted by one mistake.
-		if target and distance < STEAL_RADIUS and (os.clock() - g.lastSteal) > STEAL_COOLDOWN then
+		-- Inside a garage nothing can be taken and nothing can be hurt
+		-- (D-CHOMP-065). Belt and braces over the movement rule: a ghost that
+		-- was already inside when the pads were read, or one carried in by a
+		-- shove, still cannot touch you there.
+		local safe = target and sanctuaryAt(target.Position) ~= nil
+		if target and not safe and distance < STEAL_RADIUS
+			and (os.clock() - g.lastSteal) > STEAL_COOLDOWN then
 			local character = target.Parent :: Model
 			local held = (character:GetAttribute("ChompCarried") :: number?) or 0
 			if held > 0 then
@@ -370,13 +453,32 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 end)
 
+-- Tell the player they are safe (D-CHOMP-065). The ring on the floor says
+-- WHERE the sanctuary is; this says you are in it, which is the thing you want
+-- confirmed when something has been chasing you. Written by the server, like
+-- every other value the HUD reads.
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		for _, player in Players:GetPlayers() do
+			local character = player.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if character and root then
+				character:SetAttribute("ChompSafe", sanctuaryAt(root.Position) ~= nil)
+			end
+		end
+	end
+end)
+
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function(character)
 		character:SetAttribute("ChompWave", wave)
 	end)
 end)
 
+readSanctuaries()
 startWave(1)
-print(("[GhostService] waves live: %d%% stolen per catch, base speed %d vs kart %.1f")
-	:format(math.floor(G.StealFraction * 100), G.Speed,
+print(("[GhostService] waves live: %d sanctuaries, %d%% stolen per catch, " ..
+	"base speed %d vs kart %.1f")
+	:format(#sanctuaries, math.floor(G.StealFraction * 100), G.Speed,
 		Config.Chassis[Config.StartingChassis].BaseSpeed))

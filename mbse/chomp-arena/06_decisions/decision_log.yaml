@@ -1675,3 +1675,56 @@ decisions:
       did. That is a small widening of what the switch means, and the honest
       reading of "friendly fire" - the alternative was a switch that covered
       one weapon.
+
+  - id: D-CHOMP-065
+    date: 2026-08-26
+    title: Garages are sanctuaries, and the line is drawn on the floor
+    decision: >
+      Ghosts may not enter a garage. Not "spawn away from" - may not enter: no
+      spawning inside, no walking in, and no stealing from or damaging anyone
+      standing in one. The home garage gets a 150-stud radius because it holds
+      the spawn and the whole shop row; the other three pads get 60, which is
+      enough to bank in. A ghost whose path would cross the line keeps its
+      tangential motion and circles the sanctuary instead of stopping dead.
+      The boundary is drawn on the floor as a ring of green light, and the HUD
+      objective reads SAFE - SHOP OR BANK while you are inside one. Wave spawns
+      anchored on a player who is already inside a sanctuary start from outside
+      its edge rather than being pushed onto the line. The shop row tightens
+      from 2.9 to 2.3 degrees so every plinth sits inside the home sanctuary.
+    rationale: >
+      Owner report: you can be overwhelmed on spawn.
+      It was structural, not bad luck. A wave anchors on a random player and
+      arrives in a ring 55 to 150 studs around them (D-CHOMP-062). A player who
+      has just spawned has not moved, so nine ghosts arrived around somebody
+      standing still in the garage - and buying anything requires 1.2 seconds
+      of stillness, which is not available while being chased. The two systems
+      were individually right and together produced an ambush at the one place
+      the game asks you to stand still.
+      A safe zone rather than a spawn grace period, because a timer protects a
+      moment and the garage needs to protect an ACTIVITY. Shopping, banking and
+      deciding where to go next all happen there, none of them are quick, and
+      all of them are the things a frightened player retreats to do.
+      The other three pads are small deliberately. Banking is a moment, so a
+      moment is what they get. Four 150-stud bubbles would make roughly a
+      quarter of the outer ring - where the pellets are - a place ghosts may not
+      go, and a sanctuary you can hide in is a sanctuary that ends the game.
+      Circling rather than stopping matters for the same reason the fences slid
+      rather than halted: a ghost frozen on a line looks broken, and a ghost
+      patrolling the line makes leaving a decision. Removing the electrified
+      rings (D-CHOMP-063) took away every safe pocket on purpose; this puts ONE
+      back, in the place that was always meant to be safe, and it is visible.
+    outcome: >
+      The home pad is marked with a Home attribute by Level1Map rather than
+      recomputed from its angle in two services - an angle comparison would be
+      two chances to disagree about which garage is home.
+      Spawning needed both halves. pushClear alone would have shoved a whole
+      wave onto the sanctuary line, which is a wall of ghosts waiting exactly
+      where the player has to come out - worse than the problem it fixed. So
+      the spawn ring starts outside the sanctuary radius and pushClear is only
+      the backstop.
+      The line is drawn as short segments rather than one thin cylinder,
+      because a 300-stud ring two studs wide vanishes at distance and this is a
+      line whose exact position matters when something is chasing you.
+      ChompSafe is a server-written attribute like every other HUD value. The
+      ring says where the sanctuary is; the objective says you are in it, which
+      is the thing worth confirming when something has just been chasing you.

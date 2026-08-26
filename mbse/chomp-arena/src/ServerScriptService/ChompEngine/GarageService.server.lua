@@ -155,11 +155,15 @@ local function build(): number
 	local homeAngle = math.pi / L.GarageCount
 	local radius = L.OuterRadius - L.RingSpacing / 2 - 22
 	local list = offers()
-	-- Tightened from 4.2 degrees when weapons joined the row (D-CHOMP-064): ten
-	-- plinths at the old spacing ran most of the way round the ring. At this
-	-- radius 2.9 degrees is about 38 studs, comfortably more than the 13-stud
-	-- dwell radius, so a kart is never inside two offers at once.
-	local step = math.rad(2.9)
+	-- Tightened again with the sanctuary (D-CHOMP-065). The whole row has to
+	-- fit INSIDE the home garage's safe radius, or the far plinths are places
+	-- you can be caught while standing still trying to buy something.
+	--
+	-- At this radius 2.3 degrees is about 31 studs, so ten plinths span 280 -
+	-- 140 either side of centre, against a 150-stud sanctuary less the 22 studs
+	-- the row sits inboard of the pad. Still wider apart than the 13-stud dwell
+	-- radius, so a kart is never inside two offers at once.
+	local step = math.rad(2.3)
 
 	for i, offer in ipairs(list) do
 		local a = homeAngle + step * (i - (#list + 1) / 2)
@@ -238,6 +242,31 @@ local chests: { Model } = {}
 
 local function buildBeacon(pad: BasePart)
 	local centre = pad.Position
+
+	-- ── The sanctuary line ──────────────────────────────────────────────
+	-- A rule the player cannot see is not a mechanic, it is a surprise. Ghosts
+	-- may not cross this, so it is drawn on the floor: a ring of light you pass
+	-- over, wide enough to notice at speed (D-CHOMP-065).
+	--
+	-- Drawn as segments rather than one thin cylinder, because a 300-stud ring
+	-- two studs wide disappears at any distance and this is a line whose exact
+	-- position matters when something is chasing you.
+	local safeRadius = pad:GetAttribute("Home") == true
+		and L.HomeSafeRadiusStuds or L.GarageSafeRadiusStuds
+	local segments = math.max(24, math.floor(safeRadius / 4))
+	for i = 0, segments - 1 do
+		local a = (math.pi * 2) * (i / segments)
+		local chord = 2 * safeRadius * math.sin(math.pi / segments)
+		local marker = part("SafeLine", Vector3.new(2.5, 0.3, chord + 0.6),
+			CFrame.new(centre + Vector3.new(math.cos(a) * safeRadius, -0.3,
+				math.sin(a) * safeRadius)) * CFrame.Angles(0, -a, 0),
+			P.Shield, Enum.Material.Neon, folder)
+		marker.Transparency = 0.35
+		marker.CanCollide = false
+		marker.CanQuery = false
+		marker.CastShadow = false
+		CollectionService:AddTag(marker, "Chomp_Decor")
+	end
 
 	local beam = part("BankBeam", Vector3.new(1, 260, 1),
 		CFrame.new(centre + Vector3.new(0, 130, 0)), P.Gold, Enum.Material.Neon, folder)

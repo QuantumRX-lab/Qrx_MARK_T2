@@ -442,6 +442,21 @@ ChompConfig.Level1 = {
 	SpokesPerRing = 5,        -- short radial walls so a ring is not a racetrack
 	SegmentStuds = 14,        -- arc resolution; smaller is rounder and costs parts
 	GarageCount = 4,
+	-- Sanctuaries (D-CHOMP-065). Ghosts cannot enter, cannot spawn inside, and
+	-- cannot steal from or hurt anyone standing in one.
+	--
+	-- The HOME garage is large because it has to hold the whole shop row: you
+	-- spawn there, and a wave anchored on you put nine ghosts on top of a
+	-- player who had not moved yet. Shopping needs 1.2 seconds of stillness,
+	-- which is not a thing you can do while being chased.
+	--
+	-- The other three pads are small on purpose. Banking is a moment, so a
+	-- moment is what they protect; a 150-stud bubble on all four would make a
+	-- quarter of the outer ring a place ghosts may not go, and the outer ring
+	-- is where the pellets are. A sanctuary you can hide in is a sanctuary that
+	-- ends the game.
+	HomeSafeRadiusStuds = 150,
+	GarageSafeRadiusStuds = 60,
 	GuardianChamberStuds = 72,
 	GuardianAngleDegrees = 0,
 	-- Ring surfaces, cycled outward from the centre arena (D-CHOMP-063).

@@ -210,6 +210,11 @@ local function build()
 			Enum.Material.Neon, bays)
 		pad.Transparency = 0.45
 		pad.CanCollide = false
+		-- The first pad is HOME: it holds the spawn and the shop row, and it is
+		-- the one that gets the large sanctuary (D-CHOMP-065). Marked here
+		-- rather than recomputed, because two services need to agree on which
+		-- pad it is and an angle comparison would be two chances to disagree.
+		pad:SetAttribute("Home", i == 0)
 		CollectionService:AddTag(pad, "Chomp_Garage")
 		table.insert(garages, pos)
 	end
