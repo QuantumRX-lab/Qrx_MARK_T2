@@ -1493,3 +1493,35 @@ decisions:
       silently invalidated an assumption baked into an older one. Adding a
       dimension to a game means auditing everything that quietly assumed there
       were only two.
+
+  - id: D-CHOMP-061
+    date: 2026-08-25
+    title: The jump is an escape and a firing platform, and ghosts stay on the ground
+    decision: >
+      Ghosts remain planar and cannot reach an airborne kart. The jump is a
+      deliberate escape move with a shooting window: jump, fire down, land,
+      flee. Turret down-pitch is raised from 60 to 80 degrees to make the firing
+      half actually possible. This closes the question left open by D-CHOMP-060.
+    rationale: >
+      Owner decision. The alternative reading was that being untouchable in the
+      air is an exploit, and it is not, for one reason: the jump costs a full
+      charge bar, which is roughly twenty-five pellets. It is a resource you
+      spend, not a state you can hold.
+      It is also self-limiting in a way worth recording, because it was not
+      designed and could easily be broken by accident. Pellets sit at y=4 with a
+      9-stud pickup radius, and the jump apexes near 53, so a player in the air
+      cannot collect and therefore cannot refill the meter that put them there.
+      Moving either number could turn a costed escape into a hover-farm without
+      anyone noticing.
+      The pitch limit was the thing that made the decision real rather than
+      nominal. The arithmetic: apex about 53 studs, ghosts at 8, and a ghost
+      that is chasing you is by definition close - at 10 studs of horizontal
+      separation the barrel needs 77 degrees of down-pitch, and at 25 it needs
+      61. A 60-degree limit meant the turret could not point at the only thing
+      the jump was for. 80 covers everything except straight down, and the jump
+      carries you 40 studs forward, so straight down is not where a pursuer ends
+      up.
+    outcome: >
+      About 1.3 seconds of airtime, roughly a dozen shots at the cannon's rate.
+      Ghost movement is unchanged and stays planar on purpose. The open question
+      in the CHAIN-GHOSTS handoff is closed.

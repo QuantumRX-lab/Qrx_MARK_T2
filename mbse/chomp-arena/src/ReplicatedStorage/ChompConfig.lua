@@ -343,10 +343,14 @@ ChompConfig.Items = {
 			lockAngleDegrees = 180,
 			lockSeconds = 0.45,      -- continuous tracking before it goes green
 			turretTurnDegrees = 220, -- how fast the barrel swings
-			-- How far it can look up or down (D-CHOMP-060). Generous, because
-			-- the jump puts you well above a ghost and a barrel that cannot
-			-- follow makes the jump a disarm.
-			turretPitchDegrees = 60,
+			-- How far it can look up or down (D-CHOMP-061). Derived, not chosen:
+			-- the jump apexes near 53 studs, ghosts hover at 8, and a ghost
+			-- chasing you is CLOSE - at 10 studs of horizontal separation that
+			-- is 77 degrees of down-pitch. At 60 the barrel could not point at
+			-- the one thing the jump was for. 80 covers everything but straight
+			-- down, and the jump carries you 40 studs forward anyway, so
+			-- straight down is not where the target ends up.
+			turretPitchDegrees = 80,
 		},
 		HomingBomb = {
 			charges = 1,

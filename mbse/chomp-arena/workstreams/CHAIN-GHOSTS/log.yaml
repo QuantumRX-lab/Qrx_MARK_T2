@@ -73,3 +73,24 @@ entries:
     on the other. That is a real exploit of the movement model rather than a
     cosmetic flaw, and it wants either pathing or a line-of-sight test on the
     projectile.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: NOTE
+  requirements: [CHOMP-SYS-017]
+  summary: >
+    OPEN QUESTION CLOSED (D-CHOMP-061). Ghosts stay planar and cannot reach an
+    airborne kart, by decision rather than by omission: the jump is an escape
+    move with a shooting window - jump, fire down, land, flee. It costs a full
+    charge bar, about twenty-five pellets, so it is a resource spent rather than
+    a state held. Turret down-pitch raised 60 -> 80 so the firing half is
+    actually possible against a close pursuer.
+  status: OPEN
+  handoff: >
+    TWO NUMBERS NOW LOAD-BEARING that do not look it. Pellets sit at y=4 with a
+    9-stud pickup radius and the jump apexes near 53, so an airborne player
+    cannot collect and cannot refill the meter that put them up there. That
+    self-limit was not designed - it fell out - and raising the pickup radius or
+    lowering the jump would turn a costed escape into a hover-farm with nothing
+    to warn you. If either moves, re-check this.
+    Ghost movement remains deliberately planar. Do not "fix" it by giving ghosts
+    height without revisiting D-CHOMP-061 first.
