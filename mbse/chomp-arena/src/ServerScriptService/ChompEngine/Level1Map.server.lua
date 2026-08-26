@@ -10,10 +10,12 @@
 	a way to fall out of the map. Everything here is at y = 0. The only vertical
 	thing in the arena is a wall.
 
-	Walls alternate between NEON and BRICK, ring by ring. That is navigation, not
+	Each ring has its own SURFACE - brick, slate, cobblestone, concrete, with
+	neon used sparingly as landmarks (D-CHOMP-063). That is navigation, not
 	decoration: at speed a driver needs to know which ring they are on without
-	stopping to count, and "the pink neon one" is a landmark in a way that "the
-	third identical corridor" never is.
+	stopping to count, and "the cobbled one" is a landmark in a way that "the
+	third identical corridor" never is. Texture reads before colour does, and it
+	keeps reading when the neon is behind you.
 
 	Every wall is tagged Chomp_Wall so the camera can fade it (D-CHOMP-043).
 ]]
@@ -86,6 +88,14 @@ local function arc(parent: Instance, name: string, radius: number, from: number,
 	return segments
 end
 
+local function styleAt(index: number)
+	local styles = L.RingStyles
+	if not styles or #styles == 0 then
+		return { material = Enum.Material.Brick, colour = "Brick" }
+	end
+	return styles[((index - 1) % #styles) + 1]
+end
+
 local function build()
 	local maps = Workspace:FindFirstChild("Maps") or Instance.new("Folder")
 	maps.Name = "Maps"
@@ -99,7 +109,7 @@ local function build()
 	-- ── Floor: one disc, and a lighter disc marking the centre arena ─────
 	local floor = part("Floor", Vector3.new(SLAB, L.OuterRadius * 2, L.OuterRadius * 2),
 		CFrame.new(0, 0, 0) * CFrame.Angles(0, 0, math.rad(90)),
-		P.Floor, Enum.Material.SmoothPlastic, map)
+		P.Floor, Enum.Material.Concrete, map)
 	floor.Shape = Enum.PartType.Cylinder
 
 	local centre = part("CentreFloor", Vector3.new(0.6, L.CentreRadius * 2, L.CentreRadius * 2),
@@ -115,7 +125,7 @@ local function build()
 	-- rather than hung off the edge, because anything outside the boundary is a
 	-- way to leave the map (D-CHOMP-046).
 	local outer = arc(map, "BoundaryWall", L.OuterRadius, 0, TAU,
-		SLAB / 2 + WALL_H * 0.9, WALL_H * 1.8, WALL_T * 1.5, P.Boundary, Enum.Material.Brick)
+		SLAB / 2 + WALL_H * 0.9, WALL_H * 1.8, WALL_T * 1.5, P.Boundary, Enum.Material.Cobblestone)
 
 	-- ── Rings ────────────────────────────────────────────────────────────
 	local radii = {}
@@ -129,19 +139,14 @@ local function build()
 	local guardianHalf = math.atan((L.GuardianChamberStuds / 2) / (L.OuterRadius - L.RingSpacing))
 
 	local segments, spokes = 0, 0
-	-- An electrified ring has to LOOK electrified. A wall with a rule attached
-	-- that the player cannot see is not a mechanic, it is a surprise
-	-- (D-CHOMP-059).
-	local electrified: { [number]: boolean } = {}
-	for _, index in (L.ElectrifiedRings or {}) do
-		electrified[index] = true
-	end
 
 	for index, radius in ipairs(radii) do
-		local live = electrified[index] == true
-		local neon = (index % 2 == 1)
-		local colour = live and P.NeonA or (neon and (index % 4 == 1 and P.NeonA or P.NeonB) or P.Brick)
-		local material = (live or neon) and Enum.Material.Neon or Enum.Material.Brick
+		-- Cycle the surfaces so a map with more rings than styles still varies
+		-- rather than running out and going plain.
+		local style = styleAt(index)
+		local colour = P[style.colour] or P.Brick
+		local material = style.material
+		local neon = material == Enum.Material.Neon
 		local gapHalf = math.atan((M.CellSize * 1.6) / radius)
 		-- offset gaps ring to ring so no radial line is a free run to the middle
 		local offset = (TAU / L.GapsPerRing) * (index / #radii)
@@ -153,11 +158,11 @@ local function build()
 			local skip = index == #radii
 				and math.abs((((from + to) / 2) - guardianAngle + math.pi) % TAU - math.pi) < guardianHalf
 			if not skip then
-				local name = live and "ElectricWall" or "RingWall"
-				-- Live rings are taller as well as brighter, so the difference
-				-- reads at a glance and from across the arena.
-				segments += arc(rings, name, radius, from, to, WALL_Y,
-					live and WALL_H * 1.35 or WALL_H, WALL_T, colour, material)
+					-- Masonry is built slightly thicker than neon. A brick wall
+				-- that reads as heavy and a light strip that reads as thin is
+				-- the whole difference between the two kinds of place.
+				segments += arc(rings, "RingWall", radius, from, to, WALL_Y,
+					WALL_H, neon and WALL_T or WALL_T * 1.25, colour, material)
 			end
 		end
 
@@ -168,9 +173,10 @@ local function build()
 			for k = 0, L.SpokesPerRing - 1 do
 				local a = TAU * (k / L.SpokesPerRing) + (index * 0.21)
 				local mid = (radius + nextRadius) / 2
+				local sp = neon and L.SpokeMasonry or L.SpokeNeon
 				local p = part("SpokeWall", Vector3.new(WALL_T, WALL_H, nextRadius - radius),
-					radialAt(mid, a, WALL_Y), neon and P.Brick or P.NeonB,
-					neon and Enum.Material.Brick or Enum.Material.Neon, rings)
+					radialAt(mid, a, WALL_Y), P[sp.colour] or P.Stone,
+					sp.material, rings)
 				CollectionService:AddTag(p, "Chomp_Wall")
 				spokes += 1
 			end
@@ -218,9 +224,9 @@ local function build()
 	spawn.Transparency = 1
 	spawn.Parent = map
 
-	local liveCount = 0
-	for _ in electrified do liveCount += 1 end
-	print(("[Level1Map] %d electrified ring(s) ghosts cannot cross"):format(liveCount))
+	local surfaces = {}
+	for index = 1, #radii do table.insert(surfaces, styleAt(index).material.Name) end
+	print(("[Level1Map] ring surfaces outward: %s"):format(table.concat(surfaces, ", ")))
 	print(("[Level1Map] one level, sealed: r%d disc, %d rings, %d ring segments, " ..
 		"%d spokes, boundary %d segments, %d garages. cell %d wall %d")
 		:format(L.OuterRadius, #radii, segments, spokes, outer, #garages,

@@ -60,36 +60,6 @@ local ghosts: { Ghost } = {}
 local wave = 0
 local waveActive = false
 
--- Radii the ghosts cannot cross (D-CHOMP-059). On a ring map an electrified
--- wall is simply a radius: a ghost may run along it but never through it, which
--- turns the arena from an open field into somewhere with safe pockets. That is
--- the difference between a maze and a big room with decoration in it.
-local function electrifiedRadii(): { number }
-	local out: { number } = {}
-	local radii = {}
-	local r = L.CentreRadius
-	while r <= L.OuterRadius - L.RingSpacing do
-		table.insert(radii, r)
-		r += L.RingSpacing
-	end
-	for _, index in (L.ElectrifiedRings or {}) do
-		if radii[index] then table.insert(out, radii[index]) end
-	end
-	return out
-end
-
-local FENCES = electrifiedRadii()
-
--- True if moving from `from` to `to` would cross a live ring.
-local function blocked(from: Vector3, to: Vector3): boolean
-	local r0 = Vector3.new(from.X, 0, from.Z).Magnitude
-	local r1 = Vector3.new(to.X, 0, to.Z).Magnitude
-	for _, fence in FENCES do
-		if (r0 - fence) * (r1 - fence) < 0 then return true end
-	end
-	return false
-end
-
 local function piece(parent: Instance, name: string, size: Vector3, colour: Color3,
 		material: Enum.Material, shape: Enum.PartType?): BasePart
 	local p = Instance.new("Part")
@@ -284,18 +254,6 @@ RunService.Heartbeat:Connect(function(dt)
 		local flat = Vector3.new(goal.X - here.X, 0, goal.Z - here.Z)
 		local step = flat.Magnitude > 1 and flat.Unit * speed * dt or Vector3.zero
 
-		-- An electrified ring cannot be crossed. Rather than stopping dead,
-		-- strip the RADIAL part of the move and keep the tangential part, so a
-		-- blocked ghost slides along the fence looking for a way round instead
-		-- of standing still looking broken.
-		if step.Magnitude > 0 and blocked(here, here + step) then
-			local outward = Vector3.new(here.X, 0, here.Z)
-			if outward.Magnitude > 0.001 then
-				outward = outward.Unit
-				step = step - outward * step:Dot(outward)
-			end
-		end
-
 		-- Close in, the bobbing stops. A ghost that steadies as it arrives reads
 		-- as deliberate, and deliberate is what makes it frightening.
 		local closing = target and distance < 60
@@ -419,6 +377,6 @@ Players.PlayerAdded:Connect(function(player)
 end)
 
 startWave(1)
-print(("[GhostService] waves live: %d electrified ring(s), %d%% stolen per catch, base speed %d vs kart %.1f")
-	:format(#FENCES, math.floor(G.StealFraction * 100), G.Speed,
+print(("[GhostService] waves live: %d%% stolen per catch, base speed %d vs kart %.1f")
+	:format(math.floor(G.StealFraction * 100), G.Speed,
 		Config.Chassis[Config.StartingChassis].BaseSpeed))

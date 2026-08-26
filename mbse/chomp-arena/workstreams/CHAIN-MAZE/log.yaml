@@ -173,3 +173,24 @@ entries:
     name. It should not be left contradicting the code silently.
     Ring reachability is still unchecked. Offset gaps make sealing unlikely but
     unlikely is not checked, and a flood fill over the ring graph is cheap.
+- date: '2026-08-26'
+  agent: Claude (local session)
+  action: DECIDED
+  requirements: [CHOMP-SYS-046]
+  summary: >
+    Electrified rings removed at owner direction (D-CHOMP-063). Every ring now
+    carries its own surface cycled outward - neon, brick, slate, neon,
+    cobblestone, brick, concrete - with masonry 25% thicker than neon, a
+    concrete floor and a cobblestone boundary. Ghosts cross any ring freely;
+    electrifiedRadii/FENCES/blocked deleted from GhostService rather than
+    disabled.
+  status: OPEN
+  handoff: >
+    RingStyles cycles, so a bigger map varies rather than going plain. Colours
+    are named as Palette KEYS because Palette is defined after Level1 in
+    ChompConfig - resolve with P[style.colour].
+    The safe pockets are gone with the fences. That was the point of removing
+    them, but it means nothing now stops a ghost following a player anywhere,
+    and ghosts still have no pathing (they steer straight at you and slide on
+    walls). If the chase reads as unfair rather than tense, the lever is wave
+    size and speed, not a new invisible rule on a wall.

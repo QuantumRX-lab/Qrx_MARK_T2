@@ -400,14 +400,34 @@ ChompConfig.Level1 = {
 	GarageCount = 4,
 	GuardianChamberStuds = 72,
 	GuardianAngleDegrees = 0,
-	-- Alternating materials so the rings read as different places at speed
-	-- rather than as one repeating corridor.
-	NeonRings = true,
-	-- Rings the ghosts CANNOT cross (D-CHOMP-059). Indices count outward from
-	-- the centre arena. Electrified walls turn the map from an open field into
-	-- somewhere with safe pockets, which is what makes a maze a maze rather
-	-- than a big room with decoration in it.
-	ElectrifiedRings = { 2, 4, 6 },
+	-- Ring surfaces, cycled outward from the centre arena (D-CHOMP-063).
+	--
+	-- Every ring is a different SURFACE, not a different colour of the same
+	-- surface. At speed a driver reads texture before they read hue - brick
+	-- catches the light in rows, cobblestone scatters it, neon does not catch
+	-- it at all - so "the cobbled ring" is a place in a way that "the second
+	-- teal ring" never was.
+	--
+	-- Neon is deliberately the minority. It was landmarks before and it is
+	-- landmarks now, but a corridor of neon on neon has nothing to read
+	-- against; the masonry is what makes the neon glow.
+	--
+	-- `colour` names a Palette key rather than holding a Color3, because
+	-- Palette is defined further down this file.
+	RingStyles = {
+		{ material = Enum.Material.Neon,        colour = "NeonA"     },
+		{ material = Enum.Material.Brick,       colour = "BrickWarm" },
+		{ material = Enum.Material.Slate,       colour = "Slate"     },
+		{ material = Enum.Material.Neon,        colour = "NeonB"     },
+		{ material = Enum.Material.Cobblestone, colour = "Stone"     },
+		{ material = Enum.Material.Brick,       colour = "Rust"      },
+		{ material = Enum.Material.Concrete,    colour = "BrickDark" },
+	},
+	-- Spokes take the opposite treatment to the ring they hang off, so a
+	-- junction always shows two surfaces meeting and never dissolves into one
+	-- continuous wall.
+	SpokeNeon   = { material = Enum.Material.Neon,  colour = "NeonB" },
+	SpokeMasonry = { material = Enum.Material.Brick, colour = "Stone" },
 }
 
 
@@ -422,6 +442,13 @@ ChompConfig.Palette = {
 	NeonB       = Color3.fromRGB(255, 61, 138),
 	Brick       = Color3.fromRGB(58, 44, 74),
 	BrickDark   = Color3.fromRGB(41, 31, 54),
+	-- Masonry (D-CHOMP-063). Kept dark and desaturated on purpose: these are
+	-- what the neon is seen against, and a bright wall next to a lit one is
+	-- two things competing rather than one lighting the other.
+	BrickWarm   = Color3.fromRGB(94, 52, 58),
+	Stone       = Color3.fromRGB(72, 68, 86),
+	Slate       = Color3.fromRGB(52, 52, 68),
+	Rust        = Color3.fromRGB(112, 62, 42),
 	Boundary    = Color3.fromRGB(88, 62, 110),
 	Gold        = Color3.fromRGB(255, 176, 32),
 	Danger      = Color3.fromRGB(255, 61, 61),

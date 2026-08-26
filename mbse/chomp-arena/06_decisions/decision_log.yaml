@@ -1566,3 +1566,50 @@ decisions:
       than outlined, since a solid block reads faster than a border on a small
       screen. Spawns are clamped inside the boundary, because a ghost outside
       the wall cannot reach anyone and merely looks broken.
+
+  - id: D-CHOMP-063
+    date: 2026-08-26
+    title: Electrified rings removed; the maze is masonry again
+    decision: >
+      The electrified rings are gone entirely — from the map, from the config,
+      and from ghost movement. Every ring now carries its own SURFACE, cycled
+      outward from the centre: neon, brick, slate, neon, cobblestone, brick,
+      concrete. Masonry rings are built 25% thicker than neon ones. The floor
+      is concrete rather than smooth plastic and the boundary is cobblestone.
+      Ghosts cross any ring freely. Supersedes the electrified half of
+      D-CHOMP-059; the waves, the 360 lock, the charge button and the
+      friendly-fire switch from that decision all stand.
+    rationale: >
+      Owner direction: get rid of the electric walls, put the brickwork and
+      other texture back for atmosphere.
+      D-CHOMP-059 argued the fences were what made this a maze rather than a
+      big room with decoration in it. That argument was about LAYOUT, and it
+      was answered by the wrong thing. The rings, gaps and spokes are the
+      layout; the fences were a rule bolted onto three of them that a player
+      could only learn by watching a ghost decline to follow. What they
+      actually did was make three corridors safe, and safe corridors are where
+      a chase stops.
+      Removing them costs the safe pockets and returns the pressure, which is
+      the direction everything else tonight has gone — nine ghosts in wave one,
+      spawning around the player, a belt of five to spend. Escape is now the
+      jump, the weapons and the driving, all of which the player controls.
+      On the texture: neon on neon has nothing to read against. Alternating
+      lit and unlit was the right instinct and too coarse an execution, because
+      every unlit ring was the same brick in the same colour. Seven surfaces
+      cycling means texture, not hue, is the thing that tells you where you
+      are — and texture keeps reading when the neon is behind you, at the exact
+      moment a driver most needs to know which ring they are on.
+    outcome: >
+      RingStyles lives in ChompConfig and names a Palette KEY rather than
+      holding a Color3, because Palette is defined further down that file. The
+      list cycles, so adding rings to a bigger map varies them rather than
+      running out and going plain. Four masonry colours were added, all dark
+      and desaturated on purpose: they are what the neon is seen against, and a
+      bright wall beside a lit one is two things competing rather than one
+      lighting the other.
+      Spokes take the opposite treatment to the ring they hang off, so a
+      junction always shows two surfaces meeting instead of dissolving into one
+      continuous wall.
+      GhostService lost electrifiedRadii(), FENCES and blocked() outright
+      rather than keeping them behind an empty list. A disabled mechanic left
+      in the source is a thing the next reader has to work out the status of.
