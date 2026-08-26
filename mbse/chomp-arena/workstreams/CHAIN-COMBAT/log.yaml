@@ -168,3 +168,25 @@ entries:
     movement is still entirely planar and ghosts hover at a fixed y of 8, so a
     player who jumps is currently unreachable by them. That is arguably fine as
     an escape move and arguably an exploit, and nobody has decided which.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-058, CHOMP-SYS-059]
+  summary: >
+    Five-slot belt replaces the single slot (D-CHOMP-062). Items are spent in
+    the order collected, the active slot is tappable in the HUD, and a full belt
+    refuses a pickup with the pad left standing. CHOMP-SYS-058 was amended in
+    the same change, since it stated a player carries exactly one.
+    New SelectItem remote carrying a slot index - the first remote to carry any
+    value. Justified in service_contracts.md as a selection rather than a
+    quantity, validated against the server's belt, with four attacks added to
+    CHOMP-TC-042.
+  status: OPEN
+  handoff: >
+    Unplayed. The thing most likely to be wrong is the ORDER rule against a full
+    belt: items are spent left to right, so a player who fills up on cannons
+    early cannot reach a shield they picked up last without tapping for it. That
+    may be exactly the tension wanted, or it may be frustrating for a child who
+    has not noticed the selector. CHOMP-TC-047 now covers it.
+    Charges are per slot, so five cannons is fifty shots. Nobody has checked
+    whether that trivialises a wave.

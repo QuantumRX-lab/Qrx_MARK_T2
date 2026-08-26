@@ -267,8 +267,15 @@ ChompConfig.Charge = {
 -- immediately make you nervous. Count and speed rise; the reward rises with
 -- them so the risk stays worth taking.
 ChompConfig.Waves = {
-	StartCount = 4,
-	AddPerWave = 2,
+	-- Wave one has to bite (D-CHOMP-062). Four ghosts scattered around a
+	-- 800-stud disc is an empty map with some distant shapes in it; the first
+	-- thirty seconds decide whether anyone plays the second wave.
+	StartCount = 9,
+	AddPerWave = 3,
+	-- Ghosts arrive AROUND the player rather than parked on rings, so a wave
+	-- starts as an event instead of a rumour.
+	SpawnNearPlayerStuds = 150,
+	SpawnMinDistanceStuds = 55,
 	MaxCount = 22,
 	SpeedPerWave = 0.7,        -- studs/s added each wave
 	RewardPerWave = 60,        -- extra banked dollars per kill, per wave
@@ -301,7 +308,11 @@ ChompConfig.Store = {
 -- decision is always "is this better than what I have", never inventory
 -- management. Charges are spent per use and the slot empties at zero.
 ChompConfig.Items = {
-	SlotCount = 1,
+	-- Five slots, used in order (D-CHOMP-062). One slot made every pickup a
+	-- judgement, which was right when there was nothing to survive; waves
+	-- changed that. Now the judgement is what to spend and when, and a full
+	-- belt is something you earned by driving well.
+	SlotCount = 5,
 	RespawnSeconds = 20,        -- a collected pad comes back, so the map stays stocked
 	PickupRadiusStuds = 10,
 	UseRateLimit = 14,          -- per second, enforced server side. High because

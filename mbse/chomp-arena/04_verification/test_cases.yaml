@@ -752,7 +752,9 @@ test_cases:
                 "UseItem after charges are exhausted",
                 "UseCharge with an empty meter", "UseCharge flooded past its rate limit",
                 "UseCharge while dead", "ToggleFriendlyFire flooded",
-                "ToggleFriendlyFire with forged arguments"]
+                "ToggleFriendlyFire with forged arguments",
+                "SelectItem with an out-of-range slot", "SelectItem with a non-number slot",
+                "SelectItem with NaN", "SelectItem for a slot the belt does not hold"]
     procedure:
       - "Run every recorded attack against a live server as an automated suite"
       - "Assert the server-side economy, Power and combat state are unchanged by every one of them"
@@ -870,7 +872,8 @@ test_cases:
     preconditions: ["A running Level 1 with item pads laid out", "Two players, one scripted"]
     test_data: {items: ["JetPack", "Cannon", "HomingBomb", "Shield"], respawn_seconds: 20}
     procedure:
-      - "Collect an item, then collect a second without using the first"
+      - "Collect items until the belt is full, then drive over one more"
+      - "Select a later slot, fire, and confirm the earlier ones are untouched"
       - "Fire the Cannon three times and once more"
       - "Fire the HomingBomb past a moving second player and measure closing angle"
       - "Take a hit with the Shield active, then take a second hit"
@@ -878,7 +881,8 @@ test_cases:
       - "Send UseItem from a hostile client with no item, with arguments, and flooded"
     expected_result: The slot always holds exactly one item, charges deplete and empty the slot, the bomb steers but is outrun, the shield absorbs exactly one hit, pads return, and every hostile UseItem leaves server state unchanged.
     pass_criteria:
-      - "second pickup replaces the first with no prompt"
+      - "a full belt refuses the extra pickup and the pad remains collectable"
+      - "spending empties the active slot and promotes the next in order"
       - "fourth cannon press does nothing and the slot is empty"
       - "homing turn rate does not exceed the configured degrees per second"
       - "shield absorbs one hit and no more"

@@ -163,6 +163,7 @@ never be unable to steer because the network surface is not ready.
 | `UseItem` | `()` | 4/s | Over the rate limit; no item carried; charges exhausted; player dead or respawning; ANY argument present |
 | `UseCharge` | `()` | 3/s | Over the rate limit; charge below JumpCost; player dead or respawning; ANY argument present |
 | `ToggleFriendlyFire` | `()` | 2/s | Over the rate limit; ANY argument present |
+| `SelectItem` | `(slot: number)` | 6/s | Not a number; NaN; below 1; beyond the belt the SERVER holds |
 
 `SetInputDirection`'s `X` is steering intent in [-1, 1] and `Y` is 1 on the
 frame a flip is requested. Neither is a quantity the server trusts for anything
@@ -180,6 +181,13 @@ which way the vehicle points, the last of which it reads from the character
 transform it wrote itself. A client that appends arguments is rejected rather
 than ignored, because a message that grew a field is a client that was modified
 (`D-CHOMP-045`, `CHOMP-SYS-059`).
+
+`SelectItem` is the one remote that carries a value, and it is worth being
+explicit about why that does not breach the rule above. A slot index is a
+SELECTION, not a quantity: it asserts nothing about price, damage, charge or
+position, and the server still owns what is in that slot. A forged index selects
+nothing, because it is validated against the belt the server holds rather than
+against anything the client claims (`D-CHOMP-062`).
 
 `UseCharge` and `ToggleFriendlyFire` follow the same rule and carry nothing
 either. The first means "spend my charge if I have it" and the second means

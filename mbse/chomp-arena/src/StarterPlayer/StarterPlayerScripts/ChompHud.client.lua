@@ -87,8 +87,68 @@ local carriedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 
 label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 48),
 	"CARRYING — AT RISK", P.NeonB, 12, Enum.TextXAlignment.Right)
 
-local itemLabel = label(stack, UDim2.new(1, -24, 0, 20), UDim2.new(0, 14, 0, 70),
-	"no item", P.Ghost, 15, Enum.TextXAlignment.Right)
+-- ── The belt: five slots, spent left to right ───────────────────────────
+-- Order is the whole point (D-CHOMP-062), so the slots are laid out in the
+-- order they will be used and the active one is unmistakable. A child should be
+-- able to answer "what happens when I press fire" by looking, not remembering.
+local SLOTS = ITEMS.SlotCount
+local beltStrip = Instance.new("Frame")
+beltStrip.Name = "Belt"
+beltStrip.AnchorPoint = Vector2.new(1, 1)
+beltStrip.Position = UDim2.new(1, -16, 1, -212)
+beltStrip.Size = UDim2.new(0, 236, 0, 56)
+beltStrip.BackgroundTransparency = 1
+beltStrip.Parent = gui
+
+local slotButtons: { TextButton } = {}
+local slotCharges: { TextLabel } = {}
+for i = 1, SLOTS do
+	local b = Instance.new("TextButton")
+	b.Name = "Slot" .. tostring(i)
+	b.Size = UDim2.new(0, 42, 0, 52)
+	b.Position = UDim2.new(0, (i - 1) * 47, 0, 0)
+	b.BackgroundColor3 = P.Floor
+	b.BackgroundTransparency = 0.3
+	b.BorderSizePixel = 0
+	b.Text = ""
+	b.AutoButtonColor = false
+	b.Parent = beltStrip
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, 10)
+	c.Parent = b
+
+	local name = Instance.new("TextLabel")
+	name.Name = "Label"
+	name.BackgroundTransparency = 1
+	name.Size = UDim2.new(1, -4, 0, 30)
+	name.Position = UDim2.new(0, 2, 0, 4)
+	name.Text = ""
+	name.TextScaled = true
+	name.Font = Enum.Font.GothamBlack
+	name.TextColor3 = P.Ghost
+	name.Parent = b
+
+	local charge = Instance.new("TextLabel")
+	charge.BackgroundTransparency = 1
+	charge.Size = UDim2.new(1, -4, 0, 16)
+	charge.Position = UDim2.new(0, 2, 1, -18)
+	charge.Text = ""
+	charge.TextSize = 13
+	charge.Font = Enum.Font.GothamBold
+	charge.TextColor3 = P.Gold
+	charge.Parent = b
+
+	b.Activated:Connect(function()
+		-- A slot index is a selection, not a value. The server owns what is in
+		-- the slot and rejects an index it does not hold.
+		if Remotes and Remotes.SelectItem then
+			Remotes.SelectItem:FireServer(i)
+		end
+	end)
+
+	table.insert(slotButtons, b)
+	table.insert(slotCharges, charge)
+end
 
 local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 112),
 	"$0", P.Gold, 34, Enum.TextXAlignment.Right)
@@ -243,16 +303,41 @@ RunService.RenderStepped:Connect(function(dt)
 	carriedValue.Text = tostring(carried)
 	bankedValue.Text = "$" .. tostring(banked)
 
-	local itemId = character:GetAttribute("ChompItem")
-	local charges = attribute("ChompItemCharges")
-	if typeof(itemId) == "string" and itemId ~= "" then
-		local def = ITEMS.Definitions[itemId]
-		local name = def and def.label or string.upper(itemId)
-		itemLabel.Text = charges > 1 and (name .. "  x" .. tostring(charges)) or name
-		itemLabel.TextColor3 = P.NeonA
-	else
-		itemLabel.Text = "no item"
-		itemLabel.TextColor3 = P.Brick
+	-- The belt arrives as one string, "Cannon:10,Shield:1", because an attribute
+	-- cannot hold a list.
+	local beltRaw = character:GetAttribute("ChompBelt")
+	local activeSlot = attribute("ChompActiveSlot")
+	local entries: { { id: string, charges: number } } = {}
+	if typeof(beltRaw) == "string" and beltRaw ~= "" then
+		for chunk in string.gmatch(beltRaw, "[^,]+") do
+			local id, count = string.match(chunk, "^(.-):(%d+)$")
+			if id then
+				table.insert(entries, { id = id, charges = tonumber(count) or 0 })
+			end
+		end
+	end
+
+	for i = 1, SLOTS do
+		local button = slotButtons[i]
+		local entry = entries[i]
+		local isActive = (i == activeSlot) and entry ~= nil
+
+		if entry then
+			local def = ITEMS.Definitions[entry.id]
+			button.Label.Text = string.sub(def and def.label or string.upper(entry.id), 1, 4)
+			button.Label.TextColor3 = isActive and P.Floor or P.Ghost
+			slotCharges[i].Text = entry.charges > 1 and tostring(entry.charges) or ""
+			slotCharges[i].TextColor3 = isActive and P.Floor or P.Gold
+			-- The active slot is filled rather than outlined: a child reads a
+			-- solid block faster than a border, and it survives a small screen.
+			button.BackgroundColor3 = isActive and P.NeonA or P.Floor
+			button.BackgroundTransparency = isActive and 0.05 or 0.3
+		else
+			button.Label.Text = ""
+			slotCharges[i].Text = ""
+			button.BackgroundColor3 = P.Floor
+			button.BackgroundTransparency = 0.55
+		end
 	end
 
 	-- ONE objective, chosen by what is most urgent rather than listed.

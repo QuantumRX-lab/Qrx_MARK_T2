@@ -94,3 +94,21 @@ entries:
     to warn you. If either moves, re-check this.
     Ghost movement remains deliberately planar. Do not "fix" it by giving ghosts
     height without revisiting D-CHOMP-061 first.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-017]
+  summary: >
+    Wave one raised from 4 ghosts to 9, growth from 2 to 3 per wave, and every
+    wave now spawns in a ring AROUND a random player at 55 to 150 studs rather
+    than parking ghosts on distant rings (D-CHOMP-062). Spawns are clamped
+    inside the boundary wall.
+  status: OPEN
+  handoff: >
+    Unplayed, and this is the change most likely to be too much rather than too
+    little: nine ghosts converging from 55 studs on a player who has just
+    spawned with an empty belt could be a slaughter. If it is, the first lever
+    is SpawnMinDistanceStuds rather than the count - arriving further away buys
+    reaction time without making the wave feel thin.
+    With more than one player the anchor is a RANDOM player, so a second player
+    across the arena sees nothing arrive. That is fine for now and wrong later.

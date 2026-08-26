@@ -183,12 +183,42 @@ local function startWave(n: number)
 	clearGhosts()
 
 	local wanted = math.min(W.MaxCount, W.StartCount + W.AddPerWave * (n - 1))
+
+	-- Arrive AROUND somebody (D-CHOMP-062). Ghosts parked on distant rings made
+	-- a wave a rumour: you were told it started and then drove for ten seconds
+	-- looking for it. A ring of them appearing at the edge of your vision is an
+	-- event. SpawnMinDistanceStuds keeps them off your bonnet, because arriving
+	-- ON someone is a cheap hit rather than a threat.
+	local anchorPoint = Vector3.new(0, 8, 0)
+	local players = Players:GetPlayers()
+	if #players > 0 then
+		local who = players[math.random(1, #players)]
+		local root = who.Character and who.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then anchorPoint = Vector3.new(root.Position.X, 8, root.Position.Z) end
+	end
+
 	for index = 0, wanted - 1 do
 		local g = buildGhost()
 		g.model.Name = "Ghost_" .. tostring(index + 1)
-		g.radius = L.CentreRadius + L.RingSpacing * (1 + (index % 5))
-		g.angle = (math.pi * 2) * (index / wanted)
-		g.model:PivotTo(CFrame.new(math.cos(g.angle) * g.radius, 8, math.sin(g.angle) * g.radius))
+
+		local a = (math.pi * 2) * (index / wanted) + math.random() * 0.4
+		local spread = W.SpawnMinDistanceStuds
+			+ math.random() * math.max(1, W.SpawnNearPlayerStuds - W.SpawnMinDistanceStuds)
+		local x = anchorPoint.X + math.cos(a) * spread
+		local z = anchorPoint.Z + math.sin(a) * spread
+
+		-- Keep them inside the arena; a ghost outside the boundary wall cannot
+		-- reach anyone and just looks broken.
+		local limit = L.OuterRadius - L.RingSpacing
+		local here = Vector3.new(x, 0, z)
+		if here.Magnitude > limit then
+			here = here.Unit * limit
+			x, z = here.X, here.Z
+		end
+
+		g.radius = Vector3.new(x, 0, z).Magnitude
+		g.angle = math.atan2(z, x)
+		g.model:PivotTo(CFrame.new(x, 8, z))
 		table.insert(ghosts, g)
 	end
 

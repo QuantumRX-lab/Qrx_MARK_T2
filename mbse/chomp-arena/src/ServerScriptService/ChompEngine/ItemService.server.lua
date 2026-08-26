@@ -126,7 +126,13 @@ local function buildItemModel(id: string): Model
 end
 
 type Held = { id: string, charges: number }
-local held: { [Player]: Held } = {}
+
+-- A BELT of up to SlotCount items, spent in order (D-CHOMP-062). The active
+-- slot is what fires; when it empties it is removed and the next one slides
+-- into place, so a player who never touches the selector still works their way
+-- through what they picked up.
+local belt: { [Player]: { Held } } = {}
+local active: { [Player]: number } = {}
 local shieldUntil: { [Player]: number } = {}
 
 local limiter = Remotes.makeLimiter(ITEMS.UseRateLimit)
@@ -222,71 +228,88 @@ end
 
 -- ── Carrying ────────────────────────────────────────────────────────────
 
+local function beltOf(player: Player): { Held }
+	local b = belt[player]
+	if not b then
+		b = {}
+		belt[player] = b
+	end
+	return b
+end
+
+local function activeItem(player: Player): Held?
+	local b = beltOf(player)
+	local i = active[player] or 1
+	return b[i]
+end
+
 local function publish(player: Player)
 	-- Attributes rather than a remote: the HUD reads them, and a value the
 	-- client only ever READS cannot be forged into the server (CHOMP-SYS-030).
+	--
+	-- The belt goes over as one string - "Cannon:10,Shield:1" - because an
+	-- attribute cannot hold a list and inventing a folder of values for a HUD
+	-- to read would be a lot of instances for a comma.
 	local character = player.Character
 	if not character then return end
-	local h = held[player]
-	character:SetAttribute("ChompItem", h and h.id or "")
-	character:SetAttribute("ChompItemCharges", h and h.charges or 0)
-end
-
--- What you are holding should be visible ON the kart, not only in the HUD
--- (D-CHOMP-051). A cannon that appears bolted to the roof tells everyone in the
--- arena what you can do to them, which is most of what makes carrying one feel
--- like something.
-local function unmount(character: Model)
-	local vehicle = character:FindFirstChild("Vehicle")
-	local existing = vehicle and vehicle:FindFirstChild("MountedItem")
-	if existing then existing:Destroy() end
-end
-
-local function mount(character: Model, id: string)
-	if not (Config.Vehicle and Config.Vehicle.MountHeldItem) then return end
-	unmount(character)
-	local vehicle = character:FindFirstChild("Vehicle")
-	-- The bomb rides at the back where you can see you are carrying it; guns and
-	-- packs go on the roof (D-CHOMP-056).
-	local pointName = (id == "HomingBomb") and "RearMount" or "ItemMount"
-	local point = vehicle and vehicle:FindFirstChild(pointName) :: BasePart?
-	if not (vehicle and point) then return end
-
-	local model = buildItemModel(id)
-	model.Name = "MountedItem"
-	-- Smaller than the pickup, and facing forward: a mounted gun points where
-	-- the kart points, which is also where it fires.
-	-- Bigger than it was. A mounted gun that nobody can see is not a mounted gun.
-	local scale = (id == "HomingBomb") and 1.25 or 1.15
-	for _, d in model:GetDescendants() do
-		if d:IsA("BasePart") then
-			d.Size = d.Size * scale
-			d.Massless = true
-			d.Anchored = false
-		end
+	local b = beltOf(player)
+	local parts = {}
+	for _, entry in b do
+		table.insert(parts, entry.id .. ":" .. tostring(entry.charges))
 	end
-	model:PivotTo(point.CFrame)
-	for _, d in model:GetDescendants() do
-		if d:IsA("BasePart") then
-			local weld = Instance.new("WeldConstraint")
-			weld.Part0 = point
-			weld.Part1 = d
-			weld.Parent = d
-		end
-	end
-	model.Parent = vehicle
+	character:SetAttribute("ChompBelt", table.concat(parts, ","))
+	character:SetAttribute("ChompActiveSlot", math.clamp(active[player] or 1, 1, math.max(1, #b)))
+
+	-- Kept for anything still reading the single-slot attributes.
+	local current = activeItem(player)
+	character:SetAttribute("ChompItem", current and current.id or "")
+	character:SetAttribute("ChompItemCharges", current and current.charges or 0)
 end
 
-local function give(player: Player, id: string)
+-- Returns false when the belt is full, so the pad stays where it is and can be
+-- come back for. Silently eating a pickup you cannot carry is worse than
+-- refusing it.
+local function give(player: Player, id: string): boolean
 	local def = DEFS[id]
-	if not def then return end
-	held[player] = { id = id, charges = def.charges }
+	if not def then return false end
+	local b = beltOf(player)
+	if #b >= ITEMS.SlotCount then return false end
+
+	table.insert(b, { id = id, charges = def.charges })
+	if #b == 1 then active[player] = 1 end
 	publish(player)
-	if player.Character then mount(player.Character, id) end
+	if player.Character then mount(player.Character, (activeItem(player) :: Held).id) end
+	return true
 end
 
-local function clear(player: Player)
-	held[player] = nil
+-- Spend the active slot. When it empties it leaves the belt and whatever was
+-- behind it becomes active, which is what "used in order" means in practice.
+local function consumeActive(player: Player)
+	local b = beltOf(player)
+	local i = math.clamp(active[player] or 1, 1, math.max(1, #b))
+	local entry = b[i]
+	if not entry then return end
+
+	entry.charges -= 1
+	if entry.charges <= 0 then
+		table.remove(b, i)
+		if i > #b then active[player] = math.max(1, #b) end
+	end
+	publish(player)
+
+	local current = activeItem(player)
+	if player.Character then
+		if current then
+			mount(player.Character, current.id)
+		else
+			unmount(player.Character)
+		end
+	end
+end
+
+local function clearBelt(player: Player)
+	belt[player] = {}
+	active[player] = 1
 	publish(player)
 	if player.Character then unmount(player.Character) end
 end
@@ -357,7 +380,7 @@ local function targetPosition(thing: Instance): Vector3
 end
 
 local function updateLock(player: Player, dt: number)
-	local h = held[player]
+	local h = activeItem(player)
 	local root = rootOf(player)
 	local character = player.Character
 	if not (character and root and h and h.id == "Cannon") then
@@ -534,8 +557,20 @@ local function dropBomb(player: Player)
 		if deployed[player] == bomb then
 			deployed[player] = nil
 			if bomb.Parent then bomb:Destroy() end
-			local h = held[player]
-			if h and h.id == "HomingBomb" then clear(player) end
+			-- The charge is spent even though it never went off. You placed it;
+			-- forgetting about it is a decision too.
+			local b = beltOf(player)
+			for i, entry in b do
+				if entry.id == "HomingBomb" then
+					entry.charges -= 1
+					if entry.charges <= 0 then
+						table.remove(b, i)
+						if (active[player] or 1) > #b then active[player] = math.max(1, #b) end
+					end
+					break
+				end
+			end
+			publish(player)
 		end
 	end)
 end
@@ -652,16 +687,26 @@ local function useHeld(player: Player)
 	if live and live.Parent then
 		if os.clock() >= ((live:GetAttribute("ArmedAt") :: number?) or 0) then
 			detonate(player, live)
-			local bomb = held[player]
-			if bomb and bomb.id == "HomingBomb" then
-				bomb.charges -= 1
-				if bomb.charges <= 0 then clear(player) else publish(player) end
+			-- Spending the bomb comes off whichever slot holds it, not
+			-- necessarily the active one: you may have picked up a cannon since
+			-- placing it (D-CHOMP-059).
+			local b = beltOf(player)
+			for i, entry in b do
+				if entry.id == "HomingBomb" then
+					entry.charges -= 1
+					if entry.charges <= 0 then
+						table.remove(b, i)
+						if (active[player] or 1) > #b then active[player] = math.max(1, #b) end
+					end
+					break
+				end
 			end
+			publish(player)
 			return
 		end
 	end
 
-	local h = held[player]
+	local h = activeItem(player)
 	if not h then return end                      -- firing with nothing is a no-op
 	local root = rootOf(player)
 	if not root then return end
@@ -669,7 +714,7 @@ local function useHeld(player: Player)
 	if not humanoid or humanoid.Health <= 0 then return end
 
 	local def = DEFS[h.id]
-	if not def then clear(player) return end
+	if not def then clearBelt(player) return end
 
 	if h.id == "HomingBomb" then
 		-- Two taps: drop, then detonate. The first costs nothing until the
@@ -702,12 +747,7 @@ local function useHeld(player: Player)
 		fireCannon(player)
 	end
 
-	h.charges -= 1
-	if h.charges <= 0 then
-		clear(player)
-	else
-		publish(player)
-	end
+	consumeActive(player)
 end
 
 -- ── Collection ──────────────────────────────────────────────────────────
@@ -723,8 +763,7 @@ local function collectionLoop()
 						local pivot = model:GetPivot()
 						if (pivot.Position - root.Position).Magnitude < ITEMS.PickupRadiusStuds then
 							local id = model:GetAttribute("ItemId")
-							if typeof(id) == "string" then
-								give(player, id)
+							if typeof(id) == "string" and give(player, id) then
 								-- hidden and restored rather than destroyed and
 								-- rebuilt, so the map restocks without anything
 								-- having to remember where a pad was
@@ -743,13 +782,14 @@ end
 
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function()
-		clear(player)
+		clearBelt(player)
 		shieldUntil[player] = 0
 	end)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
-	held[player] = nil
+	belt[player] = nil
+	active[player] = nil
 	shieldUntil[player] = nil
 end)
 
@@ -758,6 +798,24 @@ Remotes.ToggleFriendlyFire.OnServerEvent:Connect(function(player: Player)
 	local character = player.Character
 	if character then
 		character:SetAttribute("ChompFriendlyFire", friendlyFire[player])
+	end
+end)
+
+Remotes.SelectItem.OnServerEvent:Connect(function(player: Player, slot: any)
+	-- A slot index is a SELECTION, not a quantity: it asserts nothing about
+	-- value, and the server still owns what is in that slot. It is validated
+	-- against the belt the SERVER holds, so a forged index selects nothing
+	-- (D-CHOMP-062).
+	if typeof(slot) ~= "number" or slot ~= slot then return end
+	local b = beltOf(player)
+	local i = math.floor(slot)
+	if i < 1 or i > #b then return end
+
+	active[player] = i
+	publish(player)
+	if player.Character then
+		local current = activeItem(player)
+		if current then mount(player.Character, current.id) end
 	end
 end)
 

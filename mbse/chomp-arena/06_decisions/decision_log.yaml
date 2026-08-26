@@ -1525,3 +1525,44 @@ decisions:
       About 1.3 seconds of airtime, roughly a dozen shots at the cannon's rate.
       Ghost movement is unchanged and stays planar on purpose. The open question
       in the CHAIN-GHOSTS handoff is closed.
+
+  - id: D-CHOMP-062
+    date: 2026-08-25
+    title: A belt of five, spent in order, and a first wave that arrives around you
+    decision: >
+      A player carries up to five items, spent in the order collected, with the
+      active slot selectable by tapping it in the HUD. A full belt refuses a
+      pickup and leaves the pad standing. Wave one is nine ghosts rather than
+      four, and every wave spawns AROUND a player rather than on distant rings.
+      Turret pitch is unchanged; SelectItem is a new remote carrying a slot
+      index. Supersedes the single slot of D-CHOMP-045.
+    rationale: >
+      Owner direction, and both halves answer the same complaint: the game was
+      not exciting enough early.
+      On the belt: one slot was right when there was nothing to survive. It made
+      every pickup a single judgement and kept a child out of an inventory
+      screen. Waves changed the question from "is this better than what I hold"
+      to "have I enough to last", and a one-slot answer to that is a player who
+      spends their cannon and then drives around unarmed. Five is small enough
+      to read at a glance and to spend without managing.
+      What did not change is the ban on prompts. Collecting is still automatic,
+      spending is still in order, and selecting is one tap on something already
+      on screen. A full belt refuses rather than silently eating the pickup,
+      because an item you could not carry should still be there when you return.
+      On the wave: four ghosts scattered across an 800-stud disc is an empty map
+      with distant shapes in it. Being told a wave started and then driving for
+      ten seconds looking for it makes the wave a rumour. Spawning them in a
+      ring around a player at 55 to 150 studs makes it an event — close enough
+      to see arrive, far enough that arriving is not itself a hit.
+      SelectItem carries a slot index, which is the first remote to carry
+      anything. That is defensible and the reasoning is written into
+      service_contracts.md rather than left implicit: an index is a selection,
+      not a quantity. It asserts nothing about value and is validated against
+      the belt the server holds, so a forged one selects nothing.
+    outcome: >
+      The belt travels to the HUD as one string, "Cannon:10,Shield:1", because
+      an attribute cannot hold a list and a folder of values for a HUD to read
+      would be a lot of instances for a comma. The active slot is filled rather
+      than outlined, since a solid block reads faster than a border on a small
+      screen. Spawns are clamped inside the boundary, because a ghost outside
+      the wall cannot reach anyone and merely looks broken.

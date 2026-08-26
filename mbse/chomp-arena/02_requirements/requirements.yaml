@@ -1621,10 +1621,12 @@ requirements:
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-058
-    title: A driver carries exactly one item
+    title: A driver carries a short belt of items, spent in order
     shall_statement: >
-      A player SHALL carry at most one item at a time, and collecting an item
-      SHALL replace whatever was carried without prompting or confirmation.
+      A player SHALL carry at most ChompConfig.Items.SlotCount items, spent in
+      the order collected, with the active slot selectable. Collecting SHALL be
+      refused with the pad left in place once the belt is full, and SHALL never
+      prompt or ask for confirmation.
     level: L2_system
     status: DRAFT
     priority: HIGH
@@ -1633,10 +1635,18 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      One slot turns every pickup into a single judgement - is this better than
-      what I am holding - instead of inventory management. A seven-year-old
-      driving at speed cannot open a bag, and a confirmation prompt at 24 studs
-      per second is a crash.
+      A short belt, not a bag. The original single slot made every pickup a
+      judgement, which was right while there was nothing to survive; waves
+      changed the question from "is this better than what I hold" to "have I
+      enough to last". Five is small enough to read at a glance and to spend
+      without managing.
+      What has NOT changed is the prohibition on prompts. A seven-year-old
+      driving at speed cannot open a bag, and a confirmation dialog at 26 studs
+      per second is a crash. Collecting stays automatic, spending stays in
+      order, and selecting is one tap on a slot that is already on screen.
+      A full belt REFUSES a pickup and leaves the pad standing, rather than
+      silently eating it. An item you could not carry should still be there when
+      you come back.
     allocated_to: ServerScriptService/ChompEngine/ItemService
     chain: CHAIN-COMBAT
     phase: v1

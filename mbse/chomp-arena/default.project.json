@@ -23,6 +23,9 @@
         },
         "ToggleFriendlyFire": {
           "$className": "RemoteEvent"
+        },
+        "SelectItem": {
+          "$className": "RemoteEvent"
         }
       }
     },
