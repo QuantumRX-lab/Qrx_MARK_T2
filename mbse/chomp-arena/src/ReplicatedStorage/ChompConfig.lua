@@ -290,7 +290,7 @@ ChompConfig.Items = {
 			label = "JET",
 		},
 		Cannon = {
-			charges = 3,
+			charges = 10,
 			projectileSpeed = 180,
 			rangeStuds = 260,
 			label = "CANNON",

@@ -83,3 +83,23 @@ entries:
     spent on a hit does not run its remaining duration, which is intended, but
     it also means two simultaneous hits both land. If that matters, it needs a
     per-hit flag rather than a timestamp.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-060]
+  summary: >
+    Cannon ammunition raised from 3 to 10 by owner decision. CHOMP-SYS-060 was
+    amended in the same change: it hard-coded "three-shot", which turned a
+    tuning number into a shall statement and would have put the tree in breach
+    of a change nobody would call a design decision. It also still described the
+    bomb as a steering projectile, which D-CHOMP-054 replaced with a placed
+    mine. Both now describe roles and name ChompConfig.Items as where the
+    numbers live.
+  status: OPEN
+  handoff: >
+    Ten shots against one-hit ghosts is a large swing in favour of the player
+    and has not been played. If clearing a ring becomes trivial, the lever is
+    Ghosts.RespawnSeconds rather than the ammunition - fewer shots would just
+    make the cannon feel mean, while a faster respawn keeps the pressure on.
+    Worth a general check across the tree: any other requirement that hard-codes
+    a number which lives in ChompConfig has the same latent problem.

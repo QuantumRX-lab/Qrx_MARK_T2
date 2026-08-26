@@ -1673,10 +1673,11 @@ requirements:
   - id: CHOMP-SYS-060
     title: Each item is a different decision
     shall_statement: >
-      The item set SHALL provide a single vertical hop, a three-shot straight
-      projectile, a single steering projectile that is slower than the straight
-      one, and a shield that absorbs one hit or expires, with charges spent per
-      use and the slot emptying at zero.
+      The item set SHALL provide a single vertical hop, a multi-shot straight
+      projectile, a single placed explosive armed and detonated by separate
+      inputs, and a shield that absorbs one hit or expires, with charge counts
+      defined in ChompConfig.Items, charges spent per use, and the slot emptying
+      at zero.
     level: L2_system
     status: DRAFT
     priority: HIGH
@@ -1686,10 +1687,11 @@ requirements:
     verification_method: TEST
     rationale: >
       Four items that differ in kind rather than degree: mobility, volume,
-      accuracy, defence. The homing shot is deliberately slower than the
-      straight one, because a fast steering projectile is not a weapon but a
-      guaranteed hit, and nothing you cannot dodge is worth carrying a shield
-      to survive.
+      accuracy, defence. Counts are deliberately NOT fixed here. The first
+      version of this requirement said "three-shot", which made a tuning number
+      into a shall statement, so raising the cannon to ten put the tree in
+      breach of a change nobody would call a design decision. Where a number is
+      expected to move, the requirement names the place it lives.
     allocated_to: ServerScriptService/ChompEngine/ItemService
     chain: CHAIN-COMBAT
     phase: v1
