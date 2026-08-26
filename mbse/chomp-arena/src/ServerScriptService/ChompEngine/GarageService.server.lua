@@ -171,6 +171,92 @@ local function build(): number
 	return #plinths
 end
 
+-- ── Bank beacons ────────────────────────────────────────────────────────
+-- A pillar of light with a chest turning inside it, over every garage pad.
+--
+-- Banking has no button and no prompt by design (D-CHOMP-048), which leaves it
+-- with a discoverability problem: a player carrying points has to already know
+-- that driving onto a pad is the thing that saves them. A beam visible across
+-- the arena and a chest that obviously holds money answers that without adding
+-- a single word of UI.
+local chests: { Model } = {}
+
+local function buildBeacon(pad: BasePart)
+	local centre = pad.Position
+
+	local beam = part("BankBeam", Vector3.new(1, 260, 1),
+		CFrame.new(centre + Vector3.new(0, 130, 0)), P.Gold, Enum.Material.Neon, folder)
+	beam.Shape = Enum.PartType.Cylinder
+	beam.Size = Vector3.new(260, 26, 26)
+	beam.CFrame = CFrame.new(centre + Vector3.new(0, 130, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	beam.Transparency = 0.86
+	beam.CanCollide = false
+	beam.CanQuery = false
+	beam.CastShadow = false
+	CollectionService:AddTag(beam, "Chomp_Decor")
+
+	local chest = Instance.new("Model")
+	chest.Name = "BankChest"
+
+	local body = part("ChestBody", Vector3.new(7, 4.6, 5),
+		CFrame.new(centre + Vector3.new(0, 13, 0)), Color3.fromRGB(96, 58, 32),
+		Enum.Material.Wood, chest)
+	local lid = part("ChestLid", Vector3.new(7.2, 1.8, 5.2),
+		CFrame.new(centre + Vector3.new(0, 16.2, -0.4)) * CFrame.Angles(math.rad(-22), 0, 0),
+		Color3.fromRGB(112, 68, 38), Enum.Material.Wood, chest)
+	local gold = part("ChestGold", Vector3.new(5.6, 1.6, 3.8),
+		CFrame.new(centre + Vector3.new(0, 15, 0)), P.Gold, Enum.Material.Neon, chest)
+	for _, band in { -2.2, 2.2 } do
+		part("ChestBand", Vector3.new(0.8, 5, 5.3),
+			CFrame.new(centre + Vector3.new(band, 13.4, 0)), P.Gold, Enum.Material.Metal, chest)
+	end
+
+	for _, d in chest:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CanCollide = false
+			d.CanQuery = false
+			CollectionService:AddTag(d, "Chomp_Decor")
+		end
+	end
+	chest.PrimaryPart = body
+	chest:SetAttribute("HomeY", centre.Y + 13)
+	chest.Parent = folder
+	table.insert(chests, chest)
+
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.new(0, 210, 0, 44)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 7, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 400
+	gui.Adornee = body
+	gui.Parent = body
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.Size = UDim2.new(1, 0, 1, 0)
+	t.Text = "BANK HERE"
+	t.TextColor3 = P.Gold
+	t.TextStrokeColor3 = P.Floor
+	t.TextStrokeTransparency = 0.2
+	t.TextScaled = true
+	t.Font = Enum.Font.GothamBlack
+	t.Parent = gui
+end
+
+local function animateChests()
+	local clock = 0
+	game:GetService("RunService").Heartbeat:Connect(function(dt)
+		clock += dt
+		for _, chest in chests do
+			local homeY = chest:GetAttribute("HomeY")
+			if typeof(homeY) == "number" and chest.PrimaryPart then
+				local pivot = chest:GetPivot()
+				chest:PivotTo(CFrame.new(pivot.Position.X, homeY + math.sin(clock * 1.5) * 1.8, pivot.Position.Z)
+					* CFrame.Angles(0, clock * 0.9, 0))
+			end
+		end
+	end)
+end
+
 local function refitVehicle(player: Player)
 	-- VehicleService builds the kart on spawn from ChompChassis. Rather than
 	-- duplicating that here, drop the old kart and let it rebuild.
@@ -249,6 +335,10 @@ Players.PlayerAdded:Connect(function(player)
 end)
 
 local count = build()
+for _, pad in CollectionService:GetTagged("Chomp_Garage") do
+	if pad:IsA("BasePart") then buildBeacon(pad) end
+end
+animateChests()
 task.spawn(dwellLoop)
 
 print(("[GarageService] %d plinths, dwell %.1fs to buy, Robux labels are display only")

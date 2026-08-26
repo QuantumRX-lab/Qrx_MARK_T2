@@ -279,7 +279,9 @@ ChompConfig.Items = {
 	SlotCount = 1,
 	RespawnSeconds = 20,        -- a collected pad comes back, so the map stays stocked
 	PickupRadiusStuds = 10,
-	UseRateLimit = 4,           -- per second, enforced server side
+	UseRateLimit = 14,          -- per second, enforced server side. High because
+	                            -- the cannon is a held-down machine gun; the gun
+	                            -- has its own slower rate below (D-CHOMP-056).
 
 	Definitions = {
 		JetPack = {
@@ -291,9 +293,20 @@ ChompConfig.Items = {
 		},
 		Cannon = {
 			charges = 10,
-			projectileSpeed = 180,
-			rangeStuds = 260,
 			label = "CANNON",
+			-- A machine gun, not a lobbed orb (D-CHOMP-056). Small, fast, and
+			-- fired by holding the key down.
+			fireRatePerSecond = 9,
+			projectileSpeed = 360,
+			pelletSize = 0.9,
+			pelletLength = 5,        -- drawn as a streak, so speed is visible
+			spreadDegrees = 2.5,
+			rangeStuds = 300,
+			-- Shots inherit the kart's velocity, so firing sideways at speed
+			-- makes them curve away from the nose. That is what firing from a
+			-- moving vehicle actually looks like, and it means leading a target
+			-- is a thing the player learns rather than a thing the game hides.
+			inheritVelocity = 0.75,
 			-- Auto-lock (D-CHOMP-054). The turret finds the nearest ghost in
 			-- front of you, tracks it in red, and turns green when it has held
 			-- it for LockSeconds. Aiming while steering a kart is not a skill

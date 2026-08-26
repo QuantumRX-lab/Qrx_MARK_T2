@@ -176,7 +176,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	recomputeKeyboard()
 
 	if input.KeyCode == Enum.KeyCode.Space then
-		fire()
+		fire()   -- immediate on press; the held stream is driven below
 	end
 
 end)
@@ -208,6 +208,14 @@ RunService.Heartbeat:Connect(function(dt)
 	local stickX, stickY = stickAxes()
 	local steer = math.clamp(keyboardSteer + stickX, -1, 1)
 	local throttle = math.clamp(keyboardThrottle + stickY, -1, 1)
+
+	-- HOLD to fire (D-CHOMP-056). The cannon is a machine gun, so the trigger is
+	-- held rather than tapped; the SERVER owns the fire rate and simply ignores
+	-- anything faster. Sending on every frame and letting the server pace it is
+	-- correct - the client must never be the thing deciding how fast a gun goes.
+	if heldKeys[Enum.KeyCode.Space] then
+		fire()
+	end
 
 	shared.steer = steer
 	shared.throttle = throttle

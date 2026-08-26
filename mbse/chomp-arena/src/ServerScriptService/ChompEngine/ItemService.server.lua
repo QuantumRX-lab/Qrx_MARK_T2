@@ -237,14 +237,18 @@ local function mount(character: Model, id: string)
 	if not (Config.Vehicle and Config.Vehicle.MountHeldItem) then return end
 	unmount(character)
 	local vehicle = character:FindFirstChild("Vehicle")
-	local point = vehicle and vehicle:FindFirstChild("ItemMount") :: BasePart?
+	-- The bomb rides at the back where you can see you are carrying it; guns and
+	-- packs go on the roof (D-CHOMP-056).
+	local pointName = (id == "HomingBomb") and "RearMount" or "ItemMount"
+	local point = vehicle and vehicle:FindFirstChild(pointName) :: BasePart?
 	if not (vehicle and point) then return end
 
 	local model = buildItemModel(id)
 	model.Name = "MountedItem"
 	-- Smaller than the pickup, and facing forward: a mounted gun points where
 	-- the kart points, which is also where it fires.
-	local scale = 0.85
+	-- Bigger than it was. A mounted gun that nobody can see is not a mounted gun.
+	local scale = (id == "HomingBomb") and 1.25 or 1.15
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			d.Size = d.Size * scale
@@ -307,263 +311,102 @@ local function nearestTarget(player: Player, from: Vector3, maxRange: number): B
 	return best
 end
 
-local function fireProjectile(player: Player, id: string)
-	local def = DEFS[id]
+-- Where the barrel actually points. Shots leave the MUZZLE, not the middle of
+-- the kart, or they read as something dropped rather than fired (D-CHOMP-056).
+local function muzzle(player: Player, root: BasePart): (Vector3, Vector3)
+	local character = player.Character
+	local vehicle = character and character:FindFirstChild("Vehicle")
+	local mount = vehicle and vehicle:FindFirstChild("ItemMount") :: BasePart?
+	if mount then
+		local look = mount.CFrame.LookVector
+		local flat = Vector3.new(look.X, 0, look.Z)
+		if flat.Magnitude > 0.001 then
+			return mount.Position + flat.Unit * 5, flat.Unit
+		end
+	end
+	return root.Position + facing(root) * 9 + Vector3.new(0, 3, 0), facing(root)
+end
+
+local function fireCannon(player: Player)
+	local def = DEFS.Cannon
 	local root = rootOf(player)
 	if not root then return end
 
-	local shot = Instance.new("Part")
-	shot.Name = "ChompShot_" .. id
-	shot.Shape = Enum.PartType.Ball
-	shot.Size = Vector3.new(3, 3, 3)
-	shot.Color = COLOURS[id]
-	shot.Material = Enum.Material.Neon
-	shot.CanCollide = false
-	shot.Anchored = true
-	shot.CFrame = CFrame.new(root.Position + facing(root) * 8)
-	CollectionService:AddTag(shot, "Chomp_Decor")
-	shot.Parent = Workspace
-	Debris:AddItem(shot, 6)
+	local origin, direction = muzzle(player, root)
 
-	-- A locked cannon fires at the LOCK, not at the nose. That is the whole
-	-- point of locking, and the direction is computed here from positions the
-	-- server holds (D-CHOMP-054).
-	local direction = facing(root)
-	if id == "Cannon" then
-		local target = lockTarget[player]
-		local character = player.Character
-		if target and target.Parent and character
-			and character:GetAttribute("ChompLockState") == "locked" then
-			local to = target:GetPivot().Position - root.Position
-			local flat = Vector3.new(to.X, 0, to.Z)
-			if flat.Magnitude > 0.001 then direction = flat.Unit end
-		end
+	-- A locked cannon fires at the LOCK. The turret is usually already pointing
+	-- there; this matters while the barrel is still catching up.
+	local target = lockTarget[player]
+	local character = player.Character
+	if target and target.Parent and character
+		and character:GetAttribute("ChompLockState") == "locked" then
+		local to = target:GetPivot().Position - origin
+		local flat = Vector3.new(to.X, 0, to.Z)
+		if flat.Magnitude > 0.001 then direction = flat.Unit end
 	end
+
+	-- A little spread, so a held trigger looks like fire rather than a laser.
+	local spread = math.rad(def.spreadDegrees)
+	direction = (CFrame.Angles(0, (math.random() - 0.5) * 2 * spread, 0) * direction).Unit
+
+	-- Inherit the kart's motion. Firing sideways at speed curves the stream away
+	-- from the nose, which is what shooting from something moving looks like, and
+	-- it makes leading a target something the player learns rather than something
+	-- the game hides.
+	local velocity = direction * def.projectileSpeed
+		+ root.AssemblyLinearVelocity * def.inheritVelocity
+
+	local pellet = Instance.new("Part")
+	pellet.Name = "ChompPellet"
+	pellet.Size = Vector3.new(def.pelletSize, def.pelletSize, def.pelletLength)
+	pellet.Color = P.Gold
+	pellet.Material = Enum.Material.Neon
+	pellet.Anchored = true
+	pellet.CanCollide = false
+	pellet.CanQuery = false
+	pellet.CastShadow = false
+	pellet.CFrame = CFrame.lookAt(origin, origin + velocity)
+	CollectionService:AddTag(pellet, "Chomp_Decor")
+	pellet.Parent = Workspace
+	Debris:AddItem(pellet, 3)
+
 	local travelled = 0
 	local connection: RBXScriptConnection
 	connection = RunService.Heartbeat:Connect(function(dt)
-		if not shot.Parent then connection:Disconnect() return end
-
-		if id == "HomingBomb" then
-			local target = nearestTarget(player, shot.Position, def.rangeStuds)
-			if target then
-				-- Steer, do not snap. A bomb that turns instantly is not a
-				-- weapon, it is a guaranteed hit, and nothing you can dodge is
-				-- worth picking up to avoid.
-				local want = (target.Position - shot.Position)
-				want = Vector3.new(want.X, 0, want.Z)
-				if want.Magnitude > 0.001 then
-					local maxTurn = math.rad(def.turnRateDegrees) * dt
-					local current = direction
-					local angle = math.acos(math.clamp(current:Dot(want.Unit), -1, 1))
-					local t = angle > 0 and math.min(maxTurn / angle, 1) or 1
-					direction = current:Lerp(want.Unit, t).Unit
-				end
-			end
-		end
-
-		local step = def.projectileSpeed * dt
-		travelled += step
-		shot.CFrame = CFrame.new(shot.Position + direction * step)
+		if not pellet.Parent then connection:Disconnect() return end
+		local step = velocity * dt
+		travelled += step.Magnitude
+		local nextPos = pellet.Position + step
+		pellet.CFrame = CFrame.lookAt(nextPos, nextPos + velocity)
 
 		if travelled >= def.rangeStuds then
-			shot:Destroy()
+			pellet:Destroy()
 			connection:Disconnect()
 			return
 		end
 
-		-- Ghosts are what these weapons are actually FOR. A ghost takes damage
-		-- from the cannon and dies outright to the bomb, which is the whole
-		-- reason the bomb is a single charge (D-CHOMP-051).
-		for _, ghost in CollectionService:GetTagged("Chomp_Ghost") do
-			if ghost:IsA("Model") and ghost:GetAttribute("Dead") ~= true then
-				local pivot = ghost:GetPivot()
-				if (pivot.Position - shot.Position).Magnitude < 11 then
-					local hp = ((ghost:GetAttribute("Health") :: number?) or 1) - 1
-					ghost:SetAttribute("KilledBy", player.UserId)
-					ghost:SetAttribute("Health", hp)
-					ghost:SetAttribute("HitAt", os.clock())
-					shot:Destroy()
-					connection:Disconnect()
-					return
-				end
+		for _, ghost in ghostsAlive() do
+			if (ghost:GetPivot().Position - pellet.Position).Magnitude < 10 then
+				ghost:SetAttribute("KilledBy", player.UserId)
+				ghost:SetAttribute("Health", ((ghost:GetAttribute("Health") :: number?) or 1) - 1)
+				pellet:Destroy()
+				connection:Disconnect()
+				return
 			end
 		end
 
-		-- Hits are decided HERE, from positions the server holds. A client
-		-- never claims a hit (CHOMP-TC-042 covers the forged-hit attack).
 		for _, other in Players:GetPlayers() do
 			if other ~= player then
 				local otherRoot = rootOf(other)
-				if otherRoot and (otherRoot.Position - shot.Position).Magnitude < 7 then
-					if os.clock() < (shieldUntil[other] or 0) then
-						shieldUntil[other] = 0   -- the shield spends itself absorbing this
-					else
-						local humanoid = other.Character
-							and other.Character:FindFirstChildOfClass("Humanoid")
-						if humanoid then
-							humanoid:TakeDamage(20)
-						end
-					end
-					shot:Destroy()
+				if otherRoot and (otherRoot.Position - pellet.Position).Magnitude < 7 then
+					local humanoid = other.Character
+						and other.Character:FindFirstChildOfClass("Humanoid")
+					if humanoid then humanoid:TakeDamage(8) end
+					pellet:Destroy()
 					connection:Disconnect()
 					return
 				end
 			end
-		end
-	end)
-end
-
--- ── Auto-lock (D-CHOMP-054) ─────────────────────────────────────────────
--- The turret finds the nearest ghost in front, tracks it, and locks after
--- holding it. Aiming while steering is not a skill worth demanding of a
--- seven-year-old; deciding WHEN to fire is.
---
--- The lock lives on the SERVER. The client draws a reticle from it and cannot
--- create one: a client-declared target would be a client-declared hit.
-local lockTarget: { [Player]: Model? } = {}
-local lockSince: { [Player]: number } = {}
-
-local function ghostsAlive(): { Model }
-	local out: { Model } = {}
-	for _, g in CollectionService:GetTagged("Chomp_Ghost") do
-		if g:IsA("Model") and g:GetAttribute("Dead") ~= true then
-			table.insert(out, g)
-		end
-	end
-	return out
-end
-
-local function updateLock(player: Player, dt: number)
-	local h = held[player]
-	local root = rootOf(player)
-	local character = player.Character
-	if not (character and root and h and h.id == "Cannon") then
-		lockTarget[player] = nil
-		lockSince[player] = 0
-		if character then
-			character:SetAttribute("ChompLockState", "none")
-			character:SetAttribute("ChompLockTarget", "")
-		end
-		return
-	end
-
-	local def = DEFS.Cannon
-	local forward = facing(root)
-	local best, bestDistance = nil, def.lockRangeStuds
-	for _, ghost in ghostsAlive() do
-		local to = ghost:GetPivot().Position - root.Position
-		local flat = Vector3.new(to.X, 0, to.Z)
-		local distance = flat.Magnitude
-		if distance < bestDistance and distance > 1 then
-			local angle = math.deg(math.acos(math.clamp(forward:Dot(flat.Unit), -1, 1)))
-			if angle <= def.lockAngleDegrees then
-				best, bestDistance = ghost, distance
-			end
-		end
-	end
-
-	if best ~= lockTarget[player] then
-		lockTarget[player] = best
-		lockSince[player] = best and os.clock() or 0
-	end
-
-	local state = "none"
-	if best then
-		state = (os.clock() - (lockSince[player] or 0)) >= def.lockSeconds and "locked" or "tracking"
-	end
-	character:SetAttribute("ChompLockState", state)
-	character:SetAttribute("ChompLockTarget", best and best.Name or "")
-
-	-- Swing the barrel. Turning at a rate rather than snapping is what makes a
-	-- lock feel earned instead of automatic.
-	local vehicle = character:FindFirstChild("Vehicle")
-	local primary = vehicle and vehicle:FindFirstChild("Chassis") :: BasePart?
-	local motor = primary and primary:FindFirstChild("TurretMotor") :: Motor6D?
-	if motor then
-		local wanted = 0
-		if best then
-			local to = best:GetPivot().Position - root.Position
-			local flat = Vector3.new(to.X, 0, to.Z)
-			if flat.Magnitude > 0.001 then
-				local worldYaw = math.atan2(-flat.Unit.X, -flat.Unit.Z)
-				local kartYaw = math.atan2(-forward.X, -forward.Z)
-				wanted = (worldYaw - kartYaw + math.pi) % (math.pi * 2) - math.pi
-			end
-		end
-		local _, current = motor.Transform:ToOrientation()
-		local diff = (wanted - current + math.pi) % (math.pi * 2) - math.pi
-		local step = math.rad(def.turretTurnDegrees) * dt
-		local applied = math.abs(diff) <= step and wanted or current + (diff > 0 and step or -step)
-		motor.Transform = CFrame.Angles(0, applied, 0)
-	end
-end
-
-RunService.Heartbeat:Connect(function(dt)
-	for _, player in Players:GetPlayers() do
-		updateLock(player, dt)
-	end
-end)
-
--- ── The dropped bomb ────────────────────────────────────────────────────
-local deployed: { [Player]: BasePart? } = {}
-
-local function detonate(player: Player, bomb: BasePart)
-	deployed[player] = nil
-	local centre = bomb.Position
-	local def = DEFS.HomingBomb
-
-	local blast = Instance.new("Part")
-	blast.Shape = Enum.PartType.Ball
-	blast.Size = Vector3.new(def.blastRadiusStuds * 2, def.blastRadiusStuds * 2, def.blastRadiusStuds * 2)
-	blast.Position = centre
-	blast.Anchored = true
-	blast.CanCollide = false
-	blast.CanQuery = false
-	blast.Material = Enum.Material.Neon
-	blast.Color = P.NeonB
-	blast.Transparency = 0.55
-	CollectionService:AddTag(blast, "Chomp_Decor")
-	blast.Parent = Workspace
-	Debris:AddItem(blast, 0.35)
-	bomb:Destroy()
-
-	for _, ghost in ghostsAlive() do
-		if (ghost:GetPivot().Position - centre).Magnitude < def.blastRadiusStuds then
-			ghost:SetAttribute("KilledBy", player.UserId)
-			ghost:SetAttribute("Health", 0)
-		end
-	end
-end
-
-local function dropBomb(player: Player)
-	local root = rootOf(player)
-	if not root then return end
-	local def = DEFS.HomingBomb
-
-	local bomb = Instance.new("Part")
-	bomb.Name = "ChompBomb"
-	bomb.Shape = Enum.PartType.Ball
-	bomb.Size = Vector3.new(4.5, 4.5, 4.5)
-	bomb.Position = root.Position - facing(root) * def.dropBehindStuds
-	bomb.Anchored = true
-	bomb.CanCollide = false
-	bomb.CanQuery = false
-	bomb.Material = Enum.Material.Neon
-	bomb.Color = P.NeonB
-	bomb:SetAttribute("ArmedAt", os.clock() + def.armSeconds)
-	CollectionService:AddTag(bomb, "Chomp_Decor")
-	bomb.Parent = Workspace
-	deployed[player] = bomb
-
-	-- It expires on its own, so a forgotten bomb does not sit in the map
-	-- forever holding a charge hostage.
-	task.delay(def.lifetimeSeconds, function()
-		if deployed[player] == bomb then
-			deployed[player] = nil
-			if bomb.Parent then bomb:Destroy() end
-			local h = held[player]
-			if h and h.id == "HomingBomb" then clear(player) end
 		end
 	end)
 end
@@ -612,7 +455,12 @@ local function useHeld(player: Player)
 			player.Character:SetAttribute("ChompShieldUntil", shieldUntil[player])
 		end
 	else
-		fireProjectile(player, h.id)
+		-- The gun has its own rate, slower than the remote's limit, so holding the
+		-- key gives a steady stream rather than whatever the network allows.
+		local interval = 1 / DEFS.Cannon.fireRatePerSecond
+		if os.clock() - (lastShot[player] or 0) < interval then return end
+		lastShot[player] = os.clock()
+		fireCannon(player)
 	end
 
 	h.charges -= 1

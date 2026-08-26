@@ -103,3 +103,24 @@ entries:
     make the cannon feel mean, while a faster respawn keeps the pressure on.
     Worth a general check across the tree: any other requirement that hard-codes
     a number which lives in ChompConfig has the same latent problem.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-060]
+  summary: >
+    Cannon reworked into a held-trigger machine gun (D-CHOMP-056): 9 shots a
+    second, 0.9-stud pellets drawn as streaks at speed 360, fired from the
+    turret muzzle and inheriting 75% of the kart's velocity so the stream curves
+    when firing sideways at speed. Mounted items enlarged, turret raised, and
+    the bomb moved to a new RearMount so a carried bomb is visible behind you.
+    Garage pads gained a pillar of light with a turning chest and a BANK HERE
+    label.
+  status: OPEN
+  handoff: >
+    Unplayed. Two things to watch. The lock reticle only appears when a ghost is
+    inside a 70-degree cone within 240 studs - if it seems never to show, the
+    likely cause is that ghosts are simply not near, not that the reticle is
+    broken; drive at one to confirm before changing anything.
+    Ten charges at nine shots a second is barely over a second of fire. If that
+    feels miserly the honest fix is to make a charge mean a BURST rather than a
+    pellet, not to raise the number until it stops meaning anything.

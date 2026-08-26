@@ -1356,3 +1356,39 @@ decisions:
       the label is not what is charged. Buying a chassis stamps ChompRefit and
       VehicleService rebuilds the kart, so the vehicle still has exactly one
       writer.
+
+  - id: D-CHOMP-056
+    date: 2026-08-25
+    title: The cannon is a machine gun, the bomb rides at the back, and the bank has a beacon
+    decision: >
+      The cannon fires small fast tracers from the turret muzzle while the key
+      is held, at fireRatePerSecond, inheriting a fraction of the kart's
+      velocity. Mounted items are larger and the turret sits higher; the bomb
+      mounts at a new RearMount instead of the roof. Every garage pad gets a
+      pillar of light with a turning treasure chest and a BANK HERE label.
+    rationale: >
+      Owner report after playing: the cannon looked like a light ball being
+      dropped behind the kart. It was — a 3-stud sphere at speed 180 spawning
+      9 studs from the centre of an 8-stud vehicle, which is roughly a ball
+      rolling out of the floor. Small, fast and from the muzzle is what reads as
+      a gun.
+      Inheriting the kart's velocity is the part that makes it feel like a
+      vehicle fight. Firing sideways at speed curves the stream away from the
+      nose, so leading a target becomes something the player learns rather than
+      something the game quietly does for them.
+      The trigger is held, not tapped, and the SERVER paces it. The client sends
+      on every frame and the server ignores anything faster than the gun's rate,
+      because a client that decides its own fire rate is a client that decides
+      its own damage.
+      The bomb moved to the back because it is a thing you are towing, not a
+      weapon you are aiming, and a player needs to see they are carrying it.
+      The beacon fixes a discoverability hole this design created. Banking has
+      no button and no prompt by choice (D-CHOMP-048), which is elegant and
+      leaves a player who does not already know the rule with nothing to see. A
+      pillar of light with an obvious treasure chest in it answers that without
+      a single word of UI.
+    outcome: >
+      Pellets are 0.9 studs and drawn as a 5-stud streak so speed is visible.
+      Muzzle position comes from the turret mount, so a locked turret fires
+      where it is pointing. The old fireProjectile is gone; the bomb never used
+      it after D-CHOMP-054 and the cannon no longer does.

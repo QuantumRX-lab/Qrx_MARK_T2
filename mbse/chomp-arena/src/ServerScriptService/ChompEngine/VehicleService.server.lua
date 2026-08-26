@@ -288,9 +288,26 @@ local function fitVehicle(player: Player, character: Model)
 	motor.Name = "TurretMotor"
 	motor.Part0 = primary
 	motor.Part1 = mount
-	motor.C0 = CFrame.new(0, 5.2, 0)
+	motor.C0 = CFrame.new(0, 6.4, 0)
 	motor.C1 = CFrame.new()
 	motor.Parent = primary
+
+	-- A second point at the BACK. A bomb is a thing you are towing, and it
+	-- should be visible behind you rather than bolted to the roof like a gun
+	-- (D-CHOMP-056).
+	local rear = Instance.new("Part")
+	rear.Name = "RearMount"
+	rear.Size = Vector3.new(0.4, 0.4, 0.4)
+	rear.Transparency = 1
+	rear.CanCollide = false
+	rear.CanQuery = false
+	rear.Massless = true
+	rear.CFrame = primary.CFrame * CFrame.new(0, 2.4, 6.2)
+	rear.Parent = model
+	local rearWeld = Instance.new("WeldConstraint")
+	rearWeld.Part0 = primary
+	rearWeld.Part1 = rear
+	rearWeld.Parent = rear
 
 	if Config.Vehicle and Config.Vehicle.NamePlate then
 		nameplate(player, model, primary)
