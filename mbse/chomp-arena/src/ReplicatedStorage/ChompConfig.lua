@@ -326,8 +326,8 @@ ChompConfig.Audio = {
 	MusicVolume = 0.24,
 	EffectsVolume = 0.55,
 	Music = {
-		Exploration = "",
-		Guardian = "",
+		Exploration = "94645663905351",
+		Guardian = "125404032785476",
 	},
 	Effects = {
 		Pellet = { "111478242587482", "106297992379380", "131776712928369",
