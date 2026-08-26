@@ -74,9 +74,23 @@ local function priceLabel(plinth: BasePart, title: string, dollars: number, robu
 	gui.Size = UDim2.new(0, 220, 0, 96)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, 12, 0)
 	gui.AlwaysOnTop = true
-	gui.MaxDistance = 300
+	gui.MaxDistance = 600
 	gui.Adornee = plinth
 	gui.Parent = plinth
+	local backing = Instance.new("Frame")
+	backing.Size = UDim2.fromScale(1, 1)
+	backing.BackgroundColor3 = P.Floor
+	backing.BackgroundTransparency = 0.12
+	backing.BorderSizePixel = 0
+	backing.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 6)
+	corner.Parent = backing
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = P.Gold
+	stroke.Thickness = 2
+	stroke.Transparency = 0.15
+	stroke.Parent = backing
 
 	local function line(text: string, colour: Color3, size: number, y: number, font: Enum.Font)
 		local t = Instance.new("TextLabel")
@@ -89,6 +103,7 @@ local function priceLabel(plinth: BasePart, title: string, dollars: number, robu
 		t.TextStrokeTransparency = 0.2
 		t.TextSize = size
 		t.Font = font
+		t.ZIndex = 2
 		t.Parent = gui
 	end
 
@@ -196,6 +211,32 @@ local function build(): number
 	-- the row sits inboard of the pad. Still wider apart than the 13-stud dwell
 	-- radius, so a kart is never inside two offers at once.
 	local step = math.rad(2.3)
+	local shopPos = Vector3.new(math.cos(homeAngle) * radius, 0, math.sin(homeAngle) * radius)
+	local beacon = part("ShopBeacon", Vector3.new(2, 90, 2),
+		CFrame.new(shopPos + Vector3.new(0, 45, 0)), P.NeonB, Enum.Material.Neon, folder)
+	beacon.Transparency = 0.42
+	beacon.CanCollide = false
+	beacon.CanQuery = false
+	beacon.CastShadow = false
+	CollectionService:AddTag(beacon, "Chomp_Decor")
+	local shopGui = Instance.new("BillboardGui")
+	shopGui.Size = UDim2.new(0, 420, 0, 110)
+	shopGui.StudsOffsetWorldSpace = Vector3.new(0, 53, 0)
+	shopGui.AlwaysOnTop = true
+	shopGui.MaxDistance = 900
+	shopGui.Adornee = beacon
+	shopGui.Parent = beacon
+	local shopLabel = Instance.new("TextLabel")
+	shopLabel.Size = UDim2.fromScale(1, 1)
+	shopLabel.BackgroundColor3 = P.Floor
+	shopLabel.BackgroundTransparency = 0.08
+	shopLabel.Text = "SHOP\nWEAPONS  •  VEHICLES  •  UPGRADES"
+	shopLabel.TextColor3 = P.Gold
+	shopLabel.TextStrokeColor3 = P.Floor
+	shopLabel.TextStrokeTransparency = 0
+	shopLabel.TextScaled = true
+	shopLabel.Font = Enum.Font.GothamBlack
+	shopLabel.Parent = shopGui
 
 	for i, offer in ipairs(list) do
 		local a = homeAngle + step * (i - (#list + 1) / 2)
@@ -215,6 +256,19 @@ local function build(): number
 			CFrame.new(pos + Vector3.new(0, 6.2, 0)) * facing,
 			glowColour, Enum.Material.Neon, folder)
 		glow.CanCollide = false
+		local light = Instance.new("PointLight")
+		light.Color = glowColour
+		light.Brightness = 3
+		light.Range = 28
+		light.Shadows = false
+		light.Parent = glow
+		local column = part("OfferBeam", Vector3.new(0.8, 18, 0.8),
+			CFrame.new(pos + Vector3.new(0, 14, 0)), glowColour, Enum.Material.Neon, folder)
+		column.Transparency = 0.58
+		column.CanCollide = false
+		column.CanQuery = false
+		column.CastShadow = false
+		CollectionService:AddTag(column, "Chomp_Decor")
 		CollectionService:AddTag(base, "Chomp_Decor")
 		CollectionService:AddTag(glow, "Chomp_Decor")
 
@@ -244,6 +298,7 @@ local function build(): number
 			-- roof, from the shared factory (D-CHOMP-064). A shop that shows a
 			-- different shape from the thing it sells is a shop that lies.
 			local model = ItemModels.build(offer.id)
+			model:ScaleTo(1.8)
 			model:PivotTo(CFrame.new(pos + Vector3.new(0, 9.5, 0)) * facing)
 			model.Parent = folder
 

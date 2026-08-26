@@ -534,20 +534,20 @@ ChompConfig.Level1 = {
 -- makes speed legible, so the walls carry the colour and the floor stays out of
 -- the way.
 ChompConfig.Palette = {
-	Floor       = Color3.fromRGB(21, 14, 31),
-	FloorCentre = Color3.fromRGB(29, 19, 41),
+	Floor       = Color3.fromRGB(25, 20, 38),
+	FloorCentre = Color3.fromRGB(88, 42, 116),
 	NeonA       = Color3.fromRGB(76, 224, 210),
-	NeonB       = Color3.fromRGB(255, 61, 138),
-	Brick       = Color3.fromRGB(58, 44, 74),
-	BrickDark   = Color3.fromRGB(41, 31, 54),
+	NeonB       = Color3.fromRGB(208, 74, 255),
+	Brick       = Color3.fromRGB(92, 72, 118),
+	BrickDark   = Color3.fromRGB(58, 47, 76),
 	-- Masonry (D-CHOMP-063). Kept dark and desaturated on purpose: these are
 	-- what the neon is seen against, and a bright wall next to a lit one is
 	-- two things competing rather than one lighting the other.
-	BrickWarm   = Color3.fromRGB(94, 52, 58),
-	Stone       = Color3.fromRGB(72, 68, 86),
-	Slate       = Color3.fromRGB(52, 52, 68),
-	Rust        = Color3.fromRGB(112, 62, 42),
-	Boundary    = Color3.fromRGB(88, 62, 110),
+	BrickWarm   = Color3.fromRGB(128, 68, 78),
+	Stone       = Color3.fromRGB(108, 103, 128),
+	Slate       = Color3.fromRGB(82, 84, 110),
+	Rust        = Color3.fromRGB(142, 78, 56),
+	Boundary    = Color3.fromRGB(118, 82, 146),
 	Gold        = Color3.fromRGB(255, 176, 32),
 	Danger      = Color3.fromRGB(255, 61, 61),
 	Ghost       = Color3.fromRGB(226, 232, 255),
@@ -6595,9 +6595,23 @@ local function priceLabel(plinth: BasePart, title: string, dollars: number, robu
 	gui.Size = UDim2.new(0, 220, 0, 96)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, 12, 0)
 	gui.AlwaysOnTop = true
-	gui.MaxDistance = 300
+	gui.MaxDistance = 600
 	gui.Adornee = plinth
 	gui.Parent = plinth
+	local backing = Instance.new("Frame")
+	backing.Size = UDim2.fromScale(1, 1)
+	backing.BackgroundColor3 = P.Floor
+	backing.BackgroundTransparency = 0.12
+	backing.BorderSizePixel = 0
+	backing.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 6)
+	corner.Parent = backing
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = P.Gold
+	stroke.Thickness = 2
+	stroke.Transparency = 0.15
+	stroke.Parent = backing
 
 	local function line(text: string, colour: Color3, size: number, y: number, font: Enum.Font)
 		local t = Instance.new("TextLabel")
@@ -6610,6 +6624,7 @@ local function priceLabel(plinth: BasePart, title: string, dollars: number, robu
 		t.TextStrokeTransparency = 0.2
 		t.TextSize = size
 		t.Font = font
+		t.ZIndex = 2
 		t.Parent = gui
 	end
 
@@ -6717,6 +6732,32 @@ local function build(): number
 	-- the row sits inboard of the pad. Still wider apart than the 13-stud dwell
 	-- radius, so a kart is never inside two offers at once.
 	local step = math.rad(2.3)
+	local shopPos = Vector3.new(math.cos(homeAngle) * radius, 0, math.sin(homeAngle) * radius)
+	local beacon = part("ShopBeacon", Vector3.new(2, 90, 2),
+		CFrame.new(shopPos + Vector3.new(0, 45, 0)), P.NeonB, Enum.Material.Neon, folder)
+	beacon.Transparency = 0.42
+	beacon.CanCollide = false
+	beacon.CanQuery = false
+	beacon.CastShadow = false
+	CollectionService:AddTag(beacon, "Chomp_Decor")
+	local shopGui = Instance.new("BillboardGui")
+	shopGui.Size = UDim2.new(0, 420, 0, 110)
+	shopGui.StudsOffsetWorldSpace = Vector3.new(0, 53, 0)
+	shopGui.AlwaysOnTop = true
+	shopGui.MaxDistance = 900
+	shopGui.Adornee = beacon
+	shopGui.Parent = beacon
+	local shopLabel = Instance.new("TextLabel")
+	shopLabel.Size = UDim2.fromScale(1, 1)
+	shopLabel.BackgroundColor3 = P.Floor
+	shopLabel.BackgroundTransparency = 0.08
+	shopLabel.Text = "SHOP\nWEAPONS  •  VEHICLES  •  UPGRADES"
+	shopLabel.TextColor3 = P.Gold
+	shopLabel.TextStrokeColor3 = P.Floor
+	shopLabel.TextStrokeTransparency = 0
+	shopLabel.TextScaled = true
+	shopLabel.Font = Enum.Font.GothamBlack
+	shopLabel.Parent = shopGui
 
 	for i, offer in ipairs(list) do
 		local a = homeAngle + step * (i - (#list + 1) / 2)
@@ -6736,6 +6777,19 @@ local function build(): number
 			CFrame.new(pos + Vector3.new(0, 6.2, 0)) * facing,
 			glowColour, Enum.Material.Neon, folder)
 		glow.CanCollide = false
+		local light = Instance.new("PointLight")
+		light.Color = glowColour
+		light.Brightness = 3
+		light.Range = 28
+		light.Shadows = false
+		light.Parent = glow
+		local column = part("OfferBeam", Vector3.new(0.8, 18, 0.8),
+			CFrame.new(pos + Vector3.new(0, 14, 0)), glowColour, Enum.Material.Neon, folder)
+		column.Transparency = 0.58
+		column.CanCollide = false
+		column.CanQuery = false
+		column.CastShadow = false
+		CollectionService:AddTag(column, "Chomp_Decor")
 		CollectionService:AddTag(base, "Chomp_Decor")
 		CollectionService:AddTag(glow, "Chomp_Decor")
 
@@ -6765,6 +6819,7 @@ local function build(): number
 			-- roof, from the shared factory (D-CHOMP-064). A shop that shows a
 			-- different shape from the thing it sells is a shop that lies.
 			local model = ItemModels.build(offer.id)
+			model:ScaleTo(1.8)
 			model:PivotTo(CFrame.new(pos + Vector3.new(0, 9.5, 0)) * facing)
 			model.Parent = folder
 
@@ -8290,6 +8345,10 @@ local function useHeld(player: Player)
 	if live and live.Parent then
 		if os.clock() >= ((live:GetAttribute("ArmedAt") :: number?) or 0) then
 			detonate(player, live)
+			if player.Character then
+				player.Character:SetAttribute("ChompItemUsed", "HomingBomb")
+				player.Character:SetAttribute("ChompItemUsedAt", os.clock())
+			end
 			-- Spending the bomb comes off whichever slot holds it, not
 			-- necessarily the active one: you may have picked up a cannon since
 			-- placing it (D-CHOMP-059).
@@ -8325,6 +8384,10 @@ local function useHeld(player: Player)
 		-- Detonation is handled above, so reaching here means nothing is
 		-- deployed: drop one.
 		dropBomb(player)
+		if player.Character then
+			player.Character:SetAttribute("ChompItemUsed", h.id)
+			player.Character:SetAttribute("ChompItemUsedAt", os.clock())
+		end
 		return
 	end
 
@@ -8348,6 +8411,10 @@ local function useHeld(player: Player)
 		if os.clock() - (lastShot[player] or 0) < interval then return end
 		lastShot[player] = os.clock()
 		fireCannon(player)
+	end
+	if player.Character then
+		player.Character:SetAttribute("ChompItemUsed", h.id)
+		player.Character:SetAttribute("ChompItemUsedAt", os.clock())
 	end
 
 	consumeActive(player)
@@ -8552,6 +8619,18 @@ local function arc(parent: Instance, name: string, radius: number, from: number,
 		local p = part(name, Vector3.new(thickness, height, chord + 0.4),
 			tangentAt(radius, mid, y), colour, material, parent)
 		CollectionService:AddTag(p, "Chomp_Wall")
+		-- From the 38-degree camera the wall TOP is the maze. Masonry used to
+		-- disappear into the floor, so a thin cap traces every solid route without
+		-- turning the whole wall into neon.
+		if material ~= Enum.Material.Neon then
+			local cap = part("WallCap", Vector3.new(thickness + 0.35, 0.38, chord + 0.55),
+				tangentAt(radius, mid, y + height / 2 + 0.19), P.NeonA,
+				Enum.Material.Neon, parent)
+			cap.CanCollide = false
+			cap.CanQuery = false
+			cap.CastShadow = false
+			CollectionService:AddTag(cap, "Chomp_Wall")
+		end
 	end
 	return segments
 end
@@ -8646,6 +8725,15 @@ local function build()
 					radialAt(mid, a, WALL_Y), P[sp.colour] or P.Stone,
 					sp.material, rings)
 				CollectionService:AddTag(p, "Chomp_Wall")
+				if sp.material ~= Enum.Material.Neon then
+					local cap = part("WallCap", Vector3.new(WALL_T + 0.35, 0.38, nextRadius - radius),
+						radialAt(mid, a, WALL_Y + WALL_H / 2 + 0.19), P.NeonB,
+						Enum.Material.Neon, rings)
+					cap.CanCollide = false
+					cap.CanQuery = false
+					cap.CastShadow = false
+					CollectionService:AddTag(cap, "Chomp_Wall")
+				end
 				spokes += 1
 			end
 		end
@@ -9663,17 +9751,73 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
 ]]></string>
         </Properties>
       </Item>
+      <Item class="Script" referent="155">
+        <Properties>
+          <string name="Name">WorldLook</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+
+-- The place must not inherit whatever daylight happened to be saved in a
+-- Studio template. This restrained night rig gives neon a job while keeping
+-- masonry and the floor readable on the iPad reference display.
+
+local Lighting = game:GetService("Lighting")
+
+Lighting.ClockTime = 0
+Lighting.Brightness = 2
+Lighting.Ambient = Color3.fromRGB(82, 68, 108)
+Lighting.OutdoorAmbient = Color3.fromRGB(96, 84, 124)
+Lighting.ColorShift_Top = Color3.fromRGB(22, 10, 34)
+Lighting.ColorShift_Bottom = Color3.fromRGB(8, 18, 28)
+Lighting.EnvironmentDiffuseScale = 0.45
+Lighting.EnvironmentSpecularScale = 0.7
+Lighting.GlobalShadows = true
+Lighting.ShadowSoftness = 0.35
+Lighting.ExposureCompensation = 0.2
+
+local function effect(className: string, name: string): Instance
+	local found = Lighting:FindFirstChild(name)
+	if found then return found end
+	local created = Instance.new(className)
+	created.Name = name
+	created.Parent = Lighting
+	return created
+end
+
+local atmosphere = effect("Atmosphere", "ChompAtmosphere") :: Atmosphere
+atmosphere.Density = 0.2
+atmosphere.Offset = 0.05
+atmosphere.Color = Color3.fromRGB(154, 132, 188)
+atmosphere.Decay = Color3.fromRGB(48, 34, 70)
+atmosphere.Glare = 0
+atmosphere.Haze = 0.7
+
+local bloom = effect("BloomEffect", "ChompBloom") :: BloomEffect
+bloom.Intensity = 0.65
+bloom.Size = 20
+bloom.Threshold = 1.05
+
+local grade = effect("ColorCorrectionEffect", "ChompGrade") :: ColorCorrectionEffect
+grade.Brightness = 0.04
+grade.Contrast = 0.14
+grade.Saturation = 0.08
+grade.TintColor = Color3.fromRGB(244, 238, 255)
+
+print("[WorldLook] midnight contrast rig active")
+]]></string>
+        </Properties>
+      </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="155">
+  <Item class="ServerStorage" referent="156">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="156">
+    <Item class="Folder" referent="157">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="157">
+      <Item class="ModuleScript" referent="158">
         <Properties>
           <string name="Name">ItemModels</string>
           <string name="Source"><![CDATA[--!strict
@@ -9789,7 +9933,7 @@ return ItemModels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="158">
+      <Item class="ModuleScript" referent="159">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -10074,7 +10218,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="159">
+      <Item class="ModuleScript" referent="160">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -10333,11 +10477,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="160">
+      <Item class="Folder" referent="161">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="161">
+        <Item class="ModuleScript" referent="162">
           <Properties>
             <string name="Name">Apex</string>
             <string name="Source"><![CDATA[--!strict
@@ -10346,7 +10490,7 @@ return variant("Apex", Color3.fromRGB(96, 72, 176), Color3.fromRGB(255, 207, 55)
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="162">
+        <Item class="ModuleScript" referent="163">
           <Properties>
             <string name="Name">HeavyJaw</string>
             <string name="Source"><![CDATA[--!strict
@@ -10355,7 +10499,7 @@ return variant("HeavyJaw", Color3.fromRGB(238, 145, 26), Color3.fromRGB(255, 230
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="163">
+        <Item class="ModuleScript" referent="164">
           <Properties>
             <string name="Name">Ravener</string>
             <string name="Source"><![CDATA[--!strict
@@ -10364,7 +10508,7 @@ return variant("Ravener", Color3.fromRGB(208, 64, 104), Color3.fromRGB(95, 235, 
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="164">
+        <Item class="ModuleScript" referent="165">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -10474,7 +10618,7 @@ return {
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="165">
+        <Item class="ModuleScript" referent="166">
           <Properties>
             <string name="Name">Variant</string>
             <string name="Source"><![CDATA[--!strict
@@ -10518,15 +10662,15 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="166">
+  <Item class="StarterPlayer" referent="167">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="167">
+    <Item class="StarterPlayerScripts" referent="168">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="168">
+      <Item class="LocalScript" referent="169">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -10778,7 +10922,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="169">
+      <Item class="LocalScript" referent="170">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -10919,7 +11063,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="170">
+      <Item class="LocalScript" referent="171">
         <Properties>
           <string name="Name">ChompHud</string>
           <string name="Source"><![CDATA[--!strict
@@ -11455,7 +11599,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="171">
+      <Item class="LocalScript" referent="172">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -11711,7 +11855,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="172">
+      <Item class="LocalScript" referent="173">
         <Properties>
           <string name="Name">PickupFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -11828,7 +11972,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="173">
+      <Item class="LocalScript" referent="174">
         <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
@@ -11922,7 +12066,93 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="174">
+      <Item class="LocalScript" referent="175">
+        <Properties>
+          <string name="Name">SoundFeedback</string>
+          <string name="Source"><![CDATA[--!strict
+
+-- Small, immediate sounds turn attribute changes into events the player feels.
+-- Packaged Roblox sounds avoid external asset permissions and work in Studio.
+
+local Players = game:GetService("Players")
+local SoundService = game:GetService("SoundService")
+
+local player = Players.LocalPlayer
+local PING = "rbxasset://sounds/electronicpingshort.wav"
+local BUTTON = "rbxasset://sounds/button.wav"
+local IMPACT = "rbxasset://sounds/impact_generic.mp3"
+local HURT = "rbxasset://sounds/uuhhh.mp3"
+local SWOOSH = "rbxasset://sounds/swoosh.wav"
+
+local function play(id: string, volume: number, speed: number)
+	local sound = Instance.new("Sound")
+	sound.SoundId = id
+	sound.Volume = volume
+	sound.PlaybackSpeed = speed
+	sound.Parent = SoundService
+	sound.Ended:Once(function() sound:Destroy() end)
+	sound:Play()
+	task.delay(5, function()
+		if sound.Parent then sound:Destroy() end
+	end)
+end
+
+local function watch(character: Model, attribute: string, callback: () -> ())
+	local previous = character:GetAttribute(attribute)
+	character:GetAttributeChangedSignal(attribute):Connect(function()
+		local current = character:GetAttribute(attribute)
+		if current ~= previous then
+			previous = current
+			callback()
+		end
+	end)
+end
+
+local function bind(character: Model)
+	local streak = 0
+	local lastPellet = 0
+	watch(character, "ChompGainedAt", function()
+		local now = os.clock()
+		streak = now - lastPellet < 1.5 and math.min(5, streak + 1) or 1
+		lastPellet = now
+		play(PING, 0.32, 0.88 + streak * 0.08)
+	end)
+	watch(character, "ChompBankedAt", function()
+		play(PING, 0.65, 0.72)
+		task.delay(0.1, function() play(PING, 0.55, 1.12) end)
+	end)
+	watch(character, "ChompStolenAt", function() play(IMPACT, 0.65, 0.78) end)
+	watch(character, "ChompHurtAt", function() play(HURT, 0.5, 1.05) end)
+	watch(character, "ChompBoughtAt", function() play(BUTTON, 0.65, 1.0) end)
+	watch(character, "ChompJumpedAt", function() play(SWOOSH, 0.58, 1.15) end)
+	watch(character, "ChompDiedAt", function() play(IMPACT, 0.9, 0.62) end)
+	watch(character, "ChompItemUsedAt", function()
+		local item = character:GetAttribute("ChompItemUsed")
+		if item == "Cannon" then
+			play(BUTTON, 0.28, 1.7)
+		elseif item == "HomingBomb" then
+			play(IMPACT, 0.8, 0.72)
+		elseif item == "JetPack" then
+			play(SWOOSH, 0.62, 1.3)
+		else
+			play(PING, 0.62, 1.35)
+		end
+	end)
+	watch(character, "ChompWaveCleared", function()
+		for i, pitch in { 0.8, 1.0, 1.28 } do
+			task.delay((i - 1) * 0.14, function() play(PING, 0.75, pitch) end)
+		end
+	end)
+end
+
+player.CharacterAdded:Connect(bind)
+if player.Character then bind(player.Character) end
+
+print("[SoundFeedback] gameplay sounds active")
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="176">
         <Properties>
           <string name="Name">TargetReticle</string>
           <string name="Source"><![CDATA[--!strict
@@ -12046,7 +12276,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="175">
+      <Item class="LocalScript" referent="177">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -12204,7 +12434,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="176">
+      <Item class="LocalScript" referent="178">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -12351,7 +12581,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="177">
+  <Item class="Workspace" referent="179">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

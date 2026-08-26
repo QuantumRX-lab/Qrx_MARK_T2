@@ -84,6 +84,18 @@ local function arc(parent: Instance, name: string, radius: number, from: number,
 		local p = part(name, Vector3.new(thickness, height, chord + 0.4),
 			tangentAt(radius, mid, y), colour, material, parent)
 		CollectionService:AddTag(p, "Chomp_Wall")
+		-- From the 38-degree camera the wall TOP is the maze. Masonry used to
+		-- disappear into the floor, so a thin cap traces every solid route without
+		-- turning the whole wall into neon.
+		if material ~= Enum.Material.Neon then
+			local cap = part("WallCap", Vector3.new(thickness + 0.35, 0.38, chord + 0.55),
+				tangentAt(radius, mid, y + height / 2 + 0.19), P.NeonA,
+				Enum.Material.Neon, parent)
+			cap.CanCollide = false
+			cap.CanQuery = false
+			cap.CastShadow = false
+			CollectionService:AddTag(cap, "Chomp_Wall")
+		end
 	end
 	return segments
 end
@@ -178,6 +190,15 @@ local function build()
 					radialAt(mid, a, WALL_Y), P[sp.colour] or P.Stone,
 					sp.material, rings)
 				CollectionService:AddTag(p, "Chomp_Wall")
+				if sp.material ~= Enum.Material.Neon then
+					local cap = part("WallCap", Vector3.new(WALL_T + 0.35, 0.38, nextRadius - radius),
+						radialAt(mid, a, WALL_Y + WALL_H / 2 + 0.19), P.NeonB,
+						Enum.Material.Neon, rings)
+					cap.CanCollide = false
+					cap.CanQuery = false
+					cap.CastShadow = false
+					CollectionService:AddTag(cap, "Chomp_Wall")
+				end
 				spokes += 1
 			end
 		end

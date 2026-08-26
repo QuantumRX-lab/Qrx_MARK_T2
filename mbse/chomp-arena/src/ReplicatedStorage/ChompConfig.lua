@@ -526,20 +526,20 @@ ChompConfig.Level1 = {
 -- makes speed legible, so the walls carry the colour and the floor stays out of
 -- the way.
 ChompConfig.Palette = {
-	Floor       = Color3.fromRGB(21, 14, 31),
-	FloorCentre = Color3.fromRGB(29, 19, 41),
+	Floor       = Color3.fromRGB(25, 20, 38),
+	FloorCentre = Color3.fromRGB(88, 42, 116),
 	NeonA       = Color3.fromRGB(76, 224, 210),
-	NeonB       = Color3.fromRGB(255, 61, 138),
-	Brick       = Color3.fromRGB(58, 44, 74),
-	BrickDark   = Color3.fromRGB(41, 31, 54),
+	NeonB       = Color3.fromRGB(208, 74, 255),
+	Brick       = Color3.fromRGB(92, 72, 118),
+	BrickDark   = Color3.fromRGB(58, 47, 76),
 	-- Masonry (D-CHOMP-063). Kept dark and desaturated on purpose: these are
 	-- what the neon is seen against, and a bright wall next to a lit one is
 	-- two things competing rather than one lighting the other.
-	BrickWarm   = Color3.fromRGB(94, 52, 58),
-	Stone       = Color3.fromRGB(72, 68, 86),
-	Slate       = Color3.fromRGB(52, 52, 68),
-	Rust        = Color3.fromRGB(112, 62, 42),
-	Boundary    = Color3.fromRGB(88, 62, 110),
+	BrickWarm   = Color3.fromRGB(128, 68, 78),
+	Stone       = Color3.fromRGB(108, 103, 128),
+	Slate       = Color3.fromRGB(82, 84, 110),
+	Rust        = Color3.fromRGB(142, 78, 56),
+	Boundary    = Color3.fromRGB(118, 82, 146),
 	Gold        = Color3.fromRGB(255, 176, 32),
 	Danger      = Color3.fromRGB(255, 61, 61),
 	Ghost       = Color3.fromRGB(226, 232, 255),

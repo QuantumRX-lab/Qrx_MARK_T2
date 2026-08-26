@@ -717,6 +717,10 @@ local function useHeld(player: Player)
 	if live and live.Parent then
 		if os.clock() >= ((live:GetAttribute("ArmedAt") :: number?) or 0) then
 			detonate(player, live)
+			if player.Character then
+				player.Character:SetAttribute("ChompItemUsed", "HomingBomb")
+				player.Character:SetAttribute("ChompItemUsedAt", os.clock())
+			end
 			-- Spending the bomb comes off whichever slot holds it, not
 			-- necessarily the active one: you may have picked up a cannon since
 			-- placing it (D-CHOMP-059).
@@ -752,6 +756,10 @@ local function useHeld(player: Player)
 		-- Detonation is handled above, so reaching here means nothing is
 		-- deployed: drop one.
 		dropBomb(player)
+		if player.Character then
+			player.Character:SetAttribute("ChompItemUsed", h.id)
+			player.Character:SetAttribute("ChompItemUsedAt", os.clock())
+		end
 		return
 	end
 
@@ -775,6 +783,10 @@ local function useHeld(player: Player)
 		if os.clock() - (lastShot[player] or 0) < interval then return end
 		lastShot[player] = os.clock()
 		fireCannon(player)
+	end
+	if player.Character then
+		player.Character:SetAttribute("ChompItemUsed", h.id)
+		player.Character:SetAttribute("ChompItemUsedAt", os.clock())
 	end
 
 	consumeActive(player)
