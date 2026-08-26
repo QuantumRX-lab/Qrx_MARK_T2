@@ -281,10 +281,16 @@ local function fitVehicle(player: Player, character: Model)
 	mount.Massless = true
 	mount.CFrame = primary.CFrame * CFrame.new(0, 5.2, 0)
 	mount.Parent = model
-	local mountWeld = Instance.new("WeldConstraint")
-	mountWeld.Part0 = primary
-	mountWeld.Part1 = mount
-	mountWeld.Parent = mount
+	-- A Motor6D rather than a weld, because a turret has to TURN (D-CHOMP-054).
+	-- Setting Transform on a motor rotates the mounted item relative to the kart
+	-- without touching either part's CFrame, so nothing fights the solver.
+	local motor = Instance.new("Motor6D")
+	motor.Name = "TurretMotor"
+	motor.Part0 = primary
+	motor.Part1 = mount
+	motor.C0 = CFrame.new(0, 5.2, 0)
+	motor.C1 = CFrame.new()
+	motor.Parent = primary
 
 	if Config.Vehicle and Config.Vehicle.NamePlate then
 		nameplate(player, model, primary)
@@ -297,6 +303,15 @@ local function onCharacter(player: Player, character: Model)
 		character:WaitForChild("HumanoidRootPart", 10)
 	end
 	fitVehicle(player, character)
+
+	-- Buying a chassis drops the old kart and stamps ChompRefit; rebuilding it
+	-- is this service's job, not the store's (D-CHOMP-055). One writer of the
+	-- vehicle, which is the rule this project keeps relearning.
+	character:GetAttributeChangedSignal("ChompRefit"):Connect(function()
+		task.defer(function()
+			if character.Parent then fitVehicle(player, character) end
+		end)
+	end)
 end
 
 Players.PlayerAdded:Connect(function(player)

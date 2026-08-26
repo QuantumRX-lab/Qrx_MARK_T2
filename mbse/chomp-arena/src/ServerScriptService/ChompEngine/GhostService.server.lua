@@ -31,6 +31,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
+local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local G = Config.Ghosts
@@ -141,6 +142,9 @@ local function spawnGhosts()
 	while #ghosts < wanted do
 		local g = buildGhost()
 		local index = #ghosts
+		-- Unique names, so a lock can name its target and the client can find it
+		-- without the server sending an instance reference (D-CHOMP-054).
+		g.model.Name = "Ghost_" .. tostring(index + 1)
 		g.radius = L.CentreRadius + L.RingSpacing * (1 + (index % 4))
 		g.angle = (math.pi * 2) * (index / math.max(1, wanted))
 		g.model:PivotTo(CFrame.new(math.cos(g.angle) * g.radius, 8, math.sin(g.angle) * g.radius))
@@ -208,6 +212,44 @@ RunService.Heartbeat:Connect(function(dt)
 		if ((g.model:GetAttribute("Health") :: number?) or 1) <= 0
 			and g.model:GetAttribute("Dead") ~= true then
 			g.model:SetAttribute("Dead", true)
+
+			-- Fly apart. A ghost that simply vanishes is a bug; one that comes
+			-- to pieces is a kill, and the difference is entirely in whether
+			-- the player believes they did it (D-CHOMP-054).
+			local centre = g.model:GetPivot().Position
+			for i = 1, 9 do
+				local shard = Instance.new("Part")
+				shard.Size = Vector3.new(2.4, 2.4, 2.4)
+				shard.Shape = Enum.PartType.Ball
+				shard.Color = i <= 2 and P.Danger or P.Ghost
+				shard.Material = Enum.Material.Neon
+				shard.Transparency = 0.25
+				shard.CanCollide = false
+				shard.CanQuery = false
+				shard.Position = centre + Vector3.new(
+					math.random(-30, 30) / 10, math.random(-20, 30) / 10, math.random(-30, 30) / 10)
+				shard.AssemblyLinearVelocity = Vector3.new(
+					math.random(-60, 60), math.random(20, 70), math.random(-60, 60))
+				CollectionService:AddTag(shard, "Chomp_Decor")
+				shard.Parent = Workspace
+				Debris:AddItem(shard, 1.6)
+			end
+
+			-- Paid to BANKED, not to the carry. A kill is earned and should not
+			-- then be stealable by the next ghost along.
+			local killerId = g.model:GetAttribute("KilledBy")
+			if typeof(killerId) == "number" then
+				local killer = Players:GetPlayerByUserId(killerId)
+				local character = killer and killer.Character
+				if character then
+					local now = (character:GetAttribute("ChompDollars") :: number?) or 0
+					character:SetAttribute("ChompDollars", now + G.KillRewardDollars)
+					character:SetAttribute("ChompBankedAmount", G.KillRewardDollars)
+					character:SetAttribute("ChompBankedAt", os.clock())
+				end
+			end
+			g.model:SetAttribute("KilledBy", nil)
+
 			for _, d in g.model:GetDescendants() do
 				if d:IsA("BasePart") then d.Transparency = 1 end
 			end

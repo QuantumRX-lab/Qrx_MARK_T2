@@ -1278,3 +1278,81 @@ decisions:
       timestamps; PickupFeedback reads those and floats a rising, fading number
       over the kart. Rising matters: movement is what the eye catches without
       being asked to look.
+
+  - id: D-CHOMP-053
+    date: 2026-08-25
+    title: The HUD values move to one bottom-right stack
+    decision: >
+      Carried, banked, health and held item move from the top corners into a
+      single bottom-right stack. The contextual objective stays top-centre.
+    rationale: >
+      Owner report, confirmed by a screenshot: Roblox puts its own chrome in the
+      top corners - menu button, chat toggle, close control - and it sat
+      directly over both panels. A value you cannot read is not a HUD.
+      This DISAGREES with two requirements and both are recorded rather than
+      quietly ignored. CHOMP-SYS-055 specifies top-left and top-right, and was
+      written before anyone had seen the game with Roblox's own UI on top of it.
+      CHOMP-SYS-032 reserves the lower corners for thumbs, which on a touch
+      device this stack will collide with. Neither is resolved here: the tree
+      needs to decide whether the requirement or the layout is wrong, and on a
+      phone it may well be the layout.
+    outcome: >
+      One stack, banked lowest because it is the number checked least often and
+      most wanted at the end of a round. Conflicts logged in CHAIN-UI.
+
+  - id: D-CHOMP-054
+    date: 2026-08-25
+    title: The cannon locks on, the bomb is a dropped mine, and ghosts die in one hit
+    decision: >
+      The cannon auto-locks: it finds the nearest ghost within a 70-degree cone,
+      tracks it in RED, and turns GREEN after holding it for lockSeconds, with
+      the turret swinging to follow. A locked shot flies at the lock rather than
+      at the nose. The HomingBomb becomes a two-tap dropped mine: first tap
+      drops it behind you, second detonates. Ghosts have one hit point, fly
+      apart when killed, and pay the killer straight into BANKED dollars.
+    rationale: >
+      Owner direction, and each part answers a real problem.
+      Aiming while steering a kart is not a skill worth demanding of a
+      seven-year-old, but choosing WHEN to fire is - so the lock is automatic
+      and the trigger is not. Tracking and locked differ in shape and motion as
+      well as colour, because red and green is the worst possible pair for a
+      colour-blind player.
+      The homing missile became a dropped mine because a slower vehicle cannot
+      use a chasing projectile against the thing chasing IT. A trap you place
+      behind you is the weapon that fits the situation the player is actually in.
+      Two taps, so a bomb you never set off is a bomb you still have.
+      One hit and a shower of pieces makes a kill legible. A ghost that simply
+      vanishes reads as a bug; the difference is entirely whether the player
+      believes they did it. The reward is paid to BANKED because a kill is
+      earned and should not then be stealable by the next ghost along.
+    outcome: >
+      The lock lives on the server - a client-declared target would be a
+      client-declared hit - and the turret is a Motor6D so it can turn without
+      either part's CFrame being written. TargetReticle draws the state and
+      decides nothing.
+
+  - id: D-CHOMP-055
+    date: 2026-08-25
+    title: You start in the garage, and everything buyable stands on a plinth
+    decision: >
+      A store of lit plinths sits beside the spawn: every chassis and every
+      first-level upgrade, each showing the vehicle or a token, its dollar price
+      and a Robux price. Buying is done by driving up and holding still for
+      DwellSeconds. Robux prices are DISPLAY ONLY.
+    rationale: >
+      Owner direction. Showing the actual vehicle matters: buying something you
+      have driven up to and looked at is a different decision from buying a name
+      in a list, and it is the only version of that decision a child can make.
+      Dwelling rather than touching, because a child at speed will clip every
+      plinth in the row. A second of stillness makes a purchase something you
+      meant, without adding the button this game has spent five control schemes
+      avoiding.
+      Robux is displayed and NOT wired. Taking real money is a monetisation
+      decision with legal and parental consequences and is not something to add
+      to an overnight build on inference. The label exists so the layout can be
+      judged with it present, and that limit is written in the config beside it.
+    outcome: >
+      GarageService owns plinths and purchases; the server holds every price and
+      the label is not what is charged. Buying a chassis stamps ChompRefit and
+      VehicleService rebuilds the kart, so the vehicle still has exactly one
+      writer.

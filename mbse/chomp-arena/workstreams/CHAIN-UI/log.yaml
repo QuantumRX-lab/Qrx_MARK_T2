@@ -189,3 +189,22 @@ entries:
     colour alone - carried and banked currently differ by colour, position AND
     label, which satisfies it, but nothing tests that and the criterion is still
     missing from CHOMP-TC-045.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: NOTE
+  requirements: [CHOMP-SYS-055, CHOMP-SYS-032]
+  summary: >
+    TWO REQUIREMENT CONFLICTS, opened deliberately rather than ignored.
+    The HUD values moved to a bottom-right stack (D-CHOMP-053) because Roblox's
+    own chrome - menu, chat, close - sits on top of the top corners and made
+    both panels unreadable. CHOMP-SYS-055 specifies top-left and top-right and
+    was written before anyone saw the game with that UI present.
+    The new position also enters the lower-right zone CHOMP-SYS-032 reserves for
+    thumbs. On desktop that is free; on an iPad it will not be.
+  status: OPEN
+  handoff: >
+    Someone has to decide which is wrong: the requirement or the layout. The
+    honest options are to amend CHOMP-SYS-055 to specify "clear of platform
+    chrome" rather than naming corners, or to keep the top zones and inset them
+    below Roblox's topbar. Do not leave the code and the tree disagreeing.
+    On touch this stack is almost certainly wrong and CHOMP-TC-045 will say so.

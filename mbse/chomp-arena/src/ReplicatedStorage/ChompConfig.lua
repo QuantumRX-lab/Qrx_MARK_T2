@@ -156,7 +156,8 @@ ChompConfig.Ghosts = {
 	-- not being deleted by one mistake.
 	ContactDamage = 14,
 	ContactCooldownSeconds = 1.6,
-	Health = 2,                -- cannon shots to kill; the bomb kills outright
+	Health = 1,                -- one clean hit; ghosts fly apart (D-CHOMP-054)
+	KillRewardDollars = 200,   -- paid straight to BANKED, never to the carry
 	RespawnSeconds = 12,
 	Speed = 21,                         -- slower than a Standard chassis on purpose
 	FleeSpeed = 14,
@@ -249,6 +250,27 @@ ChompConfig.Controls = {
 -- World-locked yaw: the camera never rotates with the vehicle. Turning spins
 -- the model, not the world.
 
+-- ── The garage store (D-CHOMP-055) ──────────────────────
+-- Everything buyable stands on a plinth you can drive up to and look at.
+-- Prices are in banked dollars: the currency you earned by surviving.
+--
+-- RobuxPrice is DISPLAY ONLY. Nothing here charges anyone. Wiring a real
+-- purchase is a monetisation decision with legal and parental consequences
+-- and is not a thing to slip into an overnight build; the label exists so the
+-- layout can be judged with it present.
+ChompConfig.Store = {
+	DwellSeconds = 1.2,        -- hold still at a plinth to buy; no button, no misclick
+	PlinthRadiusStuds = 13,
+	RobuxPrice = {
+		HeavyJaw = 99,
+		Ravener = 249,
+		Apex = 499,
+		Speed = 49,
+		Agility = 49,
+		Consumption = 49,
+	},
+}
+
 -- ── Items (D-CHOMP-045) ─────────────────────────────────────────────────
 -- One slot. Picking anything up replaces what you were carrying, so the
 -- decision is always "is this better than what I have", never inventory
@@ -272,13 +294,26 @@ ChompConfig.Items = {
 			projectileSpeed = 180,
 			rangeStuds = 260,
 			label = "CANNON",
+			-- Auto-lock (D-CHOMP-054). The turret finds the nearest ghost in
+			-- front of you, tracks it in red, and turns green when it has held
+			-- it for LockSeconds. Aiming while steering a kart is not a skill
+			-- worth demanding of a seven-year-old; CHOOSING when to fire is.
+			lockRangeStuds = 240,
+			lockAngleDegrees = 70,   -- half-angle of the search cone
+			lockSeconds = 0.45,      -- continuous tracking before it goes green
+			turretTurnDegrees = 220, -- how fast the barrel swings
 		},
 		HomingBomb = {
 			charges = 1,
-			projectileSpeed = 90,   -- slower than the cannon: it steers, so it must be dodgeable
-			turnRateDegrees = 140,
-			rangeStuds = 320,
 			label = "BOMB",
+			-- A DROPPED mine, not a chased missile (D-CHOMP-054). First tap
+			-- drops it behind you, second tap detonates. That makes it a trap
+			-- you place rather than a shot you aim, which is the thing a slower
+			-- vehicle can actually use against something chasing it.
+			dropBehindStuds = 14,
+			blastRadiusStuds = 46,
+			armSeconds = 0.35,       -- cannot detonate in your own face
+			lifetimeSeconds = 20,
 		},
 		Shield = {
 			charges = 1,

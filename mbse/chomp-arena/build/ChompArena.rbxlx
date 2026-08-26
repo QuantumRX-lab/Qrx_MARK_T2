@@ -164,7 +164,8 @@ ChompConfig.Ghosts = {
 	-- not being deleted by one mistake.
 	ContactDamage = 14,
 	ContactCooldownSeconds = 1.6,
-	Health = 2,                -- cannon shots to kill; the bomb kills outright
+	Health = 1,                -- one clean hit; ghosts fly apart (D-CHOMP-054)
+	KillRewardDollars = 200,   -- paid straight to BANKED, never to the carry
 	RespawnSeconds = 12,
 	Speed = 21,                         -- slower than a Standard chassis on purpose
 	FleeSpeed = 14,
@@ -257,6 +258,27 @@ ChompConfig.Controls = {
 -- World-locked yaw: the camera never rotates with the vehicle. Turning spins
 -- the model, not the world.
 
+-- ── The garage store (D-CHOMP-055) ──────────────────────
+-- Everything buyable stands on a plinth you can drive up to and look at.
+-- Prices are in banked dollars: the currency you earned by surviving.
+--
+-- RobuxPrice is DISPLAY ONLY. Nothing here charges anyone. Wiring a real
+-- purchase is a monetisation decision with legal and parental consequences
+-- and is not a thing to slip into an overnight build; the label exists so the
+-- layout can be judged with it present.
+ChompConfig.Store = {
+	DwellSeconds = 1.2,        -- hold still at a plinth to buy; no button, no misclick
+	PlinthRadiusStuds = 13,
+	RobuxPrice = {
+		HeavyJaw = 99,
+		Ravener = 249,
+		Apex = 499,
+		Speed = 49,
+		Agility = 49,
+		Consumption = 49,
+	},
+}
+
 -- ── Items (D-CHOMP-045) ─────────────────────────────────────────────────
 -- One slot. Picking anything up replaces what you were carrying, so the
 -- decision is always "is this better than what I have", never inventory
@@ -280,13 +302,26 @@ ChompConfig.Items = {
 			projectileSpeed = 180,
 			rangeStuds = 260,
 			label = "CANNON",
+			-- Auto-lock (D-CHOMP-054). The turret finds the nearest ghost in
+			-- front of you, tracks it in red, and turns green when it has held
+			-- it for LockSeconds. Aiming while steering a kart is not a skill
+			-- worth demanding of a seven-year-old; CHOOSING when to fire is.
+			lockRangeStuds = 240,
+			lockAngleDegrees = 70,   -- half-angle of the search cone
+			lockSeconds = 0.45,      -- continuous tracking before it goes green
+			turretTurnDegrees = 220, -- how fast the barrel swings
 		},
 		HomingBomb = {
 			charges = 1,
-			projectileSpeed = 90,   -- slower than the cannon: it steers, so it must be dodgeable
-			turnRateDegrees = 140,
-			rangeStuds = 320,
 			label = "BOMB",
+			-- A DROPPED mine, not a chased missile (D-CHOMP-054). First tap
+			-- drops it behind you, second tap detonates. That makes it a trap
+			-- you place rather than a shot you aim, which is the thing a slower
+			-- vehicle can actually use against something chasing it.
+			dropBehindStuds = 14,
+			blastRadiusStuds = 46,
+			armSeconds = 0.35,       -- cannot detonate in your own face
+			lifetimeSeconds = 20,
 		},
 		Shield = {
 			charges = 1,
@@ -6074,6 +6109,268 @@ build()
       </Item>
       <Item class="Script" referent="142">
         <Properties>
+          <string name="Name">GarageService</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	GarageService — CHAIN-ECONOMY (D-CHOMP-055)
+
+	The garage you start in, and the store you spend in.
+
+	Everything buyable stands on a lit plinth with its price above it. You buy by
+	driving up and holding still — no button, no menu, no confirmation dialog,
+	which is the rule banking already follows and the reason this game has no UI
+	to get lost in.
+
+	Dwelling rather than touching matters. A child driving at speed will clip
+	every plinth in the row, so requiring a second of stillness means a purchase
+	is always something you meant.
+
+	THE SERVER OWNS THE PRICE. The plinth carries a label; the label is not what
+	is charged. A client cannot name a price, a discount, or an item it has not
+	afforded (CHOMP-SYS-034).
+
+	Robux prices are DISPLAYED and nothing more. Wiring a real purchase is a
+	monetisation decision with consequences for a parent, not something to slip
+	into an overnight build.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local CollectionService = game:GetService("CollectionService")
+local Workspace = game:GetService("Workspace")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local VehicleFactory = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleFactory"))
+
+local L = Config.Level1
+local P = Config.Palette
+local STORE = Config.Store
+local UP = Config.Upgrades
+
+local SPECS = ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleSpecs")
+
+local folder = Instance.new("Folder")
+folder.Name = "Garage"
+folder.Parent = Workspace
+
+local function part(name: string, size: Vector3, cf: CFrame, colour: Color3,
+		material: Enum.Material, parent: Instance): Part
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cf
+	p.Color = colour
+	p.Material = material
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = parent
+	return p
+end
+
+local function priceLabel(plinth: BasePart, title: string, dollars: number, robux: number?)
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.new(0, 220, 0, 96)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 12, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 300
+	gui.Adornee = plinth
+	gui.Parent = plinth
+
+	local function line(text: string, colour: Color3, size: number, y: number, font: Enum.Font)
+		local t = Instance.new("TextLabel")
+		t.BackgroundTransparency = 1
+		t.Size = UDim2.new(1, 0, 0, size + 6)
+		t.Position = UDim2.new(0, 0, 0, y)
+		t.Text = text
+		t.TextColor3 = colour
+		t.TextStrokeColor3 = P.Floor
+		t.TextStrokeTransparency = 0.2
+		t.TextSize = size
+		t.Font = font
+		t.Parent = gui
+	end
+
+	line(title, P.Ghost, 22, 0, Enum.Font.GothamBlack)
+	line("$" .. tostring(dollars), P.Gold, 26, 26, Enum.Font.GothamBold)
+	if robux then
+		line("or R$" .. tostring(robux), P.NeonA, 16, 60, Enum.Font.Gotham)
+	end
+end
+
+type Offer = { id: string, kind: string, title: string, dollars: number, robux: number? }
+
+local function offers(): { Offer }
+	local out: { Offer } = {}
+	for id, chassis in Config.Chassis do
+		if chassis.Cost and chassis.Cost > 0 then
+			table.insert(out, {
+				id = id, kind = "chassis", title = id,
+				dollars = chassis.Cost, robux = STORE.RobuxPrice[id],
+			})
+		end
+	end
+	-- Cheapest first, so the row reads as a ladder rather than a shelf.
+	table.sort(out, function(a, b) return a.dollars < b.dollars end)
+	for _, track in { "Speed", "Agility", "Consumption" } do
+		table.insert(out, {
+			id = track, kind = "upgrade", title = track .. " I",
+			dollars = UP.Costs[1], robux = STORE.RobuxPrice[track],
+		})
+	end
+	return out
+end
+
+local plinths: { { part: BasePart, offer: Offer } } = {}
+
+local function build(): number
+	-- Beside the spawn pad, so the first thing you see is what you are working
+	-- towards.
+	local homeAngle = math.pi / L.GarageCount
+	local radius = L.OuterRadius - L.RingSpacing / 2 - 22
+	local list = offers()
+	local step = math.rad(4.2)
+
+	for i, offer in ipairs(list) do
+		local a = homeAngle + step * (i - (#list + 1) / 2)
+		local pos = Vector3.new(math.cos(a) * radius, 0, math.sin(a) * radius)
+		local facing = CFrame.Angles(0, -a, 0)
+
+		local base = part("Plinth", Vector3.new(9, 6, 9),
+			CFrame.new(pos + Vector3.new(0, 3, 0)) * facing,
+			P.BrickDark, Enum.Material.Metal, folder)
+		local glow = part("PlinthGlow", Vector3.new(9.4, 0.6, 9.4),
+			CFrame.new(pos + Vector3.new(0, 6.2, 0)) * facing,
+			offer.kind == "chassis" and P.Gold or P.NeonA, Enum.Material.Neon, folder)
+		glow.CanCollide = false
+		CollectionService:AddTag(base, "Chomp_Decor")
+		CollectionService:AddTag(glow, "Chomp_Decor")
+
+		if offer.kind == "chassis" then
+			-- Show the actual vehicle. Buying something you have looked at is a
+			-- different decision from buying a name in a list.
+			local module = SPECS:FindFirstChild(offer.id)
+			if module and module:IsA("ModuleScript") then
+				local ok, model = pcall(function()
+					return VehicleFactory.build(require(module) :: any)
+				end)
+				if ok and model then
+					for _, d in model:GetDescendants() do
+						if d:IsA("BasePart") then
+							d.Anchored = true
+							d.CanCollide = false
+							d.CanQuery = false
+							CollectionService:AddTag(d, "Chomp_Decor")
+						end
+					end
+					model:PivotTo(CFrame.new(pos + Vector3.new(0, 9, 0)) * facing)
+					model.Parent = folder
+				end
+			end
+		else
+			-- Upgrades have no model. A clear token beats a misleading one.
+			local token = part("UpgradeToken", Vector3.new(4, 4, 4),
+				CFrame.new(pos + Vector3.new(0, 9.5, 0)) * facing * CFrame.Angles(0.5, 0, 0.5),
+				P.NeonA, Enum.Material.Neon, folder)
+			token.CanCollide = false
+			CollectionService:AddTag(token, "Chomp_Decor")
+		end
+
+		priceLabel(base, offer.title, offer.dollars, offer.robux)
+		table.insert(plinths, { part = base, offer = offer })
+	end
+	return #plinths
+end
+
+local function refitVehicle(player: Player)
+	-- VehicleService builds the kart on spawn from ChompChassis. Rather than
+	-- duplicating that here, drop the old kart and let it rebuild.
+	local character = player.Character
+	local vehicle = character and character:FindFirstChild("Vehicle")
+	if vehicle then vehicle:Destroy() end
+	if character then character:SetAttribute("ChompRefit", os.clock()) end
+end
+
+local function buy(player: Player, offer: Offer): boolean
+	local character = player.Character
+	if not character then return false end
+	local dollars = (character:GetAttribute("ChompDollars") :: number?) or 0
+	if dollars < offer.dollars then return false end
+
+	if offer.kind == "chassis" then
+		if character:GetAttribute("ChompChassis") == offer.id then return false end
+		character:SetAttribute("ChompChassis", offer.id)
+		refitVehicle(player)
+	else
+		local key = "ChompUpgrade" .. offer.id
+		local level = (character:GetAttribute(key) :: number?) or 0
+		if level >= UP.MaxLevel then return false end
+		character:SetAttribute(key, level + 1)
+	end
+
+	character:SetAttribute("ChompDollars", dollars - offer.dollars)
+	character:SetAttribute("ChompBoughtWhat", offer.title)
+	character:SetAttribute("ChompBoughtAt", os.clock())
+	return true
+end
+
+local function dwellLoop()
+	local dwelling: { [Player]: { plinth: BasePart?, since: number } } = {}
+	while true do
+		task.wait(0.15)
+		for _, player in Players:GetPlayers() do
+			local character = player.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if not root then continue end
+
+			local nearOffer: Offer? = nil
+			local nearPart: BasePart? = nil
+			for _, entry in plinths do
+				if (entry.part.Position - root.Position).Magnitude < STORE.PlinthRadiusStuds then
+					nearOffer, nearPart = entry.offer, entry.part
+					break
+				end
+			end
+
+			local state = dwelling[player]
+			if nearPart and state and state.plinth == nearPart then
+				if os.clock() - state.since >= STORE.DwellSeconds then
+					if nearOffer and buy(player, nearOffer) then
+						dwelling[player] = { plinth = nil, since = 0 }
+					else
+						-- Refused: back off rather than retrying every tick.
+						state.since = os.clock() + 3
+					end
+				end
+			else
+				dwelling[player] = { plinth = nearPart, since = os.clock() }
+			end
+		end
+	end
+end
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		-- Everyone starts in the basic chassis, in the garage, with the ladder
+		-- in front of them.
+		if character:GetAttribute("ChompChassis") == nil then
+			character:SetAttribute("ChompChassis", Config.StartingChassis)
+		end
+	end)
+end)
+
+local count = build()
+task.spawn(dwellLoop)
+
+print(("[GarageService] %d plinths, dwell %.1fs to buy, Robux labels are display only")
+	:format(count, STORE.DwellSeconds))
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="143">
+        <Properties>
           <string name="Name">GhostService</string>
           <token name="RunContext">0</token>
           <string name="Source"><![CDATA[--!strict
@@ -6109,6 +6406,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
+local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local G = Config.Ghosts
@@ -6219,6 +6517,9 @@ local function spawnGhosts()
 	while #ghosts < wanted do
 		local g = buildGhost()
 		local index = #ghosts
+		-- Unique names, so a lock can name its target and the client can find it
+		-- without the server sending an instance reference (D-CHOMP-054).
+		g.model.Name = "Ghost_" .. tostring(index + 1)
 		g.radius = L.CentreRadius + L.RingSpacing * (1 + (index % 4))
 		g.angle = (math.pi * 2) * (index / math.max(1, wanted))
 		g.model:PivotTo(CFrame.new(math.cos(g.angle) * g.radius, 8, math.sin(g.angle) * g.radius))
@@ -6286,6 +6587,44 @@ RunService.Heartbeat:Connect(function(dt)
 		if ((g.model:GetAttribute("Health") :: number?) or 1) <= 0
 			and g.model:GetAttribute("Dead") ~= true then
 			g.model:SetAttribute("Dead", true)
+
+			-- Fly apart. A ghost that simply vanishes is a bug; one that comes
+			-- to pieces is a kill, and the difference is entirely in whether
+			-- the player believes they did it (D-CHOMP-054).
+			local centre = g.model:GetPivot().Position
+			for i = 1, 9 do
+				local shard = Instance.new("Part")
+				shard.Size = Vector3.new(2.4, 2.4, 2.4)
+				shard.Shape = Enum.PartType.Ball
+				shard.Color = i <= 2 and P.Danger or P.Ghost
+				shard.Material = Enum.Material.Neon
+				shard.Transparency = 0.25
+				shard.CanCollide = false
+				shard.CanQuery = false
+				shard.Position = centre + Vector3.new(
+					math.random(-30, 30) / 10, math.random(-20, 30) / 10, math.random(-30, 30) / 10)
+				shard.AssemblyLinearVelocity = Vector3.new(
+					math.random(-60, 60), math.random(20, 70), math.random(-60, 60))
+				CollectionService:AddTag(shard, "Chomp_Decor")
+				shard.Parent = Workspace
+				Debris:AddItem(shard, 1.6)
+			end
+
+			-- Paid to BANKED, not to the carry. A kill is earned and should not
+			-- then be stealable by the next ghost along.
+			local killerId = g.model:GetAttribute("KilledBy")
+			if typeof(killerId) == "number" then
+				local killer = Players:GetPlayerByUserId(killerId)
+				local character = killer and killer.Character
+				if character then
+					local now = (character:GetAttribute("ChompDollars") :: number?) or 0
+					character:SetAttribute("ChompDollars", now + G.KillRewardDollars)
+					character:SetAttribute("ChompBankedAmount", G.KillRewardDollars)
+					character:SetAttribute("ChompBankedAt", os.clock())
+				end
+			end
+			g.model:SetAttribute("KilledBy", nil)
+
 			for _, d in g.model:GetDescendants() do
 				if d:IsA("BasePart") then d.Transparency = 1 end
 			end
@@ -6347,7 +6686,7 @@ print(("[GhostService] %d ghosts hunting carried points, %d%% per catch, speed %
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="143">
+      <Item class="Script" referent="144">
         <Properties>
           <string name="Name">ItemService</string>
           <token name="RunContext">0</token>
@@ -6678,7 +7017,20 @@ local function fireProjectile(player: Player, id: string)
 	shot.Parent = Workspace
 	Debris:AddItem(shot, 6)
 
+	-- A locked cannon fires at the LOCK, not at the nose. That is the whole
+	-- point of locking, and the direction is computed here from positions the
+	-- server holds (D-CHOMP-054).
 	local direction = facing(root)
+	if id == "Cannon" then
+		local target = lockTarget[player]
+		local character = player.Character
+		if target and target.Parent and character
+			and character:GetAttribute("ChompLockState") == "locked" then
+			local to = target:GetPivot().Position - root.Position
+			local flat = Vector3.new(to.X, 0, to.Z)
+			if flat.Magnitude > 0.001 then direction = flat.Unit end
+		end
+	end
 	local travelled = 0
 	local connection: RBXScriptConnection
 	connection = RunService.Heartbeat:Connect(function(dt)
@@ -6719,8 +7071,8 @@ local function fireProjectile(player: Player, id: string)
 			if ghost:IsA("Model") and ghost:GetAttribute("Dead") ~= true then
 				local pivot = ghost:GetPivot()
 				if (pivot.Position - shot.Position).Magnitude < 11 then
-					local damage = (id == "HomingBomb") and 99 or 1
-					local hp = ((ghost:GetAttribute("Health") :: number?) or 1) - damage
+					local hp = ((ghost:GetAttribute("Health") :: number?) or 1) - 1
+					ghost:SetAttribute("KilledBy", player.UserId)
 					ghost:SetAttribute("Health", hp)
 					ghost:SetAttribute("HitAt", os.clock())
 					shot:Destroy()
@@ -6754,6 +7106,160 @@ local function fireProjectile(player: Player, id: string)
 	end)
 end
 
+-- ── Auto-lock (D-CHOMP-054) ─────────────────────────────────────────────
+-- The turret finds the nearest ghost in front, tracks it, and locks after
+-- holding it. Aiming while steering is not a skill worth demanding of a
+-- seven-year-old; deciding WHEN to fire is.
+--
+-- The lock lives on the SERVER. The client draws a reticle from it and cannot
+-- create one: a client-declared target would be a client-declared hit.
+local lockTarget: { [Player]: Model? } = {}
+local lockSince: { [Player]: number } = {}
+
+local function ghostsAlive(): { Model }
+	local out: { Model } = {}
+	for _, g in CollectionService:GetTagged("Chomp_Ghost") do
+		if g:IsA("Model") and g:GetAttribute("Dead") ~= true then
+			table.insert(out, g)
+		end
+	end
+	return out
+end
+
+local function updateLock(player: Player, dt: number)
+	local h = held[player]
+	local root = rootOf(player)
+	local character = player.Character
+	if not (character and root and h and h.id == "Cannon") then
+		lockTarget[player] = nil
+		lockSince[player] = 0
+		if character then
+			character:SetAttribute("ChompLockState", "none")
+			character:SetAttribute("ChompLockTarget", "")
+		end
+		return
+	end
+
+	local def = DEFS.Cannon
+	local forward = facing(root)
+	local best, bestDistance = nil, def.lockRangeStuds
+	for _, ghost in ghostsAlive() do
+		local to = ghost:GetPivot().Position - root.Position
+		local flat = Vector3.new(to.X, 0, to.Z)
+		local distance = flat.Magnitude
+		if distance < bestDistance and distance > 1 then
+			local angle = math.deg(math.acos(math.clamp(forward:Dot(flat.Unit), -1, 1)))
+			if angle <= def.lockAngleDegrees then
+				best, bestDistance = ghost, distance
+			end
+		end
+	end
+
+	if best ~= lockTarget[player] then
+		lockTarget[player] = best
+		lockSince[player] = best and os.clock() or 0
+	end
+
+	local state = "none"
+	if best then
+		state = (os.clock() - (lockSince[player] or 0)) >= def.lockSeconds and "locked" or "tracking"
+	end
+	character:SetAttribute("ChompLockState", state)
+	character:SetAttribute("ChompLockTarget", best and best.Name or "")
+
+	-- Swing the barrel. Turning at a rate rather than snapping is what makes a
+	-- lock feel earned instead of automatic.
+	local vehicle = character:FindFirstChild("Vehicle")
+	local primary = vehicle and vehicle:FindFirstChild("Chassis") :: BasePart?
+	local motor = primary and primary:FindFirstChild("TurretMotor") :: Motor6D?
+	if motor then
+		local wanted = 0
+		if best then
+			local to = best:GetPivot().Position - root.Position
+			local flat = Vector3.new(to.X, 0, to.Z)
+			if flat.Magnitude > 0.001 then
+				local worldYaw = math.atan2(-flat.Unit.X, -flat.Unit.Z)
+				local kartYaw = math.atan2(-forward.X, -forward.Z)
+				wanted = (worldYaw - kartYaw + math.pi) % (math.pi * 2) - math.pi
+			end
+		end
+		local _, current = motor.Transform:ToOrientation()
+		local diff = (wanted - current + math.pi) % (math.pi * 2) - math.pi
+		local step = math.rad(def.turretTurnDegrees) * dt
+		local applied = math.abs(diff) <= step and wanted or current + (diff > 0 and step or -step)
+		motor.Transform = CFrame.Angles(0, applied, 0)
+	end
+end
+
+RunService.Heartbeat:Connect(function(dt)
+	for _, player in Players:GetPlayers() do
+		updateLock(player, dt)
+	end
+end)
+
+-- ── The dropped bomb ────────────────────────────────────────────────────
+local deployed: { [Player]: BasePart? } = {}
+
+local function detonate(player: Player, bomb: BasePart)
+	deployed[player] = nil
+	local centre = bomb.Position
+	local def = DEFS.HomingBomb
+
+	local blast = Instance.new("Part")
+	blast.Shape = Enum.PartType.Ball
+	blast.Size = Vector3.new(def.blastRadiusStuds * 2, def.blastRadiusStuds * 2, def.blastRadiusStuds * 2)
+	blast.Position = centre
+	blast.Anchored = true
+	blast.CanCollide = false
+	blast.CanQuery = false
+	blast.Material = Enum.Material.Neon
+	blast.Color = P.NeonB
+	blast.Transparency = 0.55
+	CollectionService:AddTag(blast, "Chomp_Decor")
+	blast.Parent = Workspace
+	Debris:AddItem(blast, 0.35)
+	bomb:Destroy()
+
+	for _, ghost in ghostsAlive() do
+		if (ghost:GetPivot().Position - centre).Magnitude < def.blastRadiusStuds then
+			ghost:SetAttribute("KilledBy", player.UserId)
+			ghost:SetAttribute("Health", 0)
+		end
+	end
+end
+
+local function dropBomb(player: Player)
+	local root = rootOf(player)
+	if not root then return end
+	local def = DEFS.HomingBomb
+
+	local bomb = Instance.new("Part")
+	bomb.Name = "ChompBomb"
+	bomb.Shape = Enum.PartType.Ball
+	bomb.Size = Vector3.new(4.5, 4.5, 4.5)
+	bomb.Position = root.Position - facing(root) * def.dropBehindStuds
+	bomb.Anchored = true
+	bomb.CanCollide = false
+	bomb.CanQuery = false
+	bomb.Material = Enum.Material.Neon
+	bomb.Color = P.NeonB
+	bomb:SetAttribute("ArmedAt", os.clock() + def.armSeconds)
+	CollectionService:AddTag(bomb, "Chomp_Decor")
+	bomb.Parent = Workspace
+	deployed[player] = bomb
+
+	-- It expires on its own, so a forgotten bomb does not sit in the map
+	-- forever holding a charge hostage.
+	task.delay(def.lifetimeSeconds, function()
+		if deployed[player] == bomb then
+			deployed[player] = nil
+			if bomb.Parent then bomb:Destroy() end
+			local h = held[player]
+			if h and h.id == "HomingBomb" then clear(player) end
+		end
+	end)
+end
+
 local function useHeld(player: Player)
 	if not limiter(player) then return end        -- flood protection, server side
 
@@ -6766,6 +7272,23 @@ local function useHeld(player: Player)
 
 	local def = DEFS[h.id]
 	if not def then clear(player) return end
+
+	if h.id == "HomingBomb" then
+		-- Two taps: drop, then detonate. The first costs nothing until the
+		-- second, so a bomb you never set off is a bomb you still have.
+		local bomb = deployed[player]
+		if bomb and bomb.Parent then
+			if os.clock() < ((bomb:GetAttribute("ArmedAt") :: number?) or 0) then
+				return   -- still arming; refuse rather than blow yourself up
+			end
+			detonate(player, bomb)
+			h.charges -= 1
+			if h.charges <= 0 then clear(player) else publish(player) end
+		else
+			dropBomb(player)
+		end
+		return
+	end
 
 	if h.id == "JetPack" then
 		-- A hop. The character is the thing the engine moves, so this is an
@@ -6849,7 +7372,7 @@ print(("[ItemService] running - %d pads, one slot, %d item types, %d/s use limit
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="144">
+      <Item class="Script" referent="145">
         <Properties>
           <string name="Name">Level1Map</string>
           <token name="RunContext">0</token>
@@ -7071,7 +7594,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="145">
+      <Item class="Script" referent="146">
         <Properties>
           <string name="Name">MovementService</string>
           <token name="RunContext">0</token>
@@ -7202,7 +7725,7 @@ print("[MovementService] running — server owns the numbers, the client owns it
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="146">
+      <Item class="Script" referent="147">
         <Properties>
           <string name="Name">PelletService</string>
           <token name="RunContext">0</token>
@@ -7375,7 +7898,7 @@ print(("[PelletService] %d pellets laid, values %s, bank rate %.1f")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="147">
+      <Item class="Script" referent="148">
         <Properties>
           <string name="Name">TestMap</string>
           <token name="RunContext">0</token>
@@ -7548,7 +8071,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="148">
+      <Item class="Script" referent="149">
         <Properties>
           <string name="Name">VehicleService</string>
           <token name="RunContext">0</token>
@@ -7835,10 +8358,16 @@ local function fitVehicle(player: Player, character: Model)
 	mount.Massless = true
 	mount.CFrame = primary.CFrame * CFrame.new(0, 5.2, 0)
 	mount.Parent = model
-	local mountWeld = Instance.new("WeldConstraint")
-	mountWeld.Part0 = primary
-	mountWeld.Part1 = mount
-	mountWeld.Parent = mount
+	-- A Motor6D rather than a weld, because a turret has to TURN (D-CHOMP-054).
+	-- Setting Transform on a motor rotates the mounted item relative to the kart
+	-- without touching either part's CFrame, so nothing fights the solver.
+	local motor = Instance.new("Motor6D")
+	motor.Name = "TurretMotor"
+	motor.Part0 = primary
+	motor.Part1 = mount
+	motor.C0 = CFrame.new(0, 5.2, 0)
+	motor.C1 = CFrame.new()
+	motor.Parent = primary
 
 	if Config.Vehicle and Config.Vehicle.NamePlate then
 		nameplate(player, model, primary)
@@ -7851,6 +8380,15 @@ local function onCharacter(player: Player, character: Model)
 		character:WaitForChild("HumanoidRootPart", 10)
 	end
 	fitVehicle(player, character)
+
+	-- Buying a chassis drops the old kart and stamps ChompRefit; rebuilding it
+	-- is this service's job, not the store's (D-CHOMP-055). One writer of the
+	-- vehicle, which is the rule this project keeps relearning.
+	character:GetAttributeChangedSignal("ChompRefit"):Connect(function()
+		task.defer(function()
+			if character.Parent then fitVehicle(player, character) end
+		end)
+	end)
 end
 
 Players.PlayerAdded:Connect(function(player)
@@ -7878,15 +8416,15 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="149">
+  <Item class="ServerStorage" referent="150">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="150">
+    <Item class="Folder" referent="151">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="151">
+      <Item class="ModuleScript" referent="152">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -8171,7 +8709,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="152">
+      <Item class="ModuleScript" referent="153">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -8430,11 +8968,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="153">
+      <Item class="Folder" referent="154">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="154">
+        <Item class="ModuleScript" referent="155">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -8547,15 +9085,15 @@ return {
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="155">
+  <Item class="StarterPlayer" referent="156">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="156">
+    <Item class="StarterPlayerScripts" referent="157">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="157">
+      <Item class="LocalScript" referent="158">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -8807,7 +9345,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="158">
+      <Item class="LocalScript" referent="159">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -8948,7 +9486,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="159">
+      <Item class="LocalScript" referent="160">
         <Properties>
           <string name="Name">ChompHud</string>
           <string name="Source"><![CDATA[--!strict
@@ -8957,9 +9495,18 @@ end)
 
 	The play HUD, in the zones Codex specified.
 
-	  top left    what you are CARRYING, and what you are holding
-	  top centre  one contextual objective
-	  top right   what you have BANKED
+	  bottom right  what you are CARRYING, what you have BANKED, health, item
+	  top centre    one contextual objective
+
+	The values moved out of the top corners because Roblox puts its own chrome
+	there — the menu button, the chat toggle and the close control sat directly
+	on top of them, and a value you cannot read is not a HUD (D-CHOMP-053).
+
+	This DISAGREES with CHOMP-SYS-055, which specifies top-left and top-right,
+	and with CHOMP-SYS-032's reserved lower corners. Both are recorded as
+	conflicts in the CHAIN-UI log rather than quietly ignored: the requirement
+	was written before anyone had seen the game with Roblox's own UI on top of
+	it, and on a touch device the bottom-right stack will need revisiting.
 
 	Carried and banked are the whole economy, so they are never the same colour,
 	never the same size and never in the same corner. A child has to be able to
@@ -9020,21 +9567,23 @@ local function label(parent: Instance, size: UDim2, position: UDim2, text: strin
 	return t
 end
 
--- ── Top left: risky ─────────────────────────────────────────────────────
-local left = panel("Carried", Vector2.new(0, 0), UDim2.new(0, 16, 0, 16), UDim2.new(0, 210, 0, 92))
-local carriedValue = label(left, UDim2.new(1, -20, 0, 42), UDim2.new(0, 14, 0, 8),
-	"0", P.NeonB, 36, Enum.TextXAlignment.Left)
-label(left, UDim2.new(1, -20, 0, 18), UDim2.new(0, 14, 0, 48),
-	"CARRYING — AT RISK", P.NeonB, 13, Enum.TextXAlignment.Left)
-local itemLabel = label(left, UDim2.new(1, -20, 0, 20), UDim2.new(0, 14, 0, 68),
-	"no item", P.Ghost, 15, Enum.TextXAlignment.Left)
+-- ── Bottom right: one stack, safest value at the bottom ─────────────────
+-- Banked sits lowest because it is the number you check least often and the
+-- one you most want to end the round looking at.
+local stack = panel("Values", Vector2.new(1, 1), UDim2.new(1, -16, 1, -16), UDim2.new(0, 236, 0, 168))
 
--- ── Top right: safe ─────────────────────────────────────────────────────
-local right = panel("Banked", Vector2.new(1, 0), UDim2.new(1, -16, 0, 16), UDim2.new(0, 210, 0, 72))
-local bankedValue = label(right, UDim2.new(1, -20, 0, 42), UDim2.new(0, 6, 0, 8),
-	"$0", P.Gold, 36, Enum.TextXAlignment.Right)
-label(right, UDim2.new(1, -20, 0, 18), UDim2.new(0, 6, 0, 48),
-	"BANKED — SAFE", P.Gold, 13, Enum.TextXAlignment.Right)
+local carriedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 10),
+	"0", P.NeonB, 34, Enum.TextXAlignment.Right)
+label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 48),
+	"CARRYING — AT RISK", P.NeonB, 12, Enum.TextXAlignment.Right)
+
+local itemLabel = label(stack, UDim2.new(1, -24, 0, 20), UDim2.new(0, 14, 0, 70),
+	"no item", P.Ghost, 15, Enum.TextXAlignment.Right)
+
+local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 112),
+	"$0", P.Gold, 34, Enum.TextXAlignment.Right)
+label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 148),
+	"BANKED — SAFE", P.Gold, 12, Enum.TextXAlignment.Right)
 
 -- ── Top centre: one objective ───────────────────────────────────────────
 local centre = panel("Objective", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 280, 0, 48))
@@ -9054,9 +9603,9 @@ flash.Parent = gui
 -- Health sits under the carry, because both answer "how much trouble am I in".
 local healthBack = Instance.new("Frame")
 healthBack.Name = "HealthBack"
-healthBack.AnchorPoint = Vector2.new(0, 0)
-healthBack.Position = UDim2.new(0, 16, 0, 114)
-healthBack.Size = UDim2.new(0, 210, 0, 14)
+healthBack.AnchorPoint = Vector2.new(1, 1)
+healthBack.Position = UDim2.new(1, -16, 1, -190)
+healthBack.Size = UDim2.new(0, 236, 0, 14)
 healthBack.BackgroundColor3 = P.Floor
 healthBack.BackgroundTransparency = 0.25
 healthBack.BorderSizePixel = 0
@@ -9154,7 +9703,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="160">
+      <Item class="LocalScript" referent="161">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -9384,7 +9933,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="161">
+      <Item class="LocalScript" referent="162">
         <Properties>
           <string name="Name">PickupFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -9501,7 +10050,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="162">
+      <Item class="LocalScript" referent="163">
         <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
@@ -9595,7 +10144,117 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="163">
+      <Item class="LocalScript" referent="164">
+        <Properties>
+          <string name="Name">TargetReticle</string>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	TargetReticle — CHAIN-COMBAT (D-CHOMP-054)
+
+	The cannon's target marker: RED while it is tracking, GREEN when it locks.
+
+	The server owns the lock and writes ChompLockState and ChompLockTarget onto
+	the character. This draws them and decides nothing — a client that could
+	declare its own target could declare its own hit.
+
+	Red and green are the obvious choice and also the worst pair for a
+	colour-blind player, so colour is never the only signal: tracking is a thin
+	broken ring that spins, locked is a thick steady ring with corner brackets
+	that snaps to size. Shape and motion carry the same message.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local P = Config.Palette
+
+local TRACKING = P.Danger
+local LOCKED = Color3.fromRGB(126, 217, 87)
+
+local player = Players.LocalPlayer
+
+local gui = Instance.new("BillboardGui")
+gui.Name = "ChompReticle"
+gui.Size = UDim2.new(0, 150, 0, 150)
+gui.AlwaysOnTop = true
+gui.Enabled = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Four brackets rather than a circle: brackets read as "targeting" instantly,
+-- and closing them inward is a motion everyone already understands.
+local brackets: { Frame } = {}
+for i = 1, 4 do
+	local b = Instance.new("Frame")
+	b.Size = UDim2.new(0, 34, 0, 6)
+	b.BorderSizePixel = 0
+	b.BackgroundColor3 = TRACKING
+	b.Parent = gui
+	table.insert(brackets, b)
+
+	local stem = Instance.new("Frame")
+	stem.Size = UDim2.new(0, 6, 0, 34)
+	stem.BorderSizePixel = 0
+	stem.BackgroundColor3 = TRACKING
+	stem.Parent = b
+end
+
+local function ghostByName(name: string): Model?
+	local folder = workspace:FindFirstChild("Ghosts")
+	local found = folder and folder:FindFirstChild(name)
+	return (found and found:IsA("Model")) and found or nil
+end
+
+local t = 0
+RunService.RenderStepped:Connect(function(dt)
+	t += dt
+	local character = player.Character
+	if not character then gui.Enabled = false return end
+
+	local state = character:GetAttribute("ChompLockState")
+	local targetName = character:GetAttribute("ChompLockTarget")
+	if typeof(state) ~= "string" or state == "none" or typeof(targetName) ~= "string" or targetName == "" then
+		gui.Enabled = false
+		return
+	end
+
+	local ghost = ghostByName(targetName)
+	if not ghost or ghost:GetAttribute("Dead") == true then
+		gui.Enabled = false
+		return
+	end
+
+	gui.Enabled = true
+	gui.Adornee = ghost.PrimaryPart or ghost:FindFirstChildWhichIsA("BasePart")
+
+	local locked = state == "locked"
+	local colour = locked and LOCKED or TRACKING
+	-- Locked closes the brackets in and holds them still. Tracking leaves them
+	-- wide and turning, so the two states differ in MOTION as well as colour.
+	local spread = locked and 34 or (46 + math.sin(t * 6) * 5)
+	local spin = locked and 0 or t * 60
+
+	for i, b in brackets do
+		local corner = i - 1
+		local x = (corner % 2 == 0) and -1 or 1
+		local y = (corner < 2) and -1 or 1
+		b.BackgroundColor3 = colour
+		b.Rotation = spin
+		b.AnchorPoint = Vector2.new(x < 0 and 0 or 1, y < 0 and 0 or 1)
+		b.Position = UDim2.new(0.5, x * spread, 0.5, y * spread)
+		local stem = b:FindFirstChildWhichIsA("Frame")
+		if stem then
+			stem.BackgroundColor3 = colour
+			stem.AnchorPoint = b.AnchorPoint
+			stem.Position = UDim2.new(x < 0 and 0 or 1, 0, y < 0 and 0 or 1, 0)
+		end
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="165">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -9753,7 +10412,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="164">
+      <Item class="LocalScript" referent="166">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -9900,7 +10559,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="165">
+  <Item class="Workspace" referent="167">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

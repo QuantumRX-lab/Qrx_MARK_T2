@@ -4,9 +4,18 @@
 
 	The play HUD, in the zones Codex specified.
 
-	  top left    what you are CARRYING, and what you are holding
-	  top centre  one contextual objective
-	  top right   what you have BANKED
+	  bottom right  what you are CARRYING, what you have BANKED, health, item
+	  top centre    one contextual objective
+
+	The values moved out of the top corners because Roblox puts its own chrome
+	there — the menu button, the chat toggle and the close control sat directly
+	on top of them, and a value you cannot read is not a HUD (D-CHOMP-053).
+
+	This DISAGREES with CHOMP-SYS-055, which specifies top-left and top-right,
+	and with CHOMP-SYS-032's reserved lower corners. Both are recorded as
+	conflicts in the CHAIN-UI log rather than quietly ignored: the requirement
+	was written before anyone had seen the game with Roblox's own UI on top of
+	it, and on a touch device the bottom-right stack will need revisiting.
 
 	Carried and banked are the whole economy, so they are never the same colour,
 	never the same size and never in the same corner. A child has to be able to
@@ -67,21 +76,23 @@ local function label(parent: Instance, size: UDim2, position: UDim2, text: strin
 	return t
 end
 
--- ── Top left: risky ─────────────────────────────────────────────────────
-local left = panel("Carried", Vector2.new(0, 0), UDim2.new(0, 16, 0, 16), UDim2.new(0, 210, 0, 92))
-local carriedValue = label(left, UDim2.new(1, -20, 0, 42), UDim2.new(0, 14, 0, 8),
-	"0", P.NeonB, 36, Enum.TextXAlignment.Left)
-label(left, UDim2.new(1, -20, 0, 18), UDim2.new(0, 14, 0, 48),
-	"CARRYING — AT RISK", P.NeonB, 13, Enum.TextXAlignment.Left)
-local itemLabel = label(left, UDim2.new(1, -20, 0, 20), UDim2.new(0, 14, 0, 68),
-	"no item", P.Ghost, 15, Enum.TextXAlignment.Left)
+-- ── Bottom right: one stack, safest value at the bottom ─────────────────
+-- Banked sits lowest because it is the number you check least often and the
+-- one you most want to end the round looking at.
+local stack = panel("Values", Vector2.new(1, 1), UDim2.new(1, -16, 1, -16), UDim2.new(0, 236, 0, 168))
 
--- ── Top right: safe ─────────────────────────────────────────────────────
-local right = panel("Banked", Vector2.new(1, 0), UDim2.new(1, -16, 0, 16), UDim2.new(0, 210, 0, 72))
-local bankedValue = label(right, UDim2.new(1, -20, 0, 42), UDim2.new(0, 6, 0, 8),
-	"$0", P.Gold, 36, Enum.TextXAlignment.Right)
-label(right, UDim2.new(1, -20, 0, 18), UDim2.new(0, 6, 0, 48),
-	"BANKED — SAFE", P.Gold, 13, Enum.TextXAlignment.Right)
+local carriedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 10),
+	"0", P.NeonB, 34, Enum.TextXAlignment.Right)
+label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 48),
+	"CARRYING — AT RISK", P.NeonB, 12, Enum.TextXAlignment.Right)
+
+local itemLabel = label(stack, UDim2.new(1, -24, 0, 20), UDim2.new(0, 14, 0, 70),
+	"no item", P.Ghost, 15, Enum.TextXAlignment.Right)
+
+local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 112),
+	"$0", P.Gold, 34, Enum.TextXAlignment.Right)
+label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 148),
+	"BANKED — SAFE", P.Gold, 12, Enum.TextXAlignment.Right)
 
 -- ── Top centre: one objective ───────────────────────────────────────────
 local centre = panel("Objective", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 280, 0, 48))
@@ -101,9 +112,9 @@ flash.Parent = gui
 -- Health sits under the carry, because both answer "how much trouble am I in".
 local healthBack = Instance.new("Frame")
 healthBack.Name = "HealthBack"
-healthBack.AnchorPoint = Vector2.new(0, 0)
-healthBack.Position = UDim2.new(0, 16, 0, 114)
-healthBack.Size = UDim2.new(0, 210, 0, 14)
+healthBack.AnchorPoint = Vector2.new(1, 1)
+healthBack.Position = UDim2.new(1, -16, 1, -190)
+healthBack.Size = UDim2.new(0, 236, 0, 14)
 healthBack.BackgroundColor3 = P.Floor
 healthBack.BackgroundTransparency = 0.25
 healthBack.BorderSizePixel = 0
