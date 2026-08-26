@@ -27,6 +27,7 @@ because the built place is what the game actually loads.
   Check 3  Every chassis spec, once scaled by ChompConfig, still fits inside
            Budgets.VehicleBounds.
   Check 4  No local function is called before the line that defines it.
+  Check 5  No call to a bare name that is never defined in the file.
 
 What it deliberately does NOT do: catch runtime behaviour. D-CHOMP-025 — the
 physics solver reverting per-frame CFrame writes — was invisible to any static
@@ -370,6 +371,138 @@ def check_use_before_define(report):
         report.note(f"no local function is used before its definition ({scanned} files)")
 
 
+# ── Calls to names that do not exist ────────────────────────────────────
+
+# Anything the language or Roblox provides. A name outside this set that is
+# called but never defined in the file is "attempt to call a nil value" waiting
+# to happen.
+KNOWN_GLOBALS = {
+    "print", "warn", "error", "assert", "pairs", "ipairs", "next", "select",
+    "type", "typeof", "tostring", "tonumber", "require", "pcall", "xpcall",
+    "unpack", "rawget", "rawset", "rawequal", "rawlen", "setmetatable",
+    "getmetatable", "tick", "time", "wait", "spawn", "delay", "newproxy",
+    "collectgarbage", "loadstring", "gcinfo",
+    "task", "math", "string", "table", "os", "coroutine", "bit32", "utf8",
+    "debug", "shared", "game", "workspace", "script", "plugin",
+    "Instance", "Vector2", "Vector3", "Vector2int16", "Vector3int16", "CFrame",
+    "Color3", "ColorSequence", "ColorSequenceKeypoint", "NumberRange",
+    "NumberSequence", "NumberSequenceKeypoint", "UDim", "UDim2", "Rect",
+    "Region3", "Ray", "RaycastParams", "OverlapParams", "TweenInfo", "Enum",
+    "BrickColor", "Random", "DateTime", "Faces", "Axes", "PhysicalProperties",
+    "Font", "Path2DControlPoint", "SharedTable",
+}
+
+CALL = re.compile("(?<![\w.:\"'])([a-zA-Z_]\w*)\s*\(")
+DEFINES = [
+    re.compile(r'^\s*local\s+function\s+(\w+)', re.M),
+    re.compile(r'^\s*function\s+(\w+)', re.M),
+    re.compile(r'^\s*local\s+(\w+)\s*(?::[^=]+)?=', re.M),
+    re.compile(r'^\s*local\s+([\w, ]+?)\s*=', re.M),
+]
+
+
+def _blank_noncode(text):
+    """Replace comments and string contents with spaces, preserving offsets."""
+    out = list(text)
+    i, n = 0, len(text)
+    while i < n:
+        two = text[i:i + 2]
+        if two == "--":
+            if text[i + 2:i + 4] == "[[":
+                close = text.find("]]", i + 4)
+                stop = n if close < 0 else close + 2
+            else:
+                nl = text.find(chr(10), i)
+                stop = n if nl < 0 else nl
+            for k in range(i, stop):
+                if out[k] != chr(10):
+                    out[k] = " "
+            i = stop
+            continue
+        if two == "[[":
+            close = text.find("]]", i + 2)
+            stop = n if close < 0 else close + 2
+            for k in range(i, stop):
+                if out[k] != chr(10):
+                    out[k] = " "
+            i = stop
+            continue
+        if text[i] in "\"'":
+            quote = text[i]
+            j = i + 1
+            while j < n and text[j] != quote:
+                if text[j] == chr(92):
+                    j += 1
+                j += 1
+            for k in range(i, min(j + 1, n)):
+                if out[k] != chr(10):
+                    out[k] = " "
+            i = min(j + 1, n)
+            continue
+        i += 1
+    return "".join(out)
+
+
+def check_undefined_calls(report):
+    """Check 5 - a call to a bare name the file never defines.
+
+    Luau resolves an unknown name to nil and only fails when the line RUNS, so a
+    helper deleted by a careless edit stays silent until someone plays the exact
+    feature that used it. That has now happened three times in one session, each
+    time because a span replacement between two anchors removed something that
+    had been inserted between them since.
+
+    Deliberately conservative: only BARE calls, never `a.b()` or `a:b()`, and
+    anything the language or Roblox supplies is excluded. A false positive here
+    would be worse than the bug, because a guard people distrust gets skipped.
+    """
+    offenders = 0
+    for path in sorted(SRC.rglob("*.lua")):
+        text = _blank_noncode(path.read_text(encoding="utf-8"))
+
+        defined = set(KNOWN_GLOBALS)
+        for pattern in DEFINES:
+            for m in pattern.finditer(text):
+                for name in m.group(1).split(","):
+                    defined.add(name.strip())
+        # function parameters and loop variables
+        for m in re.finditer(r'function\s*\(?([^)]*)\)', text):
+            for name in m.group(1).split(","):
+                name = name.strip().split(":")[0].strip()
+                if name:
+                    defined.add(name)
+        for m in re.finditer(r'for\s+([\w, ]+?)\s+(?:in|=)', text):
+            for name in m.group(1).split(","):
+                defined.add(name.strip())
+
+        # Comments and string literals are blanked rather than removed, so line
+        # numbers still line up with the file. Prose in a --[[ ]] header is full
+        # of things that look like calls: "(D-CHOMP-054)" reads as a call to
+        # something named D-CHOMP-054 to any regex not told otherwise.
+        scan = _blank_noncode(text)
+
+        seen_here = set()
+        for lineno, line in enumerate(scan.splitlines(), 1):
+            for m in CALL.finditer(line):
+                name = m.group(1)
+                if name in defined or name in seen_here:
+                    continue
+                if name in ("function", "if", "while", "for", "return", "and",
+                            "or", "not", "then", "do", "end", "elseif", "local",
+                            "in", "until", "repeat", "else", "break", "continue",
+                            "nil", "true", "false", "export", "type"):
+                    continue
+                seen_here.add(name)
+                offenders += 1
+                report.fail(
+                    f"{path.relative_to(HERE)}:{lineno}: calls {name}() but nothing "
+                    f"in the file defines it - Luau will resolve it to nil and fail "
+                    f"when this line runs"
+                )
+    if not offenders:
+        report.note("every bare call resolves to something the file defines")
+
+
 def build_place(report):
     rojo = shutil.which("rojo")
     if not rojo:
@@ -406,6 +539,7 @@ def main():
     check_duplicate_names(PLACE, report)
     check_vehicle_bounds(report)
     check_use_before_define(report)
+    check_undefined_calls(report)
     place = load_place(PLACE)
     report.note(f"{len(place)} instances in the built place")
     check_waitforchild(place, report)

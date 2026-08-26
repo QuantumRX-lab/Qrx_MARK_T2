@@ -190,3 +190,27 @@ entries:
     has not noticed the selector. CHOMP-TC-047 now covers it.
     Charges are per slot, so five cannons is fifty shots. Nobody has checked
     whether that trivialises a wave.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: NOTE
+  requirements: [CHOMP-SYS-058]
+  summary: >
+    REGRESSION, self-inflicted, THIRD of its kind tonight and now guarded.
+    Pickups stopped working: give() called mount(), which no longer existed. The
+    belt change replaced the span from `local function publish` to
+    `local function give`, and mount/unmount had been inserted into exactly that
+    span two commits earlier, so both were deleted while every call remained.
+    Restored from 76aee1f. guard.py gains Check 5: a call to a bare name the
+    file never defines. Check 4 could not catch this - it flags a call ABOVE a
+    definition, not a call with no definition anywhere.
+  status: OPEN
+  handoff: >
+    Verified in both directions: deleting mount/unmount again reproduces
+    "calls unmount() but nothing in the file defines it", and the current tree
+    passes. It blanks comments and string literals before scanning, because
+    prose in a --[[ ]] header is full of things that look like calls - the first
+    version reported 74 false positives from text like "(D-CHOMP-054)".
+    The rule for anyone editing these files programmatically, now three times
+    proven: replacing a SPAN between two anchors deletes whatever was inserted
+    between them since. Replace an exact known string instead. Checks 4 and 5
+    together catch the aftermath, but not the mistake.

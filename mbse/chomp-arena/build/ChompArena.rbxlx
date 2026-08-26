@@ -7326,6 +7326,51 @@ end
 -- Returns false when the belt is full, so the pad stays where it is and can be
 -- come back for. Silently eating a pickup you cannot carry is worse than
 -- refusing it.
+-- What you are holding should be visible ON the kart, not only in the HUD
+-- (D-CHOMP-051). A cannon that appears bolted to the roof tells everyone in the
+-- arena what you can do to them, which is most of what makes carrying one feel
+-- like something.
+local function unmount(character: Model)
+	local vehicle = character:FindFirstChild("Vehicle")
+	local existing = vehicle and vehicle:FindFirstChild("MountedItem")
+	if existing then existing:Destroy() end
+end
+
+local function mount(character: Model, id: string)
+	if not (Config.Vehicle and Config.Vehicle.MountHeldItem) then return end
+	unmount(character)
+	local vehicle = character:FindFirstChild("Vehicle")
+	-- The bomb rides at the back where you can see you are carrying it; guns and
+	-- packs go on the roof (D-CHOMP-056).
+	local pointName = (id == "HomingBomb") and "RearMount" or "ItemMount"
+	local point = vehicle and vehicle:FindFirstChild(pointName) :: BasePart?
+	if not (vehicle and point) then return end
+
+	local model = buildItemModel(id)
+	model.Name = "MountedItem"
+	-- Smaller than the pickup, and facing forward: a mounted gun points where
+	-- the kart points, which is also where it fires.
+	-- Bigger than it was. A mounted gun that nobody can see is not a mounted gun.
+	local scale = (id == "HomingBomb") and 1.25 or 1.15
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Size = d.Size * scale
+			d.Massless = true
+			d.Anchored = false
+		end
+	end
+	model:PivotTo(point.CFrame)
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = point
+			weld.Part1 = d
+			weld.Parent = d
+		end
+	end
+	model.Parent = vehicle
+end
+
 local function give(player: Player, id: string): boolean
 	local def = DEFS[id]
 	if not def then return false end
@@ -7814,6 +7859,7 @@ local function collectionLoop()
 		task.wait(0.12)
 		for _, player in Players:GetPlayers() do
 			local root = rootOf(player)
+
 			if root then
 				for _, model in padsFolder:GetChildren() do
 					if model:IsA("Model") and model:GetAttribute("Collected") ~= true then
@@ -7885,8 +7931,8 @@ local count = layOutPads()
 animatePads()
 task.spawn(collectionLoop)
 
-print(("[ItemService] running - %d pads, one slot, %d item types, %d/s use limit")
-	:format(count, 4, ITEMS.UseRateLimit))
+print(("[ItemService] running - %d pads, %d slots, %d item types, %d/s use limit")
+	:format(count, ITEMS.SlotCount, 4, ITEMS.UseRateLimit))
 ]]></string>
         </Properties>
       </Item>
