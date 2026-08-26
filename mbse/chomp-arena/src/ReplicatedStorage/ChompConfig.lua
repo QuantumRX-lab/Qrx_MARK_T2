@@ -250,6 +250,31 @@ ChompConfig.Controls = {
 -- World-locked yaw: the camera never rotates with the vehicle. Turning spins
 -- the model, not the world.
 
+-- ── Charge and the jump (D-CHOMP-059) ───────────────────────────────────
+-- One big meter that fills as you eat. It is the only thing in the game that
+-- rewards collecting for its own sake, and it pays out as a jump: the escape
+-- move you spend rather than the weapon you carry.
+ChompConfig.Charge = {
+	PerPellet = 4,             -- a full bar is roughly 25 pellets
+	Max = 100,
+	JumpCost = 100,            -- all of it: a jump is a decision, not a habit
+	JumpImpulse = 110,
+	JumpForwardStuds = 40,     -- carries you forward as well as up
+}
+
+-- ── Ghost waves (D-CHOMP-059) ───────────────────────────────────────────
+-- Clearing a wave should feel like an achievement and the next one should
+-- immediately make you nervous. Count and speed rise; the reward rises with
+-- them so the risk stays worth taking.
+ChompConfig.Waves = {
+	StartCount = 4,
+	AddPerWave = 2,
+	MaxCount = 22,
+	SpeedPerWave = 0.7,        -- studs/s added each wave
+	RewardPerWave = 60,        -- extra banked dollars per kill, per wave
+	BreakSeconds = 6,          -- breathing room between waves
+}
+
 -- ── The garage store (D-CHOMP-055) ──────────────────────
 -- Everything buyable stands on a plinth you can drive up to and look at.
 -- Prices are in banked dollars: the currency you earned by surviving.
@@ -312,7 +337,10 @@ ChompConfig.Items = {
 			-- it for LockSeconds. Aiming while steering a kart is not a skill
 			-- worth demanding of a seven-year-old; CHOOSING when to fire is.
 			lockRangeStuds = 240,
-			lockAngleDegrees = 70,   -- half-angle of the search cone
+			-- 180 is a full circle of search: the turret turns all the way round,
+			-- so there is no blind spot behind you and no reason to line a shot
+			-- up by driving (D-CHOMP-059).
+			lockAngleDegrees = 180,
 			lockSeconds = 0.45,      -- continuous tracking before it goes green
 			turretTurnDegrees = 220, -- how fast the barrel swings
 		},
@@ -356,6 +384,11 @@ ChompConfig.Level1 = {
 	-- Alternating materials so the rings read as different places at speed
 	-- rather than as one repeating corridor.
 	NeonRings = true,
+	-- Rings the ghosts CANNOT cross (D-CHOMP-059). Indices count outward from
+	-- the centre arena. Electrified walls turn the map from an open field into
+	-- somewhere with safe pockets, which is what makes a maze a maze rather
+	-- than a big room with decoration in it.
+	ElectrifiedRings = { 2, 4, 6 },
 }
 
 

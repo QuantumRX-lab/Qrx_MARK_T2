@@ -1,17 +1,23 @@
 --!strict
 --[[
-	TargetReticle — CHAIN-COMBAT (D-CHOMP-054)
+	TargetReticle — CHAIN-COMBAT (D-CHOMP-059)
 
-	The cannon's target marker: RED while it is tracking, GREEN when it locks.
+	A red crosshair that snaps onto whatever the turret has found, and turns
+	green the moment it locks.
 
 	The server owns the lock and writes ChompLockState and ChompLockTarget onto
 	the character. This draws them and decides nothing — a client that could
 	declare its own target could declare its own hit.
 
-	Red and green are the obvious choice and also the worst pair for a
-	colour-blind player, so colour is never the only signal: tracking is a thin
-	broken ring that spins, locked is a thick steady ring with corner brackets
-	that snaps to size. Shape and motion carry the same message.
+	Red and green is the obvious pair and the worst one for a colour-blind
+	player, so colour is never the only signal. Tracking is a crosshair with a
+	GAP at the centre and arms that breathe; locked closes the gap, adds a centre
+	dot and holds still. The shape says it, the motion says it, and the colour
+	agrees with both.
+
+	Snapping rather than easing is deliberate. A reticle that slides between
+	targets looks smooth and tells you nothing about the moment acquisition
+	happened, which is the only moment that matters.
 ]]
 
 local Players = game:GetService("Players")
@@ -28,33 +34,35 @@ local player = Players.LocalPlayer
 
 local gui = Instance.new("BillboardGui")
 gui.Name = "ChompReticle"
-gui.Size = UDim2.new(0, 150, 0, 150)
+gui.Size = UDim2.new(0, 190, 0, 190)
 gui.AlwaysOnTop = true
 gui.Enabled = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- Four brackets rather than a circle: brackets read as "targeting" instantly,
--- and closing them inward is a motion everyone already understands.
-local brackets: { Frame } = {}
-for i = 1, 4 do
-	local b = Instance.new("Frame")
-	b.Size = UDim2.new(0, 34, 0, 6)
-	b.BorderSizePixel = 0
-	b.BackgroundColor3 = TRACKING
-	b.Parent = gui
-	table.insert(brackets, b)
-
-	local stem = Instance.new("Frame")
-	stem.Size = UDim2.new(0, 6, 0, 34)
-	stem.BorderSizePixel = 0
-	stem.BackgroundColor3 = TRACKING
-	stem.Parent = b
+local function bar(): Frame
+	local f = Instance.new("Frame")
+	f.BorderSizePixel = 0
+	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.BackgroundColor3 = TRACKING
+	f.Parent = gui
+	return f
 end
 
-local function ghostByName(name: string): Model?
-	local folder = workspace:FindFirstChild("Ghosts")
-	local found = folder and folder:FindFirstChild(name)
-	return (found and found:IsA("Model")) and found or nil
+-- Four arms and a centre dot. Arms, not a circle: a cross points AT something.
+local arms = { bar(), bar(), bar(), bar() }
+local dot = bar()
+dot.Size = UDim2.new(0, 8, 0, 8)
+dot.Position = UDim2.new(0.5, 0, 0.5, 0)
+
+local function findTarget(name: string): Instance?
+	local ghosts = workspace:FindFirstChild("Ghosts")
+	local ghost = ghosts and ghosts:FindFirstChild(name)
+	if ghost then return ghost end
+	-- Friendly fire: the target may be another player's character, which is
+	-- named after the player.
+	local other = Players:FindFirstChild(name)
+	if other and other:IsA("Player") then return other.Character end
+	return workspace:FindFirstChild(name)
 end
 
 local t = 0
@@ -65,40 +73,46 @@ RunService.RenderStepped:Connect(function(dt)
 
 	local state = character:GetAttribute("ChompLockState")
 	local targetName = character:GetAttribute("ChompLockTarget")
-	if typeof(state) ~= "string" or state == "none" or typeof(targetName) ~= "string" or targetName == "" then
+	if typeof(state) ~= "string" or state == "none"
+		or typeof(targetName) ~= "string" or targetName == "" then
 		gui.Enabled = false
 		return
 	end
 
-	local ghost = ghostByName(targetName)
-	if not ghost or ghost:GetAttribute("Dead") == true then
+	local target = findTarget(targetName)
+	if not target or (target:IsA("Model") and target:GetAttribute("Dead") == true) then
 		gui.Enabled = false
 		return
 	end
+
+	local adornee = target:IsA("Model")
+		and (target.PrimaryPart or target:FindFirstChildWhichIsA("BasePart"))
+		or target
+	if not adornee then gui.Enabled = false return end
 
 	gui.Enabled = true
-	gui.Adornee = ghost.PrimaryPart or ghost:FindFirstChildWhichIsA("BasePart")
+	gui.Adornee = adornee
 
 	local locked = state == "locked"
 	local colour = locked and LOCKED or TRACKING
-	-- Locked closes the brackets in and holds them still. Tracking leaves them
-	-- wide and turning, so the two states differ in MOTION as well as colour.
-	local spread = locked and 34 or (46 + math.sin(t * 6) * 5)
-	local spin = locked and 0 or t * 60
+	-- Tracking breathes and holds a gap; locked closes to a tight, still cross.
+	local gap = locked and 16 or (30 + math.sin(t * 7) * 4)
+	local length = locked and 30 or 22
+	local thickness = locked and 5 or 3
 
-	for i, b in brackets do
-		local corner = i - 1
-		local x = (corner % 2 == 0) and -1 or 1
-		local y = (corner < 2) and -1 or 1
-		b.BackgroundColor3 = colour
-		b.Rotation = spin
-		b.AnchorPoint = Vector2.new(x < 0 and 0 or 1, y < 0 and 0 or 1)
-		b.Position = UDim2.new(0.5, x * spread, 0.5, y * spread)
-		local stem = b:FindFirstChildWhichIsA("Frame")
-		if stem then
-			stem.BackgroundColor3 = colour
-			stem.AnchorPoint = b.AnchorPoint
-			stem.Position = UDim2.new(x < 0 and 0 or 1, 0, y < 0 and 0 or 1, 0)
+	for i, arm in arms do
+		arm.BackgroundColor3 = colour
+		local vertical = i > 2
+		local sign = (i % 2 == 0) and 1 or -1
+		if vertical then
+			arm.Size = UDim2.new(0, thickness, 0, length)
+			arm.Position = UDim2.new(0.5, 0, 0.5, sign * (gap + length / 2))
+		else
+			arm.Size = UDim2.new(0, length, 0, thickness)
+			arm.Position = UDim2.new(0.5, sign * (gap + length / 2), 0.5, 0)
 		end
 	end
+
+	dot.BackgroundColor3 = colour
+	dot.Visible = locked
 end)

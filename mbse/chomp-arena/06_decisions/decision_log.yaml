@@ -1392,3 +1392,67 @@ decisions:
       Muzzle position comes from the turret mount, so a locked turret fires
       where it is pointing. The old fireProjectile is gone; the bomb never used
       it after D-CHOMP-054 and the cannon no longer does.
+
+  - id: D-CHOMP-058
+    date: 2026-08-25
+    title: Mount points are created idempotently and repaired if they vanish
+    decision: >
+      ensureMounts builds ItemMount, TurretMotor and RearMount if they are
+      missing, runs when the kart is parented, and runs again once a second for
+      every player. It replaces the inline creation at the end of fitVehicle.
+    rationale: >
+      The turret never turned and never acquired. Instrumenting it showed the
+      kart present, the chassis present and the mounts absent — and three
+      readings of fitVehicle failed to explain why, since the code sits plainly
+      inside the function with nothing returning before it.
+      At that point the honest move is to stop diagnosing and start converging.
+      This is written so the cause does not matter: it can run at any time, any
+      number of times, and ends in the right state. A mount is cosmetic
+      scaffolding, and a weapon that cannot be seen because a part went missing
+      three minutes ago is worse than one rebuilt on the spot.
+      The diagnostic earned its keep even so. It ruled out ghost range, the lock
+      cone and a stale build in a single line, and proved acquisition was
+      working perfectly - "nearest=12 best=Ghost_1" - so the only broken link
+      was that there was no turret to point.
+    outcome: >
+      VehicleService owns the mounts and a one-second sweep keeps them. If they
+      turn out to be destroyed by something rather than never created, the sweep
+      will mask it rather than fix it; that is an accepted trade, and the fact
+      that it is a trade is written here so nobody mistakes it for a diagnosis.
+
+  - id: D-CHOMP-059
+    date: 2026-08-25
+    title: Waves, charge, electrified rings, 360 lock and a friendly-fire switch
+    decision: >
+      Ghosts arrive in waves that grow in count, speed and payout; clearing one
+      buys a short break. Pellets fill a charge meter that buys a jump. Some
+      rings are electrified and ghosts cannot cross them. The cannon searches a
+      full 360 degrees. A deployed bomb detonates on the next fire whatever you
+      are now holding. A friendly-fire switch lets the lock include other
+      players, off by default. Two big thumb-zone buttons drive the charge and
+      the switch. Weapon pads rise from 27 to about 70.
+    rationale: >
+      Owner direction, and the pieces reinforce each other rather than being a
+      list. Waves give the arena a shape in time; the charge gives a frightened
+      player something to do other than run; the electrified rings turn an open
+      field into somewhere with safe pockets, which is the difference between a
+      maze and a big room with decoration in it.
+      The 360 lock removes the blind spot behind you. Requiring a driver to line
+      a shot up by steering was asking them to do two hard things at once, which
+      is exactly what the auto-lock existed to avoid.
+      Bomb-detonates-first matters because picking up a cannon used to strand a
+      live bomb: you placed it, so you should always be able to set it off.
+      Friendly fire is OFF by default and is a deliberate switch. Locking onto a
+      friend by accident is how a co-op game turns into an argument.
+      The buttons go in the thumb zone on purpose. CHOMP-SYS-032 reserves the
+      lower corners so nothing you must READ sits under a hand; a thing you must
+      PRESS belongs exactly there, and they are oversized because the cost of a
+      missed press at speed is a wall.
+    outcome: >
+      Two new intent-only remotes, UseCharge and ToggleFriendlyFire, both
+      carrying no arguments, with CHOMP-TC-042 extended by five attacks and
+      service_contracts.md updated in the same commit as the contract requires.
+      Electrified rings are brighter AND taller, because a wall with an
+      invisible rule attached is a surprise rather than a mechanic. Blocked
+      ghosts slide along the fence rather than stopping dead, so they look like
+      they are looking for a way round.

@@ -115,6 +115,13 @@ local function loop()
 					-- Announce the GAIN, not just the new total. A number that
 					-- ticks up in a corner is invisible to someone watching a
 					-- corridor; "+25" above the kart is not (D-CHOMP-052).
+					-- Every pellet also fills the charge meter (D-CHOMP-059). It is the
+					-- only reward in the game that pays immediately rather than needing
+					-- to be survived with, which gives a frightened player something to
+					-- do other than run.
+					local CH = Config.Charge
+					character:SetAttribute("ChompCharge",
+						math.min(CH.Max, ((character:GetAttribute("ChompCharge") :: number?) or 0) + CH.PerPellet))
 					character:SetAttribute("ChompGainedAmount", value)
 					character:SetAttribute("ChompGainedAt", os.clock())
 					pellet.Transparency = 1

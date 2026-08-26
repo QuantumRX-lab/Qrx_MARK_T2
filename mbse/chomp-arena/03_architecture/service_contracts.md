@@ -161,6 +161,8 @@ never be unable to steer because the network surface is not ready.
 | `RequestBank` | `()` | 2/s | Not inside own garage volume; `garageLockedUntil` in the future; nothing carried |
 | `SetInputDirection` | `(intent: Vector2)` | 30/s | Not a Vector2; either component NaN; `X` outside [-1, 1]; player is respawning |
 | `UseItem` | `()` | 4/s | Over the rate limit; no item carried; charges exhausted; player dead or respawning; ANY argument present |
+| `UseCharge` | `()` | 3/s | Over the rate limit; charge below JumpCost; player dead or respawning; ANY argument present |
+| `ToggleFriendlyFire` | `()` | 2/s | Over the rate limit; ANY argument present |
 
 `SetInputDirection`'s `X` is steering intent in [-1, 1] and `Y` is 1 on the
 frame a flip is requested. Neither is a quantity the server trusts for anything
@@ -178,6 +180,11 @@ which way the vehicle points, the last of which it reads from the character
 transform it wrote itself. A client that appends arguments is rejected rather
 than ignored, because a message that grew a field is a client that was modified
 (`D-CHOMP-045`, `CHOMP-SYS-059`).
+
+`UseCharge` and `ToggleFriendlyFire` follow the same rule and carry nothing
+either. The first means "spend my charge if I have it" and the second means
+"flip my own switch"; the server holds the meter and the switch, so neither
+message contains a value worth forging (`D-CHOMP-059`).
 
 Rejections return silently to the client (a refusal sound is played locally on
 timeout) and are counted per player. A player exceeding a rate limit by 10x for

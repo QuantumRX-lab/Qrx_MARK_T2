@@ -35,6 +35,7 @@ local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local G = Config.Ghosts
+local W = Config.Waves
 local L = Config.Level1
 local P = Config.Palette
 
@@ -56,6 +57,38 @@ type Ghost = {
 }
 
 local ghosts: { Ghost } = {}
+local wave = 0
+local waveActive = false
+
+-- Radii the ghosts cannot cross (D-CHOMP-059). On a ring map an electrified
+-- wall is simply a radius: a ghost may run along it but never through it, which
+-- turns the arena from an open field into somewhere with safe pockets. That is
+-- the difference between a maze and a big room with decoration in it.
+local function electrifiedRadii(): { number }
+	local out: { number } = {}
+	local radii = {}
+	local r = L.CentreRadius
+	while r <= L.OuterRadius - L.RingSpacing do
+		table.insert(radii, r)
+		r += L.RingSpacing
+	end
+	for _, index in (L.ElectrifiedRings or {}) do
+		if radii[index] then table.insert(out, radii[index]) end
+	end
+	return out
+end
+
+local FENCES = electrifiedRadii()
+
+-- True if moving from `from` to `to` would cross a live ring.
+local function blocked(from: Vector3, to: Vector3): boolean
+	local r0 = Vector3.new(from.X, 0, from.Z).Magnitude
+	local r1 = Vector3.new(to.X, 0, to.Z).Magnitude
+	for _, fence in FENCES do
+		if (r0 - fence) * (r1 - fence) < 0 then return true end
+	end
+	return false
+end
 
 local function piece(parent: Instance, name: string, size: Vector3, colour: Color3,
 		material: Enum.Material, shape: Enum.PartType?): BasePart
@@ -137,20 +170,63 @@ local function nearestKart(from: Vector3): (BasePart?, number)
 	return best, bestDistance
 end
 
-local function spawnGhosts()
-	local wanted = ghostCount()
-	while #ghosts < wanted do
+local function clearGhosts()
+	for _, g in ghosts do
+		if g.model.Parent then g.model:Destroy() end
+	end
+	table.clear(ghosts)
+end
+
+local function startWave(n: number)
+	wave = n
+	waveActive = true
+	clearGhosts()
+
+	local wanted = math.min(W.MaxCount, W.StartCount + W.AddPerWave * (n - 1))
+	for index = 0, wanted - 1 do
 		local g = buildGhost()
-		local index = #ghosts
-		-- Unique names, so a lock can name its target and the client can find it
-		-- without the server sending an instance reference (D-CHOMP-054).
 		g.model.Name = "Ghost_" .. tostring(index + 1)
-		g.radius = L.CentreRadius + L.RingSpacing * (1 + (index % 4))
-		g.angle = (math.pi * 2) * (index / math.max(1, wanted))
+		g.radius = L.CentreRadius + L.RingSpacing * (1 + (index % 5))
+		g.angle = (math.pi * 2) * (index / wanted)
 		g.model:PivotTo(CFrame.new(math.cos(g.angle) * g.radius, 8, math.sin(g.angle) * g.radius))
 		table.insert(ghosts, g)
 	end
+
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		if character then
+			character:SetAttribute("ChompWave", wave)
+			character:SetAttribute("ChompWaveCount", wanted)
+		end
+	end
+	print(("[GhostService] wave %d: %d ghosts, speed %.1f, kill pays $%d")
+		:format(wave, wanted, G.Speed + W.SpeedPerWave * (n - 1),
+			G.KillRewardDollars + W.RewardPerWave * (n - 1)))
 end
+
+local function aliveCount(): number
+	local n = 0
+	for _, g in ghosts do
+		if g.model.Parent and g.model:GetAttribute("Dead") ~= true then n += 1 end
+	end
+	return n
+end
+
+-- Watch for a cleared wave. A break between waves is not politeness, it is the
+-- moment you bank what you just earned.
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if waveActive and #ghosts > 0 and aliveCount() == 0 then
+			waveActive = false
+			for _, player in Players:GetPlayers() do
+				local character = player.Character
+				if character then character:SetAttribute("ChompWaveCleared", os.clock()) end
+			end
+			task.delay(W.BreakSeconds, function() startWave(wave + 1) end)
+		end
+	end
+end)
 
 local t = 0
 RunService.Heartbeat:Connect(function(dt)
@@ -173,8 +249,22 @@ RunService.Heartbeat:Connect(function(dt)
 			speed = G.FleeSpeed
 		end
 
+		speed += W.SpeedPerWave * math.max(0, wave - 1)
+
 		local flat = Vector3.new(goal.X - here.X, 0, goal.Z - here.Z)
 		local step = flat.Magnitude > 1 and flat.Unit * speed * dt or Vector3.zero
+
+		-- An electrified ring cannot be crossed. Rather than stopping dead,
+		-- strip the RADIAL part of the move and keep the tangential part, so a
+		-- blocked ghost slides along the fence looking for a way round instead
+		-- of standing still looking broken.
+		if step.Magnitude > 0 and blocked(here, here + step) then
+			local outward = Vector3.new(here.X, 0, here.Z)
+			if outward.Magnitude > 0.001 then
+				outward = outward.Unit
+				step = step - outward * step:Dot(outward)
+			end
+		end
 
 		-- Close in, the bobbing stops. A ghost that steadies as it arrives reads
 		-- as deliberate, and deliberate is what makes it frightening.
@@ -243,8 +333,9 @@ RunService.Heartbeat:Connect(function(dt)
 				local character = killer and killer.Character
 				if character then
 					local now = (character:GetAttribute("ChompDollars") :: number?) or 0
-					character:SetAttribute("ChompDollars", now + G.KillRewardDollars)
-					character:SetAttribute("ChompBankedAmount", G.KillRewardDollars)
+					local reward = G.KillRewardDollars + W.RewardPerWave * math.max(0, wave - 1)
+					character:SetAttribute("ChompDollars", now + reward)
+					character:SetAttribute("ChompBankedAmount", reward)
 					character:SetAttribute("ChompBankedAt", os.clock())
 				end
 			end
@@ -253,18 +344,9 @@ RunService.Heartbeat:Connect(function(dt)
 			for _, d in g.model:GetDescendants() do
 				if d:IsA("BasePart") then d.Transparency = 1 end
 			end
-			task.delay(G.RespawnSeconds, function()
-				if not g.model.Parent then return end
-				g.model:SetAttribute("Health", G.Health)
-				g.model:SetAttribute("Dead", false)
-				for _, d in g.model:GetDescendants() do
-					if d:IsA("BasePart") then
-						if d.Name == "Eye" then d.Transparency = 0
-						elseif d.Name == "Body" then d.Transparency = 0.28
-						else d.Transparency = 0.4 end
-					end
-				end
-			end)
+			-- No individual respawn any more: a ghost killed stays killed until the
+			-- WAVE is cleared, so clearing one is progress you can see rather
+			-- than a timer you are racing (D-CHOMP-059).
 		end
 		if g.model:GetAttribute("Dead") == true then continue end
 
@@ -300,11 +382,13 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 end)
 
-Players.PlayerAdded:Connect(function()
-	task.delay(G.RecalculateWithinSeconds, spawnGhosts)
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		character:SetAttribute("ChompWave", wave)
+	end)
 end)
 
-spawnGhosts()
-print(("[GhostService] %d ghosts hunting carried points, %d%% per catch, speed %d vs kart %d")
-	:format(#ghosts, math.floor(G.StealFraction * 100), G.Speed,
+startWave(1)
+print(("[GhostService] waves live: %d electrified ring(s), %d%% stolen per catch, base speed %d vs kart %.1f")
+	:format(#FENCES, math.floor(G.StealFraction * 100), G.Speed,
 		Config.Chassis[Config.StartingChassis].BaseSpeed))

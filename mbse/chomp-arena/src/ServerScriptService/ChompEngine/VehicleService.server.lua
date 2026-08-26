@@ -192,6 +192,76 @@ local function nameplate(player: Player, model: Model, anchor: BasePart)
 	label.Parent = gui
 end
 
+-- Mount points, made idempotently and repaired if they go missing.
+--
+-- These were built inline at the end of fitVehicle and were reliably absent at
+-- runtime — the kart existed, the chassis existed, the mounts did not, and three
+-- readings of the code failed to explain why (D-CHOMP-058). Rather than keep
+-- guessing at a timing window, this is written so it does not matter: it can run
+-- at any point, any number of times, and converges on the right answer.
+--
+-- Self-healing is the correct shape for this regardless of the original cause.
+-- A mount is cosmetic scaffolding, and a weapon that cannot be seen because a
+-- part went missing three minutes ago is worse than one rebuilt on the spot.
+local function ensureMounts(character: Model): boolean
+	local model = character:FindFirstChild("Vehicle")
+	if not model or not model:IsA("Model") then return false end
+	local primary = model.PrimaryPart or model:FindFirstChild("Chassis") :: BasePart?
+	if not primary then return false end
+
+	local repaired = false
+
+	local mount = model:FindFirstChild("ItemMount") :: BasePart?
+	if not mount then
+		mount = Instance.new("Part")
+		mount.Name = "ItemMount"
+		mount.Size = Vector3.new(0.4, 0.4, 0.4)
+		mount.Transparency = 1
+		mount.CanCollide = false
+		mount.CanQuery = false
+		mount.CanTouch = false
+		mount.Massless = true
+		mount.CFrame = primary.CFrame * CFrame.new(0, 6.4, 0)
+		mount.Parent = model
+		repaired = true
+	end
+
+	-- A Motor6D rather than a weld, because a turret has to TURN. Setting
+	-- Transform rotates the mounted item relative to the kart without writing
+	-- either part's CFrame, so nothing fights the solver.
+	if not primary:FindFirstChild("TurretMotor") then
+		local motor = Instance.new("Motor6D")
+		motor.Name = "TurretMotor"
+		motor.Part0 = primary
+		motor.Part1 = mount
+		motor.C0 = CFrame.new(0, 6.4, 0)
+		motor.C1 = CFrame.new()
+		motor.Parent = primary
+		repaired = true
+	end
+
+	-- The bomb rides at the BACK, where you can see you are carrying it.
+	if not model:FindFirstChild("RearMount") then
+		local rear = Instance.new("Part")
+		rear.Name = "RearMount"
+		rear.Size = Vector3.new(0.4, 0.4, 0.4)
+		rear.Transparency = 1
+		rear.CanCollide = false
+		rear.CanQuery = false
+		rear.CanTouch = false
+		rear.Massless = true
+		rear.CFrame = primary.CFrame * CFrame.new(0, 2.4, 6.2)
+		rear.Parent = model
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = primary
+		weld.Part1 = rear
+		weld.Parent = rear
+		repaired = true
+	end
+
+	return repaired
+end
+
 local function fitVehicle(player: Player, character: Model)
 	if character:FindFirstChild("Vehicle") then return end
 
@@ -269,45 +339,7 @@ local function fitVehicle(player: Player, character: Model)
 	weld.Parent = primary
 
 	model.Parent = character
-
-	-- A mount point on the roof. Held items attach here so a cannon is visible
-	-- on the kart rather than only in the HUD (D-CHOMP-051).
-	local mount = Instance.new("Part")
-	mount.Name = "ItemMount"
-	mount.Size = Vector3.new(0.4, 0.4, 0.4)
-	mount.Transparency = 1
-	mount.CanCollide = false
-	mount.CanQuery = false
-	mount.Massless = true
-	mount.CFrame = primary.CFrame * CFrame.new(0, 5.2, 0)
-	mount.Parent = model
-	-- A Motor6D rather than a weld, because a turret has to TURN (D-CHOMP-054).
-	-- Setting Transform on a motor rotates the mounted item relative to the kart
-	-- without touching either part's CFrame, so nothing fights the solver.
-	local motor = Instance.new("Motor6D")
-	motor.Name = "TurretMotor"
-	motor.Part0 = primary
-	motor.Part1 = mount
-	motor.C0 = CFrame.new(0, 6.4, 0)
-	motor.C1 = CFrame.new()
-	motor.Parent = primary
-
-	-- A second point at the BACK. A bomb is a thing you are towing, and it
-	-- should be visible behind you rather than bolted to the roof like a gun
-	-- (D-CHOMP-056).
-	local rear = Instance.new("Part")
-	rear.Name = "RearMount"
-	rear.Size = Vector3.new(0.4, 0.4, 0.4)
-	rear.Transparency = 1
-	rear.CanCollide = false
-	rear.CanQuery = false
-	rear.Massless = true
-	rear.CFrame = primary.CFrame * CFrame.new(0, 2.4, 6.2)
-	rear.Parent = model
-	local rearWeld = Instance.new("WeldConstraint")
-	rearWeld.Part0 = primary
-	rearWeld.Part1 = rear
-	rearWeld.Parent = rear
+	ensureMounts(character)
 
 	if Config.Vehicle and Config.Vehicle.NamePlate then
 		nameplate(player, model, primary)
@@ -349,5 +381,19 @@ for _, player in Players:GetPlayers() do
 		task.spawn(onCharacter, player, player.Character)
 	end
 end
+
+-- Cheap, and it means a missing mount is a hiccup rather than a broken weapon
+-- for the rest of the round.
+task.spawn(function()
+	while true do
+		task.wait(1)
+		for _, player in Players:GetPlayers() do
+			local character = player.Character
+			if character and character:FindFirstChild("Vehicle") then
+				ensureMounts(character)
+			end
+		end
+	end
+end)
 
 print(("[VehicleService] running - chassis models are worn, collision is still the humanoid's"))

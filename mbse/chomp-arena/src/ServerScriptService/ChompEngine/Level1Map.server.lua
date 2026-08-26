@@ -129,10 +129,19 @@ local function build()
 	local guardianHalf = math.atan((L.GuardianChamberStuds / 2) / (L.OuterRadius - L.RingSpacing))
 
 	local segments, spokes = 0, 0
+	-- An electrified ring has to LOOK electrified. A wall with a rule attached
+	-- that the player cannot see is not a mechanic, it is a surprise
+	-- (D-CHOMP-059).
+	local electrified: { [number]: boolean } = {}
+	for _, index in (L.ElectrifiedRings or {}) do
+		electrified[index] = true
+	end
+
 	for index, radius in ipairs(radii) do
+		local live = electrified[index] == true
 		local neon = (index % 2 == 1)
-		local colour = neon and (index % 4 == 1 and P.NeonA or P.NeonB) or P.Brick
-		local material = neon and Enum.Material.Neon or Enum.Material.Brick
+		local colour = live and P.NeonA or (neon and (index % 4 == 1 and P.NeonA or P.NeonB) or P.Brick)
+		local material = (live or neon) and Enum.Material.Neon or Enum.Material.Brick
 		local gapHalf = math.atan((M.CellSize * 1.6) / radius)
 		-- offset gaps ring to ring so no radial line is a free run to the middle
 		local offset = (TAU / L.GapsPerRing) * (index / #radii)
@@ -144,8 +153,11 @@ local function build()
 			local skip = index == #radii
 				and math.abs((((from + to) / 2) - guardianAngle + math.pi) % TAU - math.pi) < guardianHalf
 			if not skip then
-				segments += arc(rings, "RingWall", radius, from, to, WALL_Y,
-					WALL_H, WALL_T, colour, material)
+				local name = live and "ElectricWall" or "RingWall"
+				-- Live rings are taller as well as brighter, so the difference
+				-- reads at a glance and from across the arena.
+				segments += arc(rings, name, radius, from, to, WALL_Y,
+					live and WALL_H * 1.35 or WALL_H, WALL_T, colour, material)
 			end
 		end
 
@@ -206,6 +218,9 @@ local function build()
 	spawn.Transparency = 1
 	spawn.Parent = map
 
+	local liveCount = 0
+	for _ in electrified do liveCount += 1 end
+	print(("[Level1Map] %d electrified ring(s) ghosts cannot cross"):format(liveCount))
 	print(("[Level1Map] one level, sealed: r%d disc, %d rings, %d ring segments, " ..
 		"%d spokes, boundary %d segments, %d garages. cell %d wall %d")
 		:format(L.OuterRadius, #radii, segments, spokes, outer, #garages,

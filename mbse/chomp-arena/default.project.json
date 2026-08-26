@@ -17,6 +17,12 @@
         },
         "UseItem": {
           "$className": "RemoteEvent"
+        },
+        "UseCharge": {
+          "$className": "RemoteEvent"
+        },
+        "ToggleFriendlyFire": {
+          "$className": "RemoteEvent"
         }
       }
     },

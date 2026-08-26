@@ -258,6 +258,31 @@ ChompConfig.Controls = {
 -- World-locked yaw: the camera never rotates with the vehicle. Turning spins
 -- the model, not the world.
 
+-- ── Charge and the jump (D-CHOMP-059) ───────────────────────────────────
+-- One big meter that fills as you eat. It is the only thing in the game that
+-- rewards collecting for its own sake, and it pays out as a jump: the escape
+-- move you spend rather than the weapon you carry.
+ChompConfig.Charge = {
+	PerPellet = 4,             -- a full bar is roughly 25 pellets
+	Max = 100,
+	JumpCost = 100,            -- all of it: a jump is a decision, not a habit
+	JumpImpulse = 110,
+	JumpForwardStuds = 40,     -- carries you forward as well as up
+}
+
+-- ── Ghost waves (D-CHOMP-059) ───────────────────────────────────────────
+-- Clearing a wave should feel like an achievement and the next one should
+-- immediately make you nervous. Count and speed rise; the reward rises with
+-- them so the risk stays worth taking.
+ChompConfig.Waves = {
+	StartCount = 4,
+	AddPerWave = 2,
+	MaxCount = 22,
+	SpeedPerWave = 0.7,        -- studs/s added each wave
+	RewardPerWave = 60,        -- extra banked dollars per kill, per wave
+	BreakSeconds = 6,          -- breathing room between waves
+}
+
 -- ── The garage store (D-CHOMP-055) ──────────────────────
 -- Everything buyable stands on a plinth you can drive up to and look at.
 -- Prices are in banked dollars: the currency you earned by surviving.
@@ -320,7 +345,10 @@ ChompConfig.Items = {
 			-- it for LockSeconds. Aiming while steering a kart is not a skill
 			-- worth demanding of a seven-year-old; CHOOSING when to fire is.
 			lockRangeStuds = 240,
-			lockAngleDegrees = 70,   -- half-angle of the search cone
+			-- 180 is a full circle of search: the turret turns all the way round,
+			-- so there is no blind spot behind you and no reason to line a shot
+			-- up by driving (D-CHOMP-059).
+			lockAngleDegrees = 180,
 			lockSeconds = 0.45,      -- continuous tracking before it goes green
 			turretTurnDegrees = 220, -- how fast the barrel swings
 		},
@@ -364,6 +392,11 @@ ChompConfig.Level1 = {
 	-- Alternating materials so the rings read as different places at speed
 	-- rather than as one repeating corridor.
 	NeonRings = true,
+	-- Rings the ghosts CANNOT cross (D-CHOMP-059). Indices count outward from
+	-- the centre arena. Electrified walls turn the map from an open field into
+	-- somewhere with safe pockets, which is what makes a maze a maze rather
+	-- than a big room with decoration in it.
+	ElectrifiedRings = { 2, 4, 6 },
 }
 
 
@@ -681,7 +714,8 @@ return Progression
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local NAMES = { "RequestPurchase", "RequestBank", "SetInputDirection", "UseItem" }
+local NAMES = { "RequestPurchase", "RequestBank", "SetInputDirection", "UseItem",
+	"UseCharge", "ToggleFriendlyFire" }
 local TIMEOUT = 10
 
 local Remotes = {}
@@ -705,7 +739,9 @@ Remotes.Limits = {
 	RequestPurchase = 4,
 	RequestBank = 2,
 	SetInputDirection = 30,
-	UseItem = 4,
+	UseItem = 14,
+	UseCharge = 3,
+	ToggleFriendlyFire = 2,
 }
 
 --[[
@@ -5661,20 +5697,30 @@ return {}
       </Item>
       <Item class="RemoteEvent" referent="138">
         <Properties>
+          <string name="Name">ToggleFriendlyFire</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="139">
+        <Properties>
+          <string name="Name">UseCharge</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="140">
+        <Properties>
           <string name="Name">UseItem</string>
         </Properties>
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="139">
+  <Item class="ServerScriptService" referent="141">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="140">
+    <Item class="Folder" referent="142">
       <Properties>
         <string name="Name">ChompEngine</string>
       </Properties>
-      <Item class="Script" referent="141">
+      <Item class="Script" referent="143">
         <Properties>
           <string name="Name">ArenaMap</string>
           <token name="RunContext">0</token>
@@ -6124,7 +6170,80 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="142">
+      <Item class="Script" referent="144">
+        <Properties>
+          <string name="Name">ChargeService</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	ChargeService — CHAIN-ECONOMY (D-CHOMP-059)
+
+	The charge meter, and the jump you spend it on.
+
+	Eating fills it. A full bar buys one jump — up and forward, over a wall, out
+	of a corner, away from something that has you cornered.
+
+	It is deliberately the only thing in the game that rewards collecting for its
+	own sake. Pellets otherwise pay in points you then have to survive with; the
+	charge pays immediately, in the one move that gets you out of trouble. That
+	gives a frightened player something to do other than run.
+
+	A jump costs the WHOLE bar. A move you can spam is a move you stop thinking
+	about, and the point of this one is the decision.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Debris = game:GetService("Debris")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
+
+local C = Config.Charge
+
+local limiter = Remotes.makeLimiter(3)
+
+local function charge(character: Model): number
+	return (character:GetAttribute("ChompCharge") :: number?) or 0
+end
+
+Remotes.UseCharge.OnServerEvent:Connect(function(player: Player)
+	if not limiter(player) then return end
+
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not (character and root and humanoid) or humanoid.Health <= 0 then return end
+	if charge(character) < C.JumpCost then return end
+
+	character:SetAttribute("ChompCharge", 0)
+	character:SetAttribute("ChompJumpedAt", os.clock())
+
+	-- Up AND forward. A purely vertical hop lands you where you were, which is
+	-- exactly where the thing chasing you still is.
+	local look = root.CFrame.LookVector
+	local flat = Vector3.new(look.X, 0, look.Z)
+	flat = flat.Magnitude > 0.001 and flat.Unit or Vector3.new(0, 0, -1)
+
+	local body = Instance.new("BodyVelocity")
+	body.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+	body.Velocity = Vector3.new(0, C.JumpImpulse, 0) + flat * C.JumpForwardStuds
+	body.Parent = root
+	Debris:AddItem(body, 0.2)
+end)
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		-- Charge does not survive death. It is the escape you did not use.
+		character:SetAttribute("ChompCharge", 0)
+	end)
+end)
+
+print(("[ChargeService] jump costs %d charge, %d per pellet"):format(C.JumpCost, C.PerPellet))
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="145">
         <Properties>
           <string name="Name">GarageService</string>
           <token name="RunContext">0</token>
@@ -6476,7 +6595,7 @@ print(("[GarageService] %d plinths, dwell %.1fs to buy, Robux labels are display
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="143">
+      <Item class="Script" referent="146">
         <Properties>
           <string name="Name">GhostService</string>
           <token name="RunContext">0</token>
@@ -6517,6 +6636,7 @@ local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local G = Config.Ghosts
+local W = Config.Waves
 local L = Config.Level1
 local P = Config.Palette
 
@@ -6538,6 +6658,38 @@ type Ghost = {
 }
 
 local ghosts: { Ghost } = {}
+local wave = 0
+local waveActive = false
+
+-- Radii the ghosts cannot cross (D-CHOMP-059). On a ring map an electrified
+-- wall is simply a radius: a ghost may run along it but never through it, which
+-- turns the arena from an open field into somewhere with safe pockets. That is
+-- the difference between a maze and a big room with decoration in it.
+local function electrifiedRadii(): { number }
+	local out: { number } = {}
+	local radii = {}
+	local r = L.CentreRadius
+	while r <= L.OuterRadius - L.RingSpacing do
+		table.insert(radii, r)
+		r += L.RingSpacing
+	end
+	for _, index in (L.ElectrifiedRings or {}) do
+		if radii[index] then table.insert(out, radii[index]) end
+	end
+	return out
+end
+
+local FENCES = electrifiedRadii()
+
+-- True if moving from `from` to `to` would cross a live ring.
+local function blocked(from: Vector3, to: Vector3): boolean
+	local r0 = Vector3.new(from.X, 0, from.Z).Magnitude
+	local r1 = Vector3.new(to.X, 0, to.Z).Magnitude
+	for _, fence in FENCES do
+		if (r0 - fence) * (r1 - fence) < 0 then return true end
+	end
+	return false
+end
 
 local function piece(parent: Instance, name: string, size: Vector3, colour: Color3,
 		material: Enum.Material, shape: Enum.PartType?): BasePart
@@ -6619,20 +6771,63 @@ local function nearestKart(from: Vector3): (BasePart?, number)
 	return best, bestDistance
 end
 
-local function spawnGhosts()
-	local wanted = ghostCount()
-	while #ghosts < wanted do
+local function clearGhosts()
+	for _, g in ghosts do
+		if g.model.Parent then g.model:Destroy() end
+	end
+	table.clear(ghosts)
+end
+
+local function startWave(n: number)
+	wave = n
+	waveActive = true
+	clearGhosts()
+
+	local wanted = math.min(W.MaxCount, W.StartCount + W.AddPerWave * (n - 1))
+	for index = 0, wanted - 1 do
 		local g = buildGhost()
-		local index = #ghosts
-		-- Unique names, so a lock can name its target and the client can find it
-		-- without the server sending an instance reference (D-CHOMP-054).
 		g.model.Name = "Ghost_" .. tostring(index + 1)
-		g.radius = L.CentreRadius + L.RingSpacing * (1 + (index % 4))
-		g.angle = (math.pi * 2) * (index / math.max(1, wanted))
+		g.radius = L.CentreRadius + L.RingSpacing * (1 + (index % 5))
+		g.angle = (math.pi * 2) * (index / wanted)
 		g.model:PivotTo(CFrame.new(math.cos(g.angle) * g.radius, 8, math.sin(g.angle) * g.radius))
 		table.insert(ghosts, g)
 	end
+
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		if character then
+			character:SetAttribute("ChompWave", wave)
+			character:SetAttribute("ChompWaveCount", wanted)
+		end
+	end
+	print(("[GhostService] wave %d: %d ghosts, speed %.1f, kill pays $%d")
+		:format(wave, wanted, G.Speed + W.SpeedPerWave * (n - 1),
+			G.KillRewardDollars + W.RewardPerWave * (n - 1)))
 end
+
+local function aliveCount(): number
+	local n = 0
+	for _, g in ghosts do
+		if g.model.Parent and g.model:GetAttribute("Dead") ~= true then n += 1 end
+	end
+	return n
+end
+
+-- Watch for a cleared wave. A break between waves is not politeness, it is the
+-- moment you bank what you just earned.
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if waveActive and #ghosts > 0 and aliveCount() == 0 then
+			waveActive = false
+			for _, player in Players:GetPlayers() do
+				local character = player.Character
+				if character then character:SetAttribute("ChompWaveCleared", os.clock()) end
+			end
+			task.delay(W.BreakSeconds, function() startWave(wave + 1) end)
+		end
+	end
+end)
 
 local t = 0
 RunService.Heartbeat:Connect(function(dt)
@@ -6655,8 +6850,22 @@ RunService.Heartbeat:Connect(function(dt)
 			speed = G.FleeSpeed
 		end
 
+		speed += W.SpeedPerWave * math.max(0, wave - 1)
+
 		local flat = Vector3.new(goal.X - here.X, 0, goal.Z - here.Z)
 		local step = flat.Magnitude > 1 and flat.Unit * speed * dt or Vector3.zero
+
+		-- An electrified ring cannot be crossed. Rather than stopping dead,
+		-- strip the RADIAL part of the move and keep the tangential part, so a
+		-- blocked ghost slides along the fence looking for a way round instead
+		-- of standing still looking broken.
+		if step.Magnitude > 0 and blocked(here, here + step) then
+			local outward = Vector3.new(here.X, 0, here.Z)
+			if outward.Magnitude > 0.001 then
+				outward = outward.Unit
+				step = step - outward * step:Dot(outward)
+			end
+		end
 
 		-- Close in, the bobbing stops. A ghost that steadies as it arrives reads
 		-- as deliberate, and deliberate is what makes it frightening.
@@ -6725,8 +6934,9 @@ RunService.Heartbeat:Connect(function(dt)
 				local character = killer and killer.Character
 				if character then
 					local now = (character:GetAttribute("ChompDollars") :: number?) or 0
-					character:SetAttribute("ChompDollars", now + G.KillRewardDollars)
-					character:SetAttribute("ChompBankedAmount", G.KillRewardDollars)
+					local reward = G.KillRewardDollars + W.RewardPerWave * math.max(0, wave - 1)
+					character:SetAttribute("ChompDollars", now + reward)
+					character:SetAttribute("ChompBankedAmount", reward)
 					character:SetAttribute("ChompBankedAt", os.clock())
 				end
 			end
@@ -6735,18 +6945,9 @@ RunService.Heartbeat:Connect(function(dt)
 			for _, d in g.model:GetDescendants() do
 				if d:IsA("BasePart") then d.Transparency = 1 end
 			end
-			task.delay(G.RespawnSeconds, function()
-				if not g.model.Parent then return end
-				g.model:SetAttribute("Health", G.Health)
-				g.model:SetAttribute("Dead", false)
-				for _, d in g.model:GetDescendants() do
-					if d:IsA("BasePart") then
-						if d.Name == "Eye" then d.Transparency = 0
-						elseif d.Name == "Body" then d.Transparency = 0.28
-						else d.Transparency = 0.4 end
-					end
-				end
-			end)
+			-- No individual respawn any more: a ghost killed stays killed until the
+			-- WAVE is cleared, so clearing one is progress you can see rather
+			-- than a timer you are racing (D-CHOMP-059).
 		end
 		if g.model:GetAttribute("Dead") == true then continue end
 
@@ -6782,18 +6983,20 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 end)
 
-Players.PlayerAdded:Connect(function()
-	task.delay(G.RecalculateWithinSeconds, spawnGhosts)
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		character:SetAttribute("ChompWave", wave)
+	end)
 end)
 
-spawnGhosts()
-print(("[GhostService] %d ghosts hunting carried points, %d%% per catch, speed %d vs kart %d")
-	:format(#ghosts, math.floor(G.StealFraction * 100), G.Speed,
+startWave(1)
+print(("[GhostService] waves live: %d electrified ring(s), %d%% stolen per catch, base speed %d vs kart %.1f")
+	:format(#FENCES, math.floor(G.StealFraction * 100), G.Speed,
 		Config.Chassis[Config.StartingChassis].BaseSpeed))
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="144">
+      <Item class="Script" referent="147">
         <Properties>
           <string name="Name">ItemService</string>
           <token name="RunContext">0</token>
@@ -6989,13 +7192,22 @@ local function layOutPads(): number
 	if #radii == 0 then return 0 end
 
 	local mid = function(i: number) return radii[math.clamp(i, 1, #radii)] + L.RingSpacing / 2 end
+	-- Far more of them than there were (D-CHOMP-059). A map you can cross
+	-- without finding a weapon teaches you that weapons are incidental, and the
+	-- waves make that a losing lesson. Cannons are everywhere; bombs and shields
+	-- are worth driving toward.
 	local plan = {
+		{ id = "Cannon", radius = mid(#radii), count = 10, y = 4 },
 		{ id = "Shield", radius = mid(#radii), count = 6, y = 4 },
-		{ id = "Shield", radius = mid(#radii - 1), count = 4, y = 4 },
-		{ id = "JetPack", radius = mid(#radii - 2), count = 5, y = 4 },
-		{ id = "Cannon", radius = mid(#radii - 3), count = 5, y = 4 },
-		{ id = "Cannon", radius = mid(2), count = 4, y = 4 },
-		{ id = "HomingBomb", radius = L.CentreRadius * 0.55, count = 3, y = 4 },
+		{ id = "Cannon", radius = mid(#radii - 1), count = 9, y = 4 },
+		{ id = "JetPack", radius = mid(#radii - 1), count = 5, y = 4 },
+		{ id = "Shield", radius = mid(#radii - 2), count = 6, y = 4 },
+		{ id = "Cannon", radius = mid(#radii - 3), count = 8, y = 4 },
+		{ id = "HomingBomb", radius = mid(#radii - 3), count = 4, y = 4 },
+		{ id = "JetPack", radius = mid(2), count = 5, y = 4 },
+		{ id = "Cannon", radius = mid(2), count = 8, y = 4 },
+		{ id = "HomingBomb", radius = L.CentreRadius * 0.55, count = 5, y = 4 },
+		{ id = "Shield", radius = L.CentreRadius * 0.55, count = 4, y = 4 },
 	}
 
 	local made = 0
@@ -7117,8 +7329,9 @@ end
 --
 -- The lock lives on the SERVER. The client draws a reticle from it and cannot
 -- create one: a client-declared target would be a client-declared hit.
+local friendlyFire: { [Player]: boolean } = {}
 local lastShot: { [Player]: number } = {}
-local lockTarget: { [Player]: Model? } = {}
+local lockTarget: { [Player]: Instance? } = {}
 local lockSince: { [Player]: number } = {}
 
 local function ghostsAlive(): { Model }
@@ -7129,6 +7342,14 @@ local function ghostsAlive(): { Model }
 		end
 	end
 	return out
+end
+
+-- A target is a ghost model or another player's character; both answer to a
+-- pivot, so one helper keeps the rest of the code from caring which it is.
+local function targetPosition(thing: Instance): Vector3
+	if thing:IsA("Model") then return thing:GetPivot().Position end
+	if thing:IsA("BasePart") then return thing.Position end
+	return Vector3.zero
 end
 
 local function updateLock(player: Player, dt: number)
@@ -7147,15 +7368,31 @@ local function updateLock(player: Player, dt: number)
 
 	local def = DEFS.Cannon
 	local forward = facing(root)
-	local best, bestDistance = nil, def.lockRangeStuds
-	for _, ghost in ghostsAlive() do
-		local to = ghost:GetPivot().Position - root.Position
-		local flat = Vector3.new(to.X, 0, to.Z)
+	local best: Instance? = nil
+	local bestDistance = def.lockRangeStuds
+
+	local function consider(thing: Instance, position: Vector3)
+		local flat = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
 		local distance = flat.Magnitude
-		if distance < bestDistance and distance > 1 then
-			local angle = math.deg(math.acos(math.clamp(forward:Dot(flat.Unit), -1, 1)))
-			if angle <= def.lockAngleDegrees then
-				best, bestDistance = ghost, distance
+		if distance >= bestDistance or distance <= 1 then return end
+		local angle = math.deg(math.acos(math.clamp(forward:Dot(flat.Unit), -1, 1)))
+		if angle <= def.lockAngleDegrees then
+			best, bestDistance = thing, distance
+		end
+	end
+
+	for _, ghost in ghostsAlive() do
+		consider(ghost, ghost:GetPivot().Position)
+	end
+
+	-- Friendly fire is OFF by default and is a deliberate switch (D-CHOMP-059).
+	-- Locking onto a friend by accident is how a co-op game turns into an
+	-- argument, so it never happens unless someone chose it.
+	if friendlyFire[player] then
+		for _, other in Players:GetPlayers() do
+			if other ~= player then
+				local otherRoot = rootOf(other)
+				if otherRoot then consider(otherRoot.Parent :: Instance, otherRoot.Position) end
 			end
 		end
 	end
@@ -7171,6 +7408,7 @@ local function updateLock(player: Player, dt: number)
 	end
 	character:SetAttribute("ChompLockState", state)
 	character:SetAttribute("ChompLockTarget", best and best.Name or "")
+	character:SetAttribute("ChompFriendlyFire", friendlyFire[player] == true)
 
 	-- Swing the barrel. Turning at a rate rather than snapping is what makes a
 	-- lock feel earned instead of automatic.
@@ -7180,7 +7418,7 @@ local function updateLock(player: Player, dt: number)
 	if motor then
 		local wanted = 0
 		if best then
-			local to = best:GetPivot().Position - root.Position
+			local to = targetPosition(best) - root.Position
 			local flat = Vector3.new(to.X, 0, to.Z)
 			if flat.Magnitude > 0.001 then
 				local worldYaw = math.atan2(-flat.Unit.X, -flat.Unit.Z)
@@ -7294,7 +7532,7 @@ local function fireCannon(player: Player)
 	local character = player.Character
 	if target and target.Parent and character
 		and character:GetAttribute("ChompLockState") == "locked" then
-		local to = target:GetPivot().Position - origin
+		local to = targetPosition(target) - origin
 		local flat = Vector3.new(to.X, 0, to.Z)
 		if flat.Magnitude > 0.001 then direction = flat.Unit end
 	end
@@ -7368,6 +7606,22 @@ end
 local function useHeld(player: Player)
 	if not limiter(player) then return end        -- flood protection, server side
 
+	-- A DEPLOYED bomb answers first, whatever you are holding now (D-CHOMP-059).
+	-- Picking up a cannon should not strand a live bomb in the map: you placed
+	-- it, so you can always set it off.
+	local live = deployed[player]
+	if live and live.Parent then
+		if os.clock() >= ((live:GetAttribute("ArmedAt") :: number?) or 0) then
+			detonate(player, live)
+			local bomb = held[player]
+			if bomb and bomb.id == "HomingBomb" then
+				bomb.charges -= 1
+				if bomb.charges <= 0 then clear(player) else publish(player) end
+			end
+			return
+		end
+	end
+
 	local h = held[player]
 	if not h then return end                      -- firing with nothing is a no-op
 	local root = rootOf(player)
@@ -7381,17 +7635,9 @@ local function useHeld(player: Player)
 	if h.id == "HomingBomb" then
 		-- Two taps: drop, then detonate. The first costs nothing until the
 		-- second, so a bomb you never set off is a bomb you still have.
-		local bomb = deployed[player]
-		if bomb and bomb.Parent then
-			if os.clock() < ((bomb:GetAttribute("ArmedAt") :: number?) or 0) then
-				return   -- still arming; refuse rather than blow yourself up
-			end
-			detonate(player, bomb)
-			h.charges -= 1
-			if h.charges <= 0 then clear(player) else publish(player) end
-		else
-			dropBomb(player)
-		end
+		-- Detonation is handled above, so reaching here means nothing is
+		-- deployed: drop one.
+		dropBomb(player)
 		return
 	end
 
@@ -7468,6 +7714,14 @@ Players.PlayerRemoving:Connect(function(player)
 	shieldUntil[player] = nil
 end)
 
+Remotes.ToggleFriendlyFire.OnServerEvent:Connect(function(player: Player)
+	friendlyFire[player] = not friendlyFire[player]
+	local character = player.Character
+	if character then
+		character:SetAttribute("ChompFriendlyFire", friendlyFire[player])
+	end
+end)
+
 Remotes.UseItem.OnServerEvent:Connect(function(player: Player)
 	-- No arguments. Anything a client sent here would be a number worth forging.
 	useHeld(player)
@@ -7482,7 +7736,7 @@ print(("[ItemService] running - %d pads, one slot, %d item types, %d/s use limit
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="145">
+      <Item class="Script" referent="148">
         <Properties>
           <string name="Name">Level1Map</string>
           <token name="RunContext">0</token>
@@ -7617,10 +7871,19 @@ local function build()
 	local guardianHalf = math.atan((L.GuardianChamberStuds / 2) / (L.OuterRadius - L.RingSpacing))
 
 	local segments, spokes = 0, 0
+	-- An electrified ring has to LOOK electrified. A wall with a rule attached
+	-- that the player cannot see is not a mechanic, it is a surprise
+	-- (D-CHOMP-059).
+	local electrified: { [number]: boolean } = {}
+	for _, index in (L.ElectrifiedRings or {}) do
+		electrified[index] = true
+	end
+
 	for index, radius in ipairs(radii) do
+		local live = electrified[index] == true
 		local neon = (index % 2 == 1)
-		local colour = neon and (index % 4 == 1 and P.NeonA or P.NeonB) or P.Brick
-		local material = neon and Enum.Material.Neon or Enum.Material.Brick
+		local colour = live and P.NeonA or (neon and (index % 4 == 1 and P.NeonA or P.NeonB) or P.Brick)
+		local material = (live or neon) and Enum.Material.Neon or Enum.Material.Brick
 		local gapHalf = math.atan((M.CellSize * 1.6) / radius)
 		-- offset gaps ring to ring so no radial line is a free run to the middle
 		local offset = (TAU / L.GapsPerRing) * (index / #radii)
@@ -7632,8 +7895,11 @@ local function build()
 			local skip = index == #radii
 				and math.abs((((from + to) / 2) - guardianAngle + math.pi) % TAU - math.pi) < guardianHalf
 			if not skip then
-				segments += arc(rings, "RingWall", radius, from, to, WALL_Y,
-					WALL_H, WALL_T, colour, material)
+				local name = live and "ElectricWall" or "RingWall"
+				-- Live rings are taller as well as brighter, so the difference
+				-- reads at a glance and from across the arena.
+				segments += arc(rings, name, radius, from, to, WALL_Y,
+					live and WALL_H * 1.35 or WALL_H, WALL_T, colour, material)
 			end
 		end
 
@@ -7694,6 +7960,9 @@ local function build()
 	spawn.Transparency = 1
 	spawn.Parent = map
 
+	local liveCount = 0
+	for _ in electrified do liveCount += 1 end
+	print(("[Level1Map] %d electrified ring(s) ghosts cannot cross"):format(liveCount))
 	print(("[Level1Map] one level, sealed: r%d disc, %d rings, %d ring segments, " ..
 		"%d spokes, boundary %d segments, %d garages. cell %d wall %d")
 		:format(L.OuterRadius, #radii, segments, spokes, outer, #garages,
@@ -7704,7 +7973,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="146">
+      <Item class="Script" referent="149">
         <Properties>
           <string name="Name">MovementService</string>
           <token name="RunContext">0</token>
@@ -7835,7 +8104,7 @@ print("[MovementService] running — server owns the numbers, the client owns it
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="147">
+      <Item class="Script" referent="150">
         <Properties>
           <string name="Name">PelletService</string>
           <token name="RunContext">0</token>
@@ -7956,6 +8225,13 @@ local function loop()
 					-- Announce the GAIN, not just the new total. A number that
 					-- ticks up in a corner is invisible to someone watching a
 					-- corridor; "+25" above the kart is not (D-CHOMP-052).
+					-- Every pellet also fills the charge meter (D-CHOMP-059). It is the
+					-- only reward in the game that pays immediately rather than needing
+					-- to be survived with, which gives a frightened player something to
+					-- do other than run.
+					local CH = Config.Charge
+					character:SetAttribute("ChompCharge",
+						math.min(CH.Max, ((character:GetAttribute("ChompCharge") :: number?) or 0) + CH.PerPellet))
 					character:SetAttribute("ChompGainedAmount", value)
 					character:SetAttribute("ChompGainedAt", os.clock())
 					pellet.Transparency = 1
@@ -8008,7 +8284,7 @@ print(("[PelletService] %d pellets laid, values %s, bank rate %.1f")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="148">
+      <Item class="Script" referent="151">
         <Properties>
           <string name="Name">TestMap</string>
           <token name="RunContext">0</token>
@@ -8181,7 +8457,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="149">
+      <Item class="Script" referent="152">
         <Properties>
           <string name="Name">VehicleService</string>
           <token name="RunContext">0</token>
@@ -8379,6 +8655,76 @@ local function nameplate(player: Player, model: Model, anchor: BasePart)
 	label.Parent = gui
 end
 
+-- Mount points, made idempotently and repaired if they go missing.
+--
+-- These were built inline at the end of fitVehicle and were reliably absent at
+-- runtime — the kart existed, the chassis existed, the mounts did not, and three
+-- readings of the code failed to explain why (D-CHOMP-058). Rather than keep
+-- guessing at a timing window, this is written so it does not matter: it can run
+-- at any point, any number of times, and converges on the right answer.
+--
+-- Self-healing is the correct shape for this regardless of the original cause.
+-- A mount is cosmetic scaffolding, and a weapon that cannot be seen because a
+-- part went missing three minutes ago is worse than one rebuilt on the spot.
+local function ensureMounts(character: Model): boolean
+	local model = character:FindFirstChild("Vehicle")
+	if not model or not model:IsA("Model") then return false end
+	local primary = model.PrimaryPart or model:FindFirstChild("Chassis") :: BasePart?
+	if not primary then return false end
+
+	local repaired = false
+
+	local mount = model:FindFirstChild("ItemMount") :: BasePart?
+	if not mount then
+		mount = Instance.new("Part")
+		mount.Name = "ItemMount"
+		mount.Size = Vector3.new(0.4, 0.4, 0.4)
+		mount.Transparency = 1
+		mount.CanCollide = false
+		mount.CanQuery = false
+		mount.CanTouch = false
+		mount.Massless = true
+		mount.CFrame = primary.CFrame * CFrame.new(0, 6.4, 0)
+		mount.Parent = model
+		repaired = true
+	end
+
+	-- A Motor6D rather than a weld, because a turret has to TURN. Setting
+	-- Transform rotates the mounted item relative to the kart without writing
+	-- either part's CFrame, so nothing fights the solver.
+	if not primary:FindFirstChild("TurretMotor") then
+		local motor = Instance.new("Motor6D")
+		motor.Name = "TurretMotor"
+		motor.Part0 = primary
+		motor.Part1 = mount
+		motor.C0 = CFrame.new(0, 6.4, 0)
+		motor.C1 = CFrame.new()
+		motor.Parent = primary
+		repaired = true
+	end
+
+	-- The bomb rides at the BACK, where you can see you are carrying it.
+	if not model:FindFirstChild("RearMount") then
+		local rear = Instance.new("Part")
+		rear.Name = "RearMount"
+		rear.Size = Vector3.new(0.4, 0.4, 0.4)
+		rear.Transparency = 1
+		rear.CanCollide = false
+		rear.CanQuery = false
+		rear.CanTouch = false
+		rear.Massless = true
+		rear.CFrame = primary.CFrame * CFrame.new(0, 2.4, 6.2)
+		rear.Parent = model
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = primary
+		weld.Part1 = rear
+		weld.Parent = rear
+		repaired = true
+	end
+
+	return repaired
+end
+
 local function fitVehicle(player: Player, character: Model)
 	if character:FindFirstChild("Vehicle") then return end
 
@@ -8456,45 +8802,7 @@ local function fitVehicle(player: Player, character: Model)
 	weld.Parent = primary
 
 	model.Parent = character
-
-	-- A mount point on the roof. Held items attach here so a cannon is visible
-	-- on the kart rather than only in the HUD (D-CHOMP-051).
-	local mount = Instance.new("Part")
-	mount.Name = "ItemMount"
-	mount.Size = Vector3.new(0.4, 0.4, 0.4)
-	mount.Transparency = 1
-	mount.CanCollide = false
-	mount.CanQuery = false
-	mount.Massless = true
-	mount.CFrame = primary.CFrame * CFrame.new(0, 5.2, 0)
-	mount.Parent = model
-	-- A Motor6D rather than a weld, because a turret has to TURN (D-CHOMP-054).
-	-- Setting Transform on a motor rotates the mounted item relative to the kart
-	-- without touching either part's CFrame, so nothing fights the solver.
-	local motor = Instance.new("Motor6D")
-	motor.Name = "TurretMotor"
-	motor.Part0 = primary
-	motor.Part1 = mount
-	motor.C0 = CFrame.new(0, 6.4, 0)
-	motor.C1 = CFrame.new()
-	motor.Parent = primary
-
-	-- A second point at the BACK. A bomb is a thing you are towing, and it
-	-- should be visible behind you rather than bolted to the roof like a gun
-	-- (D-CHOMP-056).
-	local rear = Instance.new("Part")
-	rear.Name = "RearMount"
-	rear.Size = Vector3.new(0.4, 0.4, 0.4)
-	rear.Transparency = 1
-	rear.CanCollide = false
-	rear.CanQuery = false
-	rear.Massless = true
-	rear.CFrame = primary.CFrame * CFrame.new(0, 2.4, 6.2)
-	rear.Parent = model
-	local rearWeld = Instance.new("WeldConstraint")
-	rearWeld.Part0 = primary
-	rearWeld.Part1 = rear
-	rearWeld.Parent = rear
+	ensureMounts(character)
 
 	if Config.Vehicle and Config.Vehicle.NamePlate then
 		nameplate(player, model, primary)
@@ -8537,21 +8845,35 @@ for _, player in Players:GetPlayers() do
 	end
 end
 
+-- Cheap, and it means a missing mount is a hiccup rather than a broken weapon
+-- for the rest of the round.
+task.spawn(function()
+	while true do
+		task.wait(1)
+		for _, player in Players:GetPlayers() do
+			local character = player.Character
+			if character and character:FindFirstChild("Vehicle") then
+				ensureMounts(character)
+			end
+		end
+	end
+end)
+
 print(("[VehicleService] running - chassis models are worn, collision is still the humanoid's"))
 ]]></string>
         </Properties>
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="150">
+  <Item class="ServerStorage" referent="153">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="151">
+    <Item class="Folder" referent="154">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="152">
+      <Item class="ModuleScript" referent="155">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -8836,7 +9158,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="153">
+      <Item class="ModuleScript" referent="156">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -9095,11 +9417,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="154">
+      <Item class="Folder" referent="157">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="155">
+        <Item class="ModuleScript" referent="158">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -9212,15 +9534,15 @@ return {
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="156">
+  <Item class="StarterPlayer" referent="159">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="157">
+    <Item class="StarterPlayerScripts" referent="160">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="158">
+      <Item class="LocalScript" referent="161">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -9472,7 +9794,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="159">
+      <Item class="LocalScript" referent="162">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -9613,7 +9935,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="160">
+      <Item class="LocalScript" referent="163">
         <Properties>
           <string name="Name">ChompHud</string>
           <string name="Source"><![CDATA[--!strict
@@ -9651,6 +9973,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local P = Config.Palette
 local ITEMS = Config.Items
 
@@ -9712,10 +10035,100 @@ local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 1
 label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 148),
 	"BANKED — SAFE", P.Gold, 12, Enum.TextXAlignment.Right)
 
+-- ── Bottom left: the two big buttons ────────────────────────────────────
+-- Buttons DO belong in the thumb zone. CHOMP-SYS-032 reserves the lower corners
+-- so that nothing you need to READ sits under a hand — a thing you need to
+-- PRESS wants to be exactly there (D-CHOMP-059).
+--
+-- Both are deliberately oversized. They are pressed while driving, by a child,
+-- on a tablet, and the cost of a missed press is a wall.
+
+local chargeButton = Instance.new("TextButton")
+chargeButton.Name = "ChargeButton"
+chargeButton.AnchorPoint = Vector2.new(0, 1)
+chargeButton.Position = UDim2.new(0, 20, 1, -20)
+chargeButton.Size = UDim2.new(0, 150, 0, 150)
+chargeButton.BackgroundColor3 = P.Floor
+chargeButton.BackgroundTransparency = 0.15
+chargeButton.BorderSizePixel = 0
+chargeButton.Text = ""
+chargeButton.AutoButtonColor = false
+chargeButton.Parent = gui
+local cbCorner = Instance.new("UICorner")
+cbCorner.CornerRadius = UDim.new(1, 0)
+cbCorner.Parent = chargeButton
+
+-- The fill rises from the bottom, because a meter that fills upward is one
+-- nobody has to be taught to read.
+local chargeFill = Instance.new("Frame")
+chargeFill.Name = "Fill"
+chargeFill.AnchorPoint = Vector2.new(0, 1)
+chargeFill.Position = UDim2.new(0, 0, 1, 0)
+chargeFill.Size = UDim2.new(1, 0, 0, 0)
+chargeFill.BackgroundColor3 = P.NeonA
+chargeFill.BackgroundTransparency = 0.35
+chargeFill.BorderSizePixel = 0
+chargeFill.ZIndex = 0
+chargeFill.Parent = chargeButton
+local cfCorner = Instance.new("UICorner")
+cfCorner.CornerRadius = UDim.new(1, 0)
+cfCorner.Parent = chargeFill
+
+local chargeLabel = Instance.new("TextLabel")
+chargeLabel.BackgroundTransparency = 1
+chargeLabel.Size = UDim2.new(1, 0, 1, 0)
+chargeLabel.Text = "CHARGE"
+chargeLabel.TextColor3 = P.Ghost
+chargeLabel.TextScaled = true
+chargeLabel.Font = Enum.Font.GothamBlack
+chargeLabel.ZIndex = 2
+chargeLabel.Parent = chargeButton
+local chargePadding = Instance.new("UIPadding")
+chargePadding.PaddingLeft = UDim.new(0, 26)
+chargePadding.PaddingRight = UDim.new(0, 26)
+chargePadding.PaddingTop = UDim.new(0, 52)
+chargePadding.PaddingBottom = UDim.new(0, 52)
+chargePadding.Parent = chargeLabel
+
+chargeButton.Activated:Connect(function()
+	-- Intent only. The server decides whether there is charge to spend.
+	if Remotes and Remotes.UseCharge then
+		Remotes.UseCharge:FireServer()
+	end
+end)
+
+local ffButton = Instance.new("TextButton")
+ffButton.Name = "FriendlyFire"
+ffButton.AnchorPoint = Vector2.new(0, 1)
+ffButton.Position = UDim2.new(0, 20, 1, -184)
+ffButton.Size = UDim2.new(0, 150, 0, 52)
+ffButton.BackgroundColor3 = P.Floor
+ffButton.BackgroundTransparency = 0.15
+ffButton.BorderSizePixel = 0
+ffButton.Text = "FRIENDLY FIRE"
+ffButton.TextColor3 = P.Brick
+ffButton.TextSize = 15
+ffButton.Font = Enum.Font.GothamBold
+ffButton.AutoButtonColor = false
+ffButton.Parent = gui
+local ffCorner = Instance.new("UICorner")
+ffCorner.CornerRadius = UDim.new(0, 14)
+ffCorner.Parent = ffButton
+
+ffButton.Activated:Connect(function()
+	if Remotes and Remotes.ToggleFriendlyFire then
+		Remotes.ToggleFriendlyFire:FireServer()
+	end
+end)
+
 -- ── Top centre: one objective ───────────────────────────────────────────
 local centre = panel("Objective", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 280, 0, 48))
 local objective = label(centre, UDim2.new(1, -20, 1, -12), UDim2.new(0, 10, 0, 6),
 	"COLLECT", P.NeonA, 22, Enum.TextXAlignment.Center)
+
+local wavePanel = panel("Wave", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 72), UDim2.new(0, 200, 0, 38))
+local waveLabel = label(wavePanel, UDim2.new(1, -20, 1, -10), UDim2.new(0, 10, 0, 5),
+	"WAVE 1", P.Ghost, 18, Enum.TextXAlignment.Center)
 
 -- ── A flash when something is taken ─────────────────────────────────────
 local flash = Instance.new("Frame")
@@ -9796,6 +10209,26 @@ RunService.RenderStepped:Connect(function(dt)
 		objective.TextColor3 = P.NeonA
 	end
 
+	-- Charge. Full is the only state that matters, so full is the only state
+	-- that changes the words: below it the button says CHARGE and does nothing,
+	-- at it the button says JUMP and glows.
+	local CH = Config.Charge
+	local charge = attribute("ChompCharge")
+	local ready = charge >= CH.JumpCost
+	chargeFill.Size = UDim2.new(1, 0, math.clamp(charge / CH.Max, 0, 1), 0)
+	chargeFill.BackgroundColor3 = ready and P.Gold or P.NeonA
+	chargeLabel.Text = ready and "JUMP" or "CHARGE"
+	chargeLabel.TextColor3 = ready and P.Floor or P.Ghost
+	chargeButton.BackgroundTransparency = ready and 0.05 or 0.15
+
+	local ff = character:GetAttribute("ChompFriendlyFire") == true
+	ffButton.TextColor3 = ff and P.Danger or P.Brick
+	ffButton.Text = ff and "FRIENDLY FIRE: ON" or "FRIENDLY FIRE"
+	ffButton.BackgroundTransparency = ff and 0.05 or 0.15
+
+	local waveNumber = attribute("ChompWave")
+	waveLabel.Text = waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1"
+
 	-- Health. Colour carries the reading, so a glance is enough: green is fine,
 	-- gold is careful, red is one more hit.
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -9830,7 +10263,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="161">
+      <Item class="LocalScript" referent="164">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -10068,7 +10501,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="162">
+      <Item class="LocalScript" referent="165">
         <Properties>
           <string name="Name">PickupFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -10185,7 +10618,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="163">
+      <Item class="LocalScript" referent="166">
         <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
@@ -10279,23 +10712,29 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="164">
+      <Item class="LocalScript" referent="167">
         <Properties>
           <string name="Name">TargetReticle</string>
           <string name="Source"><![CDATA[--!strict
 --[[
-	TargetReticle — CHAIN-COMBAT (D-CHOMP-054)
+	TargetReticle — CHAIN-COMBAT (D-CHOMP-059)
 
-	The cannon's target marker: RED while it is tracking, GREEN when it locks.
+	A red crosshair that snaps onto whatever the turret has found, and turns
+	green the moment it locks.
 
 	The server owns the lock and writes ChompLockState and ChompLockTarget onto
 	the character. This draws them and decides nothing — a client that could
 	declare its own target could declare its own hit.
 
-	Red and green are the obvious choice and also the worst pair for a
-	colour-blind player, so colour is never the only signal: tracking is a thin
-	broken ring that spins, locked is a thick steady ring with corner brackets
-	that snaps to size. Shape and motion carry the same message.
+	Red and green is the obvious pair and the worst one for a colour-blind
+	player, so colour is never the only signal. Tracking is a crosshair with a
+	GAP at the centre and arms that breathe; locked closes the gap, adds a centre
+	dot and holds still. The shape says it, the motion says it, and the colour
+	agrees with both.
+
+	Snapping rather than easing is deliberate. A reticle that slides between
+	targets looks smooth and tells you nothing about the moment acquisition
+	happened, which is the only moment that matters.
 ]]
 
 local Players = game:GetService("Players")
@@ -10312,33 +10751,35 @@ local player = Players.LocalPlayer
 
 local gui = Instance.new("BillboardGui")
 gui.Name = "ChompReticle"
-gui.Size = UDim2.new(0, 150, 0, 150)
+gui.Size = UDim2.new(0, 190, 0, 190)
 gui.AlwaysOnTop = true
 gui.Enabled = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- Four brackets rather than a circle: brackets read as "targeting" instantly,
--- and closing them inward is a motion everyone already understands.
-local brackets: { Frame } = {}
-for i = 1, 4 do
-	local b = Instance.new("Frame")
-	b.Size = UDim2.new(0, 34, 0, 6)
-	b.BorderSizePixel = 0
-	b.BackgroundColor3 = TRACKING
-	b.Parent = gui
-	table.insert(brackets, b)
-
-	local stem = Instance.new("Frame")
-	stem.Size = UDim2.new(0, 6, 0, 34)
-	stem.BorderSizePixel = 0
-	stem.BackgroundColor3 = TRACKING
-	stem.Parent = b
+local function bar(): Frame
+	local f = Instance.new("Frame")
+	f.BorderSizePixel = 0
+	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.BackgroundColor3 = TRACKING
+	f.Parent = gui
+	return f
 end
 
-local function ghostByName(name: string): Model?
-	local folder = workspace:FindFirstChild("Ghosts")
-	local found = folder and folder:FindFirstChild(name)
-	return (found and found:IsA("Model")) and found or nil
+-- Four arms and a centre dot. Arms, not a circle: a cross points AT something.
+local arms = { bar(), bar(), bar(), bar() }
+local dot = bar()
+dot.Size = UDim2.new(0, 8, 0, 8)
+dot.Position = UDim2.new(0.5, 0, 0.5, 0)
+
+local function findTarget(name: string): Instance?
+	local ghosts = workspace:FindFirstChild("Ghosts")
+	local ghost = ghosts and ghosts:FindFirstChild(name)
+	if ghost then return ghost end
+	-- Friendly fire: the target may be another player's character, which is
+	-- named after the player.
+	local other = Players:FindFirstChild(name)
+	if other and other:IsA("Player") then return other.Character end
+	return workspace:FindFirstChild(name)
 end
 
 local t = 0
@@ -10349,47 +10790,53 @@ RunService.RenderStepped:Connect(function(dt)
 
 	local state = character:GetAttribute("ChompLockState")
 	local targetName = character:GetAttribute("ChompLockTarget")
-	if typeof(state) ~= "string" or state == "none" or typeof(targetName) ~= "string" or targetName == "" then
+	if typeof(state) ~= "string" or state == "none"
+		or typeof(targetName) ~= "string" or targetName == "" then
 		gui.Enabled = false
 		return
 	end
 
-	local ghost = ghostByName(targetName)
-	if not ghost or ghost:GetAttribute("Dead") == true then
+	local target = findTarget(targetName)
+	if not target or (target:IsA("Model") and target:GetAttribute("Dead") == true) then
 		gui.Enabled = false
 		return
 	end
+
+	local adornee = target:IsA("Model")
+		and (target.PrimaryPart or target:FindFirstChildWhichIsA("BasePart"))
+		or target
+	if not adornee then gui.Enabled = false return end
 
 	gui.Enabled = true
-	gui.Adornee = ghost.PrimaryPart or ghost:FindFirstChildWhichIsA("BasePart")
+	gui.Adornee = adornee
 
 	local locked = state == "locked"
 	local colour = locked and LOCKED or TRACKING
-	-- Locked closes the brackets in and holds them still. Tracking leaves them
-	-- wide and turning, so the two states differ in MOTION as well as colour.
-	local spread = locked and 34 or (46 + math.sin(t * 6) * 5)
-	local spin = locked and 0 or t * 60
+	-- Tracking breathes and holds a gap; locked closes to a tight, still cross.
+	local gap = locked and 16 or (30 + math.sin(t * 7) * 4)
+	local length = locked and 30 or 22
+	local thickness = locked and 5 or 3
 
-	for i, b in brackets do
-		local corner = i - 1
-		local x = (corner % 2 == 0) and -1 or 1
-		local y = (corner < 2) and -1 or 1
-		b.BackgroundColor3 = colour
-		b.Rotation = spin
-		b.AnchorPoint = Vector2.new(x < 0 and 0 or 1, y < 0 and 0 or 1)
-		b.Position = UDim2.new(0.5, x * spread, 0.5, y * spread)
-		local stem = b:FindFirstChildWhichIsA("Frame")
-		if stem then
-			stem.BackgroundColor3 = colour
-			stem.AnchorPoint = b.AnchorPoint
-			stem.Position = UDim2.new(x < 0 and 0 or 1, 0, y < 0 and 0 or 1, 0)
+	for i, arm in arms do
+		arm.BackgroundColor3 = colour
+		local vertical = i > 2
+		local sign = (i % 2 == 0) and 1 or -1
+		if vertical then
+			arm.Size = UDim2.new(0, thickness, 0, length)
+			arm.Position = UDim2.new(0.5, 0, 0.5, sign * (gap + length / 2))
+		else
+			arm.Size = UDim2.new(0, length, 0, thickness)
+			arm.Position = UDim2.new(0.5, sign * (gap + length / 2), 0.5, 0)
 		end
 	end
+
+	dot.BackgroundColor3 = colour
+	dot.Visible = locked
 end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="165">
+      <Item class="LocalScript" referent="168">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -10547,7 +10994,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="166">
+      <Item class="LocalScript" referent="169">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -10694,7 +11141,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="167">
+  <Item class="Workspace" referent="170">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

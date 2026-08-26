@@ -190,13 +190,22 @@ local function layOutPads(): number
 	if #radii == 0 then return 0 end
 
 	local mid = function(i: number) return radii[math.clamp(i, 1, #radii)] + L.RingSpacing / 2 end
+	-- Far more of them than there were (D-CHOMP-059). A map you can cross
+	-- without finding a weapon teaches you that weapons are incidental, and the
+	-- waves make that a losing lesson. Cannons are everywhere; bombs and shields
+	-- are worth driving toward.
 	local plan = {
+		{ id = "Cannon", radius = mid(#radii), count = 10, y = 4 },
 		{ id = "Shield", radius = mid(#radii), count = 6, y = 4 },
-		{ id = "Shield", radius = mid(#radii - 1), count = 4, y = 4 },
-		{ id = "JetPack", radius = mid(#radii - 2), count = 5, y = 4 },
-		{ id = "Cannon", radius = mid(#radii - 3), count = 5, y = 4 },
-		{ id = "Cannon", radius = mid(2), count = 4, y = 4 },
-		{ id = "HomingBomb", radius = L.CentreRadius * 0.55, count = 3, y = 4 },
+		{ id = "Cannon", radius = mid(#radii - 1), count = 9, y = 4 },
+		{ id = "JetPack", radius = mid(#radii - 1), count = 5, y = 4 },
+		{ id = "Shield", radius = mid(#radii - 2), count = 6, y = 4 },
+		{ id = "Cannon", radius = mid(#radii - 3), count = 8, y = 4 },
+		{ id = "HomingBomb", radius = mid(#radii - 3), count = 4, y = 4 },
+		{ id = "JetPack", radius = mid(2), count = 5, y = 4 },
+		{ id = "Cannon", radius = mid(2), count = 8, y = 4 },
+		{ id = "HomingBomb", radius = L.CentreRadius * 0.55, count = 5, y = 4 },
+		{ id = "Shield", radius = L.CentreRadius * 0.55, count = 4, y = 4 },
 	}
 
 	local made = 0
@@ -318,8 +327,9 @@ end
 --
 -- The lock lives on the SERVER. The client draws a reticle from it and cannot
 -- create one: a client-declared target would be a client-declared hit.
+local friendlyFire: { [Player]: boolean } = {}
 local lastShot: { [Player]: number } = {}
-local lockTarget: { [Player]: Model? } = {}
+local lockTarget: { [Player]: Instance? } = {}
 local lockSince: { [Player]: number } = {}
 
 local function ghostsAlive(): { Model }
@@ -330,6 +340,14 @@ local function ghostsAlive(): { Model }
 		end
 	end
 	return out
+end
+
+-- A target is a ghost model or another player's character; both answer to a
+-- pivot, so one helper keeps the rest of the code from caring which it is.
+local function targetPosition(thing: Instance): Vector3
+	if thing:IsA("Model") then return thing:GetPivot().Position end
+	if thing:IsA("BasePart") then return thing.Position end
+	return Vector3.zero
 end
 
 local function updateLock(player: Player, dt: number)
@@ -348,15 +366,31 @@ local function updateLock(player: Player, dt: number)
 
 	local def = DEFS.Cannon
 	local forward = facing(root)
-	local best, bestDistance = nil, def.lockRangeStuds
-	for _, ghost in ghostsAlive() do
-		local to = ghost:GetPivot().Position - root.Position
-		local flat = Vector3.new(to.X, 0, to.Z)
+	local best: Instance? = nil
+	local bestDistance = def.lockRangeStuds
+
+	local function consider(thing: Instance, position: Vector3)
+		local flat = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
 		local distance = flat.Magnitude
-		if distance < bestDistance and distance > 1 then
-			local angle = math.deg(math.acos(math.clamp(forward:Dot(flat.Unit), -1, 1)))
-			if angle <= def.lockAngleDegrees then
-				best, bestDistance = ghost, distance
+		if distance >= bestDistance or distance <= 1 then return end
+		local angle = math.deg(math.acos(math.clamp(forward:Dot(flat.Unit), -1, 1)))
+		if angle <= def.lockAngleDegrees then
+			best, bestDistance = thing, distance
+		end
+	end
+
+	for _, ghost in ghostsAlive() do
+		consider(ghost, ghost:GetPivot().Position)
+	end
+
+	-- Friendly fire is OFF by default and is a deliberate switch (D-CHOMP-059).
+	-- Locking onto a friend by accident is how a co-op game turns into an
+	-- argument, so it never happens unless someone chose it.
+	if friendlyFire[player] then
+		for _, other in Players:GetPlayers() do
+			if other ~= player then
+				local otherRoot = rootOf(other)
+				if otherRoot then consider(otherRoot.Parent :: Instance, otherRoot.Position) end
 			end
 		end
 	end
@@ -372,6 +406,7 @@ local function updateLock(player: Player, dt: number)
 	end
 	character:SetAttribute("ChompLockState", state)
 	character:SetAttribute("ChompLockTarget", best and best.Name or "")
+	character:SetAttribute("ChompFriendlyFire", friendlyFire[player] == true)
 
 	-- Swing the barrel. Turning at a rate rather than snapping is what makes a
 	-- lock feel earned instead of automatic.
@@ -381,7 +416,7 @@ local function updateLock(player: Player, dt: number)
 	if motor then
 		local wanted = 0
 		if best then
-			local to = best:GetPivot().Position - root.Position
+			local to = targetPosition(best) - root.Position
 			local flat = Vector3.new(to.X, 0, to.Z)
 			if flat.Magnitude > 0.001 then
 				local worldYaw = math.atan2(-flat.Unit.X, -flat.Unit.Z)
@@ -495,7 +530,7 @@ local function fireCannon(player: Player)
 	local character = player.Character
 	if target and target.Parent and character
 		and character:GetAttribute("ChompLockState") == "locked" then
-		local to = target:GetPivot().Position - origin
+		local to = targetPosition(target) - origin
 		local flat = Vector3.new(to.X, 0, to.Z)
 		if flat.Magnitude > 0.001 then direction = flat.Unit end
 	end
@@ -569,6 +604,22 @@ end
 local function useHeld(player: Player)
 	if not limiter(player) then return end        -- flood protection, server side
 
+	-- A DEPLOYED bomb answers first, whatever you are holding now (D-CHOMP-059).
+	-- Picking up a cannon should not strand a live bomb in the map: you placed
+	-- it, so you can always set it off.
+	local live = deployed[player]
+	if live and live.Parent then
+		if os.clock() >= ((live:GetAttribute("ArmedAt") :: number?) or 0) then
+			detonate(player, live)
+			local bomb = held[player]
+			if bomb and bomb.id == "HomingBomb" then
+				bomb.charges -= 1
+				if bomb.charges <= 0 then clear(player) else publish(player) end
+			end
+			return
+		end
+	end
+
 	local h = held[player]
 	if not h then return end                      -- firing with nothing is a no-op
 	local root = rootOf(player)
@@ -582,17 +633,9 @@ local function useHeld(player: Player)
 	if h.id == "HomingBomb" then
 		-- Two taps: drop, then detonate. The first costs nothing until the
 		-- second, so a bomb you never set off is a bomb you still have.
-		local bomb = deployed[player]
-		if bomb and bomb.Parent then
-			if os.clock() < ((bomb:GetAttribute("ArmedAt") :: number?) or 0) then
-				return   -- still arming; refuse rather than blow yourself up
-			end
-			detonate(player, bomb)
-			h.charges -= 1
-			if h.charges <= 0 then clear(player) else publish(player) end
-		else
-			dropBomb(player)
-		end
+		-- Detonation is handled above, so reaching here means nothing is
+		-- deployed: drop one.
+		dropBomb(player)
 		return
 	end
 
@@ -667,6 +710,14 @@ end)
 Players.PlayerRemoving:Connect(function(player)
 	held[player] = nil
 	shieldUntil[player] = nil
+end)
+
+Remotes.ToggleFriendlyFire.OnServerEvent:Connect(function(player: Player)
+	friendlyFire[player] = not friendlyFire[player]
+	local character = player.Character
+	if character then
+		character:SetAttribute("ChompFriendlyFire", friendlyFire[player])
+	end
 end)
 
 Remotes.UseItem.OnServerEvent:Connect(function(player: Player)

@@ -33,6 +33,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local P = Config.Palette
 local ITEMS = Config.Items
 
@@ -94,10 +95,100 @@ local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 1
 label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 148),
 	"BANKED — SAFE", P.Gold, 12, Enum.TextXAlignment.Right)
 
+-- ── Bottom left: the two big buttons ────────────────────────────────────
+-- Buttons DO belong in the thumb zone. CHOMP-SYS-032 reserves the lower corners
+-- so that nothing you need to READ sits under a hand — a thing you need to
+-- PRESS wants to be exactly there (D-CHOMP-059).
+--
+-- Both are deliberately oversized. They are pressed while driving, by a child,
+-- on a tablet, and the cost of a missed press is a wall.
+
+local chargeButton = Instance.new("TextButton")
+chargeButton.Name = "ChargeButton"
+chargeButton.AnchorPoint = Vector2.new(0, 1)
+chargeButton.Position = UDim2.new(0, 20, 1, -20)
+chargeButton.Size = UDim2.new(0, 150, 0, 150)
+chargeButton.BackgroundColor3 = P.Floor
+chargeButton.BackgroundTransparency = 0.15
+chargeButton.BorderSizePixel = 0
+chargeButton.Text = ""
+chargeButton.AutoButtonColor = false
+chargeButton.Parent = gui
+local cbCorner = Instance.new("UICorner")
+cbCorner.CornerRadius = UDim.new(1, 0)
+cbCorner.Parent = chargeButton
+
+-- The fill rises from the bottom, because a meter that fills upward is one
+-- nobody has to be taught to read.
+local chargeFill = Instance.new("Frame")
+chargeFill.Name = "Fill"
+chargeFill.AnchorPoint = Vector2.new(0, 1)
+chargeFill.Position = UDim2.new(0, 0, 1, 0)
+chargeFill.Size = UDim2.new(1, 0, 0, 0)
+chargeFill.BackgroundColor3 = P.NeonA
+chargeFill.BackgroundTransparency = 0.35
+chargeFill.BorderSizePixel = 0
+chargeFill.ZIndex = 0
+chargeFill.Parent = chargeButton
+local cfCorner = Instance.new("UICorner")
+cfCorner.CornerRadius = UDim.new(1, 0)
+cfCorner.Parent = chargeFill
+
+local chargeLabel = Instance.new("TextLabel")
+chargeLabel.BackgroundTransparency = 1
+chargeLabel.Size = UDim2.new(1, 0, 1, 0)
+chargeLabel.Text = "CHARGE"
+chargeLabel.TextColor3 = P.Ghost
+chargeLabel.TextScaled = true
+chargeLabel.Font = Enum.Font.GothamBlack
+chargeLabel.ZIndex = 2
+chargeLabel.Parent = chargeButton
+local chargePadding = Instance.new("UIPadding")
+chargePadding.PaddingLeft = UDim.new(0, 26)
+chargePadding.PaddingRight = UDim.new(0, 26)
+chargePadding.PaddingTop = UDim.new(0, 52)
+chargePadding.PaddingBottom = UDim.new(0, 52)
+chargePadding.Parent = chargeLabel
+
+chargeButton.Activated:Connect(function()
+	-- Intent only. The server decides whether there is charge to spend.
+	if Remotes and Remotes.UseCharge then
+		Remotes.UseCharge:FireServer()
+	end
+end)
+
+local ffButton = Instance.new("TextButton")
+ffButton.Name = "FriendlyFire"
+ffButton.AnchorPoint = Vector2.new(0, 1)
+ffButton.Position = UDim2.new(0, 20, 1, -184)
+ffButton.Size = UDim2.new(0, 150, 0, 52)
+ffButton.BackgroundColor3 = P.Floor
+ffButton.BackgroundTransparency = 0.15
+ffButton.BorderSizePixel = 0
+ffButton.Text = "FRIENDLY FIRE"
+ffButton.TextColor3 = P.Brick
+ffButton.TextSize = 15
+ffButton.Font = Enum.Font.GothamBold
+ffButton.AutoButtonColor = false
+ffButton.Parent = gui
+local ffCorner = Instance.new("UICorner")
+ffCorner.CornerRadius = UDim.new(0, 14)
+ffCorner.Parent = ffButton
+
+ffButton.Activated:Connect(function()
+	if Remotes and Remotes.ToggleFriendlyFire then
+		Remotes.ToggleFriendlyFire:FireServer()
+	end
+end)
+
 -- ── Top centre: one objective ───────────────────────────────────────────
 local centre = panel("Objective", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 280, 0, 48))
 local objective = label(centre, UDim2.new(1, -20, 1, -12), UDim2.new(0, 10, 0, 6),
 	"COLLECT", P.NeonA, 22, Enum.TextXAlignment.Center)
+
+local wavePanel = panel("Wave", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 72), UDim2.new(0, 200, 0, 38))
+local waveLabel = label(wavePanel, UDim2.new(1, -20, 1, -10), UDim2.new(0, 10, 0, 5),
+	"WAVE 1", P.Ghost, 18, Enum.TextXAlignment.Center)
 
 -- ── A flash when something is taken ─────────────────────────────────────
 local flash = Instance.new("Frame")
@@ -177,6 +268,26 @@ RunService.RenderStepped:Connect(function(dt)
 		objective.Text = "COLLECT"
 		objective.TextColor3 = P.NeonA
 	end
+
+	-- Charge. Full is the only state that matters, so full is the only state
+	-- that changes the words: below it the button says CHARGE and does nothing,
+	-- at it the button says JUMP and glows.
+	local CH = Config.Charge
+	local charge = attribute("ChompCharge")
+	local ready = charge >= CH.JumpCost
+	chargeFill.Size = UDim2.new(1, 0, math.clamp(charge / CH.Max, 0, 1), 0)
+	chargeFill.BackgroundColor3 = ready and P.Gold or P.NeonA
+	chargeLabel.Text = ready and "JUMP" or "CHARGE"
+	chargeLabel.TextColor3 = ready and P.Floor or P.Ghost
+	chargeButton.BackgroundTransparency = ready and 0.05 or 0.15
+
+	local ff = character:GetAttribute("ChompFriendlyFire") == true
+	ffButton.TextColor3 = ff and P.Danger or P.Brick
+	ffButton.Text = ff and "FRIENDLY FIRE: ON" or "FRIENDLY FIRE"
+	ffButton.BackgroundTransparency = ff and 0.05 or 0.15
+
+	local waveNumber = attribute("ChompWave")
+	waveLabel.Text = waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1"
 
 	-- Health. Colour carries the reading, so a glance is enough: green is fine,
 	-- gold is careful, red is one more hit.

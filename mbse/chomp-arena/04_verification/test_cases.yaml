@@ -749,7 +749,10 @@ test_cases:
                 "banking at another player's garage", "claiming a hit on a player out of range",
                 "UseItem with no item carried", "UseItem flooded past its rate limit",
                 "UseItem with forged arguments appended", "UseItem while dead or respawning",
-                "UseItem after charges are exhausted"]
+                "UseItem after charges are exhausted",
+                "UseCharge with an empty meter", "UseCharge flooded past its rate limit",
+                "UseCharge while dead", "ToggleFriendlyFire flooded",
+                "ToggleFriendlyFire with forged arguments"]
     procedure:
       - "Run every recorded attack against a live server as an automated suite"
       - "Assert the server-side economy, Power and combat state are unchanged by every one of them"
