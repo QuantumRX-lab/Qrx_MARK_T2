@@ -318,6 +318,35 @@ ChompConfig.Waves = {
 	RevealLastAt = 2,
 }
 
+-- Audio asset IDs are deliberately blank in source control. Roblox audio must
+-- be uploaded by the experience owner and granted to this experience before an
+-- rbxassetid can play. Paste only the resulting numeric IDs here; source audio
+-- and licenses remain outside the repository (AUDIO-SOURCING-2026-08-26.md).
+ChompConfig.Audio = {
+	MusicVolume = 0.24,
+	EffectsVolume = 0.55,
+	Music = {
+		Exploration = "",
+		Guardian = "",
+	},
+	Effects = {
+		Pellet = { "", "", "", "", "" },
+		PowerPellet = "",
+		Bank = "",
+		Purchase = "",
+		Cannon = { "", "", "" },
+		CannonHit = "",
+		BombArm = "",
+		BombBlast = "",
+		ShieldOn = "",
+		ShieldBreak = "",
+		JetPack = "",
+		Hurt = { "", "" },
+		Death = "",
+		WaveClear = "",
+	},
+}
+
 -- ── The garage store (D-CHOMP-055) ──────────────────────
 -- Everything buyable stands on a plinth you can drive up to and look at.
 -- Prices are in banked dollars: the currency you earned by surviving.
