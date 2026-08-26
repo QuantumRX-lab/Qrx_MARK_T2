@@ -1,9 +1,73 @@
 # Chomp Arena Audio Sourcing
 
-Status: owner purchase and track approval required before import.
+Status: free prototype library approved; music download and Roblox upload remain
+owner actions because Roblox requires owner-controlled asset IDs.
 
 The temporary Roblox built-in sounds have been removed. They proved the event
 wiring but do not meet the game's quality or identity target.
+
+## Approved Free Prototype Stack
+
+Use this stack for the first complete audio pass. No purchase is required.
+
+### Sound effects: Kenney Digital Audio and Impact Sounds
+
+- https://kenney.nl/assets/digital-audio
+- https://kenney.nl/assets/impact-sounds
+- License: CC0; attribution is not required.
+- Local source archive: `C:\Users\wills\Documents\Codex\ChompArena-Audio-Sources`
+
+The archives are intentionally outside the public repository. Upload only the
+curated files below to Roblox; do not upload or redistribute either full pack.
+
+| Chomp event | Kenney starting file/family |
+|---|---|
+| Pellet streak | `pepSound1` through `pepSound5` |
+| Power pellet | `powerUp6` or `powerUp11` |
+| Purchase/bank | `threeTone1`, `twoTone1`, `powerUp12` |
+| Cannon fire | `laser4` through `laser6` |
+| Cannon hit | `zap1` plus a light generic impact |
+| Shield on | `phaserUp3` |
+| Shield break | `impactGlass_heavy_001` |
+| Jet pack | `phaseJump3` |
+| Bomb warning | `lowThreeTone` or `phaserUp` |
+| Bomb impact | heavy punch or metal impact |
+| Vehicle chomp | medium soft impact plus punch impact |
+| Wave clear | `powerUp12` or a three-tone cue |
+
+Final filenames must be selected by ear in Studio. Randomise pitch and choose
+several variants for repeated impacts so the game does not sound mechanical.
+
+### Background music: VOiD1 FREE EDM Music Pack
+
+https://void1gaming.itch.io/free-edm-music-pack
+
+This is the primary free music recommendation: 15 seamless EDM loops supplied
+for commercial and non-commercial projects. Download both the 335 MB archive
+and its separate license PDF using **Download Now**, then **No thanks, just take
+me to the downloads**. Keep the license beside the archive outside Git.
+
+Audition for a bright, syncopated loop with a clear bass groove and no ominous
+breakdown. Reject tracks with harsh festival drops or dense lead synths; they
+will fatigue players and mask repeated combat effects. Select one exploration
+loop and one higher-energy guardian loop before uploading anything to Roblox.
+
+### Optional garage/intermission music: Clement Panchout
+
+https://clement-panchout.itch.io/yet-another-free-music-pack
+
+Use `Sweet 70s` only if it complements the chosen EDM loop. It is licensed CC BY
+4.0 and therefore requires this visible game credit:
+
+`Music by Clement Panchout - www.clementpanchout.com`
+
+### Optional broad effects source: Sonniss GDC Bundle
+
+https://sonniss.com/gameaudiogdc/
+
+Use Sonniss only to fill a gap that Kenney cannot cover, such as a distinctive
+guardian layer. The bundle allows commercial use without attribution, but its
+many contributors make it harder to maintain one coherent sound palette.
 
 ## Audio Identity
 
