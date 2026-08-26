@@ -25,10 +25,10 @@ local ChompConfig = {}
 -- empty bar is genuinely beatable by a topped-up Standard.
 
 ChompConfig.Chassis = {
-	Standard = { Tier = 1, BarCapacity = 100, Power = 100, BaseSpeed = 24, BaseTurn = 240, MouthArcDegrees = 90,  Cost = 0 },
-	HeavyJaw = { Tier = 2, BarCapacity = 175, Power = 250, BaseSpeed = 23, BaseTurn = 220, MouthArcDegrees = 90,  Cost = 500 },
-	Ravener  = { Tier = 3, BarCapacity = 275, Power = 450, BaseSpeed = 26, BaseTurn = 200, MouthArcDegrees = 100, Cost = 1500 },
-	Apex     = { Tier = 4, BarCapacity = 400, Power = 700, BaseSpeed = 28, BaseTurn = 185, MouthArcDegrees = 110, Cost = 3500 },
+	Standard = { Tier = 1, BarCapacity = 100, Power = 100, BaseSpeed = 26.4, BaseTurn = 240, MouthArcDegrees = 90,  Cost = 0 },
+	HeavyJaw = { Tier = 2, BarCapacity = 175, Power = 250, BaseSpeed = 25.3, BaseTurn = 220, MouthArcDegrees = 90,  Cost = 500 },
+	Ravener  = { Tier = 3, BarCapacity = 275, Power = 450, BaseSpeed = 28.6, BaseTurn = 200, MouthArcDegrees = 100, Cost = 1500 },
+	Apex     = { Tier = 4, BarCapacity = 400, Power = 700, BaseSpeed = 30.8, BaseTurn = 185, MouthArcDegrees = 110, Cost = 3500 },
 }
 
 ChompConfig.StartingChassis = "Standard"
@@ -403,7 +403,11 @@ ChompConfig.Map = {
 	-- At cell 8 the clear width was 6 studs against a 4.8-stud vehicle - 0.6
 	-- studs either side - so there was no room to arc and every corner was a
 	-- pivot in place. 16 leaves 4.6 studs either side and the sweep fits.
-	-- If BaseSpeed or BaseTurn move, re-derive this.
+	-- If BaseSpeed or BaseTurn move, re-derive this. Checked at +10% speed
+	-- (D-CHOMP-057): turning radius rises 5.73 -> 6.30, and Level 1's corridors
+	-- are 38 studs clear rather than this 14, so the sweep still fits with room
+	-- to spare. CellSize now only sets garage pads and ring gap widths; the
+	-- corridor width that matters lives in Level1.RingSpacing.
 	CellSize = 16,
 	WallHeight = 7,
 	WallThickness = 2,

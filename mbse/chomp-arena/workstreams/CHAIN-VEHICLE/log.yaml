@@ -579,3 +579,24 @@ entries:
     but VehicleFactory failing should probably be louder than a warn - a
     server-side error with the failing axis in it would have saved both
     sessions. That is CHAIN-VEHICLE's call since the factory is yours.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-001]
+  summary: >
+    All four chassis are 10% faster by owner decision: Standard 24 -> 26.4,
+    HeavyJaw 23 -> 25.3, Ravener 26 -> 28.6, Apex 28 -> 30.8. Applied across the
+    ladder rather than to Standard alone so the trades between tiers keep their
+    shape.
+    Two derived numbers were re-checked rather than assumed. Turning radius rises
+    from 5.73 to 6.30 studs, which still fits Level 1's 38-stud corridors with
+    room to spare. Cell crossing falls from 0.667s to 0.606s, and the 0.24s steer
+    ramp still engages well inside it.
+  status: OPEN
+  handoff: >
+    ONE CONSEQUENCE NOT ACTED ON, because it is a design call rather than a
+    tuning one. D-CHOMP-049 made ghosts deliberately slower than a kart - 21
+    against 24, about 88%. They are now 80%, so the gap widened and ghosts got
+    meaningfully less threatening without anyone deciding they should.
+    If the intent was the RATIO rather than the number, Ghosts.Speed should rise
+    to about 23 to hold it. That is CHAIN-GHOSTS' call and has been left alone.
