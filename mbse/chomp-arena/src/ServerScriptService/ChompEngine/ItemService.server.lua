@@ -28,6 +28,7 @@ local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
 local Debris = game:GetService("Debris")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
@@ -37,93 +38,11 @@ local DEFS = ITEMS.Definitions
 
 local P = Config.Palette
 
-local COLOURS = {
-	JetPack = P.NeonA,
-	Cannon = P.Gold,
-	HomingBomb = P.NeonB,
-	Shield = Color3.fromRGB(126, 217, 87),
-}
-
--- Each item is BUILT to look like what it does (D-CHOMP-047). Colour alone is
--- not a capability: a child at speed reads silhouette long before hue, and
--- three glowing balls in three colours is a memory test rather than a game.
-local function bit(model: Model, name: string, size: Vector3, offset: CFrame,
-		colour: Color3, material: Enum.Material, shape: Enum.PartType?): BasePart
-	local p = Instance.new("Part")
-	p.Name = name
-	p.Size = size
-	p.Color = colour
-	p.Material = material
-	p.Anchored = true
-	p.CanCollide = false
-	p.CanQuery = false
-	if shape then p.Shape = shape end
-	p.CFrame = offset
-	p.Parent = model
-	return p
-end
-
-local function buildItemModel(id: string): Model
-	local model = Instance.new("Model")
-	model.Name = "Item_" .. id
-	local c = COLOURS[id]
-
-	if id == "JetPack" then
-		-- Two thrusters and a pack. It points DOWN, because that is the way the
-		-- thrust goes and the way you are about to go is up.
-		bit(model, "Pack", Vector3.new(3, 3.4, 1.6), CFrame.new(0, 0.4, 0), c, Enum.Material.Metal)
-		for _, side in { -1, 1 } do
-			bit(model, "Thruster", Vector3.new(1.1, 2.6, 1.1),
-				CFrame.new(side * 1.9, -0.2, 0) * CFrame.Angles(0, 0, math.rad(90)),
-				c, Enum.Material.Neon, Enum.PartType.Cylinder)
-			bit(model, "Flame", Vector3.new(0.9, 1.4, 0.9),
-				CFrame.new(side * 1.9, -2.1, 0), P.Gold, Enum.Material.Neon, Enum.PartType.Ball)
-		end
-
-	elseif id == "Cannon" then
-		-- A barrel on a mount. Long, straight and obviously pointing somewhere.
-		bit(model, "Mount", Vector3.new(2.6, 1.4, 2.6), CFrame.new(0, -1.2, 0),
-			P.BrickDark, Enum.Material.Metal)
-		bit(model, "Barrel", Vector3.new(1.8, 5.6, 1.8),
-			CFrame.new(0, 0.6, -1.2) * CFrame.Angles(math.rad(90), 0, 0),
-			c, Enum.Material.Metal, Enum.PartType.Cylinder)
-		bit(model, "Muzzle", Vector3.new(2.2, 0.8, 2.2),
-			CFrame.new(0, 0.6, -3.9) * CFrame.Angles(math.rad(90), 0, 0),
-			P.Danger, Enum.Material.Neon, Enum.PartType.Cylinder)
-
-	elseif id == "HomingBomb" then
-		-- A finned bomb. Fins say it steers; a plain ball would not.
-		bit(model, "Body", Vector3.new(3.2, 3.2, 3.2), CFrame.new(0, 0, 0),
-			c, Enum.Material.Metal, Enum.PartType.Ball)
-		bit(model, "Eye", Vector3.new(1.2, 1.2, 1.2), CFrame.new(0, 0, -1.5),
-			P.NeonA, Enum.Material.Neon, Enum.PartType.Ball)
-		for i = 0, 3 do
-			local a = (math.pi / 2) * i
-			bit(model, "Fin", Vector3.new(0.35, 1.8, 2.2),
-				CFrame.new(math.cos(a) * 1.5, 0, math.sin(a) * 1.5) * CFrame.Angles(0, -a, 0),
-				P.BrickDark, Enum.Material.Metal)
-		end
-
-	else -- Shield
-		-- A ring around a core: something that surrounds you rather than fires.
-		bit(model, "Core", Vector3.new(1.8, 1.8, 1.8), CFrame.new(0, 0, 0),
-			c, Enum.Material.Neon, Enum.PartType.Ball)
-		local segments = 12
-		for i = 0, segments - 1 do
-			local a = (math.pi * 2) * (i / segments)
-			bit(model, "Ring", Vector3.new(0.5, 0.5, 1.5),
-				CFrame.new(math.cos(a) * 2.6, 0, math.sin(a) * 2.6) * CFrame.Angles(0, -a, 0),
-				c, Enum.Material.Neon)
-		end
-	end
-
-	local primary = model:FindFirstChildWhichIsA("BasePart")
-	model.PrimaryPart = primary
-	for _, d in model:GetDescendants() do
-		if d:IsA("BasePart") then CollectionService:AddTag(d, "Chomp_Decor") end
-	end
-	return model
-end
+-- Item silhouettes come from ItemModels, which the GARAGE also uses to stand
+-- the same object on a plinth (D-CHOMP-064). Two copies of a shape is how the
+-- cannon you buy stops looking like the cannon you pick up.
+local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
+local buildItemModel = ItemModels.build
 
 type Held = { id: string, charges: number }
 
@@ -566,6 +485,22 @@ local function detonate(player: Player, bomb: BasePart)
 			ghost:SetAttribute("Health", 0)
 		end
 	end
+
+	-- The switch covers explosions as well as shots (D-CHOMP-064). Off, a bomb
+	-- is a ghost trap you can stand in; on, it is a bomb.
+	if friendlyFire[player] then
+		for _, other in Players:GetPlayers() do
+			if other ~= player then
+				local otherRoot = rootOf(other)
+				local humanoid = other.Character
+					and other.Character:FindFirstChildOfClass("Humanoid")
+				if otherRoot and humanoid
+					and (otherRoot.Position - centre).Magnitude < def.blastRadiusStuds then
+					humanoid:TakeDamage(35)
+				end
+			end
+		end
+	end
 end
 
 local function dropBomb(player: Player)
@@ -637,6 +572,26 @@ local function muzzle(player: Player, root: BasePart): (Vector3, Vector3)
 	return root.Position + facing(root) * 9 + Vector3.new(0, 3, 0), facing(root)
 end
 
+-- Where a shot ENDED. A bullet that stops has to leave a mark, or the player
+-- learns nothing from the wall it hit and nothing from the range it ran out at
+-- (D-CHOMP-064).
+local function sparkAt(position: Vector3, colour: Color3)
+	local spark = Instance.new("Part")
+	spark.Shape = Enum.PartType.Ball
+	spark.Size = Vector3.new(1.6, 1.6, 1.6)
+	spark.Position = position
+	spark.Anchored = true
+	spark.CanCollide = false
+	spark.CanQuery = false
+	spark.CastShadow = false
+	spark.Material = Enum.Material.Neon
+	spark.Color = colour
+	spark.Transparency = 0.25
+	CollectionService:AddTag(spark, "Chomp_Decor")
+	spark.Parent = Workspace
+	Debris:AddItem(spark, 0.12)
+end
+
 local function fireCannon(player: Player)
 	local def = DEFS.Cannon
 	local root = rootOf(player)
@@ -680,16 +635,39 @@ local function fireCannon(player: Player)
 	pellet.Parent = Workspace
 	Debris:AddItem(pellet, 3)
 
+	-- Walls stop bullets (D-CHOMP-064). Without this a held trigger reached
+	-- most of the way across the arena THROUGH the maze, so the safest way to
+	-- clear a wave was to face a wall and never look at what you were killing.
+	-- The maze only means something if it blocks shots as well as karts.
+	local cast = RaycastParams.new()
+	cast.FilterType = Enum.RaycastFilterType.Exclude
+	cast.FilterDescendantsInstances = { pellet, character, Workspace:FindFirstChild("Ghosts") }
+	cast.IgnoreWater = true
+
 	local travelled = 0
 	local connection: RBXScriptConnection
 	connection = RunService.Heartbeat:Connect(function(dt)
 		if not pellet.Parent then connection:Disconnect() return end
 		local step = velocity * dt
-		travelled += step.Magnitude
 		local nextPos = pellet.Position + step
+
+		-- Swept, not sampled. At 360 studs a second a per-frame position test
+		-- steps straight over a 2-stud wall roughly every other frame.
+		local hit = Workspace:Raycast(pellet.Position, step, cast)
+		if hit then
+			sparkAt(hit.Position, P.Gold)
+			pellet:Destroy()
+			connection:Disconnect()
+			return
+		end
+
+		travelled += step.Magnitude
 		pellet.CFrame = CFrame.lookAt(nextPos, nextPos + velocity)
 
+		-- Out of range fizzles where it stopped rather than blinking out, so
+		-- the edge of the gun is something you can SEE and learn.
 		if travelled >= def.rangeStuds then
+			sparkAt(pellet.Position, P.NeonB)
 			pellet:Destroy()
 			connection:Disconnect()
 			return
@@ -706,16 +684,23 @@ local function fireCannon(player: Player)
 			end
 		end
 
-		for _, other in Players:GetPlayers() do
-			if other ~= player then
-				local otherRoot = rootOf(other)
-				if otherRoot and (otherRoot.Position - pellet.Position).Magnitude < 7 then
-					local humanoid = other.Character
-						and other.Character:FindFirstChildOfClass("Humanoid")
-					if humanoid then humanoid:TakeDamage(8) end
-					pellet:Destroy()
-					connection:Disconnect()
-					return
+		-- Friendly fire gates the HIT, not just the lock (D-CHOMP-064). It only
+		-- gated acquisition before, so with the switch off you still could not
+		-- aim at a friend but a stray burst went straight through them for full
+		-- damage. In a game two children play together that is the single worst
+		-- bug in the file: it punishes the shot you did not mean to take.
+		if friendlyFire[player] then
+			for _, other in Players:GetPlayers() do
+				if other ~= player then
+					local otherRoot = rootOf(other)
+					if otherRoot and (otherRoot.Position - pellet.Position).Magnitude < 7 then
+						local humanoid = other.Character
+							and other.Character:FindFirstChildOfClass("Humanoid")
+						if humanoid then humanoid:TakeDamage(8) end
+						pellet:Destroy()
+						connection:Disconnect()
+						return
+					end
 				end
 			end
 		end
@@ -869,6 +854,21 @@ Remotes.UseItem.OnServerEvent:Connect(function(player: Player)
 	-- No arguments. Anything a client sent here would be a number worth forging.
 	useHeld(player)
 end)
+
+-- ── The shop's way in ───────────────────────────────────────────────────
+-- GarageService sells items and this service owns the belt. A BindableFunction
+-- rather than a shared table, because `give` has to be able to REFUSE - a full
+-- belt must not take a player's money (D-CHOMP-064).
+--
+-- Server to server only. It lives in ServerStorage, which no client can see,
+-- and it is not a remote: nothing here widens the client surface.
+local grant = Instance.new("BindableFunction")
+grant.Name = "GrantItem"
+grant.OnInvoke = function(player: Player, id: string): boolean
+	if typeof(id) ~= "string" or not DEFS[id] then return false end
+	return give(player, id)
+end
+grant.Parent = ServerStorage:WaitForChild("ChompTools")
 
 local count = layOutPads()
 animatePads()

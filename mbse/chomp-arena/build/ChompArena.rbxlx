@@ -265,7 +265,12 @@ ChompConfig.Controls = {
 ChompConfig.Charge = {
 	PerPellet = 4,             -- a full bar is roughly 25 pellets
 	Max = 100,
-	JumpCost = 100,            -- all of it: a jump is a decision, not a habit
+	-- 60, not 100 (D-CHOMP-064). A jump should still be a decision, but the
+	-- first one has to ARRIVE: at a full bar the escape existed only for a
+	-- player who had already survived 25 pellets' worth of driving, and a
+	-- button that has never once lit up is indistinguishable from a broken one.
+	-- 15 pellets is about half a corridor.
+	JumpCost = 60,
 	JumpImpulse = 110,
 	JumpForwardStuds = 40,     -- carries you forward as well as up
 }
@@ -301,6 +306,20 @@ ChompConfig.Waves = {
 ChompConfig.Store = {
 	DwellSeconds = 1.2,        -- hold still at a plinth to buy; no button, no misclick
 	PlinthRadiusStuds = 13,
+	-- Weapons on plinths (D-CHOMP-064). Picking one up in the maze is luck;
+	-- buying one is a plan. Prices are deliberately under a single good bank
+	-- run, because the point of selling weapons is that a player who keeps
+	-- dying can choose to arrive at the next wave armed - a shop that only the
+	-- winner can afford makes losing worse.
+	--
+	-- Cheaper than the cheapest chassis, and every one of them is spent. A
+	-- chassis is kept.
+	ItemPrices = {
+		Shield = 60,
+		JetPack = 70,
+		HomingBomb = 90,
+		Cannon = 120,
+	},
 	RobuxPrice = {
 		HeavyJaw = 99,
 		Ravener = 249,
@@ -308,6 +327,10 @@ ChompConfig.Store = {
 		Speed = 49,
 		Agility = 49,
 		Consumption = 49,
+		Shield = 19,
+		JetPack = 19,
+		HomingBomb = 29,
+		Cannon = 39,
 	},
 }
 
@@ -323,6 +346,15 @@ ChompConfig.Items = {
 	SlotCount = 5,
 	RespawnSeconds = 20,        -- a collected pad comes back, so the map stays stocked
 	PickupRadiusStuds = 10,
+	-- Palette KEYS, not Color3s, so ItemModels (server) and the HUD belt
+	-- (client) tint the same item the same way without sharing a module
+	-- (D-CHOMP-064).
+	Colours = {
+		JetPack = "NeonA",
+		Cannon = "Gold",
+		HomingBomb = "NeonB",
+		Shield = "Shield",
+	},
 	UseRateLimit = 14,          -- per second, enforced server side. High because
 	                            -- the cannon is a held-down machine gun; the gun
 	                            -- has its own slower rate below (D-CHOMP-056).
@@ -345,7 +377,16 @@ ChompConfig.Items = {
 			pelletSize = 0.9,
 			pelletLength = 5,        -- drawn as a streak, so speed is visible
 			spreadDegrees = 2.5,
-			rangeStuds = 300,
+			-- 170 studs, and it stops at walls (D-CHOMP-064). 300 was most of
+			-- the way across the arena and passed through everything, so a
+			-- player could hold the trigger down facing a wall and farm ghosts
+			-- they could not see. A gun that kills what you cannot see is not a
+			-- gun, it is a scoreboard.
+			--
+			-- Roughly four corridor widths: long enough to answer something
+			-- coming at you down a ring, short enough that the far side of the
+			-- arena is somewhere you have to DRIVE to.
+			rangeStuds = 170,
 			-- Shots inherit the kart's velocity, so firing sideways at speed
 			-- makes them curve away from the nose. That is what firing from a
 			-- moving vehicle actually looks like, and it means leading a target
@@ -355,7 +396,10 @@ ChompConfig.Items = {
 			-- front of you, tracks it in red, and turns green when it has held
 			-- it for LockSeconds. Aiming while steering a kart is not a skill
 			-- worth demanding of a seven-year-old; CHOOSING when to fire is.
-			lockRangeStuds = 240,
+			-- Never longer than rangeStuds. A lock is a promise that firing will
+			-- connect, and a reticle that goes green on something out of range
+			-- teaches a child that the green light means nothing (D-CHOMP-064).
+			lockRangeStuds = 160,
 			-- 180 is a full circle of search: the turret turns all the way round,
 			-- so there is no blind spot behind you and no reason to line a shot
 			-- up by driving (D-CHOMP-059).
@@ -461,6 +505,9 @@ ChompConfig.Palette = {
 	Gold        = Color3.fromRGB(255, 176, 32),
 	Danger      = Color3.fromRGB(255, 61, 61),
 	Ghost       = Color3.fromRGB(226, 232, 255),
+	-- The one green in the game, and it means SAFE: the shield, and a lock that
+	-- has closed. It was written out twice as a literal before (D-CHOMP-064).
+	Shield      = Color3.fromRGB(126, 217, 87),
 }
 
 ChompConfig.Camera = {
@@ -6321,6 +6368,16 @@ print(("[ChargeService] jump costs %d charge, %d per pellet"):format(C.JumpCost,
 	Robux prices are DISPLAYED and nothing more. Wiring a real purchase is a
 	monetisation decision with consequences for a parent, not something to slip
 	into an overnight build.
+
+	The row sells WEAPONS as well as vehicles (D-CHOMP-064). Finding a cannon on
+	a pad is luck; buying one is a plan, and a player who keeps dying can choose
+	to arrive at the next wave armed instead of hoping. Items are the cheap end
+	of the row for that reason - a shop only the winner can afford makes losing
+	worse.
+
+	A weapon purchase can be REFUSED by ItemService when the belt is full. The
+	money is only taken after the grant succeeds, because a shop that charges
+	for something it did not hand over is the one bug a child will never forgive.
 ]]
 
 local Players = game:GetService("Players")
@@ -6331,6 +6388,7 @@ local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local VehicleFactory = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleFactory"))
+local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
 
 local L = Config.Level1
 local P = Config.Palette
@@ -6390,6 +6448,14 @@ end
 
 type Offer = { id: string, kind: string, title: string, dollars: number, robux: number? }
 
+-- Resolved lazily: this script and ItemService are both server scripts with no
+-- guaranteed order, so asking for the hook at require time is a race.
+local function grantHook(): BindableFunction?
+	local tools = ServerStorage:FindFirstChild("ChompTools")
+	local hook = tools and tools:FindFirstChild("GrantItem")
+	return hook and hook:IsA("BindableFunction") and hook or nil
+end
+
 local function offers(): { Offer }
 	local out: { Offer } = {}
 	for id, chassis in Config.Chassis do
@@ -6402,6 +6468,24 @@ local function offers(): { Offer }
 	end
 	-- Cheapest first, so the row reads as a ladder rather than a shelf.
 	table.sort(out, function(a, b) return a.dollars < b.dollars end)
+
+	-- Weapons at the near end. They are the cheapest thing here and the thing a
+	-- struggling player most needs, so they are what you reach first.
+	local weapons: { Offer } = {}
+	for id, dollars in STORE.ItemPrices do
+		local def = Config.Items.Definitions[id]
+		if def then
+			table.insert(weapons, {
+				id = id, kind = "item", title = def.label,
+				dollars = dollars, robux = STORE.RobuxPrice[id],
+			})
+		end
+	end
+	table.sort(weapons, function(a, b) return a.dollars < b.dollars end)
+	for i = #weapons, 1, -1 do
+		table.insert(out, 1, weapons[i])
+	end
+
 	for _, track in { "Speed", "Agility", "Consumption" } do
 		table.insert(out, {
 			id = track, kind = "upgrade", title = track .. " I",
@@ -6419,7 +6503,11 @@ local function build(): number
 	local homeAngle = math.pi / L.GarageCount
 	local radius = L.OuterRadius - L.RingSpacing / 2 - 22
 	local list = offers()
-	local step = math.rad(4.2)
+	-- Tightened from 4.2 degrees when weapons joined the row (D-CHOMP-064): ten
+	-- plinths at the old spacing ran most of the way round the ring. At this
+	-- radius 2.9 degrees is about 38 studs, comfortably more than the 13-stud
+	-- dwell radius, so a kart is never inside two offers at once.
+	local step = math.rad(2.9)
 
 	for i, offer in ipairs(list) do
 		local a = homeAngle + step * (i - (#list + 1) / 2)
@@ -6429,9 +6517,15 @@ local function build(): number
 		local base = part("Plinth", Vector3.new(9, 6, 9),
 			CFrame.new(pos + Vector3.new(0, 3, 0)) * facing,
 			P.BrickDark, Enum.Material.Metal, folder)
+		-- The glow says WHAT KIND of thing this is before you can read the sign:
+		-- gold for a vehicle, the item's own colour for a weapon, teal for a
+		-- tuning upgrade.
+		local glowColour = if offer.kind == "chassis" then P.Gold
+			elseif offer.kind == "item" then ItemModels.colour(offer.id)
+			else P.NeonA
 		local glow = part("PlinthGlow", Vector3.new(9.4, 0.6, 9.4),
 			CFrame.new(pos + Vector3.new(0, 6.2, 0)) * facing,
-			offer.kind == "chassis" and P.Gold or P.NeonA, Enum.Material.Neon, folder)
+			glowColour, Enum.Material.Neon, folder)
 		glow.CanCollide = false
 		CollectionService:AddTag(base, "Chomp_Decor")
 		CollectionService:AddTag(glow, "Chomp_Decor")
@@ -6457,6 +6551,14 @@ local function build(): number
 					model.Parent = folder
 				end
 			end
+		elseif offer.kind == "item" then
+			-- The SAME model that stands on a pad in the maze and bolts to your
+			-- roof, from the shared factory (D-CHOMP-064). A shop that shows a
+			-- different shape from the thing it sells is a shop that lies.
+			local model = ItemModels.build(offer.id)
+			model:PivotTo(CFrame.new(pos + Vector3.new(0, 9.5, 0)) * facing)
+			model.Parent = folder
+
 		else
 			-- Upgrades have no model. A clear token beats a misleading one.
 			local token = part("UpgradeToken", Vector3.new(4, 4, 4),
@@ -6577,6 +6679,19 @@ local function buy(player: Player, offer: Offer): boolean
 		if character:GetAttribute("ChompChassis") == offer.id then return false end
 		character:SetAttribute("ChompChassis", offer.id)
 		refitVehicle(player)
+	elseif offer.kind == "item" then
+		-- Hand it over FIRST. give() refuses a full belt, and a refusal must
+		-- cost nothing - the player drives away with their money and the plinth
+		-- still stocked (D-CHOMP-064).
+		local hook = grantHook()
+		if not hook then
+			warn("[GarageService] ItemService has not published GrantItem; weapons unsellable")
+			return false
+		end
+		local ok, granted = pcall(function()
+			return hook:Invoke(player, offer.id)
+		end)
+		if not (ok and granted == true) then return false end
 	else
 		local key = "ChompUpgrade" .. offer.id
 		local level = (character:GetAttribute(key) :: number?) or 0
@@ -6642,8 +6757,10 @@ end
 animateChests()
 task.spawn(dwellLoop)
 
-print(("[GarageService] %d plinths, dwell %.1fs to buy, Robux labels are display only")
-	:format(count, STORE.DwellSeconds))
+local sellable = 0
+for _ in STORE.ItemPrices do sellable += 1 end
+print(("[GarageService] %d plinths (%d of them weapons), dwell %.1fs to buy, " ..
+	"Robux labels are display only"):format(count, sellable, STORE.DwellSeconds))
 ]]></string>
         </Properties>
       </Item>
@@ -7070,6 +7187,7 @@ local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
 local Debris = game:GetService("Debris")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
@@ -7079,93 +7197,11 @@ local DEFS = ITEMS.Definitions
 
 local P = Config.Palette
 
-local COLOURS = {
-	JetPack = P.NeonA,
-	Cannon = P.Gold,
-	HomingBomb = P.NeonB,
-	Shield = Color3.fromRGB(126, 217, 87),
-}
-
--- Each item is BUILT to look like what it does (D-CHOMP-047). Colour alone is
--- not a capability: a child at speed reads silhouette long before hue, and
--- three glowing balls in three colours is a memory test rather than a game.
-local function bit(model: Model, name: string, size: Vector3, offset: CFrame,
-		colour: Color3, material: Enum.Material, shape: Enum.PartType?): BasePart
-	local p = Instance.new("Part")
-	p.Name = name
-	p.Size = size
-	p.Color = colour
-	p.Material = material
-	p.Anchored = true
-	p.CanCollide = false
-	p.CanQuery = false
-	if shape then p.Shape = shape end
-	p.CFrame = offset
-	p.Parent = model
-	return p
-end
-
-local function buildItemModel(id: string): Model
-	local model = Instance.new("Model")
-	model.Name = "Item_" .. id
-	local c = COLOURS[id]
-
-	if id == "JetPack" then
-		-- Two thrusters and a pack. It points DOWN, because that is the way the
-		-- thrust goes and the way you are about to go is up.
-		bit(model, "Pack", Vector3.new(3, 3.4, 1.6), CFrame.new(0, 0.4, 0), c, Enum.Material.Metal)
-		for _, side in { -1, 1 } do
-			bit(model, "Thruster", Vector3.new(1.1, 2.6, 1.1),
-				CFrame.new(side * 1.9, -0.2, 0) * CFrame.Angles(0, 0, math.rad(90)),
-				c, Enum.Material.Neon, Enum.PartType.Cylinder)
-			bit(model, "Flame", Vector3.new(0.9, 1.4, 0.9),
-				CFrame.new(side * 1.9, -2.1, 0), P.Gold, Enum.Material.Neon, Enum.PartType.Ball)
-		end
-
-	elseif id == "Cannon" then
-		-- A barrel on a mount. Long, straight and obviously pointing somewhere.
-		bit(model, "Mount", Vector3.new(2.6, 1.4, 2.6), CFrame.new(0, -1.2, 0),
-			P.BrickDark, Enum.Material.Metal)
-		bit(model, "Barrel", Vector3.new(1.8, 5.6, 1.8),
-			CFrame.new(0, 0.6, -1.2) * CFrame.Angles(math.rad(90), 0, 0),
-			c, Enum.Material.Metal, Enum.PartType.Cylinder)
-		bit(model, "Muzzle", Vector3.new(2.2, 0.8, 2.2),
-			CFrame.new(0, 0.6, -3.9) * CFrame.Angles(math.rad(90), 0, 0),
-			P.Danger, Enum.Material.Neon, Enum.PartType.Cylinder)
-
-	elseif id == "HomingBomb" then
-		-- A finned bomb. Fins say it steers; a plain ball would not.
-		bit(model, "Body", Vector3.new(3.2, 3.2, 3.2), CFrame.new(0, 0, 0),
-			c, Enum.Material.Metal, Enum.PartType.Ball)
-		bit(model, "Eye", Vector3.new(1.2, 1.2, 1.2), CFrame.new(0, 0, -1.5),
-			P.NeonA, Enum.Material.Neon, Enum.PartType.Ball)
-		for i = 0, 3 do
-			local a = (math.pi / 2) * i
-			bit(model, "Fin", Vector3.new(0.35, 1.8, 2.2),
-				CFrame.new(math.cos(a) * 1.5, 0, math.sin(a) * 1.5) * CFrame.Angles(0, -a, 0),
-				P.BrickDark, Enum.Material.Metal)
-		end
-
-	else -- Shield
-		-- A ring around a core: something that surrounds you rather than fires.
-		bit(model, "Core", Vector3.new(1.8, 1.8, 1.8), CFrame.new(0, 0, 0),
-			c, Enum.Material.Neon, Enum.PartType.Ball)
-		local segments = 12
-		for i = 0, segments - 1 do
-			local a = (math.pi * 2) * (i / segments)
-			bit(model, "Ring", Vector3.new(0.5, 0.5, 1.5),
-				CFrame.new(math.cos(a) * 2.6, 0, math.sin(a) * 2.6) * CFrame.Angles(0, -a, 0),
-				c, Enum.Material.Neon)
-		end
-	end
-
-	local primary = model:FindFirstChildWhichIsA("BasePart")
-	model.PrimaryPart = primary
-	for _, d in model:GetDescendants() do
-		if d:IsA("BasePart") then CollectionService:AddTag(d, "Chomp_Decor") end
-	end
-	return model
-end
+-- Item silhouettes come from ItemModels, which the GARAGE also uses to stand
+-- the same object on a plinth (D-CHOMP-064). Two copies of a shape is how the
+-- cannon you buy stops looking like the cannon you pick up.
+local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
+local buildItemModel = ItemModels.build
 
 type Held = { id: string, charges: number }
 
@@ -7608,6 +7644,22 @@ local function detonate(player: Player, bomb: BasePart)
 			ghost:SetAttribute("Health", 0)
 		end
 	end
+
+	-- The switch covers explosions as well as shots (D-CHOMP-064). Off, a bomb
+	-- is a ghost trap you can stand in; on, it is a bomb.
+	if friendlyFire[player] then
+		for _, other in Players:GetPlayers() do
+			if other ~= player then
+				local otherRoot = rootOf(other)
+				local humanoid = other.Character
+					and other.Character:FindFirstChildOfClass("Humanoid")
+				if otherRoot and humanoid
+					and (otherRoot.Position - centre).Magnitude < def.blastRadiusStuds then
+					humanoid:TakeDamage(35)
+				end
+			end
+		end
+	end
 end
 
 local function dropBomb(player: Player)
@@ -7679,6 +7731,26 @@ local function muzzle(player: Player, root: BasePart): (Vector3, Vector3)
 	return root.Position + facing(root) * 9 + Vector3.new(0, 3, 0), facing(root)
 end
 
+-- Where a shot ENDED. A bullet that stops has to leave a mark, or the player
+-- learns nothing from the wall it hit and nothing from the range it ran out at
+-- (D-CHOMP-064).
+local function sparkAt(position: Vector3, colour: Color3)
+	local spark = Instance.new("Part")
+	spark.Shape = Enum.PartType.Ball
+	spark.Size = Vector3.new(1.6, 1.6, 1.6)
+	spark.Position = position
+	spark.Anchored = true
+	spark.CanCollide = false
+	spark.CanQuery = false
+	spark.CastShadow = false
+	spark.Material = Enum.Material.Neon
+	spark.Color = colour
+	spark.Transparency = 0.25
+	CollectionService:AddTag(spark, "Chomp_Decor")
+	spark.Parent = Workspace
+	Debris:AddItem(spark, 0.12)
+end
+
 local function fireCannon(player: Player)
 	local def = DEFS.Cannon
 	local root = rootOf(player)
@@ -7722,16 +7794,39 @@ local function fireCannon(player: Player)
 	pellet.Parent = Workspace
 	Debris:AddItem(pellet, 3)
 
+	-- Walls stop bullets (D-CHOMP-064). Without this a held trigger reached
+	-- most of the way across the arena THROUGH the maze, so the safest way to
+	-- clear a wave was to face a wall and never look at what you were killing.
+	-- The maze only means something if it blocks shots as well as karts.
+	local cast = RaycastParams.new()
+	cast.FilterType = Enum.RaycastFilterType.Exclude
+	cast.FilterDescendantsInstances = { pellet, character, Workspace:FindFirstChild("Ghosts") }
+	cast.IgnoreWater = true
+
 	local travelled = 0
 	local connection: RBXScriptConnection
 	connection = RunService.Heartbeat:Connect(function(dt)
 		if not pellet.Parent then connection:Disconnect() return end
 		local step = velocity * dt
-		travelled += step.Magnitude
 		local nextPos = pellet.Position + step
+
+		-- Swept, not sampled. At 360 studs a second a per-frame position test
+		-- steps straight over a 2-stud wall roughly every other frame.
+		local hit = Workspace:Raycast(pellet.Position, step, cast)
+		if hit then
+			sparkAt(hit.Position, P.Gold)
+			pellet:Destroy()
+			connection:Disconnect()
+			return
+		end
+
+		travelled += step.Magnitude
 		pellet.CFrame = CFrame.lookAt(nextPos, nextPos + velocity)
 
+		-- Out of range fizzles where it stopped rather than blinking out, so
+		-- the edge of the gun is something you can SEE and learn.
 		if travelled >= def.rangeStuds then
+			sparkAt(pellet.Position, P.NeonB)
 			pellet:Destroy()
 			connection:Disconnect()
 			return
@@ -7748,16 +7843,23 @@ local function fireCannon(player: Player)
 			end
 		end
 
-		for _, other in Players:GetPlayers() do
-			if other ~= player then
-				local otherRoot = rootOf(other)
-				if otherRoot and (otherRoot.Position - pellet.Position).Magnitude < 7 then
-					local humanoid = other.Character
-						and other.Character:FindFirstChildOfClass("Humanoid")
-					if humanoid then humanoid:TakeDamage(8) end
-					pellet:Destroy()
-					connection:Disconnect()
-					return
+		-- Friendly fire gates the HIT, not just the lock (D-CHOMP-064). It only
+		-- gated acquisition before, so with the switch off you still could not
+		-- aim at a friend but a stray burst went straight through them for full
+		-- damage. In a game two children play together that is the single worst
+		-- bug in the file: it punishes the shot you did not mean to take.
+		if friendlyFire[player] then
+			for _, other in Players:GetPlayers() do
+				if other ~= player then
+					local otherRoot = rootOf(other)
+					if otherRoot and (otherRoot.Position - pellet.Position).Magnitude < 7 then
+						local humanoid = other.Character
+							and other.Character:FindFirstChildOfClass("Humanoid")
+						if humanoid then humanoid:TakeDamage(8) end
+						pellet:Destroy()
+						connection:Disconnect()
+						return
+					end
 				end
 			end
 		end
@@ -7911,6 +8013,21 @@ Remotes.UseItem.OnServerEvent:Connect(function(player: Player)
 	-- No arguments. Anything a client sent here would be a number worth forging.
 	useHeld(player)
 end)
+
+-- ── The shop's way in ───────────────────────────────────────────────────
+-- GarageService sells items and this service owns the belt. A BindableFunction
+-- rather than a shared table, because `give` has to be able to REFUSE - a full
+-- belt must not take a player's money (D-CHOMP-064).
+--
+-- Server to server only. It lives in ServerStorage, which no client can see,
+-- and it is not a remote: nothing here widens the client surface.
+local grant = Instance.new("BindableFunction")
+grant.Name = "GrantItem"
+grant.OnInvoke = function(player: Player, id: string): boolean
+	if typeof(id) ~= "string" or not DEFS[id] then return false end
+	return give(player, id)
+end
+grant.Parent = ServerStorage:WaitForChild("ChompTools")
 
 local count = layOutPads()
 animatePads()
@@ -9066,6 +9183,122 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
       </Properties>
       <Item class="ModuleScript" referent="156">
         <Properties>
+          <string name="Name">ItemModels</string>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	ItemModels — CHAIN-COMBAT (D-CHOMP-064)
+
+	One factory for the four item silhouettes, so the thing standing on a pad in
+	the maze, the thing bolted to your roof, and the thing turning on a shop
+	plinth are all the SAME object.
+
+	This was inline in ItemService until the garage started selling items. Two
+	copies of a shape is how a cannon on a plinth quietly stops looking like the
+	cannon you pick up, and the whole reason these are modelled rather than
+	coloured is that a child reads silhouette long before hue (D-CHOMP-047).
+
+	Colours come from Config.Items.Colours, which names Palette keys, so the HUD
+	belt can tint a slot with the same colour without importing this module -
+	the HUD runs on the client and this never should.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local P = Config.Palette
+
+local ItemModels = {}
+
+function ItemModels.colour(id: string): Color3
+	local key = Config.Items.Colours[id]
+	return (key and P[key]) or P.Ghost
+end
+
+local function bit(model: Model, name: string, size: Vector3, offset: CFrame,
+		colour: Color3, material: Enum.Material, shape: Enum.PartType?): BasePart
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.Color = colour
+	p.Material = material
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	if shape then p.Shape = shape end
+	p.CFrame = offset
+	p.Parent = model
+	return p
+end
+
+function ItemModels.build(id: string): Model
+	local model = Instance.new("Model")
+	model.Name = "Item_" .. id
+	local c = ItemModels.colour(id)
+
+	if id == "JetPack" then
+		-- Two thrusters and a pack. It points DOWN, because that is the way the
+		-- thrust goes and the way you are about to go is up.
+		bit(model, "Pack", Vector3.new(3, 3.4, 1.6), CFrame.new(0, 0.4, 0), c, Enum.Material.Metal)
+		for _, side in { -1, 1 } do
+			bit(model, "Thruster", Vector3.new(1.1, 2.6, 1.1),
+				CFrame.new(side * 1.9, -0.2, 0) * CFrame.Angles(0, 0, math.rad(90)),
+				c, Enum.Material.Neon, Enum.PartType.Cylinder)
+			bit(model, "Flame", Vector3.new(0.9, 1.4, 0.9),
+				CFrame.new(side * 1.9, -2.1, 0), P.Gold, Enum.Material.Neon, Enum.PartType.Ball)
+		end
+
+	elseif id == "Cannon" then
+		-- A barrel on a mount. Long, straight and obviously pointing somewhere.
+		bit(model, "Mount", Vector3.new(2.6, 1.4, 2.6), CFrame.new(0, -1.2, 0),
+			P.BrickDark, Enum.Material.Metal)
+		bit(model, "Barrel", Vector3.new(1.8, 5.6, 1.8),
+			CFrame.new(0, 0.6, -1.2) * CFrame.Angles(math.rad(90), 0, 0),
+			c, Enum.Material.Metal, Enum.PartType.Cylinder)
+		bit(model, "Muzzle", Vector3.new(2.2, 0.8, 2.2),
+			CFrame.new(0, 0.6, -3.9) * CFrame.Angles(math.rad(90), 0, 0),
+			P.Danger, Enum.Material.Neon, Enum.PartType.Cylinder)
+
+	elseif id == "HomingBomb" then
+		-- A finned bomb. Fins say it steers; a plain ball would not.
+		bit(model, "Body", Vector3.new(3.2, 3.2, 3.2), CFrame.new(0, 0, 0),
+			c, Enum.Material.Metal, Enum.PartType.Ball)
+		bit(model, "Eye", Vector3.new(1.2, 1.2, 1.2), CFrame.new(0, 0, -1.5),
+			P.NeonA, Enum.Material.Neon, Enum.PartType.Ball)
+		for i = 0, 3 do
+			local a = (math.pi / 2) * i
+			bit(model, "Fin", Vector3.new(0.35, 1.8, 2.2),
+				CFrame.new(math.cos(a) * 1.5, 0, math.sin(a) * 1.5) * CFrame.Angles(0, -a, 0),
+				P.BrickDark, Enum.Material.Metal)
+		end
+
+	else -- Shield
+		-- A ring around a core: something that surrounds you rather than fires.
+		bit(model, "Core", Vector3.new(1.8, 1.8, 1.8), CFrame.new(0, 0, 0),
+			c, Enum.Material.Neon, Enum.PartType.Ball)
+		local segments = 12
+		for i = 0, segments - 1 do
+			local a = (math.pi * 2) * (i / segments)
+			bit(model, "Ring", Vector3.new(0.5, 0.5, 1.5),
+				CFrame.new(math.cos(a) * 2.6, 0, math.sin(a) * 2.6) * CFrame.Angles(0, -a, 0),
+				c, Enum.Material.Neon)
+		end
+	end
+
+	local primary = model:FindFirstChildWhichIsA("BasePart")
+	model.PrimaryPart = primary
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then CollectionService:AddTag(d, "Chomp_Decor") end
+	end
+	return model
+end
+
+return ItemModels
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="157">
+        <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
 	VehicleConformance — the executable form of CHOMP-TC-044.
@@ -9349,7 +9582,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="157">
+      <Item class="ModuleScript" referent="158">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -9608,11 +9841,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="158">
+      <Item class="Folder" referent="159">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="159">
+        <Item class="ModuleScript" referent="160">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -9725,15 +9958,15 @@ return {
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="160">
+  <Item class="StarterPlayer" referent="161">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="161">
+    <Item class="StarterPlayerScripts" referent="162">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="162">
+      <Item class="LocalScript" referent="163">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -9985,7 +10218,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="163">
+      <Item class="LocalScript" referent="164">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -10126,7 +10359,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="164">
+      <Item class="LocalScript" referent="165">
         <Properties>
           <string name="Name">ChompHud</string>
           <string name="Source"><![CDATA[--!strict
@@ -10223,21 +10456,39 @@ label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 48),
 -- order they will be used and the active one is unmistakable. A child should be
 -- able to answer "what happens when I press fire" by looking, not remembering.
 local SLOTS = ITEMS.SlotCount
+
+-- Sizes come first because they are the whole fix (D-CHOMP-064). The old strip
+-- was 236 pixels for five slots - 42 each - with the item name TextScaled into
+-- 38 of them and then TRUNCATED to four characters, so "CANNON" read as "CANN"
+-- at about nine pixels a letter. On an iPad, at speed, that is not a label.
+--
+-- 64 a slot is close to Apple's 44-point minimum touch target with room for a
+-- word, and the slots are tappable (D-CHOMP-062), so they have to be pressable
+-- as well as readable.
+local SLOT_W, SLOT_H, SLOT_GAP = 64, 68, 6
+local BELT_W = SLOTS * SLOT_W + (SLOTS - 1) * SLOT_GAP
+
+local function itemColour(id: string): Color3
+	local key = ITEMS.Colours and ITEMS.Colours[id]
+	return (key and P[key]) or P.Ghost
+end
+
 local beltStrip = Instance.new("Frame")
 beltStrip.Name = "Belt"
 beltStrip.AnchorPoint = Vector2.new(1, 1)
 beltStrip.Position = UDim2.new(1, -16, 1, -212)
-beltStrip.Size = UDim2.new(0, 236, 0, 56)
+beltStrip.Size = UDim2.new(0, BELT_W, 0, SLOT_H)
 beltStrip.BackgroundTransparency = 1
 beltStrip.Parent = gui
 
 local slotButtons: { TextButton } = {}
 local slotCharges: { TextLabel } = {}
+local slotBars: { Frame } = {}
 for i = 1, SLOTS do
 	local b = Instance.new("TextButton")
 	b.Name = "Slot" .. tostring(i)
-	b.Size = UDim2.new(0, 42, 0, 52)
-	b.Position = UDim2.new(0, (i - 1) * 47, 0, 0)
+	b.Size = UDim2.new(0, SLOT_W, 0, SLOT_H)
+	b.Position = UDim2.new(0, (i - 1) * (SLOT_W + SLOT_GAP), 0, 0)
 	b.BackgroundColor3 = P.Floor
 	b.BackgroundTransparency = 0.3
 	b.BorderSizePixel = 0
@@ -10248,26 +10499,61 @@ for i = 1, SLOTS do
 	c.CornerRadius = UDim.new(0, 10)
 	c.Parent = b
 
+	-- A colour bar across the top, in the item's own colour - the same colour
+	-- it glows on its pad and on its plinth. Colour is never the only signal,
+	-- but it is the FAST one, and a slot has to be identifiable in the corner
+	-- of an eye that is busy driving.
+	local bar = Instance.new("Frame")
+	bar.Name = "Bar"
+	bar.Size = UDim2.new(1, -12, 0, 5)
+	bar.Position = UDim2.new(0, 6, 0, 6)
+	bar.BorderSizePixel = 0
+	bar.BackgroundTransparency = 1
+	bar.Parent = b
+	local barCorner = Instance.new("UICorner")
+	barCorner.CornerRadius = UDim.new(1, 0)
+	barCorner.Parent = bar
+
 	local name = Instance.new("TextLabel")
 	name.Name = "Label"
 	name.BackgroundTransparency = 1
-	name.Size = UDim2.new(1, -4, 0, 30)
-	name.Position = UDim2.new(0, 2, 0, 4)
+	name.Size = UDim2.new(1, -8, 0, 26)
+	name.Position = UDim2.new(0, 4, 0, 16)
 	name.Text = ""
 	name.TextScaled = true
 	name.Font = Enum.Font.GothamBlack
 	name.TextColor3 = P.Ghost
 	name.Parent = b
+	-- TextScaled alone will happily render "SHIELD" at 26 points and "JET" at
+	-- 26 too, but it will also blow a short word up to fill the box. Capping it
+	-- keeps the five slots looking like one row rather than five posters.
+	local cap = Instance.new("UITextSizeConstraint")
+	cap.MaxTextSize = 17
+	cap.MinTextSize = 8
+	cap.Parent = name
 
 	local charge = Instance.new("TextLabel")
+	charge.Name = "Charges"
 	charge.BackgroundTransparency = 1
-	charge.Size = UDim2.new(1, -4, 0, 16)
-	charge.Position = UDim2.new(0, 2, 1, -18)
+	charge.Size = UDim2.new(1, -8, 0, 20)
+	charge.Position = UDim2.new(0, 4, 1, -24)
 	charge.Text = ""
-	charge.TextSize = 13
-	charge.Font = Enum.Font.GothamBold
+	charge.TextSize = 17
+	charge.Font = Enum.Font.GothamBlack
 	charge.TextColor3 = P.Gold
 	charge.Parent = b
+
+	local order = Instance.new("TextLabel")
+	order.Name = "Order"
+	order.BackgroundTransparency = 1
+	order.Size = UDim2.new(0, 16, 0, 14)
+	order.Position = UDim2.new(0, 6, 1, -20)
+	order.Text = tostring(i)
+	order.TextSize = 11
+	order.TextXAlignment = Enum.TextXAlignment.Left
+	order.Font = Enum.Font.GothamBold
+	order.TextColor3 = P.Boundary
+	order.Parent = b
 
 	b.Activated:Connect(function()
 		-- A slot index is a selection, not a value. The server owns what is in
@@ -10279,6 +10565,7 @@ for i = 1, SLOTS do
 
 	table.insert(slotButtons, b)
 	table.insert(slotCharges, charge)
+	table.insert(slotBars, bar)
 end
 
 local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 112),
@@ -10326,27 +10613,53 @@ cfCorner.CornerRadius = UDim.new(1, 0)
 cfCorner.Parent = chargeFill
 
 local chargeLabel = Instance.new("TextLabel")
+chargeLabel.Name = "Word"
 chargeLabel.BackgroundTransparency = 1
-chargeLabel.Size = UDim2.new(1, 0, 1, 0)
+chargeLabel.Size = UDim2.new(1, -40, 0, 40)
+chargeLabel.Position = UDim2.new(0, 20, 0, 48)
 chargeLabel.Text = "CHARGE"
 chargeLabel.TextColor3 = P.Ghost
 chargeLabel.TextScaled = true
 chargeLabel.Font = Enum.Font.GothamBlack
 chargeLabel.ZIndex = 2
 chargeLabel.Parent = chargeButton
-local chargePadding = Instance.new("UIPadding")
-chargePadding.PaddingLeft = UDim.new(0, 26)
-chargePadding.PaddingRight = UDim.new(0, 26)
-chargePadding.PaddingTop = UDim.new(0, 52)
-chargePadding.PaddingBottom = UDim.new(0, 52)
-chargePadding.Parent = chargeLabel
 
-chargeButton.Activated:Connect(function()
-	-- Intent only. The server decides whether there is charge to spend.
+-- The percentage is the point (D-CHOMP-064). A ring that fills slowly with no
+-- number on it, on a button that does nothing until it is full, is a button a
+-- player decides is broken - which is exactly what happened. Now it counts up
+-- to the jump in front of you, so the wait is visibly a wait.
+local chargePercent = Instance.new("TextLabel")
+chargePercent.Name = "Percent"
+chargePercent.BackgroundTransparency = 1
+chargePercent.Size = UDim2.new(1, -40, 0, 22)
+chargePercent.Position = UDim2.new(0, 20, 0, 86)
+chargePercent.Text = "0%"
+chargePercent.TextColor3 = P.NeonA
+chargePercent.TextSize = 18
+chargePercent.Font = Enum.Font.GothamBold
+chargePercent.ZIndex = 2
+chargePercent.Parent = chargeButton
+
+-- Pressing it IS the jump - finger or mouse, one control (D-CHOMP-064).
+-- Activated covers both, and neither the fill nor the two labels can swallow
+-- the press: a TextLabel does not consume input, so the whole 150-pixel circle
+-- is live all the way to its edge.
+local refusedAt = 0
+local function pressCharge()
 	if Remotes and Remotes.UseCharge then
+		-- Intent only. The server decides whether there is charge to spend, and
+		-- the server is the only thing that knows.
 		Remotes.UseCharge:FireServer()
 	end
-end)
+	-- A press with an empty bar has to ANSWER. Silence reads as broken; a red
+	-- pulse reads as "not yet", which is the truth.
+	local character = player.Character
+	local level = character and (character:GetAttribute("ChompCharge") :: number?) or 0
+	if level < Config.Charge.JumpCost then
+		refusedAt = os.clock()
+	end
+end
+chargeButton.Activated:Connect(pressCharge)
 
 local ffButton = Instance.new("TextButton")
 ffButton.Name = "FriendlyFire"
@@ -10357,7 +10670,10 @@ ffButton.BackgroundColor3 = P.Floor
 ffButton.BackgroundTransparency = 0.15
 ffButton.BorderSizePixel = 0
 ffButton.Text = "FRIENDLY FIRE"
-ffButton.TextColor3 = P.Brick
+-- P.Brick on P.Floor was dark purple on near-black: the switch was working the
+-- whole time and simply could not be read, which looks exactly like a disabled
+-- control (D-CHOMP-064). Off is legible now; on is red.
+ffButton.TextColor3 = P.Ghost
 ffButton.TextSize = 15
 ffButton.Font = Enum.Font.GothamBold
 ffButton.AutoButtonColor = false
@@ -10455,19 +10771,26 @@ RunService.RenderStepped:Connect(function(dt)
 
 		if entry then
 			local def = ITEMS.Definitions[entry.id]
-			button.Label.Text = string.sub(def and def.label or string.upper(entry.id), 1, 4)
-			button.Label.TextColor3 = isActive and P.Floor or P.Ghost
-			slotCharges[i].Text = entry.charges > 1 and tostring(entry.charges) or ""
+			local colour = itemColour(entry.id)
+			-- The WHOLE label, never a truncation (D-CHOMP-064). "CANN" is not
+			-- a shorter way of saying cannon, it is a different word.
+			button.Label.Text = def and def.label or string.upper(entry.id)
+			-- Active: filled in the item's colour with dark text on it.
+			-- Waiting: dark, with the item's colour on the text and the bar.
+			-- Either way the colour on screen is the colour of the thing.
+			button.Label.TextColor3 = isActive and P.Floor or colour
+			slotCharges[i].Text = entry.charges > 1 and ("x" .. tostring(entry.charges)) or ""
 			slotCharges[i].TextColor3 = isActive and P.Floor or P.Gold
-			-- The active slot is filled rather than outlined: a child reads a
-			-- solid block faster than a border, and it survives a small screen.
-			button.BackgroundColor3 = isActive and P.NeonA or P.Floor
-			button.BackgroundTransparency = isActive and 0.05 or 0.3
+			slotBars[i].BackgroundColor3 = colour
+			slotBars[i].BackgroundTransparency = isActive and 0.4 or 0
+			button.BackgroundColor3 = isActive and colour or P.Floor
+			button.BackgroundTransparency = isActive and 0.05 or 0.25
 		else
 			button.Label.Text = ""
 			slotCharges[i].Text = ""
+			slotBars[i].BackgroundTransparency = 1
 			button.BackgroundColor3 = P.Floor
-			button.BackgroundTransparency = 0.55
+			button.BackgroundTransparency = 0.6
 		end
 	end
 
@@ -10491,16 +10814,42 @@ RunService.RenderStepped:Connect(function(dt)
 	local CH = Config.Charge
 	local charge = attribute("ChompCharge")
 	local ready = charge >= CH.JumpCost
-	chargeFill.Size = UDim2.new(1, 0, math.clamp(charge / CH.Max, 0, 1), 0)
+	-- The fill measures progress toward the JUMP, not toward the cap. A bar
+	-- that is only ever four fifths full when the thing it buys is available
+	-- is a bar that lies about what it is for.
+	local progress = math.clamp(charge / CH.JumpCost, 0, 1)
+	chargeFill.Size = UDim2.new(1, 0, progress, 0)
 	chargeFill.BackgroundColor3 = ready and P.Gold or P.NeonA
 	chargeLabel.Text = ready and "JUMP" or "CHARGE"
 	chargeLabel.TextColor3 = ready and P.Floor or P.Ghost
+	chargePercent.Text = ready and "TAP TO JUMP" or (math.floor(progress * 100) .. "%")
+	chargePercent.TextColor3 = ready and P.Floor or P.NeonA
 	chargeButton.BackgroundTransparency = ready and 0.05 or 0.15
 
+	-- Refusal pulse: 0.35 seconds of red, then back to whatever it was.
+	local sinceRefused = os.clock() - refusedAt
+	if sinceRefused < 0.35 then
+		chargeButton.BackgroundColor3 = P.Danger
+		chargeButton.BackgroundTransparency = 0.25 + sinceRefused
+	else
+		chargeButton.BackgroundColor3 = P.Floor
+	end
+
+	-- Friendly fire only means something when there is a friend to fire at. On
+	-- your own the switch is real but inert, and saying so is better than
+	-- offering a control that cannot do anything (D-CHOMP-064).
 	local ff = character:GetAttribute("ChompFriendlyFire") == true
-	ffButton.TextColor3 = ff and P.Danger or P.Brick
-	ffButton.Text = ff and "FRIENDLY FIRE: ON" or "FRIENDLY FIRE"
-	ffButton.BackgroundTransparency = ff and 0.05 or 0.15
+	local alone = #Players:GetPlayers() < 2
+	ffButton.Active = not alone
+	if alone then
+		ffButton.Text = "SOLO — NO PVP"
+		ffButton.TextColor3 = P.Boundary
+		ffButton.BackgroundTransparency = 0.45
+	else
+		ffButton.Text = ff and "FRIENDLY FIRE: ON" or "FRIENDLY FIRE: OFF"
+		ffButton.TextColor3 = ff and P.Danger or P.Ghost
+		ffButton.BackgroundTransparency = ff and 0.05 or 0.15
+	end
 
 	local waveNumber = attribute("ChompWave")
 	waveLabel.Text = waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1"
@@ -10539,7 +10888,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="165">
+      <Item class="LocalScript" referent="166">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -10777,7 +11126,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="166">
+      <Item class="LocalScript" referent="167">
         <Properties>
           <string name="Name">PickupFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -10894,7 +11243,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="167">
+      <Item class="LocalScript" referent="168">
         <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
@@ -10988,7 +11337,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="168">
+      <Item class="LocalScript" referent="169">
         <Properties>
           <string name="Name">TargetReticle</string>
           <string name="Source"><![CDATA[--!strict
@@ -11112,7 +11461,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="169">
+      <Item class="LocalScript" referent="170">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -11270,7 +11619,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="170">
+      <Item class="LocalScript" referent="171">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -11417,7 +11766,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="171">
+  <Item class="Workspace" referent="172">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

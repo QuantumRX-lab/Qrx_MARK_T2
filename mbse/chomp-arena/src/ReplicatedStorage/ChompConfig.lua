@@ -257,7 +257,12 @@ ChompConfig.Controls = {
 ChompConfig.Charge = {
 	PerPellet = 4,             -- a full bar is roughly 25 pellets
 	Max = 100,
-	JumpCost = 100,            -- all of it: a jump is a decision, not a habit
+	-- 60, not 100 (D-CHOMP-064). A jump should still be a decision, but the
+	-- first one has to ARRIVE: at a full bar the escape existed only for a
+	-- player who had already survived 25 pellets' worth of driving, and a
+	-- button that has never once lit up is indistinguishable from a broken one.
+	-- 15 pellets is about half a corridor.
+	JumpCost = 60,
 	JumpImpulse = 110,
 	JumpForwardStuds = 40,     -- carries you forward as well as up
 }
@@ -293,6 +298,20 @@ ChompConfig.Waves = {
 ChompConfig.Store = {
 	DwellSeconds = 1.2,        -- hold still at a plinth to buy; no button, no misclick
 	PlinthRadiusStuds = 13,
+	-- Weapons on plinths (D-CHOMP-064). Picking one up in the maze is luck;
+	-- buying one is a plan. Prices are deliberately under a single good bank
+	-- run, because the point of selling weapons is that a player who keeps
+	-- dying can choose to arrive at the next wave armed - a shop that only the
+	-- winner can afford makes losing worse.
+	--
+	-- Cheaper than the cheapest chassis, and every one of them is spent. A
+	-- chassis is kept.
+	ItemPrices = {
+		Shield = 60,
+		JetPack = 70,
+		HomingBomb = 90,
+		Cannon = 120,
+	},
 	RobuxPrice = {
 		HeavyJaw = 99,
 		Ravener = 249,
@@ -300,6 +319,10 @@ ChompConfig.Store = {
 		Speed = 49,
 		Agility = 49,
 		Consumption = 49,
+		Shield = 19,
+		JetPack = 19,
+		HomingBomb = 29,
+		Cannon = 39,
 	},
 }
 
@@ -315,6 +338,15 @@ ChompConfig.Items = {
 	SlotCount = 5,
 	RespawnSeconds = 20,        -- a collected pad comes back, so the map stays stocked
 	PickupRadiusStuds = 10,
+	-- Palette KEYS, not Color3s, so ItemModels (server) and the HUD belt
+	-- (client) tint the same item the same way without sharing a module
+	-- (D-CHOMP-064).
+	Colours = {
+		JetPack = "NeonA",
+		Cannon = "Gold",
+		HomingBomb = "NeonB",
+		Shield = "Shield",
+	},
 	UseRateLimit = 14,          -- per second, enforced server side. High because
 	                            -- the cannon is a held-down machine gun; the gun
 	                            -- has its own slower rate below (D-CHOMP-056).
@@ -337,7 +369,16 @@ ChompConfig.Items = {
 			pelletSize = 0.9,
 			pelletLength = 5,        -- drawn as a streak, so speed is visible
 			spreadDegrees = 2.5,
-			rangeStuds = 300,
+			-- 170 studs, and it stops at walls (D-CHOMP-064). 300 was most of
+			-- the way across the arena and passed through everything, so a
+			-- player could hold the trigger down facing a wall and farm ghosts
+			-- they could not see. A gun that kills what you cannot see is not a
+			-- gun, it is a scoreboard.
+			--
+			-- Roughly four corridor widths: long enough to answer something
+			-- coming at you down a ring, short enough that the far side of the
+			-- arena is somewhere you have to DRIVE to.
+			rangeStuds = 170,
 			-- Shots inherit the kart's velocity, so firing sideways at speed
 			-- makes them curve away from the nose. That is what firing from a
 			-- moving vehicle actually looks like, and it means leading a target
@@ -347,7 +388,10 @@ ChompConfig.Items = {
 			-- front of you, tracks it in red, and turns green when it has held
 			-- it for LockSeconds. Aiming while steering a kart is not a skill
 			-- worth demanding of a seven-year-old; CHOOSING when to fire is.
-			lockRangeStuds = 240,
+			-- Never longer than rangeStuds. A lock is a promise that firing will
+			-- connect, and a reticle that goes green on something out of range
+			-- teaches a child that the green light means nothing (D-CHOMP-064).
+			lockRangeStuds = 160,
 			-- 180 is a full circle of search: the turret turns all the way round,
 			-- so there is no blind spot behind you and no reason to line a shot
 			-- up by driving (D-CHOMP-059).
@@ -453,6 +497,9 @@ ChompConfig.Palette = {
 	Gold        = Color3.fromRGB(255, 176, 32),
 	Danger      = Color3.fromRGB(255, 61, 61),
 	Ghost       = Color3.fromRGB(226, 232, 255),
+	-- The one green in the game, and it means SAFE: the shield, and a lock that
+	-- has closed. It was written out twice as a literal before (D-CHOMP-064).
+	Shield      = Color3.fromRGB(126, 217, 87),
 }
 
 ChompConfig.Camera = {

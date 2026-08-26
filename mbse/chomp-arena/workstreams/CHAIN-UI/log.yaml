@@ -208,3 +208,24 @@ entries:
     chrome" rather than naming corners, or to keep the top zones and inset them
     below Roblox's topbar. Do not leave the code and the tree disagreeing.
     On touch this stack is almost certainly wrong and CHOMP-TC-045 will say so.
+- date: '2026-08-26'
+  agent: Claude (local session)
+  action: DECIDED
+  requirements: [CHOMP-SYS-032, CHOMP-SYS-055, CHOMP-SYS-056]
+  summary: >
+    Belt slots 42x52 -> 64x68 with the full item label instead of a
+    four-character truncation, an item-coloured bar and slot number, and a
+    17-point cap so five slots read as one row. Charge button shows a
+    percentage, measures progress toward the JUMP rather than the cap, and
+    pulses red on a press it cannot honour. Friendly-fire button text was
+    P.Brick on P.Floor - dark purple on near-black - and is now legible, states
+    OFF explicitly, and reads SOLO - NO PVP with no second player (D-CHOMP-064).
+  status: OPEN
+  handoff: >
+    The lesson in all three: every one of these controls WORKED. They read as
+    broken because they could not be seen, could not be reached, or never
+    answered a press. When an owner reports a control is disabled, check
+    contrast and reachability before checking the handler.
+    Belt strip is now 334px wide against the value stack's 236, both anchored
+    bottom-right. It fits landscape iPad comfortably; portrait has not been
+    checked and CHOMP-TC-040 is still unrun.

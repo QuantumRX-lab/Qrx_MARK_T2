@@ -214,3 +214,23 @@ entries:
     proven: replacing a SPAN between two anchors deletes whatever was inserted
     between them since. Replace an exact known string instead. Checks 4 and 5
     together catch the aftermath, but not the mistake.
+- date: '2026-08-26'
+  agent: Claude (local session)
+  action: DECIDED
+  requirements: [CHOMP-SYS-058, CHOMP-SYS-059]
+  summary: >
+    Cannon range 300 -> 170 studs, swept raycast so shots stop at walls with a
+    spark, out-of-range shots fizzle where they stop, lock range 240 -> 160 so
+    it can never exceed the range. Friendly fire now gates player DAMAGE from
+    pellets and bomb blasts, not just target acquisition (D-CHOMP-064).
+  status: OPEN
+  handoff: >
+    The FF bug is the one to remember: the switch gated only the LOCK, so with
+    it off you could not aim at a friend but a stray burst still hit them for
+    full damage. Any future weapon must gate its damage on friendlyFire[player]
+    at the point of the HIT - gating acquisition is not gating harm.
+    Keep lockRangeStuds <= rangeStuds. A green reticle is a promise the shot
+    connects; the two numbers drifted apart once already.
+    Not done: ghosts still pass through walls, so a shot that now stops at a
+    wall can still be chased through one. That asymmetry is currently in the
+    ghosts' favour and should be looked at with pathing.

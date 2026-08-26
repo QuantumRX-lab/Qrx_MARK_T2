@@ -63,3 +63,20 @@ entries:
     is whether a full circuit is worth more or less than a trip to the middle,
     and nobody has measured either.
     The combo window, ComboWindowSeconds and ComboMax, is in config and unused.
+- date: '2026-08-26'
+  agent: Claude (local session)
+  action: DECIDED
+  requirements: [CHOMP-SYS-007, CHOMP-SYS-008]
+  summary: >
+    The garage sells the four weapons alongside chassis and upgrades, priced
+    under one good bank run, on plinths showing the same models the maze pads
+    use (new shared ItemModels module). Charge jump cost 100 -> 60. Plinth
+    spacing 4.2 -> 2.9 degrees to fit ten offers (D-CHOMP-064).
+  status: OPEN
+  handoff: >
+    A weapon purchase goes through ServerStorage.ChompTools.GrantItem, a
+    BindableFunction ItemService publishes. The order is GRANT THEN CHARGE: a
+    full belt refuses, and the refusal must cost nothing. Any future sellable
+    that can be refused must follow the same order.
+    Robux prices remain display-only for every offer including weapons. Wiring
+    a real purchase is a parent's decision, not a build's.

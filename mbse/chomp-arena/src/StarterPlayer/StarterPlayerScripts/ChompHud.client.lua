@@ -92,21 +92,39 @@ label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 48),
 -- order they will be used and the active one is unmistakable. A child should be
 -- able to answer "what happens when I press fire" by looking, not remembering.
 local SLOTS = ITEMS.SlotCount
+
+-- Sizes come first because they are the whole fix (D-CHOMP-064). The old strip
+-- was 236 pixels for five slots - 42 each - with the item name TextScaled into
+-- 38 of them and then TRUNCATED to four characters, so "CANNON" read as "CANN"
+-- at about nine pixels a letter. On an iPad, at speed, that is not a label.
+--
+-- 64 a slot is close to Apple's 44-point minimum touch target with room for a
+-- word, and the slots are tappable (D-CHOMP-062), so they have to be pressable
+-- as well as readable.
+local SLOT_W, SLOT_H, SLOT_GAP = 64, 68, 6
+local BELT_W = SLOTS * SLOT_W + (SLOTS - 1) * SLOT_GAP
+
+local function itemColour(id: string): Color3
+	local key = ITEMS.Colours and ITEMS.Colours[id]
+	return (key and P[key]) or P.Ghost
+end
+
 local beltStrip = Instance.new("Frame")
 beltStrip.Name = "Belt"
 beltStrip.AnchorPoint = Vector2.new(1, 1)
 beltStrip.Position = UDim2.new(1, -16, 1, -212)
-beltStrip.Size = UDim2.new(0, 236, 0, 56)
+beltStrip.Size = UDim2.new(0, BELT_W, 0, SLOT_H)
 beltStrip.BackgroundTransparency = 1
 beltStrip.Parent = gui
 
 local slotButtons: { TextButton } = {}
 local slotCharges: { TextLabel } = {}
+local slotBars: { Frame } = {}
 for i = 1, SLOTS do
 	local b = Instance.new("TextButton")
 	b.Name = "Slot" .. tostring(i)
-	b.Size = UDim2.new(0, 42, 0, 52)
-	b.Position = UDim2.new(0, (i - 1) * 47, 0, 0)
+	b.Size = UDim2.new(0, SLOT_W, 0, SLOT_H)
+	b.Position = UDim2.new(0, (i - 1) * (SLOT_W + SLOT_GAP), 0, 0)
 	b.BackgroundColor3 = P.Floor
 	b.BackgroundTransparency = 0.3
 	b.BorderSizePixel = 0
@@ -117,26 +135,61 @@ for i = 1, SLOTS do
 	c.CornerRadius = UDim.new(0, 10)
 	c.Parent = b
 
+	-- A colour bar across the top, in the item's own colour - the same colour
+	-- it glows on its pad and on its plinth. Colour is never the only signal,
+	-- but it is the FAST one, and a slot has to be identifiable in the corner
+	-- of an eye that is busy driving.
+	local bar = Instance.new("Frame")
+	bar.Name = "Bar"
+	bar.Size = UDim2.new(1, -12, 0, 5)
+	bar.Position = UDim2.new(0, 6, 0, 6)
+	bar.BorderSizePixel = 0
+	bar.BackgroundTransparency = 1
+	bar.Parent = b
+	local barCorner = Instance.new("UICorner")
+	barCorner.CornerRadius = UDim.new(1, 0)
+	barCorner.Parent = bar
+
 	local name = Instance.new("TextLabel")
 	name.Name = "Label"
 	name.BackgroundTransparency = 1
-	name.Size = UDim2.new(1, -4, 0, 30)
-	name.Position = UDim2.new(0, 2, 0, 4)
+	name.Size = UDim2.new(1, -8, 0, 26)
+	name.Position = UDim2.new(0, 4, 0, 16)
 	name.Text = ""
 	name.TextScaled = true
 	name.Font = Enum.Font.GothamBlack
 	name.TextColor3 = P.Ghost
 	name.Parent = b
+	-- TextScaled alone will happily render "SHIELD" at 26 points and "JET" at
+	-- 26 too, but it will also blow a short word up to fill the box. Capping it
+	-- keeps the five slots looking like one row rather than five posters.
+	local cap = Instance.new("UITextSizeConstraint")
+	cap.MaxTextSize = 17
+	cap.MinTextSize = 8
+	cap.Parent = name
 
 	local charge = Instance.new("TextLabel")
+	charge.Name = "Charges"
 	charge.BackgroundTransparency = 1
-	charge.Size = UDim2.new(1, -4, 0, 16)
-	charge.Position = UDim2.new(0, 2, 1, -18)
+	charge.Size = UDim2.new(1, -8, 0, 20)
+	charge.Position = UDim2.new(0, 4, 1, -24)
 	charge.Text = ""
-	charge.TextSize = 13
-	charge.Font = Enum.Font.GothamBold
+	charge.TextSize = 17
+	charge.Font = Enum.Font.GothamBlack
 	charge.TextColor3 = P.Gold
 	charge.Parent = b
+
+	local order = Instance.new("TextLabel")
+	order.Name = "Order"
+	order.BackgroundTransparency = 1
+	order.Size = UDim2.new(0, 16, 0, 14)
+	order.Position = UDim2.new(0, 6, 1, -20)
+	order.Text = tostring(i)
+	order.TextSize = 11
+	order.TextXAlignment = Enum.TextXAlignment.Left
+	order.Font = Enum.Font.GothamBold
+	order.TextColor3 = P.Boundary
+	order.Parent = b
 
 	b.Activated:Connect(function()
 		-- A slot index is a selection, not a value. The server owns what is in
@@ -148,6 +201,7 @@ for i = 1, SLOTS do
 
 	table.insert(slotButtons, b)
 	table.insert(slotCharges, charge)
+	table.insert(slotBars, bar)
 end
 
 local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 112),
@@ -195,27 +249,53 @@ cfCorner.CornerRadius = UDim.new(1, 0)
 cfCorner.Parent = chargeFill
 
 local chargeLabel = Instance.new("TextLabel")
+chargeLabel.Name = "Word"
 chargeLabel.BackgroundTransparency = 1
-chargeLabel.Size = UDim2.new(1, 0, 1, 0)
+chargeLabel.Size = UDim2.new(1, -40, 0, 40)
+chargeLabel.Position = UDim2.new(0, 20, 0, 48)
 chargeLabel.Text = "CHARGE"
 chargeLabel.TextColor3 = P.Ghost
 chargeLabel.TextScaled = true
 chargeLabel.Font = Enum.Font.GothamBlack
 chargeLabel.ZIndex = 2
 chargeLabel.Parent = chargeButton
-local chargePadding = Instance.new("UIPadding")
-chargePadding.PaddingLeft = UDim.new(0, 26)
-chargePadding.PaddingRight = UDim.new(0, 26)
-chargePadding.PaddingTop = UDim.new(0, 52)
-chargePadding.PaddingBottom = UDim.new(0, 52)
-chargePadding.Parent = chargeLabel
 
-chargeButton.Activated:Connect(function()
-	-- Intent only. The server decides whether there is charge to spend.
+-- The percentage is the point (D-CHOMP-064). A ring that fills slowly with no
+-- number on it, on a button that does nothing until it is full, is a button a
+-- player decides is broken - which is exactly what happened. Now it counts up
+-- to the jump in front of you, so the wait is visibly a wait.
+local chargePercent = Instance.new("TextLabel")
+chargePercent.Name = "Percent"
+chargePercent.BackgroundTransparency = 1
+chargePercent.Size = UDim2.new(1, -40, 0, 22)
+chargePercent.Position = UDim2.new(0, 20, 0, 86)
+chargePercent.Text = "0%"
+chargePercent.TextColor3 = P.NeonA
+chargePercent.TextSize = 18
+chargePercent.Font = Enum.Font.GothamBold
+chargePercent.ZIndex = 2
+chargePercent.Parent = chargeButton
+
+-- Pressing it IS the jump - finger or mouse, one control (D-CHOMP-064).
+-- Activated covers both, and neither the fill nor the two labels can swallow
+-- the press: a TextLabel does not consume input, so the whole 150-pixel circle
+-- is live all the way to its edge.
+local refusedAt = 0
+local function pressCharge()
 	if Remotes and Remotes.UseCharge then
+		-- Intent only. The server decides whether there is charge to spend, and
+		-- the server is the only thing that knows.
 		Remotes.UseCharge:FireServer()
 	end
-end)
+	-- A press with an empty bar has to ANSWER. Silence reads as broken; a red
+	-- pulse reads as "not yet", which is the truth.
+	local character = player.Character
+	local level = character and (character:GetAttribute("ChompCharge") :: number?) or 0
+	if level < Config.Charge.JumpCost then
+		refusedAt = os.clock()
+	end
+end
+chargeButton.Activated:Connect(pressCharge)
 
 local ffButton = Instance.new("TextButton")
 ffButton.Name = "FriendlyFire"
@@ -226,7 +306,10 @@ ffButton.BackgroundColor3 = P.Floor
 ffButton.BackgroundTransparency = 0.15
 ffButton.BorderSizePixel = 0
 ffButton.Text = "FRIENDLY FIRE"
-ffButton.TextColor3 = P.Brick
+-- P.Brick on P.Floor was dark purple on near-black: the switch was working the
+-- whole time and simply could not be read, which looks exactly like a disabled
+-- control (D-CHOMP-064). Off is legible now; on is red.
+ffButton.TextColor3 = P.Ghost
 ffButton.TextSize = 15
 ffButton.Font = Enum.Font.GothamBold
 ffButton.AutoButtonColor = false
@@ -324,19 +407,26 @@ RunService.RenderStepped:Connect(function(dt)
 
 		if entry then
 			local def = ITEMS.Definitions[entry.id]
-			button.Label.Text = string.sub(def and def.label or string.upper(entry.id), 1, 4)
-			button.Label.TextColor3 = isActive and P.Floor or P.Ghost
-			slotCharges[i].Text = entry.charges > 1 and tostring(entry.charges) or ""
+			local colour = itemColour(entry.id)
+			-- The WHOLE label, never a truncation (D-CHOMP-064). "CANN" is not
+			-- a shorter way of saying cannon, it is a different word.
+			button.Label.Text = def and def.label or string.upper(entry.id)
+			-- Active: filled in the item's colour with dark text on it.
+			-- Waiting: dark, with the item's colour on the text and the bar.
+			-- Either way the colour on screen is the colour of the thing.
+			button.Label.TextColor3 = isActive and P.Floor or colour
+			slotCharges[i].Text = entry.charges > 1 and ("x" .. tostring(entry.charges)) or ""
 			slotCharges[i].TextColor3 = isActive and P.Floor or P.Gold
-			-- The active slot is filled rather than outlined: a child reads a
-			-- solid block faster than a border, and it survives a small screen.
-			button.BackgroundColor3 = isActive and P.NeonA or P.Floor
-			button.BackgroundTransparency = isActive and 0.05 or 0.3
+			slotBars[i].BackgroundColor3 = colour
+			slotBars[i].BackgroundTransparency = isActive and 0.4 or 0
+			button.BackgroundColor3 = isActive and colour or P.Floor
+			button.BackgroundTransparency = isActive and 0.05 or 0.25
 		else
 			button.Label.Text = ""
 			slotCharges[i].Text = ""
+			slotBars[i].BackgroundTransparency = 1
 			button.BackgroundColor3 = P.Floor
-			button.BackgroundTransparency = 0.55
+			button.BackgroundTransparency = 0.6
 		end
 	end
 
@@ -360,16 +450,42 @@ RunService.RenderStepped:Connect(function(dt)
 	local CH = Config.Charge
 	local charge = attribute("ChompCharge")
 	local ready = charge >= CH.JumpCost
-	chargeFill.Size = UDim2.new(1, 0, math.clamp(charge / CH.Max, 0, 1), 0)
+	-- The fill measures progress toward the JUMP, not toward the cap. A bar
+	-- that is only ever four fifths full when the thing it buys is available
+	-- is a bar that lies about what it is for.
+	local progress = math.clamp(charge / CH.JumpCost, 0, 1)
+	chargeFill.Size = UDim2.new(1, 0, progress, 0)
 	chargeFill.BackgroundColor3 = ready and P.Gold or P.NeonA
 	chargeLabel.Text = ready and "JUMP" or "CHARGE"
 	chargeLabel.TextColor3 = ready and P.Floor or P.Ghost
+	chargePercent.Text = ready and "TAP TO JUMP" or (math.floor(progress * 100) .. "%")
+	chargePercent.TextColor3 = ready and P.Floor or P.NeonA
 	chargeButton.BackgroundTransparency = ready and 0.05 or 0.15
 
+	-- Refusal pulse: 0.35 seconds of red, then back to whatever it was.
+	local sinceRefused = os.clock() - refusedAt
+	if sinceRefused < 0.35 then
+		chargeButton.BackgroundColor3 = P.Danger
+		chargeButton.BackgroundTransparency = 0.25 + sinceRefused
+	else
+		chargeButton.BackgroundColor3 = P.Floor
+	end
+
+	-- Friendly fire only means something when there is a friend to fire at. On
+	-- your own the switch is real but inert, and saying so is better than
+	-- offering a control that cannot do anything (D-CHOMP-064).
 	local ff = character:GetAttribute("ChompFriendlyFire") == true
-	ffButton.TextColor3 = ff and P.Danger or P.Brick
-	ffButton.Text = ff and "FRIENDLY FIRE: ON" or "FRIENDLY FIRE"
-	ffButton.BackgroundTransparency = ff and 0.05 or 0.15
+	local alone = #Players:GetPlayers() < 2
+	ffButton.Active = not alone
+	if alone then
+		ffButton.Text = "SOLO — NO PVP"
+		ffButton.TextColor3 = P.Boundary
+		ffButton.BackgroundTransparency = 0.45
+	else
+		ffButton.Text = ff and "FRIENDLY FIRE: ON" or "FRIENDLY FIRE: OFF"
+		ffButton.TextColor3 = ff and P.Danger or P.Ghost
+		ffButton.BackgroundTransparency = ff and 0.05 or 0.15
+	end
 
 	local waveNumber = attribute("ChompWave")
 	waveLabel.Text = waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1"

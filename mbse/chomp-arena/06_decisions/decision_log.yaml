@@ -1613,3 +1613,65 @@ decisions:
       GhostService lost electrifiedRadii(), FENCES and blocked() outright
       rather than keeping them behind an empty list. A disabled mechanic left
       in the source is a thing the next reader has to work out the status of.
+
+  - id: D-CHOMP-064
+    date: 2026-08-26
+    title: Bullets stop, the belt is readable, the jump is reachable, the switch works
+    decision: >
+      Five corrections, four of them to things that were built and did not do
+      what they claimed. Cannon range drops from 300 studs to 170 and shots now
+      stop at walls with a visible spark; lock range drops to 160 so it can
+      never exceed range. HUD belt slots grow from 42x52 to 64x68, show the
+      whole item name instead of a four-character truncation, and carry the
+      item's own colour. The charge button shows a percentage, counts toward
+      the jump rather than the cap, and answers a too-early press with a red
+      pulse; the jump costs 60 rather than the whole 100 bar. Friendly fire now
+      gates DAMAGE from shots and explosions, not only target acquisition, and
+      the button is legible and reads SOLO - NO PVP when nobody else is here.
+      The garage sells the four weapons alongside chassis and upgrades, using
+      the same models the pads use, and refuses to charge for a grant a full
+      belt rejected.
+    rationale: >
+      Owner report, and four of the five are the same failure: a feature that
+      exists in the source and does not exist for the player.
+      Bullets: 300 studs was most of the way across the arena and passed
+      through the maze, so the optimal play was to face a wall and hold the
+      trigger. A gun that kills what you cannot see is a scoreboard, not a gun,
+      and the maze only matters if it stops shots as well as karts. Lock range
+      was 240 against a 300 range; now 160 against 170, because a green
+      crosshair is a promise the shot will connect and a promise that fails
+      teaches a child the green light means nothing.
+      Belt: five slots in 236 pixels is 42 each, with the name TextScaled into
+      38 of them and then cut to four characters - "CANNON" arrived as "CANN"
+      at about nine pixels a letter. The slots are also tap targets, so they
+      had to be pressable as well as readable.
+      Charge: the bar filled toward 100 while the jump cost 100, so the button
+      only ever lit at the very top of a 25-pellet climb, with no number on it
+      and no response to a press. Every one of those says "broken" to a player.
+      A jump is still a decision at 60; it is now a decision that arrives.
+      Friendly fire: the switch gated the LOCK only. With it off you could not
+      aim at a friend, but a stray burst went through them for full damage.
+      In a game two children play together that is the worst bug in the file,
+      because it punishes precisely the shot you did not mean to take.
+      Weapons in the shop: finding a cannon is luck, buying one is a plan. It
+      also gives a player who keeps dying a way to arrive at the next wave
+      armed, which matters more than it sounds - the alternative is that losing
+      compounds.
+    outcome: >
+      ItemModels moves the four item silhouettes into ServerStorage so the pad,
+      the roof mount and the shop plinth are the same object; two copies of a
+      shape is how a shop quietly starts lying about what it sells.
+      The shop reaches the belt through a BindableFunction, not a shared table,
+      because give() must be able to REFUSE and the money must only move after
+      the grant succeeds. Server to server, in ServerStorage: the client
+      surface does not widen.
+      Item colours became Palette KEYS in ChompConfig so the server factory and
+      the client HUD tint the same item identically without sharing a module.
+      Plinth spacing tightened from 4.2 to 2.9 degrees, since ten plinths at
+      the old spacing ran most of the way round the ring; 38 studs still
+      comfortably exceeds the 13-stud dwell radius, so a kart is never inside
+      two offers at once.
+      Bomb blasts now damage players when friendly fire is ON, which they never
+      did. That is a small widening of what the switch means, and the honest
+      reading of "friendly fire" - the alternative was a switch that covered
+      one weapon.

@@ -20,6 +20,16 @@
 	Robux prices are DISPLAYED and nothing more. Wiring a real purchase is a
 	monetisation decision with consequences for a parent, not something to slip
 	into an overnight build.
+
+	The row sells WEAPONS as well as vehicles (D-CHOMP-064). Finding a cannon on
+	a pad is luck; buying one is a plan, and a player who keeps dying can choose
+	to arrive at the next wave armed instead of hoping. Items are the cheap end
+	of the row for that reason - a shop only the winner can afford makes losing
+	worse.
+
+	A weapon purchase can be REFUSED by ItemService when the belt is full. The
+	money is only taken after the grant succeeds, because a shop that charges
+	for something it did not hand over is the one bug a child will never forgive.
 ]]
 
 local Players = game:GetService("Players")
@@ -30,6 +40,7 @@ local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local VehicleFactory = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleFactory"))
+local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
 
 local L = Config.Level1
 local P = Config.Palette
@@ -89,6 +100,14 @@ end
 
 type Offer = { id: string, kind: string, title: string, dollars: number, robux: number? }
 
+-- Resolved lazily: this script and ItemService are both server scripts with no
+-- guaranteed order, so asking for the hook at require time is a race.
+local function grantHook(): BindableFunction?
+	local tools = ServerStorage:FindFirstChild("ChompTools")
+	local hook = tools and tools:FindFirstChild("GrantItem")
+	return hook and hook:IsA("BindableFunction") and hook or nil
+end
+
 local function offers(): { Offer }
 	local out: { Offer } = {}
 	for id, chassis in Config.Chassis do
@@ -101,6 +120,24 @@ local function offers(): { Offer }
 	end
 	-- Cheapest first, so the row reads as a ladder rather than a shelf.
 	table.sort(out, function(a, b) return a.dollars < b.dollars end)
+
+	-- Weapons at the near end. They are the cheapest thing here and the thing a
+	-- struggling player most needs, so they are what you reach first.
+	local weapons: { Offer } = {}
+	for id, dollars in STORE.ItemPrices do
+		local def = Config.Items.Definitions[id]
+		if def then
+			table.insert(weapons, {
+				id = id, kind = "item", title = def.label,
+				dollars = dollars, robux = STORE.RobuxPrice[id],
+			})
+		end
+	end
+	table.sort(weapons, function(a, b) return a.dollars < b.dollars end)
+	for i = #weapons, 1, -1 do
+		table.insert(out, 1, weapons[i])
+	end
+
 	for _, track in { "Speed", "Agility", "Consumption" } do
 		table.insert(out, {
 			id = track, kind = "upgrade", title = track .. " I",
@@ -118,7 +155,11 @@ local function build(): number
 	local homeAngle = math.pi / L.GarageCount
 	local radius = L.OuterRadius - L.RingSpacing / 2 - 22
 	local list = offers()
-	local step = math.rad(4.2)
+	-- Tightened from 4.2 degrees when weapons joined the row (D-CHOMP-064): ten
+	-- plinths at the old spacing ran most of the way round the ring. At this
+	-- radius 2.9 degrees is about 38 studs, comfortably more than the 13-stud
+	-- dwell radius, so a kart is never inside two offers at once.
+	local step = math.rad(2.9)
 
 	for i, offer in ipairs(list) do
 		local a = homeAngle + step * (i - (#list + 1) / 2)
@@ -128,9 +169,15 @@ local function build(): number
 		local base = part("Plinth", Vector3.new(9, 6, 9),
 			CFrame.new(pos + Vector3.new(0, 3, 0)) * facing,
 			P.BrickDark, Enum.Material.Metal, folder)
+		-- The glow says WHAT KIND of thing this is before you can read the sign:
+		-- gold for a vehicle, the item's own colour for a weapon, teal for a
+		-- tuning upgrade.
+		local glowColour = if offer.kind == "chassis" then P.Gold
+			elseif offer.kind == "item" then ItemModels.colour(offer.id)
+			else P.NeonA
 		local glow = part("PlinthGlow", Vector3.new(9.4, 0.6, 9.4),
 			CFrame.new(pos + Vector3.new(0, 6.2, 0)) * facing,
-			offer.kind == "chassis" and P.Gold or P.NeonA, Enum.Material.Neon, folder)
+			glowColour, Enum.Material.Neon, folder)
 		glow.CanCollide = false
 		CollectionService:AddTag(base, "Chomp_Decor")
 		CollectionService:AddTag(glow, "Chomp_Decor")
@@ -156,6 +203,14 @@ local function build(): number
 					model.Parent = folder
 				end
 			end
+		elseif offer.kind == "item" then
+			-- The SAME model that stands on a pad in the maze and bolts to your
+			-- roof, from the shared factory (D-CHOMP-064). A shop that shows a
+			-- different shape from the thing it sells is a shop that lies.
+			local model = ItemModels.build(offer.id)
+			model:PivotTo(CFrame.new(pos + Vector3.new(0, 9.5, 0)) * facing)
+			model.Parent = folder
+
 		else
 			-- Upgrades have no model. A clear token beats a misleading one.
 			local token = part("UpgradeToken", Vector3.new(4, 4, 4),
@@ -276,6 +331,19 @@ local function buy(player: Player, offer: Offer): boolean
 		if character:GetAttribute("ChompChassis") == offer.id then return false end
 		character:SetAttribute("ChompChassis", offer.id)
 		refitVehicle(player)
+	elseif offer.kind == "item" then
+		-- Hand it over FIRST. give() refuses a full belt, and a refusal must
+		-- cost nothing - the player drives away with their money and the plinth
+		-- still stocked (D-CHOMP-064).
+		local hook = grantHook()
+		if not hook then
+			warn("[GarageService] ItemService has not published GrantItem; weapons unsellable")
+			return false
+		end
+		local ok, granted = pcall(function()
+			return hook:Invoke(player, offer.id)
+		end)
+		if not (ok and granted == true) then return false end
 	else
 		local key = "ChompUpgrade" .. offer.id
 		local level = (character:GetAttribute(key) :: number?) or 0
@@ -341,5 +409,7 @@ end
 animateChests()
 task.spawn(dwellLoop)
 
-print(("[GarageService] %d plinths, dwell %.1fs to buy, Robux labels are display only")
-	:format(count, STORE.DwellSeconds))
+local sellable = 0
+for _ in STORE.ItemPrices do sellable += 1 end
+print(("[GarageService] %d plinths (%d of them weapons), dwell %.1fs to buy, " ..
+	"Robux labels are display only"):format(count, sellable, STORE.DwellSeconds))
