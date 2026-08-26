@@ -559,3 +559,23 @@ entries:
     problem, or a map-generation problem.
     Wall height is still 7, derived at 38 degrees pitch against 8-stud
     corridors. Corridors are now 16. Re-deriving that is the first candidate.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-001, CHOMP-SYS-003]
+  summary: >
+    The kart stopped loading. WheelScale was multiplying all three axes, which
+    widened the vehicle to 8.53 against the 8.3 bound; VehicleFactory correctly
+    refused it and only a warn said so. Wheels are cylinders - X is tyre width,
+    Y and Z are diameter - so scaling now applies to diameter only, which was
+    also the correct reading of "bigger wheels" (D-CHOMP-052).
+    guard.py gains Check 3: every spec, scaled by config, must fit
+    Budgets.VehicleBounds. Verified both ways - fails at WheelScale 2.4, passes
+    at 1.45.
+  status: OPEN
+  handoff: >
+    Twice now a number has silently stopped the kart building, and both times
+    the only symptom was an empty world. The guard closes that specific hole,
+    but VehicleFactory failing should probably be louder than a warn - a
+    server-side error with the failing axis in it would have saved both
+    sessions. That is CHAIN-VEHICLE's call since the factory is yours.

@@ -50,11 +50,13 @@ local function scaled(spec, k: number)
 		local copy = table.clone(p)
 		copy.size = p.size * k
 		copy.offset = p.offset * k
-		-- Wheels get an extra multiplier on their SIZE only. Scaling the offset
-		-- too would push them out of the arches and off the chassis
-		-- (D-CHOMP-051).
+		-- Wheels are CYLINDERS: X is the tyre's width, Y and Z are its diameter.
+		-- "Bigger wheels" means diameter, so only Y and Z scale. Scaling X too
+		-- widened the whole kart past Budgets.VehicleBounds, the factory refused
+		-- to build it, and the vehicle silently stopped appearing (D-CHOMP-052).
+		-- Offsets never scale here either, or the wheels leave the arches.
 		if wheelScale ~= 1 and (string.find(p.name, "Wheel") or string.find(p.name, "Hub")) then
-			copy.size = copy.size * wheelScale
+			copy.size = Vector3.new(copy.size.X, copy.size.Y * wheelScale, copy.size.Z * wheelScale)
 		end
 		parts[i] = copy
 	end

@@ -7320,6 +7320,11 @@ local function loop()
 					and (pellet.Position - root.Position).Magnitude < PELLET_RADIUS then
 					local value = (pellet:GetAttribute("Value") :: number?) or 0
 					character:SetAttribute("ChompCarried", carried(character) + value)
+					-- Announce the GAIN, not just the new total. A number that
+					-- ticks up in a corner is invisible to someone watching a
+					-- corridor; "+25" above the kart is not (D-CHOMP-052).
+					character:SetAttribute("ChompGainedAmount", value)
+					character:SetAttribute("ChompGainedAt", os.clock())
 					pellet.Transparency = 1
 					task.delay(E.PelletRespawnSeconds, function()
 						if pellet.Parent then pellet.Transparency = 0 end
@@ -7337,6 +7342,7 @@ local function loop()
 						local banked = math.floor(carried(character) * E.BankRate)
 						character:SetAttribute("ChompDollars", dollars(character) + banked)
 						character:SetAttribute("ChompCarried", 0)
+						character:SetAttribute("ChompBankedAmount", banked)
 						character:SetAttribute("ChompBankedAt", now)
 						lastBank[player] = now
 						break
@@ -7598,11 +7604,13 @@ local function scaled(spec, k: number)
 		local copy = table.clone(p)
 		copy.size = p.size * k
 		copy.offset = p.offset * k
-		-- Wheels get an extra multiplier on their SIZE only. Scaling the offset
-		-- too would push them out of the arches and off the chassis
-		-- (D-CHOMP-051).
+		-- Wheels are CYLINDERS: X is the tyre's width, Y and Z are its diameter.
+		-- "Bigger wheels" means diameter, so only Y and Z scale. Scaling X too
+		-- widened the whole kart past Budgets.VehicleBounds, the factory refused
+		-- to build it, and the vehicle silently stopped appearing (D-CHOMP-052).
+		-- Offsets never scale here either, or the wheels leave the arches.
 		if wheelScale ~= 1 and (string.find(p.name, "Wheel") or string.find(p.name, "Hub")) then
-			copy.size = copy.size * wheelScale
+			copy.size = Vector3.new(copy.size.X, copy.size.Y * wheelScale, copy.size.Z * wheelScale)
 		end
 		parts[i] = copy
 	end
@@ -9378,6 +9386,123 @@ end)
       </Item>
       <Item class="LocalScript" referent="161">
         <Properties>
+          <string name="Name">PickupFeedback</string>
+          <string name="Source"><![CDATA[--!strict
+--[[
+	PickupFeedback — CHAIN-UI, CHOMP-SYS-056 (D-CHOMP-052)
+
+	Floating numbers above the kart when something changes.
+
+	CHOMP-SYS-056 asks that gains and losses explain themselves: the signed
+	amount AND where it went. A total ticking up in a corner does not do that
+	while your eyes are on a corridor, so the number appears where you are
+	already looking — over your own vehicle — and says which pot it landed in.
+
+	  +25          pink, gone to the risky carry
+	  +$180 SAFE   gold, banked and untouchable
+	  -40          red, a ghost took it
+	  -14 HP       red, that hurt
+
+	Colour is never the only signal. Each carries a sign, and banked carries the
+	word SAFE, because the same objection applies here as to the HUD: colour
+	alone fails a colour-blind player, and this game is meant for a child.
+
+	Client-side and read-only. It reflects attributes the server wrote and
+	decides nothing.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local P = Config.Palette
+
+local player = Players.LocalPlayer
+
+local function popup(text: string, colour: Color3)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then return end
+
+	local anchor = Instance.new("Part")
+	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+	anchor.Transparency = 1
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CFrame = root.CFrame * CFrame.new(0, 9, 0)
+	anchor.Parent = workspace
+
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.new(0, 190, 0, 52)
+	gui.AlwaysOnTop = true
+	gui.Adornee = anchor
+	gui.Parent = anchor
+
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.Text = text
+	label.TextColor3 = colour
+	label.TextStrokeColor3 = P.Floor
+	label.TextStrokeTransparency = 0.15
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBlack
+	label.Parent = gui
+
+	-- Rises and fades. Rising matters: a static number is easy to miss at speed,
+	-- and movement is what the eye catches without being asked to look.
+	local info = TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(anchor, info, { CFrame = anchor.CFrame * CFrame.new(0, 8, 0) }):Play()
+	TweenService:Create(label, info, { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+	task.delay(1, function() anchor:Destroy() end)
+end
+
+local seen = { gained = 0, banked = 0, stolen = 0, hurt = 0 }
+
+local function stamp(character: Model, name: string): number
+	return (character:GetAttribute(name) :: number?) or 0
+end
+
+local function amount(character: Model, name: string): number
+	return (character:GetAttribute(name) :: number?) or 0
+end
+
+RunService.Heartbeat:Connect(function()
+	local character = player.Character
+	if not character then return end
+
+	local gained = stamp(character, "ChompGainedAt")
+	if gained > seen.gained then
+		seen.gained = gained
+		popup("+" .. tostring(amount(character, "ChompGainedAmount")), P.NeonB)
+	end
+
+	local banked = stamp(character, "ChompBankedAt")
+	if banked > seen.banked then
+		seen.banked = banked
+		popup("+$" .. tostring(amount(character, "ChompBankedAmount")) .. "  SAFE", P.Gold)
+	end
+
+	local stolen = stamp(character, "ChompStolenAt")
+	if stolen > seen.stolen then
+		seen.stolen = stolen
+		popup("-" .. tostring(amount(character, "ChompStolenAmount")), P.Danger)
+	end
+
+	local hurt = stamp(character, "ChompHurtAt")
+	if hurt > seen.hurt then
+		seen.hurt = hurt
+		popup("-" .. tostring(math.floor(Config.Ghosts.ContactDamage)) .. " HP", P.Danger)
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="162">
+        <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
 --[[
@@ -9470,7 +9595,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="162">
+      <Item class="LocalScript" referent="163">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -9628,7 +9753,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="163">
+      <Item class="LocalScript" referent="164">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -9775,7 +9900,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="164">
+  <Item class="Workspace" referent="165">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

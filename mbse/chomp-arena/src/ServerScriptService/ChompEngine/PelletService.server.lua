@@ -112,6 +112,11 @@ local function loop()
 					and (pellet.Position - root.Position).Magnitude < PELLET_RADIUS then
 					local value = (pellet:GetAttribute("Value") :: number?) or 0
 					character:SetAttribute("ChompCarried", carried(character) + value)
+					-- Announce the GAIN, not just the new total. A number that
+					-- ticks up in a corner is invisible to someone watching a
+					-- corridor; "+25" above the kart is not (D-CHOMP-052).
+					character:SetAttribute("ChompGainedAmount", value)
+					character:SetAttribute("ChompGainedAt", os.clock())
 					pellet.Transparency = 1
 					task.delay(E.PelletRespawnSeconds, function()
 						if pellet.Parent then pellet.Transparency = 0 end
@@ -129,6 +134,7 @@ local function loop()
 						local banked = math.floor(carried(character) * E.BankRate)
 						character:SetAttribute("ChompDollars", dollars(character) + banked)
 						character:SetAttribute("ChompCarried", 0)
+						character:SetAttribute("ChompBankedAmount", banked)
 						character:SetAttribute("ChompBankedAt", now)
 						lastBank[player] = now
 						break

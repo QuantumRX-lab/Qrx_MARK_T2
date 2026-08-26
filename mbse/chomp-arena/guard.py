@@ -24,6 +24,8 @@ because the built place is what the game actually loads.
   Check 1  No two children of one parent share a name.
   Check 2  Every WaitForChild target that can be resolved statically exists in
            the built tree.
+  Check 3  Every chassis spec, once scaled by ChompConfig, still fits inside
+           Budgets.VehicleBounds.
 
 What it deliberately does NOT do: catch runtime behaviour. D-CHOMP-025 — the
 physics solver reverting per-frame CFrame writes — was invisible to any static
@@ -247,6 +249,80 @@ def check_waitforchild(place, report):
 
 # ── Entry point ─────────────────────────────────────────────────────────
 
+# ── The vehicle ─────────────────────────────────────────────────────────
+
+VEC3 = re.compile(r'Vector3\.new\(([^)]*)\)')
+NUMBER = re.compile(r'([A-Za-z]\w*)\s*=\s*([0-9.]+)')
+
+
+def _config_numbers(text, table):
+    """Pull `Name = number` pairs out of one ChompConfig.<table> block."""
+    start = text.find(f"ChompConfig.{table} = {{")
+    if start < 0:
+        return {}
+    end = text.find(chr(10) + "}", start)
+    return {k: float(v) for k, v in NUMBER.findall(text[start:end])}
+
+
+def check_vehicle_bounds(report):
+    """Check 3 — a scaled chassis must still fit the contract.
+
+    This exists because it already happened. Wheels were scaled on all three
+    axes, which widened the kart past Budgets.VehicleBounds; VehicleFactory
+    correctly refused to build it, and the vehicle simply stopped appearing with
+    only a warn in the log to say why (D-CHOMP-052). The arithmetic is cheap and
+    the failure is silent, which is exactly the trade this guard exists to make.
+    """
+    config_path = SRC / "ReplicatedStorage" / "ChompConfig.lua"
+    specs_dir = SRC / "ServerStorage" / "ChompTools" / "VehicleSpecs"
+    if not config_path.exists() or not specs_dir.exists():
+        return
+
+    config = config_path.read_text(encoding="utf-8")
+    vehicle = _config_numbers(config, "Vehicle")
+    scale = vehicle.get("Scale", 1.0)
+    wheel_scale = vehicle.get("WheelScale", 1.0)
+
+    bounds_match = re.search(r'VehicleBounds\s*=\s*Vector3\.new\(([^)]*)\)', config)
+    if not bounds_match:
+        report.warn("Budgets.VehicleBounds not found; vehicle bounds not checked")
+        return
+    limit = [float(v) for v in bounds_match.group(1).split(",")]
+
+    entry = re.compile(
+        r'name\s*=\s*"([^"]+)".*?size\s*=\s*Vector3\.new\(([^)]*)\)'
+        r'.*?offset\s*=\s*Vector3\.new\(([^)]*)\)', re.S)
+
+    checked = 0
+    for spec_path in sorted(specs_dir.glob("*.lua")):
+        text = spec_path.read_text(encoding="utf-8")
+        parts = entry.findall(text)
+        if not parts:
+            continue
+        lo = [9e9] * 3
+        hi = [-9e9] * 3
+        for name, size, offset in parts:
+            s_ = [float(v) * scale for v in size.split(",")]
+            o_ = [float(v) * scale for v in offset.split(",")]
+            if "Wheel" in name or "Hub" in name:
+                # diameter only: X is the tyre's width
+                s_ = [s_[0], s_[1] * wheel_scale, s_[2] * wheel_scale]
+            for i in range(3):
+                lo[i] = min(lo[i], o_[i] - s_[i] / 2)
+                hi[i] = max(hi[i], o_[i] + s_[i] / 2)
+        extent = [hi[i] - lo[i] for i in range(3)]
+        checked += 1
+        for i, axis in enumerate("XYZ"):
+            if extent[i] > limit[i] + 1e-6:
+                report.fail(
+                    f"{spec_path.name} scaled by {scale} (wheels x{wheel_scale}) is "
+                    f"{extent[i]:.2f} on {axis}, over Budgets.VehicleBounds {limit[i]}. "
+                    f"VehicleFactory will refuse to build it and the kart will not appear"
+                )
+    if checked:
+        report.note(f"{checked} chassis spec(s) fit VehicleBounds at scale {scale}")
+
+
 def build_place(report):
     rojo = shutil.which("rojo")
     if not rojo:
@@ -281,6 +357,7 @@ def main():
         sys.exit(1)
 
     check_duplicate_names(PLACE, report)
+    check_vehicle_bounds(report)
     place = load_place(PLACE)
     report.note(f"{len(place)} instances in the built place")
     check_waitforchild(place, report)

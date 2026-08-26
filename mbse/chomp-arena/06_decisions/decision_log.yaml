@@ -1242,3 +1242,39 @@ decisions:
       the wheels out of the arches and off the chassis.
       The HUD gains a health bar whose colour carries the reading, and two
       distinct flashes: pink for a theft, red for damage.
+
+  - id: D-CHOMP-052
+    date: 2026-08-25
+    title: Wheels scale by diameter, and gains announce themselves over the kart
+    decision: >
+      Vehicle.WheelScale multiplies wheel Y and Z only, never X. guard.py gains
+      a third check: every chassis spec, scaled by ChompConfig, must still fit
+      Budgets.VehicleBounds. Pellet gains, banking, thefts and damage each raise
+      a floating number above the kart via PickupFeedback.
+    rationale: >
+      The kart stopped appearing entirely, and the cause was mine. Scaling
+      wheels on all three axes widened the whole vehicle to 8.53 studs against
+      an 8.3 bound, VehicleFactory correctly refused to build it, and the only
+      trace was a warn nobody was reading.
+      The fix is also the correct reading of the request. Wheels are cylinders:
+      X is the tyre's WIDTH and Y and Z are its diameter. "Bigger wheels" means
+      diameter, so scaling X was wrong on its own terms as well as breaking the
+      contract.
+      That is the second time a stale or careless number has silently stopped
+      the kart building, so it becomes a guard check rather than a lesson. The
+      arithmetic is a dozen lines and the failure is invisible until someone
+      plays; that is precisely the trade guard.py exists to make. Verified in
+      both directions - it fails a kart at WheelScale 2.4 and passes at 1.45.
+      On feedback: a total ticking up in a corner is invisible to someone
+      watching a corridor. CHOMP-SYS-056 asks that gains and losses explain
+      themselves, meaning the signed amount AND its destination, so the number
+      appears where the player is already looking and says which pot it went to.
+      Banked reads "+$180 SAFE" — the word carries the meaning, because colour
+      alone fails a colour-blind player and this game is for a child.
+    outcome: >
+      VehicleService scales wheel diameter only. guard.py Check 3 parses the
+      specs and the config and reports the axis that breaches. PelletService
+      publishes ChompGainedAmount and ChompBankedAmount alongside their
+      timestamps; PickupFeedback reads those and floats a rising, fading number
+      over the kart. Rising matters: movement is what the eye catches without
+      being asked to look.
