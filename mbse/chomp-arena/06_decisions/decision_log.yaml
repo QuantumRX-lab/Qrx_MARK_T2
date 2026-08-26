@@ -1456,3 +1456,40 @@ decisions:
       invisible rule attached is a surprise rather than a mechanic. Blocked
       ghosts slide along the fence rather than stopping dead, so they look like
       they are looking for a way round.
+
+  - id: D-CHOMP-060
+    date: 2026-08-25
+    title: Weapons work in three dimensions, because the jump put you in the third one
+    decision: >
+      Target selection measures true 3D distance. The turret pitches as well as
+      yaws, up to turretPitchDegrees. The muzzle direction keeps its pitch
+      instead of being flattened, and a locked shot aims at the target rather
+      than at the point on the ground beneath it. A dropped bomb raycasts down
+      and lands on the floor.
+    rationale: >
+      The charge jump (D-CHOMP-059) added height to a game whose weapons were
+      written entirely on the ground plan, and nothing had been re-examined
+      against it. Every aim vector was flattened to X and Z, so an airborne kart
+      fired level and every shot sailed over the ghosts below.
+      Selection was worse than useless in the air rather than merely wrong: it
+      measured distance on the ground plan, so a ghost directly beneath a
+      jumping kart read as zero studs away and always won the lock, while the
+      shot at it flew horizontally into nothing.
+      The bomb had the mirror problem. It spawned anchored at whatever height
+      you were, so a bomb dropped mid-jump hung in the air where nothing would
+      ever drive into it — which quietly made the jump and the bomb mutually
+      exclusive without either feature knowing about the other.
+      Acquisition still measures its CONE on the ground plan, deliberately. The
+      turret yaws freely and pitches within limits, so what matters for whether
+      it can engage is whether it can face you, not whether it is level with you.
+    outcome: >
+      Pitch is clamped to 60 degrees, which is generous because the jump puts
+      you well above a ghost and a barrel that cannot follow would make jumping
+      a disarm. Yaw is applied about the kart and pitch about the barrel's own
+      axis, so the two compose rather than fight. The bomb's raycast excludes
+      the character and the ghosts, so it lands on the floor rather than on
+      whatever it was chasing.
+      A general note worth keeping: this is the second time a new mechanic has
+      silently invalidated an assumption baked into an older one. Adding a
+      dimension to a game means auditing everything that quietly assumed there
+      were only two.

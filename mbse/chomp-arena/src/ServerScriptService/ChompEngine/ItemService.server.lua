@@ -344,6 +344,12 @@ end
 
 -- A target is a ghost model or another player's character; both answer to a
 -- pivot, so one helper keeps the rest of the code from caring which it is.
+local function mountPosition(character: Model): Vector3?
+	local vehicle = character:FindFirstChild("Vehicle")
+	local mount = vehicle and vehicle:FindFirstChild("ItemMount") :: BasePart?
+	return mount and mount.Position or nil
+end
+
 local function targetPosition(thing: Instance): Vector3
 	if thing:IsA("Model") then return thing:GetPivot().Position end
 	if thing:IsA("BasePart") then return thing.Position end
@@ -369,10 +375,21 @@ local function updateLock(player: Player, dt: number)
 	local best: Instance? = nil
 	local bestDistance = def.lockRangeStuds
 
+	-- Distance in THREE dimensions (D-CHOMP-060). Measuring on the ground plan
+	-- meant a ghost directly below a jumping kart read as zero away and a ghost
+	-- across the arena read the same whether it was level with you or not.
 	local function consider(thing: Instance, position: Vector3)
-		local flat = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
-		local distance = flat.Magnitude
+		local to = position - root.Position
+		local distance = to.Magnitude
 		if distance >= bestDistance or distance <= 1 then return end
+		-- The cone is still measured on the ground plan, because the turret
+		-- yaws freely and only pitches within limits: what matters for
+		-- acquisition is whether it can face you, not whether it is level.
+		local flat = Vector3.new(to.X, 0, to.Z)
+		if flat.Magnitude < 0.001 then
+			best, bestDistance = thing, distance
+			return
+		end
 		local angle = math.deg(math.acos(math.clamp(forward:Dot(flat.Unit), -1, 1)))
 		if angle <= def.lockAngleDegrees then
 			best, bestDistance = thing, distance
@@ -414,21 +431,35 @@ local function updateLock(player: Player, dt: number)
 	local primary = vehicle and vehicle:FindFirstChild("Chassis") :: BasePart?
 	local motor = primary and primary:FindFirstChild("TurretMotor") :: Motor6D?
 	if motor then
-		local wanted = 0
+		local wantedYaw, wantedPitch = 0, 0
 		if best then
-			local to = targetPosition(best) - root.Position
+			local to = targetPosition(best) - (mountPosition(character) or root.Position)
 			local flat = Vector3.new(to.X, 0, to.Z)
 			if flat.Magnitude > 0.001 then
 				local worldYaw = math.atan2(-flat.Unit.X, -flat.Unit.Z)
 				local kartYaw = math.atan2(-forward.X, -forward.Z)
-				wanted = (worldYaw - kartYaw + math.pi) % (math.pi * 2) - math.pi
+				wantedYaw = (worldYaw - kartYaw + math.pi) % (math.pi * 2) - math.pi
+				-- Pitch DOWN at something below you. Without this the barrel
+				-- stays level while jumping and every shot sails over the top
+				-- (D-CHOMP-060).
+				wantedPitch = math.clamp(math.atan2(to.Y, flat.Magnitude),
+					math.rad(-def.turretPitchDegrees), math.rad(def.turretPitchDegrees))
 			end
 		end
-		local _, current = motor.Transform:ToOrientation()
-		local diff = (wanted - current + math.pi) % (math.pi * 2) - math.pi
+
+		local currentPitch, currentYaw = motor.Transform:ToOrientation()
 		local step = math.rad(def.turretTurnDegrees) * dt
-		local applied = math.abs(diff) <= step and wanted or current + (diff > 0 and step or -step)
-		motor.Transform = CFrame.Angles(0, applied, 0)
+
+		local yawDiff = (wantedYaw - currentYaw + math.pi) % (math.pi * 2) - math.pi
+		local yaw = math.abs(yawDiff) <= step and wantedYaw
+			or currentYaw + (yawDiff > 0 and step or -step)
+
+		local pitchDiff = wantedPitch - currentPitch
+		local pitch = math.abs(pitchDiff) <= step and wantedPitch
+			or currentPitch + (pitchDiff > 0 and step or -step)
+
+		-- Yaw about the kart, then pitch about the barrel's own axis.
+		motor.Transform = CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
 	end
 end
 
@@ -478,7 +509,15 @@ local function dropBomb(player: Player)
 	bomb.Name = "ChompBomb"
 	bomb.Shape = Enum.PartType.Ball
 	bomb.Size = Vector3.new(4.5, 4.5, 4.5)
-	bomb.Position = root.Position - facing(root) * def.dropBehindStuds
+	-- Drop it on the FLOOR, not at the height you happened to be (D-CHOMP-060).
+	-- A bomb left hanging in the air after a jump is a mine nobody will ever
+	-- drive into, which quietly makes the jump and the bomb mutually exclusive.
+	local behind = root.Position - facing(root) * def.dropBehindStuds
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { player.Character :: Instance, Workspace:FindFirstChild("Ghosts") :: Instance }
+	local hit = Workspace:Raycast(behind + Vector3.new(0, 6, 0), Vector3.new(0, -400, 0), params)
+	bomb.Position = hit and (hit.Position + Vector3.new(0, 2.4, 0)) or behind
 	bomb.Anchored = true
 	bomb.CanCollide = false
 	bomb.CanQuery = false
@@ -508,10 +547,11 @@ local function muzzle(player: Player, root: BasePart): (Vector3, Vector3)
 	local vehicle = character and character:FindFirstChild("Vehicle")
 	local mount = vehicle and vehicle:FindFirstChild("ItemMount") :: BasePart?
 	if mount then
+		-- The FULL look vector, pitch included. Flattening it here was what made
+		-- an airborne shot fly level (D-CHOMP-060).
 		local look = mount.CFrame.LookVector
-		local flat = Vector3.new(look.X, 0, look.Z)
-		if flat.Magnitude > 0.001 then
-			return mount.Position + flat.Unit * 5, flat.Unit
+		if look.Magnitude > 0.001 then
+			return mount.Position + look.Unit * 5, look.Unit
 		end
 	end
 	return root.Position + facing(root) * 9 + Vector3.new(0, 3, 0), facing(root)
@@ -530,9 +570,9 @@ local function fireCannon(player: Player)
 	local character = player.Character
 	if target and target.Parent and character
 		and character:GetAttribute("ChompLockState") == "locked" then
+		-- Aim at the target, not at its shadow.
 		local to = targetPosition(target) - origin
-		local flat = Vector3.new(to.X, 0, to.Z)
-		if flat.Magnitude > 0.001 then direction = flat.Unit end
+		if to.Magnitude > 0.001 then direction = to.Unit end
 	end
 
 	-- A little spread, so a held trigger looks like fire rather than a laser.
@@ -576,7 +616,8 @@ local function fireCannon(player: Player)
 		end
 
 		for _, ghost in ghostsAlive() do
-			if (ghost:GetPivot().Position - pellet.Position).Magnitude < 10 then
+			-- 3D, so a shot angled down from a jump connects (D-CHOMP-060).
+			if (ghost:GetPivot().Position - pellet.Position).Magnitude < 11 then
 				ghost:SetAttribute("KilledBy", player.UserId)
 				ghost:SetAttribute("Health", ((ghost:GetAttribute("Health") :: number?) or 1) - 1)
 				pellet:Destroy()

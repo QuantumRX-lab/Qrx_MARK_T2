@@ -343,6 +343,10 @@ ChompConfig.Items = {
 			lockAngleDegrees = 180,
 			lockSeconds = 0.45,      -- continuous tracking before it goes green
 			turretTurnDegrees = 220, -- how fast the barrel swings
+			-- How far it can look up or down (D-CHOMP-060). Generous, because
+			-- the jump puts you well above a ghost and a barrel that cannot
+			-- follow makes the jump a disarm.
+			turretPitchDegrees = 60,
 		},
 		HomingBomb = {
 			charges = 1,

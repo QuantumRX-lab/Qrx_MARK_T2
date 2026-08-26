@@ -145,3 +145,26 @@ entries:
     The wider lesson for anyone editing these files programmatically: replacing
     a SPAN between two anchors deletes whatever was inserted between them since.
     Prefer replacing an exact known string over slicing between landmarks.
+- date: '2026-08-25'
+  agent: Claude (local session)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-060]
+  summary: >
+    Weapons made three-dimensional (D-CHOMP-060). The charge jump added height
+    to a game whose aiming was written entirely on the ground plan: every
+    direction was flattened to X and Z, so an airborne kart fired level and shot
+    over everything. Selection now measures true 3D distance, the turret pitches
+    up to 60 degrees as well as yawing, the muzzle keeps its pitch, a locked
+    shot aims at the target rather than its shadow, and a dropped bomb raycasts
+    down to the floor instead of hanging where you jumped from.
+  status: OPEN
+  handoff: >
+    Unplayed. The thing to watch is whether pitching the turret looks right on a
+    kart whose barrel sits on a Motor6D driven by yaw-then-pitch - if the gun
+    rolls oddly at extreme angles, the composition order in updateLock is the
+    place to change, not the pitch limit.
+    Worth a deliberate sweep rather than waiting to trip over it: the jump added
+    a dimension and TWO systems silently assumed there were only two. Ghost
+    movement is still entirely planar and ghosts hover at a fixed y of 8, so a
+    player who jumps is currently unreachable by them. That is arguably fine as
+    an escape move and arguably an exploit, and nobody has decided which.
