@@ -7,7 +7,7 @@ named half was replaced and the rest still rules, `SUPERSEDED` means all
 of it was, `VOID` means the number was never used. Read the ACTIVE
 entries for your topic before writing code that touches it.
 
-68 decisions.
+70 decisions.
 
 ## camera
 
@@ -37,6 +37,7 @@ entries for your topic before writing code that touches it.
 
 - **D-CHOMP-048** `ACTIVE` 2026-08-25 — Carried is risky, banked is safe, and banking has no button
 - **D-CHOMP-066** `ACTIVE` 2026-08-27 — Nothing waits forever, and no child is shown a Robux price
+- **D-CHOMP-069** `ACTIVE` 2026-08-27 — Permanent progression is versioned and fails closed for purchases
 
 ## ghosts
 
@@ -92,6 +93,7 @@ entries for your topic before writing code that touches it.
 - D-CHOMP-057 `VOID` 2026-08-25 — Number skipped
 - **D-CHOMP-067** `ACTIVE` 2026-08-27 — The tree is made to notice when it stops being true
 - **D-CHOMP-068** `ACTIVE` 2026-08-27 — The requirements are made to describe the game that exists
+- **D-CHOMP-070** `ACTIVE` 2026-08-27 — Seven visible ladders replace three anonymous stat tracks
 
 ## vehicle
 

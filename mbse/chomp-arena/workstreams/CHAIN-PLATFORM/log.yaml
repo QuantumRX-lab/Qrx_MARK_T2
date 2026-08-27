@@ -227,3 +227,23 @@ entries:
     the ladder rework supersedes D-CHOMP-011's three-track scheme.
     If the reasoning is genuinely lost, say so in one entry and I will stop
     asking. An honest hole beats reconstructed rationale nobody actually held.
+- date: '2026-08-27'
+  agent: Codex (progression build)
+  action: DELIVERED
+  requirements: [CHOMP-SYS-037, CHOMP-SYS-069]
+  summary: >
+    Added the versioned ProfileService and recorded its rationale in
+    D-CHOMP-069. Published servers persist banked dollars, chassis ownership and
+    selection, seven upgrade levels and equipped modules; Studio is ephemeral.
+    Values are sanitised and clamped, operations retry, UpdateAsync saves on a
+    timer/leave/shutdown, and a failed read never writes defaults back. The
+    launch bay exposes loading/degraded state and the shop blocks purchases when
+    profile saving is blocked. All balance and persistence timing values remain
+    in ChompConfig under CHOMP-SYS-037.
+  status: DONE
+  handoff: >
+    CHOMP-TC-055 still needs a published-place test with a forced read failure
+    and a rejoin after purchase. D-CHOMP-070 separately records the seven-track
+    upgrade rationale requested by the prior BLOCKED entry. Correction to that
+    entry: D-CHOMP-011 is the multi-level maze decision, not a three-track
+    upgrade decision, so it has not been superseded.

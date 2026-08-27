@@ -1963,3 +1963,57 @@ decisions:
       decision record. Tagged for the authoring agent in CHAIN-PLATFORM with the
       commit list and the five changes worth a decision each, rather than
       reconstructed here from diffs.
+
+  - id: D-CHOMP-069
+    date: 2026-08-27
+    status: ACTIVE
+    title: Permanent progression is versioned and fails closed for purchases
+    decision: >
+      Banked dollars, chassis ownership and selection, seven upgrade licence
+      levels, and the equipped module list persist in one versioned server-side
+      profile. Studio deliberately uses an ephemeral profile. Published-server
+      reads are sanitised and clamped; reads and writes retry; saves use
+      UpdateAsync on autosave, leave, and shutdown. A failed read marks saving
+      blocked and may admit the player only through the degraded launch-bay
+      path; the shop refuses purchases for that session.
+    rationale: >
+      Vehicle progression is the return loop the owner asked to build. Keeping
+      it in player attributes alone made every chassis and upgrade disappear on
+      rejoin. The dangerous alternative is worse: treating a failed DataStore
+      read as a new player and later saving the defaults destroys real progress.
+      Separating Studio from production also prevents an ordinary local test
+      from mutating a child's live profile. Purchases are blocked while saving
+      is blocked because accepting currency for progress known to disappear is
+      not a degraded experience; it is a false transaction.
+    outcome: >
+      ProfileService.server.lua owns the persisted record and publishes the
+      attributes consumed by the existing garage, movement and HUD services.
+      CHOMP-SYS-069 and CHOMP-TC-055 are the binding requirement and verification.
+      This decision records the rationale requested by the 2026-08-27
+      CHAIN-PLATFORM BLOCKED entry.
+
+  - id: D-CHOMP-070
+    date: 2026-08-27
+    status: ACTIVE
+    title: Seven visible ladders replace three anonymous stat tracks
+    decision: >
+      Progression uses Engine, Handling, Armour, Cannon, Ordnance, Jump, and
+      Boost, each with three permanent rungs priced at $800, $3,500 and $9,500.
+      Standard through Apex expose one through four performance-module ports;
+      Cannon and Ordnance use dedicated weapon mounts. Cannon barrels become
+      compact single, twin and triple variants that alternate fire rather than
+      multiplying every shot. Permanent upgrades use recognisable module models
+      on the plinths; expendable refills remain a separate inner row.
+    rationale: >
+      The old Speed, Agility and Consumption cubes were mechanically narrow and
+      visually indistinguishable. Their $150/$400/$900 prices were also below
+      the roughly $1,000 solo wave-one payout, collapsing the ladder into one
+      visit. The seven tracks map to things children can see on the vehicle and
+      to the five HUD characteristics plus weapons. Alternating multi-barrels
+      provide the desired visual escalation and higher fire rate without
+      tripling damage, ammunition use, projectile replication, or wall casts.
+    outcome: >
+      ChompConfig is the single source for rung effects and prices. Progression,
+      movement, health, charge, jump, cannon and bomb services derive their
+      values from it. The exterior service-ring garage and richer module-picker
+      UI remain a separate geometry/interface delivery.
