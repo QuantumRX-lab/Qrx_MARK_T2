@@ -7921,8 +7921,9 @@ padsFolder.Name = "ItemPads"
 padsFolder.Parent = Workspace
 
 local function makePad(id: string, position: Vector3)
-	local cannonLevel = (character:GetAttribute("ChompUpgradeCannon") :: number?) or 0
-	local model = buildItemModel(id, id == "Cannon" and cannonLevel or nil)
+	-- Pads are shared world objects, so they cannot reflect one player's
+	-- progression. The equipped model is rebuilt at the owner's cannon level.
+	local model = buildItemModel(id)
 	model:SetAttribute("ItemId", id)
 	model:SetAttribute("HomeY", position.Y)
 	model:PivotTo(CFrame.new(position))
