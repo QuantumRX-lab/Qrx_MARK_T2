@@ -223,14 +223,14 @@ ChompConfig.Ghosts = {
 	Health = 1,                -- one clean hit; ghosts fly apart (D-CHOMP-054)
 	KillRewardDollars = 200,   -- paid straight to BANKED, never to the carry
 	RespawnSeconds = 12,
-	Speed = 21,                         -- slower than a Standard chassis on purpose
+	Speed = 22.5,                       -- urgent, but still slower than every chassis
 	-- Reach, rate and sight. These were literals inside GhostService against
 	-- CHOMP-SYS-037, and they are three of the first numbers anyone reaches
 	-- for when the game is too hard or too easy (D-CHOMP-066).
 	StealRadiusStuds = 11,
 	StealCooldownSeconds = 4,
-	SenseRadiusStuds = 260,
-	FleeSpeed = 14,
+	SenseRadiusStuds = 440,             -- aware across the full arena diameter
+	FleeSpeed = 18,                     -- ring drift stays visibly active
 	FullJawSeconds = 8,
 	-- CHOMP-SYS-053: the maze fills up when the lobby empties.
 	-- Highest player count whose threshold is met wins.
@@ -345,19 +345,19 @@ ChompConfig.Waves = {
 	-- Wave one has to bite (D-CHOMP-062). Four ghosts scattered around a
 	-- 800-stud disc is an empty map with some distant shapes in it; the first
 	-- thirty seconds decide whether anyone plays the second wave.
-	StartCount = 9,
-	AddPerWave = 3,
+	StartCount = 12,
+	AddPerWave = 4,
 	StartCountByPlayers = {
-		{ players = 1, count = 5 },
-		{ players = 3, count = 7 },
-		{ players = 6, count = 9 },
-		{ players = 12, count = 12 },
+		{ players = 1, count = 8 },
+		{ players = 3, count = 10 },
+		{ players = 6, count = 12 },
+		{ players = 12, count = 16 },
 	},
 	-- Ghosts arrive AROUND the player rather than parked on rings, so a wave
 	-- starts as an event instead of a rumour.
-	SpawnNearPlayerStuds = 150,
-	SpawnMinDistanceStuds = 55,
-	MaxCount = 22,
+	SpawnNearPlayerStuds = 120,
+	SpawnMinDistanceStuds = 45,
+	MaxCount = 24,
 	SpeedPerWave = 0.7,        -- studs/s added each wave
 	MaxSpeed = 24,             -- always outrunnable by a Standard
 	RewardPerWave = 60,        -- extra banked dollars per kill, per wave
