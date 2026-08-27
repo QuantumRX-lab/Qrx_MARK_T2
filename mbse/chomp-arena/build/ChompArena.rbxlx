@@ -370,7 +370,7 @@ ChompConfig.Waves = {
 	MaxSpeed = 24,             -- always outrunnable by a Standard
 	RewardPerWave = 60,        -- extra banked dollars per kill, per wave
 	BreakSeconds = 15,         -- enough time to bank and read the next wave
-	RevealLastAt = 2,
+	RevealLastAt = 4,            -- survivors stop drifting and actively find you
 	ItemRespawnReductionPerWave = 1.25,
 	MinimumItemRespawnSeconds = 8,
 }
@@ -8755,6 +8755,9 @@ local function useHeld(player: Player)
 			publish(player)
 			return
 		end
+		-- A held input can repeat before the mine arms. Never replace the bomb
+		-- during that window; the next distinct press detonates it once armed.
+		return
 	end
 
 	local h = activeItem(player)
@@ -12639,6 +12642,11 @@ local function fire()
 	end
 end
 
+local function holdingCannon(): boolean
+	local character = player.Character
+	return character ~= nil and character:GetAttribute("ChompItem") == "Cannon"
+end
+
 -- Returns steer (-1..1) and throttle (-1..1) from the stick, or 0, 0.
 local function stickAxes(): (number, number)
 	if not stickTouch then
@@ -12782,7 +12790,7 @@ local lastSent = Vector2.zero
 RunService.Heartbeat:Connect(function(dt)
 	accumulator += dt
 	fireAccumulator += dt
-	if fireTouch and fireAccumulator >= 0.1 then
+	if fireTouch and holdingCannon() and fireAccumulator >= 0.1 then
 		fireAccumulator = 0
 		fire()
 	end
@@ -12795,7 +12803,7 @@ RunService.Heartbeat:Connect(function(dt)
 	-- held rather than tapped; the SERVER owns the fire rate and simply ignores
 	-- anything faster. Sending on every frame and letting the server pace it is
 	-- correct - the client must never be the thing deciding how fast a gun goes.
-	if heldKeys[Enum.KeyCode.Space] then
+	if heldKeys[Enum.KeyCode.Space] and holdingCannon() then
 		fire()
 	end
 

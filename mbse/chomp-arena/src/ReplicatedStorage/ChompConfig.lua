@@ -362,7 +362,7 @@ ChompConfig.Waves = {
 	MaxSpeed = 24,             -- always outrunnable by a Standard
 	RewardPerWave = 60,        -- extra banked dollars per kill, per wave
 	BreakSeconds = 15,         -- enough time to bank and read the next wave
-	RevealLastAt = 2,
+	RevealLastAt = 4,            -- survivors stop drifting and actively find you
 	ItemRespawnReductionPerWave = 1.25,
 	MinimumItemRespawnSeconds = 8,
 }

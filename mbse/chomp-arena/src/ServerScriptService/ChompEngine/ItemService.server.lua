@@ -845,6 +845,9 @@ local function useHeld(player: Player)
 			publish(player)
 			return
 		end
+		-- A held input can repeat before the mine arms. Never replace the bomb
+		-- during that window; the next distinct press detonates it once armed.
+		return
 	end
 
 	local h = activeItem(player)

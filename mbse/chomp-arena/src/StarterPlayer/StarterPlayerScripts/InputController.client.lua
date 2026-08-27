@@ -75,6 +75,11 @@ local function fire()
 	end
 end
 
+local function holdingCannon(): boolean
+	local character = player.Character
+	return character ~= nil and character:GetAttribute("ChompItem") == "Cannon"
+end
+
 -- Returns steer (-1..1) and throttle (-1..1) from the stick, or 0, 0.
 local function stickAxes(): (number, number)
 	if not stickTouch then
@@ -218,7 +223,7 @@ local lastSent = Vector2.zero
 RunService.Heartbeat:Connect(function(dt)
 	accumulator += dt
 	fireAccumulator += dt
-	if fireTouch and fireAccumulator >= 0.1 then
+	if fireTouch and holdingCannon() and fireAccumulator >= 0.1 then
 		fireAccumulator = 0
 		fire()
 	end
@@ -231,7 +236,7 @@ RunService.Heartbeat:Connect(function(dt)
 	-- held rather than tapped; the SERVER owns the fire rate and simply ignores
 	-- anything faster. Sending on every frame and letting the server pace it is
 	-- correct - the client must never be the thing deciding how fast a gun goes.
-	if heldKeys[Enum.KeyCode.Space] then
+	if heldKeys[Enum.KeyCode.Space] and holdingCannon() then
 		fire()
 	end
 
