@@ -235,6 +235,8 @@ local function mount(character: Model, id: string)
 		yaw.Part0 = point
 		yaw.Part1 = base
 		yaw.C0 = point.CFrame:ToObjectSpace(base.CFrame)
+		yaw:SetAttribute("BaseC0", yaw.C0)
+		yaw:SetAttribute("Angle", 0)
 		yaw.Parent = base
 
 		local receiverWeld = Instance.new("WeldConstraint")
@@ -247,6 +249,8 @@ local function mount(character: Model, id: string)
 		pitch.Part0 = receiver
 		pitch.Part1 = barrel
 		pitch.C0 = receiver.CFrame:ToObjectSpace(barrel.CFrame)
+		pitch:SetAttribute("BaseC0", pitch.C0)
+		pitch:SetAttribute("Angle", 0)
 		pitch.Parent = barrel
 
 		for _, d in model:GetDescendants() do
@@ -477,8 +481,8 @@ local function updateLock(player: Player, dt: number)
 			end
 		end
 
-		local _, currentYaw = motor.Transform:ToOrientation()
-		local currentPitch = select(1, barrelMotor.Transform:ToOrientation())
+		local currentYaw = (motor:GetAttribute("Angle") :: number?) or 0
+		local currentPitch = (barrelMotor:GetAttribute("Angle") :: number?) or 0
 		local step = math.rad(def.turretTurnDegrees) * dt
 
 		local yawDiff = (wantedYaw - currentYaw + math.pi) % (math.pi * 2) - math.pi
@@ -490,8 +494,15 @@ local function updateLock(player: Player, dt: number)
 			or currentPitch + (pitchDiff > 0 and step or -step)
 
 		-- Yaw about the kart, then pitch about the barrel's own axis.
-		motor.Transform = CFrame.Angles(0, yaw, 0)
-		barrelMotor.Transform = CFrame.Angles(pitch, 0, 0)
+		-- Transform is an animation channel and does not reliably replicate from a
+		-- server-owned Motor6D. C0 does, so every client sees the same turret that
+		-- the authoritative targeting code is using.
+		local yawBase = (motor:GetAttribute("BaseC0") :: CFrame?) or motor.C0
+		local pitchBase = (barrelMotor:GetAttribute("BaseC0") :: CFrame?) or barrelMotor.C0
+		motor.C0 = yawBase * CFrame.Angles(0, yaw, 0)
+		barrelMotor.C0 = pitchBase * CFrame.Angles(pitch, 0, 0)
+		motor:SetAttribute("Angle", yaw)
+		barrelMotor:SetAttribute("Angle", pitch)
 	end
 end
 
