@@ -377,10 +377,25 @@ local function regroupSurvivors()
 	end
 end
 
+local function survivorsAreLost(): boolean
+	local foundSurvivor = false
+	for _, ghost in ghosts do
+		if ghost.model.Parent and ghost.model:GetAttribute("Dead") ~= true then
+			foundSurvivor = true
+			local _, distance = nearestKart(ghost.model:GetPivot().Position)
+			if distance <= W.SurvivorLostDistance then
+				return false
+			end
+		end
+	end
+	return foundSurvivor
+end
+
 -- Watch for a cleared wave. A break between waves is not politeness, it is the
 -- moment you bank what you just earned.
 task.spawn(function()
 	local previousAlive = math.huge
+	local lastRegroupAt = 0
 	while true do
 		task.wait(1)
 		local alive = aliveCount()
@@ -388,8 +403,14 @@ task.spawn(function()
 			local character = player.Character
 			if character then character:SetAttribute("ChompWaveAlive", alive) end
 		end
-		if alive > 0 and alive <= W.RevealLastAt and previousAlive > W.RevealLastAt then
+		local survivorsRevealed = alive > 0 and alive <= W.RevealLastAt
+		local firstReveal = survivorsRevealed and previousAlive > W.RevealLastAt
+		local recoveryDue = survivorsRevealed
+			and os.clock() - lastRegroupAt >= W.SurvivorRegroupSeconds
+			and survivorsAreLost()
+		if firstReveal or recoveryDue then
 			regroupSurvivors()
+			lastRegroupAt = os.clock()
 		end
 		previousAlive = alive
 		if waveActive and #ghosts > 0 and alive == 0 then

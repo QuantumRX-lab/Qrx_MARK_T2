@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.2.2-alpha"
+ChompConfig.ReleaseVersion = "0.2.3-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -368,6 +368,8 @@ ChompConfig.Waves = {
 	RewardPerWave = 60,        -- extra banked dollars per kill, per wave
 	BreakSeconds = 15,         -- enough time to bank and read the next wave
 	RevealLastAt = 4,            -- survivors stop drifting and actively find you
+	SurvivorRegroupSeconds = 7,  -- retry if the final survivors become stranded
+	SurvivorLostDistance = 130,  -- outside useful combat range, bring them back
 	ItemRespawnReductionPerWave = 1.25,
 	MinimumItemRespawnSeconds = 8,
 }
