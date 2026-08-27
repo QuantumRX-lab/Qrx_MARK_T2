@@ -709,8 +709,16 @@ local function fireCannon(player: Player)
 	cast.IgnoreWater = true
 	local wallCast = RaycastParams.new()
 	wallCast.FilterType = Enum.RaycastFilterType.Include
-	wallCast.FilterDescendantsInstances = CollectionService:GetTagged("Chomp_Wall")
+	local maps = Workspace:FindFirstChild("Maps")
+	wallCast.FilterDescendantsInstances = if maps then { maps }
+		else CollectionService:GetTagged("Chomp_Wall")
 	wallCast.IgnoreWater = true
+	-- Resolve the first piece of map geometry once, at fire time. The projectile
+	-- travels in a straight line, so this is deterministic and cannot miss a
+	-- wall because of a long or delayed Heartbeat frame.
+	local wallAhead = Workspace:Blockcast(pellet.CFrame, pellet.Size,
+		velocity.Unit * def.rangeStuds, wallCast)
+	local wallStopDistance = wallAhead and wallAhead.Distance or math.huge
 
 	local travelled = 0
 	local connection: RBXScriptConnection
@@ -718,6 +726,12 @@ local function fireCannon(player: Player)
 		if not pellet.Parent then connection:Disconnect() return end
 		local step = velocity * dt
 		local nextPos = pellet.Position + step
+		if travelled + step.Magnitude >= wallStopDistance then
+			sparkAt((wallAhead :: RaycastResult).Position, P.Gold)
+			pellet:Destroy()
+			connection:Disconnect()
+			return
+		end
 
 		-- Swept, not sampled. At 360 studs a second a per-frame position test
 		-- steps straight over a 2-stud wall roughly every other frame.

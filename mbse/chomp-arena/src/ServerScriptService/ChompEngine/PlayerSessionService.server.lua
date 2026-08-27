@@ -8,12 +8,12 @@ local CollectionService = game:GetService("CollectionService")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Launch = Config.Launch
-local homeCentre: Vector3? = nil
+local homePad: BasePart? = nil
 
-local function findHome(): Vector3?
+local function findHome(): BasePart?
 	for _, pad in CollectionService:GetTagged("Chomp_Garage") do
 		if pad:IsA("BasePart") and pad:GetAttribute("Home") == true then
-			return Vector3.new(pad.Position.X, 0, pad.Position.Z)
+			return pad
 		end
 	end
 	return nil
@@ -36,12 +36,21 @@ local function deploy(player: Player, character: Model)
 	if player:GetAttribute("ChompSessionState") ~= Launch.BayState then return end
 	publish(player, character, Launch.DeployingState)
 	character:SetAttribute("ChompDeployAt", os.clock())
+	character:SetAttribute("ChompLaunchCountdown", Launch.DeploymentSeconds)
 	character:SetAttribute("ChompLaunchMessage", "DEPLOYING")
+	for count = Launch.DeploymentSeconds - 1, 1, -1 do
+		task.delay(Launch.DeploymentSeconds - count, function()
+			if player.Character == character and character.Parent then
+				character:SetAttribute("ChompLaunchCountdown", count)
+			end
+		end)
+	end
 	task.delay(Launch.DeploymentSeconds, function()
 		if player.Character ~= character or not character.Parent then return end
 		publish(player, character, Launch.ActiveState)
 		character:SetAttribute("ChompProtectedUntil", os.clock() + Launch.SpawnProtectionSeconds)
 		character:SetAttribute("ChompLaunchMessage", "CHOMP!")
+		character:SetAttribute("ChompLaunchCountdown", 0)
 		character:SetAttribute("ChompDeployedAt", os.clock())
 	end)
 end
@@ -57,18 +66,19 @@ Players.PlayerAdded:Connect(function(player)
 end)
 
 RunService.Heartbeat:Connect(function()
-	homeCentre = homeCentre or findHome()
-	if not homeCentre then return end
+	homePad = homePad or findHome()
+	if not homePad then return end
 	for _, player in Players:GetPlayers() do
 		if player:GetAttribute("ChompSessionState") ~= Launch.BayState then continue end
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if not character or not root then continue end
-		local flat = Vector3.new(root.Position.X, 0, root.Position.Z)
-		local fromHome = flat - homeCentre
-		-- Deployment follows the visible safe-zone boundary, not the arch. The
-		-- arch points the way, but leaving by either side must behave identically.
-		if fromHome.Magnitude >= Config.Level1.HomeSafeRadiusStuds then
+		-- Use the actual rotated yellow floor, not the much larger ghost sanctuary.
+		-- The countdown begins on the first frame the vehicle centre leaves it.
+		local localPosition = homePad.CFrame:PointToObjectSpace(root.Position)
+		local outside = math.abs(localPosition.X) > homePad.Size.X / 2
+			or math.abs(localPosition.Z) > homePad.Size.Z / 2
+		if outside then
 			deploy(player, character)
 		end
 	end

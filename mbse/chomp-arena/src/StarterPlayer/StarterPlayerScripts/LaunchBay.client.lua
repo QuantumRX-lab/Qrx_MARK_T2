@@ -68,9 +68,8 @@ RunService.RenderStepped:Connect(function()
 	local chassis = player:GetAttribute("ChompEquippedChassis")
 	vehicle.Text = typeof(chassis) == "string" and string.upper(chassis) or "STANDARD"
 	if state == Config.Launch.DeployingState then
-		local at = character:GetAttribute("ChompDeployAt")
-		local elapsed = typeof(at) == "number" and os.clock() - at or 0
-		local left = math.max(1, math.ceil(Config.Launch.DeploymentSeconds - elapsed))
+		local countdown = character:GetAttribute("ChompLaunchCountdown")
+		local left = typeof(countdown) == "number" and countdown or Config.Launch.DeploymentSeconds
 		title.Text = tostring(left)
 		instruction.Text = "SYSTEMS ARMED  •  GET READY"
 		stroke.Color = P.NeonA
