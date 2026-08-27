@@ -9,7 +9,7 @@ owner: unassigned
 scope: Pellets, eating, the battle bar, carried points, banking at a garage, upgrades
   and Power. The loop the whole game hangs from.
 requirement_count: 6
-requirements: &id001
+requirements:
 - CHOMP-SYS-004
 - CHOMP-SYS-005
 - CHOMP-SYS-006
@@ -24,7 +24,13 @@ entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)
   action: ESTABLISHED
-  requirements: *id001
+  requirements:
+  - CHOMP-SYS-004
+  - CHOMP-SYS-005
+  - CHOMP-SYS-006
+  - CHOMP-SYS-007
+  - CHOMP-SYS-008
+  - CHOMP-SYS-009
   summary: Chain established with 6 requirements across v1, v2. Nothing built. See
     02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.

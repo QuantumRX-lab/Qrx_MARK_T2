@@ -10,7 +10,7 @@ scope: 'Impact classification and everything downstream of it: head-on contests,
   bites, scatter, invulnerability, being chomped, falls and drop attacks. The signature
   mechanic — nothing here may depend on a client''s word.'
 requirement_count: 14
-requirements: &id001
+requirements:
 - CHOMP-STK-003
 - CHOMP-SYS-010
 - CHOMP-SYS-011
@@ -33,7 +33,17 @@ entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)
   action: ESTABLISHED
-  requirements: *id001
+  requirements:
+  - CHOMP-STK-003
+  - CHOMP-SYS-010
+  - CHOMP-SYS-011
+  - CHOMP-SYS-012
+  - CHOMP-SYS-013
+  - CHOMP-SYS-014
+  - CHOMP-SYS-015
+  - CHOMP-SYS-016
+  - CHOMP-SYS-049
+  - CHOMP-SYS-050
   summary: Chain established with 10 requirements across v1, v2. Nothing built.
     See 02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.
@@ -234,3 +244,25 @@ entries:
     Not done: ghosts still pass through walls, so a shot that now stops at a
     wall can still be chased through one. That asymmetry is currently in the
     ghosts' favour and should be looked at with pathing.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: NOTE
+  requirements: [CHOMP-SYS-010]
+  summary: >
+    CORRECTION to the ESTABLISHED entry above, per this log's own protocol.
+    That entry read "Chain established with 10 requirements" while its
+    requirements field was a YAML ALIAS of the header list - so when
+    CHOMP-SYS-058 to -061 were appended to the header, the alias silently
+    rewrote the oldest entry to claim 14. The entry now carries the literal
+    ten it was established with, recovered from the commit that first added
+    this file.
+  status: OPEN
+  handoff: >
+    The header today holds 14 and that is correct and current. Only the
+    historical entry was wrong.
+    Anchors are gone from all ten chain logs and validate.py now rejects them:
+    an entry that aliases the header is an entry that changes when the header
+    changes, which is precisely what "append-only, never rewrite an existing
+    entry" forbids. The rule was never broken by hand - it was broken by a
+    convenience in the serialiser, which is the only way a rule like that ever
+    breaks.

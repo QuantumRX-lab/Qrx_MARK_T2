@@ -10,7 +10,7 @@ scope: 'The drivable chassis: model contract, movement stats, and the camera tha
   has to keep it on screen. Externally owned — models arrive through inbox/ and
   are accepted by conformance scan, never by eye.'
 requirement_count: 5
-requirements: &id001
+requirements:
 - CHOMP-SYS-001
 - CHOMP-SYS-002
 - CHOMP-SYS-003
@@ -23,7 +23,12 @@ entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)
   action: ESTABLISHED
-  requirements: *id001
+  requirements:
+  - CHOMP-SYS-001
+  - CHOMP-SYS-002
+  - CHOMP-SYS-003
+  - CHOMP-SYS-051
+  - CHOMP-SYS-054
   summary: Chain established with 5 requirements across v1. Nothing built. See 02_requirements/requirements.yaml
     for the shall statements and 04_verification/test_cases.yaml for how each is
     verified.
@@ -31,7 +36,12 @@ entries:
 - date: '2026-08-25'
   agent: Codex (vehicle design)
   action: CLAIMED
-  requirements: *id001
+  requirements:
+  - CHOMP-SYS-001
+  - CHOMP-SYS-002
+  - CHOMP-SYS-003
+  - CHOMP-SYS-051
+  - CHOMP-SYS-054
   summary: >
     Claimed the four chassis model delivery and the vehicle-chain interfaces for
     character-controller compatibility, server-held movement statistics, wall

@@ -27,7 +27,7 @@ acceptance run.
 | `00_need/need_statement.md` | Why this exists, what success looks like, what is out of scope |
 | `00_need/game_concept.md` | **Start here.** The design: loop, combat maths, ghosts, gates, the multi-level maze, match structure. Written to be read by a person, not parsed |
 | `01_stakeholders/stakeholders.md` | Who depends on this and what breaks it for them, including the tensions between them |
-| `02_requirements/requirements.yaml` | 62 requirements — 8 stakeholder, 54 system — phased v1/v2/v3, each on a decomposition chain |
+| `02_requirements/requirements.yaml` | Stakeholder and system requirements, phased v1/v2/v3, each on a decomposition chain |
 | `03_architecture/system_architecture.md` | Where everything lives in the DataModel, the client/server rule, the whole remote surface |
 | `03_architecture/player_state.md` | The player record, which service may write each field, and the invariants |
 | `03_architecture/service_contracts.md` | What each service owns, exposes and must not touch. The complete three-remote client surface |
@@ -37,9 +37,10 @@ acceptance run.
 | `03_architecture/vehicle_contract.md` | The interface a chassis model must satisfy. Handed to an external agent, checked by scan |
 | `03_architecture/authoring_kit.md` | v3: how the children build their own maps without scripting |
 | `04_verification/verification_strategy.md` | The five test levels and the publish gate |
-| `04_verification/test_cases.yaml` | 44 test cases, 41 automated or hybrid. The source of truth for the trace |
-| `05_risks/risk_register.yaml` | 12 open risks, including the honest ones about scope and about the children having no job until v3 |
-| `06_decisions/decision_log.yaml` | 11 decisions with rationale |
+| `04_verification/test_cases.yaml` | Test cases. The source of truth for the trace |
+| `05_risks/risk_register.yaml` | The risk register, including the honest ones about scope and about the children having no job until v3 |
+| `06_decisions/decision_log.yaml` | Every decision with its rationale, append-only |
+| `06_decisions/INDEX.md` | **Generated.** One line per decision, grouped by topic, with supersession status. Read this first |
 | `08_status/dashboard.yaml` | Hand-maintained rollup, checked against the records on every validate run |
 | `workstreams/` | One folder and one append-only log per decomposition chain. How several agents work this tree without colliding |
 | `src/` | Authored Luau, DataModel-shaped, synced into Studio (`D-CHOMP-012`). `ChompConfig` is the authoritative numbers; `ChompLogic/` holds the pure functions; `ChompTools/` holds the conformance scan |
@@ -110,3 +111,15 @@ rate, round length, upgrade prices — is only verifiable in play, with real
 players, most of them children (`RISK-CHOMP-011`). The tree can show that the
 mechanics work. `CHOMP-TC-001` and `CHOMP-TC-002` are the only two things in
 it that speak to whether the game is any good.
+
+## Counts
+
+There are none in this file on purpose. Every total lives in
+`08_status/dashboard.yaml`, which `validate.py` recomputes from the records on
+every run and fails on if it drifts.
+
+This section exists because the counts used to be here, and by 2026-08-27 they
+read 62 requirements (actual 69), 44 test cases (47) and **11 decisions (66)**.
+A number written by hand in prose is a number that will be wrong, and the guide
+that tells a new agent what each file holds is the worst place for one
+(D-CHOMP-067).

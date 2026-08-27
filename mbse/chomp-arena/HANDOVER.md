@@ -61,11 +61,11 @@ mbse/chomp-arena/
 ├── src/                      the actual game (DataModel-shaped, Rojo syncs it)
 ├── 00_need/                  need statement, game concept
 ├── 01_stakeholders/
-├── 02_requirements/          62 requirements, phased v1/v2/v3
+├── 02_requirements/          requirements, phased v1/v2/v3
 ├── 03_architecture/          the specs that constrain the code
-├── 04_verification/          44 test cases + the verification strategy
-├── 05_risks/                 13 risks
-├── 06_decisions/             21 decisions with rationale
+├── 04_verification/          test cases + the verification strategy
+├── 05_risks/                 the risk register
+├── 06_decisions/             every decision with rationale, plus a generated INDEX.md
 ├── 07_change/                changelog
 ├── 08_status/dashboard.yaml  rollups, checked by validate.py
 └── workstreams/              one append-only log per decomposition chain

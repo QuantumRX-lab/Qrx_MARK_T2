@@ -76,6 +76,7 @@ TC_REQUIRED_FIELDS = [
 ]
 TC_ID_RE = re.compile(r"^CHOMP-TC-\d{3}$")
 
+DECISION_STATUSES = {"ACTIVE", "PARTIAL", "SUPERSEDED", "VOID"}
 RISK_ENUMS = {"severity": {"CRITICAL", "HIGH", "MEDIUM", "LOW"}, "status": {"OPEN", "CLOSED"}}
 RISK_REQUIRED_FIELDS = ["id", "title", "description", "severity", "status", "detected"]
 RISK_ID_RE = re.compile(r"^RISK-CHOMP-\d{3}$")
@@ -117,6 +118,26 @@ class Report:
 
     @property
     def ok(self): return not self.errors
+
+
+def check_duplicate_keys(path, report):
+    """PyYAML keeps the LAST of two identical keys and says nothing.
+
+    A bad edit to dashboard.yaml today produced two next_actions blocks; the
+    file parsed, every count still reconciled, and validate.py passed while
+    reading the stale copy. A checker that can be fooled by a duplicated key is
+    a checker that certifies the wrong file (D-CHOMP-067).
+    """
+    seen, dupes = set(), []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line or line[0].isspace() or line.lstrip().startswith("#") or ":" not in line:
+            continue
+        key = line.split(":", 1)[0]
+        if key in seen:
+            dupes.append(key)
+        seen.add(key)
+    for key in dupes:
+        report.error(f"{path.name}: duplicate top-level key {key!r} - PyYAML silently keeps the last")
 
 
 def load_yaml(path):
@@ -218,7 +239,56 @@ def validate_decisions(report):
         if did in seen:
             report.error(f"Decision {did}: duplicate ID")
         seen.add(did)
-    return {d["id"]: d for d in decisions if "id" in d}
+        if d.get("status") and d["status"] not in DECISION_STATUSES:
+            report.error(f"Decision {did}: status {d['status']!r} not in {sorted(DECISION_STATUSES)}")
+
+    by_id = {d["id"]: d for d in decisions if "id" in d}
+
+    # ── Supersession, as data rather than prose (D-CHOMP-067) ───────────
+    # Eight supersessions lived only in sentences like "supersedes the
+    # electrified half of D-CHOMP-059", so the only way to know the current
+    # ruling on anything was to read all 1,800 lines and apply partial
+    # overrides in your head. An agent that read D-CHOMP-033 and stopped
+    # implemented the wrong controls; control_scheme.md proves it happened.
+    for did, d in by_id.items():
+        for ref in d.get("supersedes") or []:
+            other = ref.get("id") if isinstance(ref, dict) else ref
+            if other not in by_id:
+                report.error(f"Decision {did}: supersedes unknown {other}")
+            elif not any((r.get("id") if isinstance(r, dict) else r) == did
+                         for r in by_id[other].get("superseded_by") or []):
+                report.error(
+                    f"Decision {did}: says it supersedes {other}, but {other} "
+                    f"does not list {did} in superseded_by"
+                )
+        for ref in d.get("superseded_by") or []:
+            other = ref.get("id") if isinstance(ref, dict) else ref
+            if other not in by_id:
+                report.error(f"Decision {did}: superseded_by unknown {other}")
+            elif not any((r.get("id") if isinstance(r, dict) else r) == did
+                         for r in by_id[other].get("supersedes") or []):
+                report.error(
+                    f"Decision {did}: claims {other} supersedes it, but {other} "
+                    f"does not list {did} in supersedes"
+                )
+        if d.get("superseded_by") and d.get("status") == "ACTIVE":
+            report.error(f"Decision {did}: marked ACTIVE while something supersedes it")
+
+    # ── No silent holes in the sequence ─────────────────────────────────
+    # D-CHOMP-057 simply did not exist, and nobody could say whether a record
+    # had been deleted or the counter misread. A VOID tombstone answers it; an
+    # unexplained gap sends the next reader hunting for a record that is not
+    # there.
+    numbers = sorted(int(i.rsplit("-", 1)[1]) for i in by_id if DECISION_ID_RE.match(i))
+    if numbers:
+        for n in range(1, max(numbers) + 1):
+            did = f"D-CHOMP-{n:03d}"
+            if n not in numbers:
+                report.error(
+                    f"Decision sequence: {did} is missing. Add a tombstone entry "
+                    f"with status VOID if the number was skipped"
+                )
+    return by_id
 
 
 def check_reciprocity(requirements, test_cases, risks, report):
@@ -320,6 +390,17 @@ def check_workstream_logs(requirements, report):
         if not log_path.exists():
             report.error(f"Chain {chain}: no collaboration log at {log_path.relative_to(HERE)}")
             continue
+        raw = log_path.read_text(encoding="utf-8")
+        # An entry that ALIASES the header list is an entry that silently
+        # changes when the header changes. That is exactly what "append-only,
+        # never rewrite an existing entry" forbids, and it had already rewritten
+        # the oldest entry of two chains before anyone noticed - by hand nobody
+        # broke the rule; the YAML serialiser did (D-CHOMP-067).
+        if "*id" in raw or "&id" in raw:
+            report.error(
+                f"Chain {chain}: log uses a YAML anchor/alias. Every entry must "
+                f"carry its own literal requirements list, frozen at write time"
+            )
         log = load_yaml(log_path)
         if log.get("chain") != chain:
             report.error(f"{log_path.name} in {chain}/: declares chain {log.get('chain')!r}")
@@ -355,6 +436,134 @@ def check_workstream_logs(requirements, report):
                     )
         if not log.get("entries"):
             report.error(f"Chain {chain}: log has no entries")
+
+
+def check_delivery_claims(requirements, report):
+    """A requirement a chain log calls DELIVERED, still sitting at
+    verification_status NOT_STARTED.
+
+    The trace is bidirectional and validated, and it still could not see this:
+    every check here asks whether the records agree with EACH OTHER, and none
+    asks whether they agree with the game. Thirty-odd commits of shipped
+    gameplay went in while all 69 requirements read NOT_STARTED, which is the
+    tree quietly ceasing to describe anything (D-CHOMP-067).
+
+    A warning, not an error. Delivered is not verified, and pretending
+    otherwise would trade one lie for a shorter one - but the gap should be
+    visible on every run rather than discovered by reading YAML for an hour.
+    """
+    delivered = {}
+    for chain_dir in sorted(WORKSTREAMS_DIR.iterdir()):
+        log_path = chain_dir / "log.yaml"
+        if not log_path.is_file():
+            continue
+        for entry in load_yaml(log_path).get("entries") or []:
+            if entry.get("action") == "DELIVERED":
+                for rid in entry.get("requirements") or []:
+                    delivered.setdefault(rid, entry.get("date"))
+
+    stale = sorted(rid for rid, _ in delivered.items()
+                   if rid in requirements
+                   and requirements[rid].get("verification_status") == "NOT_STARTED")
+    if stale:
+        report.warn(
+            f"{len(stale)} requirement(s) are DELIVERED in a chain log but still "
+            f"read verification_status NOT_STARTED: {', '.join(stale[:8])}"
+            + (" ..." if len(stale) > 8 else "")
+        )
+
+
+def check_freshness(decisions, report):
+    """The dashboard's as_of against the newest record anywhere.
+
+    Its own header calls it a rollup "checked against the records on every
+    validate run", and the counts were - the DATE never was. It sat at
+    2026-08-25 through two days of shipping, next to next_actions telling the
+    reader to drive a map that no longer exists (D-CHOMP-067).
+    """
+    newest, source = None, None
+    for d in decisions.values():
+        if d.get("date") and (newest is None or str(d["date"]) > newest):
+            newest, source = str(d["date"]), d.get("id")
+    for chain_dir in sorted(WORKSTREAMS_DIR.iterdir()):
+        log_path = chain_dir / "log.yaml"
+        if not log_path.is_file():
+            continue
+        for entry in load_yaml(log_path).get("entries") or []:
+            if entry.get("date") and (newest is None or str(entry["date"]) > newest):
+                newest, source = str(entry["date"]), chain_dir.name
+    if newest is None:
+        return
+    as_of = str(load_yaml(DASHBOARD_FILE).get("as_of") or "")
+    if as_of < newest:
+        report.error(
+            f"dashboard: as_of {as_of or 'unset'} is older than the newest record "
+            f"({newest}, from {source}). Update the dashboard with the work, not after it"
+        )
+
+
+# Topics, assigned by keyword against the title. Nine buckets cover all 66.
+DECISION_TOPICS = [
+    ("controls",  ("steer", "control", "drive", "driving", "input", "touch", "stick", "thumb")),
+    ("camera",    ("camera", "occlusion", "readout")),
+    ("vehicle",   ("chassis", "vehicle", "kart", "wheel", "model", "mount", "avatar")),
+    ("map",       ("maze", "map", "level", "ring", "wall", "arena", "garage", "sanctuar")),
+    ("ghosts",    ("ghost", "wave", "guardian")),
+    ("items",     ("item", "weapon", "cannon", "bomb", "shield", "belt", "jet")),
+    ("economy",   ("bank", "dollar", "shop", "price", "purchase", "upgrade", "charge", "pellet", "robux", "profile")),
+    ("hud",       ("hud", "readable", "icon", "label", "display", "screen")),
+]
+
+
+def write_decision_index(decisions, report):
+    """Generate 06_decisions/INDEX.md from the records.
+
+    GENERATED, like verified_by, and for the same reason: a handwritten index
+    of 66 decisions is a number that drifts, and README.md proved it by
+    claiming 11 (D-CHOMP-067). An agent reads this plus the ACTIVE entries for
+    its topic - about five - instead of 1,800 lines of interleaved design
+    decisions and bug post-mortems.
+    """
+    buckets = {}
+    for d in sorted(decisions.values(), key=lambda x: x["id"]):
+        title = str(d.get("title", "")).lower()
+        topic = next((name for name, words in DECISION_TOPICS
+                      if any(w in title for w in words)), "process")
+        buckets.setdefault(topic, []).append(d)
+
+    lines = [
+        "# Decision index",
+        "",
+        "**Generated by `validate.py`. Do not edit.**",
+        "",
+        "Status is `ACTIVE` unless something supersedes it: `PARTIAL` means a",
+        "named half was replaced and the rest still rules, `SUPERSEDED` means all",
+        "of it was, `VOID` means the number was never used. Read the ACTIVE",
+        "entries for your topic before writing code that touches it.",
+        "",
+        f"{len(decisions)} decisions.",
+        "",
+    ]
+    for topic in sorted(buckets):
+        lines.append(f"## {topic}")
+        lines.append("")
+        for d in buckets[topic]:
+            status = d.get("status", "ACTIVE")
+            mark = f"**{d['id']}**" if status == "ACTIVE" else d["id"]
+            note = ""
+            if d.get("superseded_by"):
+                by = ", ".join((r.get("id") if isinstance(r, dict) else r)
+                               for r in d["superseded_by"])
+                note = f" — superseded by {by}"
+            lines.append(f"- {mark} `{status}` {d.get('date')} — {d.get('title')}{note}")
+        lines.append("")
+
+    text = chr(10).join(lines)
+    path = HERE / "06_decisions" / "INDEX.md"
+    existing = path.read_text(encoding="utf-8") if path.exists() else None
+    if existing != text:
+        path.write_text(text, encoding="utf-8", newline=chr(10))
+        report.note(f"regenerated {path.relative_to(HERE)} ({len(decisions)} decisions)")
 
 
 def check_dashboard(requirements, test_cases, risks, decisions, report):
@@ -435,6 +644,12 @@ def main():
     check_allocations(requirements, report)
     check_automation_coverage(requirements, test_cases, report)
     check_workstream_logs(requirements, report)
+    for f in [REQUIREMENTS_FILE, TEST_CASES_FILE, RISK_REGISTER_FILE,
+              DECISION_LOG_FILE, DASHBOARD_FILE]:
+        check_duplicate_keys(f, report)
+    write_decision_index(decisions, report)
+    check_delivery_claims(requirements, report)
+    check_freshness(decisions, report)
     check_dashboard(requirements, test_cases, risks, decisions, report)
 
     by_phase = {}

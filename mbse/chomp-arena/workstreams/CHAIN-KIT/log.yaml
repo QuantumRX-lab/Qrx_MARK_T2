@@ -9,7 +9,7 @@ owner: unassigned
 scope: 'v3: the authoring kit — tags and attributes, the mirror tool, Check My Maze.
   Deliberately last (D-CHOMP-001).'
 requirement_count: 4
-requirements: &id001
+requirements:
 - CHOMP-STK-008
 - CHOMP-SYS-043
 - CHOMP-SYS-044
@@ -22,7 +22,11 @@ entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)
   action: ESTABLISHED
-  requirements: *id001
+  requirements:
+  - CHOMP-STK-008
+  - CHOMP-SYS-043
+  - CHOMP-SYS-044
+  - CHOMP-SYS-045
   summary: Chain established with 4 requirements across v1, v3. Nothing built. See
     02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.

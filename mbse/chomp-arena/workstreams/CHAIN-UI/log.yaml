@@ -9,7 +9,7 @@ owner: unassigned
 scope: The HUD, touch controls on the iPad, colour-coded gate readiness, off-deck
   player markers. Display only — it holds no state.
 requirement_count: 8
-requirements: &id001
+requirements:
 - CHOMP-STK-001
 - CHOMP-SYS-030
 - CHOMP-SYS-031
@@ -25,7 +25,12 @@ entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)
   action: ESTABLISHED
-  requirements: *id001
+  requirements:
+  - CHOMP-STK-001
+  - CHOMP-SYS-030
+  - CHOMP-SYS-031
+  - CHOMP-SYS-032
+  - CHOMP-SYS-052
   summary: Chain established with 5 requirements across v1. Nothing built. See 02_requirements/requirements.yaml
     for the shall statements and 04_verification/test_cases.yaml for how each is
     verified.
@@ -253,3 +258,17 @@ entries:
     home garage pad, not the four-lane bay with turntable and equipment rack in
     LAUNCH-READINESS. Driving off the yellow pad IS the deployment gate. Specify
     what exists, or build what is specified, but the two are not the same today.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: NOTE
+  requirements: [CHOMP-SYS-030]
+  summary: >
+    CORRECTION to the ESTABLISHED entry above, same fault as CHAIN-COMBAT. It
+    read "Chain established with 5 requirements" while aliasing the header, so
+    appending CHOMP-SYS-055 to -057 retroactively made it claim 8. The entry now
+    carries the literal five it was established with, recovered from git.
+  status: OPEN
+  handoff: >
+    The header today holds 8 and that is correct. Only the historical entry was
+    wrong. See the CHAIN-COMBAT note of the same date for the general rule and
+    the validate.py check that now enforces it.

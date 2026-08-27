@@ -9,7 +9,7 @@ owner: unassigned
 scope: Ghost pathing on the deck graph, the pluggable personality modules, robbery
   on contact, power pellets, and scaling the ghost count to the player count.
 requirement_count: 8
-requirements: &id001
+requirements:
 - CHOMP-SYS-017
 - CHOMP-SYS-018
 - CHOMP-SYS-019
@@ -26,7 +26,15 @@ entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)
   action: ESTABLISHED
-  requirements: *id001
+  requirements:
+  - CHOMP-SYS-017
+  - CHOMP-SYS-018
+  - CHOMP-SYS-019
+  - CHOMP-SYS-020
+  - CHOMP-SYS-021
+  - CHOMP-SYS-040
+  - CHOMP-SYS-048
+  - CHOMP-SYS-053
   summary: Chain established with 8 requirements across v1, v2. Nothing built. See
     02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.

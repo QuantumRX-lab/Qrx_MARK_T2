@@ -8,7 +8,7 @@ chain: CHAIN-MATCH
 owner: unassigned
 scope: Rounds, intermissions, standings, the winner, per-match reset, and team play.
 requirement_count: 6
-requirements: &id001
+requirements:
 - CHOMP-STK-002
 - CHOMP-STK-004
 - CHOMP-SYS-027
@@ -23,7 +23,13 @@ entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)
   action: ESTABLISHED
-  requirements: *id001
+  requirements:
+  - CHOMP-STK-002
+  - CHOMP-STK-004
+  - CHOMP-SYS-027
+  - CHOMP-SYS-028
+  - CHOMP-SYS-029
+  - CHOMP-SYS-041
   summary: Chain established with 6 requirements across v1, v2. Nothing built. See
     02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.

@@ -10,7 +10,7 @@ scope: 'Map geometry: multi-level decks, four-fold symmetry, twelve garages thre
   per quadrant, the prefab pieces everything is built from. The daughter''s chain,
   in practice.'
 requirement_count: 3
-requirements: &id001
+requirements:
 - CHOMP-SYS-039
 - CHOMP-SYS-046
 - CHOMP-SYS-047
@@ -22,7 +22,10 @@ entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)
   action: ESTABLISHED
-  requirements: *id001
+  requirements:
+  - CHOMP-SYS-039
+  - CHOMP-SYS-046
+  - CHOMP-SYS-047
   summary: Chain established with 3 requirements across v1, v2. Nothing built. See
     02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.

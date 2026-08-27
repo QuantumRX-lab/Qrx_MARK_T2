@@ -239,6 +239,12 @@ decisions:
 
   - id: D-CHOMP-015
     date: 2026-08-25
+    superseded_by:
+      - id: D-CHOMP-026
+        scope: "the always-forward half; the rest of that decision stands"
+      - id: D-CHOMP-027
+        scope: "the always-forward rule"
+    status: PARTIAL
     title: Hold to turn, always driving forward, no action buttons
     decision: >
       Touch and hold on the left or right of the screen to steer, proportional
@@ -400,6 +406,10 @@ decisions:
 
   - id: D-CHOMP-022
     date: 2026-08-25
+    superseded_by:
+      - id: D-CHOMP-041
+        scope: "the v1 gate behaviour, in which an under-powered gate merely ejected the player"
+    status: PARTIAL
     title: Chassis models are authored as Luau specs, not binary .rbxm files
     decision: >
       A chassis is a declarative spec table in
@@ -499,6 +509,13 @@ decisions:
 
   - id: D-CHOMP-026
     date: 2026-08-25
+    supersedes:
+      - id: D-CHOMP-015
+        scope: "the always-forward half; the rest of that decision stands"
+    superseded_by:
+      - id: D-CHOMP-027
+        scope: "the hold-to-drive scheme"
+    status: PARTIAL
     title: Hold to drive — the steering hold is the throttle
     decision: >
       The vehicle moves only while the player holds a steering input, and coasts
@@ -527,6 +544,15 @@ decisions:
 
   - id: D-CHOMP-027
     date: 2026-08-25
+    supersedes:
+      - id: D-CHOMP-015
+        scope: "the always-forward rule"
+      - id: D-CHOMP-026
+        scope: "the hold-to-drive scheme"
+    superseded_by:
+      - id: D-CHOMP-033
+        scope: "the throttle-and-steering half; the floating touch anchor survives unchanged"
+    status: PARTIAL
     title: One floating stick — forward drives, left and right turn, back turns around
     decision: >
       Input is a single stick. Forward drives, left and right steer proportional
@@ -711,6 +737,13 @@ decisions:
 
   - id: D-CHOMP-033
     date: 2026-08-25
+    supersedes:
+      - id: D-CHOMP-027
+        scope: "the throttle-and-steering half; the floating touch anchor survives unchanged"
+    superseded_by:
+      - id: D-CHOMP-042
+        scope: "the grid driving; the asymmetric steer ramp from D-CHOMP-032 is kept"
+    status: PARTIAL
     title: Grid driving — a direction is the drive command
     decision: >
       The four directions are absolute and each one is both steering and
@@ -946,6 +979,10 @@ decisions:
 
   - id: D-CHOMP-041
     date: 2026-08-25
+    supersedes:
+      - id: D-CHOMP-022
+        scope: "the v1 gate behaviour, in which an under-powered gate merely ejected the player"
+    status: ACTIVE
     title: Level 1 is a bowl arena with a committed guardian chamber
     decision: >
       Level 1 uses four outer spawn quadrants, an easy rim maze, a broad slope
@@ -974,6 +1011,10 @@ decisions:
 
   - id: D-CHOMP-042
     date: 2026-08-25
+    supersedes:
+      - id: D-CHOMP-033
+        scope: "the grid driving; the asymmetric steer ramp from D-CHOMP-032 is kept"
+    status: ACTIVE
     title: Continuous steering, because a bowl has no cardinal directions
     decision: >
       Steering is proportional again: hold forward to drive, steer left and
@@ -1021,6 +1062,10 @@ decisions:
 
   - id: D-CHOMP-044
     date: 2026-08-25
+    superseded_by:
+      - id: D-CHOMP-046
+        scope: "the two-level bowl"
+    status: SUPERSEDED
     title: Level 1 is built as a bowl, and the geometry is curved throughout
     decision: >
       BowlMap builds Level 1 from ChompConfig.Level1: a raised rim carrying a
@@ -1049,6 +1094,10 @@ decisions:
 
   - id: D-CHOMP-045
     date: 2026-08-25
+    superseded_by:
+      - id: D-CHOMP-062
+        scope: "the single slot"
+    status: PARTIAL
     title: One slot, four items, and a fourth remote that carries nothing
     decision: >
       Items lie on pads around Level 1 and a driver carries exactly one: a
@@ -1090,6 +1139,10 @@ decisions:
 
   - id: D-CHOMP-046
     date: 2026-08-25
+    supersedes:
+      - id: D-CHOMP-044
+        scope: "the two-level bowl"
+    status: ACTIVE
     title: Level 1 is one sealed level, twice the size, and lit
     decision: >
       Level 1 is a single-level disc 800 studs across with an unbroken boundary
@@ -1422,6 +1475,10 @@ decisions:
 
   - id: D-CHOMP-059
     date: 2026-08-25
+    superseded_by:
+      - id: D-CHOMP-063
+        scope: "the electrified half; the waves, 360 lock, charge button and friendly-fire switch stand"
+    status: PARTIAL
     title: Waves, charge, electrified rings, 360 lock and a friendly-fire switch
     decision: >
       Ghosts arrive in waves that grow in count, speed and payout; clearing one
@@ -1528,6 +1585,10 @@ decisions:
 
   - id: D-CHOMP-062
     date: 2026-08-25
+    supersedes:
+      - id: D-CHOMP-045
+        scope: "the single slot"
+    status: ACTIVE
     title: A belt of five, spent in order, and a first wave that arrives around you
     decision: >
       A player carries up to five items, spent in the order collected, with the
@@ -1569,6 +1630,10 @@ decisions:
 
   - id: D-CHOMP-063
     date: 2026-08-26
+    supersedes:
+      - id: D-CHOMP-059
+        scope: "the electrified half; the waves, 360 lock, charge button and friendly-fire switch stand"
+    status: ACTIVE
     title: Electrified rings removed; the maze is masonry again
     decision: >
       The electrified rings are gone entirely — from the map, from the config,
@@ -1773,3 +1838,75 @@ decisions:
       makes it, the flag is where it starts.
       ChompProfileSaveBlocked was published and read by nothing before this;
       it now gates the shop, which is what it was always for.
+
+  - id: D-CHOMP-057
+    date: 2026-08-25
+    status: VOID
+    title: Number skipped
+    decision: >
+      No decision was ever recorded under this ID. It is a gap in the sequence,
+      not a lost record.
+    rationale: >
+      Found by a continuity check added in D-CHOMP-067: the IDs ran 056, 058.
+      Nobody could say whether a decision had been deleted, a draft abandoned,
+      or the counter simply misread during a fast session on 2026-08-25 - and
+      that ambiguity is the whole problem. A tombstone costs nothing and closes
+      the question permanently; an unexplained hole invites the next reader to
+      go looking for a record that does not exist.
+    outcome: >
+      validate.py now fails on any gap in the D-CHOMP sequence unless a VOID
+      entry accounts for it.
+
+  - id: D-CHOMP-067
+    date: 2026-08-27
+    status: ACTIVE
+    title: The tree is made to notice when it stops being true
+    decision: >
+      Six additions, all mechanical. YAML anchors are banned from chain logs and
+      every entry now carries its own literal requirements list frozen at write
+      time, with the two damaged ESTABLISHED entries corrected by NOTE entries
+      and their original lists recovered from git. Decisions gain
+      supersedes/superseded_by/status (ACTIVE, PARTIAL, SUPERSEDED, VOID), the
+      eight prose supersessions are back-filled as data, and D-CHOMP-057 gets a
+      VOID tombstone. validate.py gains five checks: no anchors in chain logs,
+      supersession reciprocity, no gap in the decision sequence, dashboard as_of
+      not older than the newest record anywhere, and no duplicate top-level YAML
+      keys. It also GENERATES 06_decisions/INDEX.md. A requirement a chain calls
+      DELIVERED while still reading NOT_STARTED raises a warning. Live counts are
+      stripped from README.md and HANDOVER.md.
+    rationale: >
+      The tree passed every check while quietly ceasing to describe the game.
+      Thirty-three commits between 2026-08-26 and -27 - audio, the lighting rig,
+      persistence, the launch bay, a seven-track upgrade ladder - landed with one
+      decision and two chain entries between them, and nothing complained,
+      because every check asked whether the records agreed with EACH OTHER and
+      none asked whether they agreed with the code.
+      That is the failure worth automating against. The structure was never the
+      problem; the problem is that keeping it current costs more than skipping
+      it, and only the cheap half was policed.
+      Each check is a fault this project has already paid for. The anchors had
+      silently rewritten the oldest entry of two chains - append-only was never
+      broken by hand, it was broken by a convenience in the serialiser, which is
+      the only way a rule like that ever breaks. The missing 057 left nobody able
+      to say whether a record had been deleted. The prose supersessions meant the
+      current ruling on the control scheme could only be found by reading 1,800
+      lines and applying partial overrides in your head, and control_scheme.md is
+      the proof that a reader got it wrong. The duplicate-key check exists
+      because a bad edit to dashboard.yaml TODAY produced two next_actions blocks
+      that parsed fine, reconciled fine, and left validate.py certifying the
+      stale copy.
+    outcome: >
+      INDEX.md is generated, like verified_by, and for the same reason: a
+      handwritten index of 66 decisions is a number that drifts, and README.md
+      proved it by claiming 11. An agent now reads the index plus the ACTIVE
+      entries for its topic - about five - instead of the whole log.
+      The DELIVERED-versus-NOT_STARTED check is a WARNING, not an error, and
+      currently names 14 requirements. Delivered is not verified; making it fail
+      would only trade one lie for a shorter one. The warning is the backlog made
+      visible on every run.
+      Counts are gone from prose entirely. They live in dashboard.yaml, which is
+      recomputed and enforced. By today README.md read 62 requirements against an
+      actual 69, 44 test cases against 47, and 11 decisions against 66.
+      What this does NOT fix: six requirements still describe a deleted game, the
+      new mechanics still have no requirement IDs, and the 33 undocumented
+      commits are still undocumented. Those need judgement, not a checker.
