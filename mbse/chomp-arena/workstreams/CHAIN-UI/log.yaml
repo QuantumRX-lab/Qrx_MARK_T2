@@ -232,7 +232,7 @@ entries:
 - date: '2026-08-27'
   agent: Claude (local session)
   action: NOTE
-  requirements: [CHOMP-SYS-051, CHOMP-SYS-052]
+  requirements: [CHOMP-SYS-055, CHOMP-SYS-056]
   summary: >
     BUILDING.md's play and test sections and CHOMP-TC-040 rewritten to match the
     built game. Both still described two decks, a bridge and a tower core that
