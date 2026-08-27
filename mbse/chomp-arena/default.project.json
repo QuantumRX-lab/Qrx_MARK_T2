@@ -26,6 +26,9 @@
         },
         "SelectItem": {
           "$className": "RemoteEvent"
+        },
+        "ToggleModule": {
+          "$className": "RemoteEvent"
         }
       }
     },

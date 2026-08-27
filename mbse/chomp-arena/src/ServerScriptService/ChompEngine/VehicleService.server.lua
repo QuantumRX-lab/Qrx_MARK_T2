@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local VehicleFactory = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleFactory"))
+local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
 
 local SPECS = ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleSpecs")
 
@@ -262,6 +263,51 @@ local function ensureMounts(character: Model): boolean
 	return repaired
 end
 
+local MODULE_OFFSETS = {
+	CFrame.new(-3.2, 2.1, 2.6),
+	CFrame.new(3.2, 2.1, 2.6),
+	CFrame.new(-3.2, 2.1, -1.8),
+	CFrame.new(3.2, 2.1, -1.8),
+}
+
+local function refreshModules(player: Player, character: Model)
+	local vehicle = character:FindFirstChild("Vehicle")
+	if not vehicle or not vehicle:IsA("Model") or not vehicle.PrimaryPart then return end
+	local old = vehicle:FindFirstChild("MountedModules")
+	if old then old:Destroy() end
+
+	local folder = Instance.new("Folder")
+	folder.Name = "MountedModules"
+	folder.Parent = vehicle
+	local raw = (player:GetAttribute("ChompEquippedModules") :: string?) or ""
+	local slot = 0
+	for track in string.gmatch(raw, "[^,]+") do
+		local level = (player:GetAttribute("ChompUpgrade" .. track) :: number?) or 0
+		if level <= 0 then continue end
+		slot += 1
+		local offset = MODULE_OFFSETS[slot]
+		if not offset then break end
+		local module = ItemModels.buildUpgrade(track, level)
+		module.Name = track .. "Module"
+		module:ScaleTo(0.38)
+		module:PivotTo(vehicle.PrimaryPart.CFrame * offset)
+		module.Parent = folder
+		for _, piece in module:GetDescendants() do
+			if piece:IsA("BasePart") then
+				piece.Anchored = false
+				piece.Massless = true
+				piece.CanCollide = false
+				piece.CanQuery = false
+				piece.CanTouch = false
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = vehicle.PrimaryPart
+				weld.Part1 = piece
+				weld.Parent = piece
+			end
+		end
+	end
+end
+
 local function fitVehicle(player: Player, character: Model)
 	if character:FindFirstChild("Vehicle") then return end
 
@@ -340,6 +386,7 @@ local function fitVehicle(player: Player, character: Model)
 
 	model.Parent = character
 	ensureMounts(character)
+	refreshModules(player, character)
 
 	if Config.Vehicle and Config.Vehicle.NamePlate then
 		nameplate(player, model, primary)
@@ -359,6 +406,11 @@ local function onCharacter(player: Player, character: Model)
 	character:GetAttributeChangedSignal("ChompRefit"):Connect(function()
 		task.defer(function()
 			if character.Parent then fitVehicle(player, character) end
+		end)
+	end)
+	character:GetAttributeChangedSignal("ChompModulesChanged"):Connect(function()
+		task.defer(function()
+			if character.Parent then refreshModules(player, character) end
 		end)
 	end)
 end

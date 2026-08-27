@@ -19,6 +19,8 @@
 
 local ChompConfig = {}
 
+ChompConfig.ReleaseVersion = "0.2.0-alpha"
+
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
 -- rather than a straight upgrade. An Apex that has just respawned with an
@@ -110,6 +112,9 @@ ChompConfig.Movement = {
 
 ChompConfig.Upgrades = {
 	Tracks = { "Engine", "Handling", "Armour", "Cannon", "Ordnance", "Jump", "Boost" },
+	-- Cannon owns the dedicated roof hardpoint. Every other performance system
+	-- consumes one chassis module port when active.
+	PortTracks = { "Engine", "Handling", "Armour", "Ordnance", "Jump", "Boost" },
 	ModuleTracks = { "Engine", "Handling", "Armour", "Jump", "Boost" },
 	Costs = { 800, 3500, 9500 },
 	PowerPerLevel = 40,
@@ -152,7 +157,7 @@ ChompConfig.Upgrades = {
 }
 
 ChompConfig.Profile = {
-	SchemaVersion = 2,
+	SchemaVersion = 3,
 	StoreName = "ChompPlayerProfileV2",
 	AutosaveSeconds = 60,
 	RetryCount = 3,

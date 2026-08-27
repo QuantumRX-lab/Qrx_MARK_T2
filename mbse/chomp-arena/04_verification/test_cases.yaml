@@ -764,7 +764,10 @@ test_cases:
                 "UseCharge while dead", "ToggleFriendlyFire flooded",
                 "ToggleFriendlyFire with forged arguments",
                 "SelectItem with an out-of-range slot", "SelectItem with a non-number slot",
-                "SelectItem with NaN", "SelectItem for a slot the belt does not hold"]
+                "SelectItem with NaN", "SelectItem for a slot the belt does not hold",
+                "ToggleModule with an unknown track", "ToggleModule for an unowned licence",
+                "ToggleModule outside a sanctuary", "ToggleModule with every chassis port occupied",
+                "ToggleModule flooded past its rate limit"]
     procedure:
       - "Run every recorded attack against a live server as an automated suite"
       - "Assert the server-side economy, Power and combat state are unchanged by every one of them"

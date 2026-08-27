@@ -333,6 +333,36 @@ local wavePanel = panel("Wave", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 72), U
 local waveLabel = label(wavePanel, UDim2.new(1, -20, 1, -10), UDim2.new(0, 10, 0, 5),
 	"WAVE 1", P.Ghost, 18, Enum.TextXAlignment.Center)
 
+-- Loadout controls only appear in a sanctuary. Licences are permanent, but a
+-- chassis can power only as many active systems as it has physical ports.
+local modulePanel = panel("Modules", Vector2.zero, UDim2.new(0, 16, 0, 132), UDim2.new(0, 142, 0, 246))
+local portLabel = label(modulePanel, UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 0, 6),
+	"MODULES 0/1", P.NeonA, 15, Enum.TextXAlignment.Center)
+local moduleButtons: { [string]: TextButton } = {}
+for index, track in Config.Upgrades.PortTracks do
+	local button = Instance.new("TextButton")
+	button.Name = track
+	button.Position = UDim2.new(0, 8, 0, 36 + (index - 1) * 34)
+	button.Size = UDim2.new(1, -16, 0, 28)
+	button.BackgroundColor3 = P.Floor
+	button.BackgroundTransparency = 0.25
+	button.BorderSizePixel = 0
+	button.Text = string.upper(track)
+	button.TextColor3 = P.Ghost
+	button.TextSize = 13
+	button.Font = Enum.Font.GothamBold
+	button.AutoButtonColor = false
+	button.Parent = modulePanel
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 6)
+	corner.Parent = button
+	button.Activated:Connect(function()
+		Remotes.ToggleModule:FireServer(track)
+	end)
+	moduleButtons[track] = button
+end
+modulePanel.Visible = false
+
 -- ── A flash when something is taken ─────────────────────────────────────
 local flash = Instance.new("Frame")
 flash.Name = "StolenFlash"
@@ -496,6 +526,28 @@ RunService.RenderStepped:Connect(function(dt)
 	local waveAlive = attribute("ChompWaveAlive")
 	waveLabel.Text = (waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1")
 		.. "  •  " .. tostring(waveAlive) .. " LEFT"
+
+	local safe = character:GetAttribute("ChompSafe") == true
+	modulePanel.Visible = safe
+	if safe then
+		local equippedRaw = (character:GetAttribute("ChompEquippedModules") :: string?) or ""
+		local equipped = {}
+		for track in string.gmatch(equippedRaw, "[^,]+") do equipped[track] = true end
+		local used = attribute("ChompPortsUsed")
+		local ports = attribute("ChompModulePorts")
+		portLabel.Text = "MODULES " .. tostring(used) .. "/" .. tostring(ports)
+		portLabel.TextColor3 = used < ports and P.NeonA or P.Gold
+		for _, track in Config.Upgrades.PortTracks do
+			local button = moduleButtons[track]
+			local level = (player:GetAttribute("ChompUpgrade" .. track) :: number?) or 0
+			local active = equipped[track] == true
+			button.Active = level > 0
+			button.Text = string.upper(track) .. (level > 0 and ("  " .. string.rep("I", level)) or "  LOCKED")
+			button.BackgroundColor3 = active and P.NeonA or P.Floor
+			button.BackgroundTransparency = active and 0.05 or (level > 0 and 0.25 or 0.55)
+			button.TextColor3 = active and P.Floor or (level > 0 and P.Ghost or P.Boundary)
+		end
+	end
 
 	-- Health. Colour carries the reading, so a glance is enough: green is fine,
 	-- gold is careful, red is one more hit.

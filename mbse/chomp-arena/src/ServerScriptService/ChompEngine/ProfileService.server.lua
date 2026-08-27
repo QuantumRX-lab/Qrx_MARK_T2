@@ -13,6 +13,17 @@ local store = DataStoreService:GetDataStore(PROFILE.StoreName)
 local loaded: { [Player]: boolean } = {}
 local blocked: { [Player]: boolean } = {}
 
+local function moduleList(raw: string): { string }
+	local out, seen = {}, {}
+	for track in string.gmatch(raw, "[^,]+") do
+		if table.find(Config.Upgrades.PortTracks, track) and not seen[track] then
+			seen[track] = true
+			table.insert(out, track)
+		end
+	end
+	return out
+end
+
 local function defaultProfile()
 	local upgrades = {}
 	for _, track in Config.Upgrades.Tracks do upgrades[track] = 0 end
@@ -34,7 +45,6 @@ local function sanitize(raw: any)
 	if typeof(raw.equippedChassis) == "string" and Config.Chassis[raw.equippedChassis] then
 		out.equippedChassis = raw.equippedChassis
 	end
-	if typeof(raw.equippedModules) == "string" then out.equippedModules = raw.equippedModules end
 	if typeof(raw.upgrades) == "table" then
 		for _, track in Config.Upgrades.Tracks do
 			local value = raw.upgrades[track]
@@ -47,6 +57,23 @@ local function sanitize(raw: any)
 		out.upgrades.Handling = math.max(out.upgrades.Handling, tonumber(raw.upgrades.Agility) or 0)
 		out.upgrades.Boost = math.max(out.upgrades.Boost, tonumber(raw.upgrades.Consumption) or 0)
 	end
+
+	local ports = Config.Chassis[out.equippedChassis].ModulePorts
+	local equipped = if typeof(raw.equippedModules) == "string"
+		then moduleList(raw.equippedModules) else {}
+	-- Schema 2 stored the field but never used it. Preserve the old always-on
+	-- experience by filling available ports with owned modules during migration.
+	if (tonumber(raw.schemaVersion) or 0) < 3 then
+		table.clear(equipped)
+		for _, track in Config.Upgrades.PortTracks do
+			if out.upgrades[track] > 0 and #equipped < ports then table.insert(equipped, track) end
+		end
+	end
+	local valid = {}
+	for _, track in equipped do
+		if out.upgrades[track] > 0 and #valid < ports then table.insert(valid, track) end
+	end
+	out.equippedModules = table.concat(valid, ",")
 	return out
 end
 
@@ -64,9 +91,7 @@ local function publish(player: Player, profile)
 	if character then
 		character:SetAttribute("ChompDollars", profile.bankedDollars)
 		character:SetAttribute("ChompChassis", profile.equippedChassis)
-		for _, track in Config.Upgrades.Tracks do
-			character:SetAttribute("ChompUpgrade" .. track, profile.upgrades[track])
-		end
+		character:SetAttribute("ChompEquippedModules", profile.equippedModules)
 	end
 end
 

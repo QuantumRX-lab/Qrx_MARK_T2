@@ -28,7 +28,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local NAMES = { "RequestPurchase", "RequestBank", "SetInputDirection", "UseItem",
-	"UseCharge", "ToggleFriendlyFire", "SelectItem" }
+	"UseCharge", "ToggleFriendlyFire", "SelectItem", "ToggleModule" }
 local TIMEOUT = 10
 
 local Remotes = {}
@@ -56,6 +56,7 @@ Remotes.Limits = {
 	UseCharge = 3,
 	ToggleFriendlyFire = 2,
 	SelectItem = 6,
+	ToggleModule = 4,
 }
 
 --[[

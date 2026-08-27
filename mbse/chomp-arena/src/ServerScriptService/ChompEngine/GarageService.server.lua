@@ -39,6 +39,7 @@ local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local VehicleFactory = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleFactory"))
 local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
 local Progression = require(ReplicatedStorage:WaitForChild("ChompLogic"):WaitForChild("Progression"))
@@ -126,6 +127,7 @@ end
 type Offer = { id: string, kind: string, title: string, dollars: number, robux: number? }
 
 local TRACKS = Config.Upgrades.Tracks
+local PORT_TRACKS = Config.Upgrades.PortTracks
 
 local function upgradesOf(player: Player)
 	return {
@@ -137,6 +139,39 @@ local function upgradesOf(player: Player)
 		Jump = (player:GetAttribute("ChompUpgradeJump") :: number?) or 0,
 		Boost = (player:GetAttribute("ChompUpgradeBoost") :: number?) or 0,
 	}
+end
+
+local function equippedList(player: Player): { string }
+	local out, seen = {}, {}
+	local raw = (player:GetAttribute("ChompEquippedModules") :: string?) or ""
+	for track in string.gmatch(raw, "[^,]+") do
+		if table.find(PORT_TRACKS, track) and not seen[track]
+			and ((player:GetAttribute("ChompUpgrade" .. track) :: number?) or 0) > 0 then
+			seen[track] = true
+			table.insert(out, track)
+		end
+	end
+	return out
+end
+
+local function setEquipped(player: Player, modules: { string })
+	local chassisId = (player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis
+	local ports = Config.Chassis[chassisId].ModulePorts
+	while #modules > ports do table.remove(modules) end
+	local raw = table.concat(modules, ",")
+	player:SetAttribute("ChompEquippedModules", raw)
+	local character = player.Character
+	if character then character:SetAttribute("ChompEquippedModules", raw) end
+end
+
+local function activeUpgradesOf(player: Player)
+	local active = upgradesOf(player)
+	local equipped = {}
+	for _, track in equippedList(player) do equipped[track] = true end
+	for _, track in PORT_TRACKS do
+		if not equipped[track] then active[track] = 0 end
+	end
+	return active
 end
 
 local function owns(player: Player, chassisId: string): boolean
@@ -152,8 +187,9 @@ end
 
 local function publishProgression(player: Player, character: Model)
 	local chassisId = (player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis
-	local upgrades = upgradesOf(player)
+	local upgrades = activeUpgradesOf(player)
 	local stats = Progression.effectiveStats(chassisId, upgrades)
+	for _, track in TRACKS do character:SetAttribute("ChompUpgrade" .. track, upgrades[track]) end
 	character:SetAttribute("ChompPower", Progression.computePower(chassisId, upgrades))
 	character:SetAttribute("ChompBarCapacity", Config.Chassis[chassisId].BarCapacity)
 	character:SetAttribute("ChompMouthArcDegrees", stats.mouthArcDegrees)
@@ -162,6 +198,9 @@ local function publishProgression(player: Player, character: Model)
 	character:SetAttribute("ChompChargeCapacity", stats.chargeCapacity)
 	character:SetAttribute("ChompMaxHealth", stats.maxHealth)
 	character:SetAttribute("ChompModulePorts", stats.modulePorts)
+	character:SetAttribute("ChompPortsUsed", #equippedList(player))
+	character:SetAttribute("ChompEquippedModules",
+		(player:GetAttribute("ChompEquippedModules") :: string?) or "")
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid then humanoid.MaxHealth = stats.maxHealth end
 end
@@ -491,6 +530,7 @@ local function buy(player: Player, offer: Offer): (boolean, string)
 	if offer.kind == "chassis" then
 		if owns(player, offer.id) then
 			player:SetAttribute("ChompEquippedChassis", offer.id)
+			setEquipped(player, equippedList(player))
 			character:SetAttribute("ChompChassis", offer.id)
 			publishProgression(player, character)
 			refitVehicle(player)
@@ -502,6 +542,7 @@ local function buy(player: Player, offer: Offer): (boolean, string)
 		if dollars < price then return false, "NEED $" .. tostring(price - dollars) .. " MORE" end
 		addOwned(player, offer.id)
 		player:SetAttribute("ChompEquippedChassis", offer.id)
+		setEquipped(player, equippedList(player))
 		character:SetAttribute("ChompChassis", offer.id)
 		publishProgression(player, character)
 		refitVehicle(player)
@@ -525,8 +566,17 @@ local function buy(player: Player, offer: Offer): (boolean, string)
 		local key = "ChompUpgrade" .. offer.id
 		local level = (player:GetAttribute(key) :: number?) or 0
 		player:SetAttribute(key, level + 1)
-		character:SetAttribute(key, level + 1)
+		if table.find(PORT_TRACKS, offer.id) then
+			local equipped = equippedList(player)
+			local ports = Config.Chassis[(player:GetAttribute("ChompEquippedChassis") :: string?)
+				or Config.StartingChassis].ModulePorts
+			if not table.find(equipped, offer.id) and #equipped < ports then
+				table.insert(equipped, offer.id)
+				setEquipped(player, equipped)
+			end
+		end
 		publishProgression(player, character)
+		character:SetAttribute("ChompModulesChanged", os.clock())
 	end
 
 	character:SetAttribute("ChompDollars", dollars - price)
@@ -596,25 +646,66 @@ local function dwellLoop()
 	end
 end
 
-Players.PlayerAdded:Connect(function(player)
+local function syncCharacter(player: Player, character: Model)
+	character:SetAttribute("ChompChassis",
+		player:GetAttribute("ChompEquippedChassis") or Config.StartingChassis)
+	setEquipped(player, equippedList(player))
+	publishProgression(player, character)
+	character:SetAttribute("ChompModulesChanged", os.clock())
+end
+
+local function setupPlayer(player: Player)
 	if player:GetAttribute("ChompOwnedChassis") == nil then player:SetAttribute("ChompOwnedChassis", "Standard") end
 	if player:GetAttribute("ChompEquippedChassis") == nil then
 		player:SetAttribute("ChompEquippedChassis", Config.StartingChassis)
 	end
+	if player:GetAttribute("ChompEquippedModules") == nil then player:SetAttribute("ChompEquippedModules", "") end
 	for _, track in TRACKS do
 		if player:GetAttribute("ChompUpgrade" .. track) == nil then
 			player:SetAttribute("ChompUpgrade" .. track, 0)
 		end
 	end
 	player.CharacterAdded:Connect(function(character)
-		character:SetAttribute("ChompChassis",
-			player:GetAttribute("ChompEquippedChassis") or Config.StartingChassis)
-		for _, track in TRACKS do
-			character:SetAttribute("ChompUpgrade" .. track,
-				player:GetAttribute("ChompUpgrade" .. track) or 0)
-		end
-		publishProgression(player, character)
+		syncCharacter(player, character)
 	end)
+	player:GetAttributeChangedSignal("ChompProfileReady"):Connect(function()
+		local character = player.Character
+		if player:GetAttribute("ChompProfileReady") == true and character then
+			syncCharacter(player, character)
+		end
+	end)
+	if player.Character then syncCharacter(player, player.Character) end
+end
+
+Players.PlayerAdded:Connect(setupPlayer)
+for _, player in Players:GetPlayers() do setupPlayer(player) end
+
+local toggleLimiter = Remotes.makeLimiter(Remotes.Limits.ToggleModule)
+Remotes.ToggleModule.OnServerEvent:Connect(function(player: Player, track: any)
+	if not toggleLimiter(player) or typeof(track) ~= "string" then return end
+	if not table.find(PORT_TRACKS, track) then return end
+	if ((player:GetAttribute("ChompUpgrade" .. track) :: number?) or 0) <= 0 then return end
+	local character = player.Character
+	if not character or character:GetAttribute("ChompSafe") ~= true then return end
+
+	local equipped = equippedList(player)
+	local index = table.find(equipped, track)
+	if index then
+		table.remove(equipped, index)
+	else
+		local chassisId = (player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis
+		if #equipped >= Config.Chassis[chassisId].ModulePorts then
+			character:SetAttribute("ChompShopResult", "NO FREE MODULE PORT")
+			character:SetAttribute("ChompShopResultAt", os.clock())
+			return
+		end
+		table.insert(equipped, track)
+	end
+	setEquipped(player, equipped)
+	publishProgression(player, character)
+	character:SetAttribute("ChompModulesChanged", os.clock())
+	character:SetAttribute("ChompShopResult", index and (track .. " REMOVED") or (track .. " EQUIPPED"))
+	character:SetAttribute("ChompShopResultAt", os.clock())
 end)
 
 local count = build()

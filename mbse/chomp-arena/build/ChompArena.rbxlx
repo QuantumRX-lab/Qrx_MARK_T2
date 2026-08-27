@@ -27,6 +27,8 @@
 
 local ChompConfig = {}
 
+ChompConfig.ReleaseVersion = "0.2.0-alpha"
+
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
 -- rather than a straight upgrade. An Apex that has just respawned with an
@@ -118,6 +120,9 @@ ChompConfig.Movement = {
 
 ChompConfig.Upgrades = {
 	Tracks = { "Engine", "Handling", "Armour", "Cannon", "Ordnance", "Jump", "Boost" },
+	-- Cannon owns the dedicated roof hardpoint. Every other performance system
+	-- consumes one chassis module port when active.
+	PortTracks = { "Engine", "Handling", "Armour", "Ordnance", "Jump", "Boost" },
 	ModuleTracks = { "Engine", "Handling", "Armour", "Jump", "Boost" },
 	Costs = { 800, 3500, 9500 },
 	PowerPerLevel = 40,
@@ -160,7 +165,7 @@ ChompConfig.Upgrades = {
 }
 
 ChompConfig.Profile = {
-	SchemaVersion = 2,
+	SchemaVersion = 3,
 	StoreName = "ChompPlayerProfileV2",
 	AutosaveSeconds = 60,
 	RetryCount = 3,
@@ -995,7 +1000,7 @@ return Progression
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local NAMES = { "RequestPurchase", "RequestBank", "SetInputDirection", "UseItem",
-	"UseCharge", "ToggleFriendlyFire", "SelectItem" }
+	"UseCharge", "ToggleFriendlyFire", "SelectItem", "ToggleModule" }
 local TIMEOUT = 10
 
 local Remotes = {}
@@ -1023,6 +1028,7 @@ Remotes.Limits = {
 	UseCharge = 3,
 	ToggleFriendlyFire = 2,
 	SelectItem = 6,
+	ToggleModule = 4,
 }
 
 --[[
@@ -5992,25 +5998,30 @@ return {}
       </Item>
       <Item class="RemoteEvent" referent="140">
         <Properties>
-          <string name="Name">UseCharge</string>
+          <string name="Name">ToggleModule</string>
         </Properties>
       </Item>
       <Item class="RemoteEvent" referent="141">
+        <Properties>
+          <string name="Name">UseCharge</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="142">
         <Properties>
           <string name="Name">UseItem</string>
         </Properties>
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="142">
+  <Item class="ServerScriptService" referent="143">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="143">
+    <Item class="Folder" referent="144">
       <Properties>
         <string name="Name">ChompEngine</string>
       </Properties>
-      <Item class="Script" referent="144">
+      <Item class="Script" referent="145">
         <Properties>
           <string name="Name">ArenaMap</string>
           <token name="RunContext">0</token>
@@ -6460,7 +6471,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="145">
+      <Item class="Script" referent="146">
         <Properties>
           <string name="Name">ChargeService</string>
           <token name="RunContext">0</token>
@@ -6552,7 +6563,7 @@ print(("[ChargeService] jump spends %d charge of %d max, %d per pellet"):format(
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="146">
+      <Item class="Script" referent="147">
         <Properties>
           <string name="Name">DeathService</string>
           <token name="RunContext">0</token>
@@ -6637,7 +6648,7 @@ print(("[DeathService] respawn %.1fs, announced"):format(Config.Combat.RespawnSe
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="147">
+      <Item class="Script" referent="148">
         <Properties>
           <string name="Name">GarageService</string>
           <token name="RunContext">0</token>
@@ -6682,6 +6693,7 @@ local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local VehicleFactory = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleFactory"))
 local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
 local Progression = require(ReplicatedStorage:WaitForChild("ChompLogic"):WaitForChild("Progression"))
@@ -6769,6 +6781,7 @@ end
 type Offer = { id: string, kind: string, title: string, dollars: number, robux: number? }
 
 local TRACKS = Config.Upgrades.Tracks
+local PORT_TRACKS = Config.Upgrades.PortTracks
 
 local function upgradesOf(player: Player)
 	return {
@@ -6780,6 +6793,39 @@ local function upgradesOf(player: Player)
 		Jump = (player:GetAttribute("ChompUpgradeJump") :: number?) or 0,
 		Boost = (player:GetAttribute("ChompUpgradeBoost") :: number?) or 0,
 	}
+end
+
+local function equippedList(player: Player): { string }
+	local out, seen = {}, {}
+	local raw = (player:GetAttribute("ChompEquippedModules") :: string?) or ""
+	for track in string.gmatch(raw, "[^,]+") do
+		if table.find(PORT_TRACKS, track) and not seen[track]
+			and ((player:GetAttribute("ChompUpgrade" .. track) :: number?) or 0) > 0 then
+			seen[track] = true
+			table.insert(out, track)
+		end
+	end
+	return out
+end
+
+local function setEquipped(player: Player, modules: { string })
+	local chassisId = (player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis
+	local ports = Config.Chassis[chassisId].ModulePorts
+	while #modules > ports do table.remove(modules) end
+	local raw = table.concat(modules, ",")
+	player:SetAttribute("ChompEquippedModules", raw)
+	local character = player.Character
+	if character then character:SetAttribute("ChompEquippedModules", raw) end
+end
+
+local function activeUpgradesOf(player: Player)
+	local active = upgradesOf(player)
+	local equipped = {}
+	for _, track in equippedList(player) do equipped[track] = true end
+	for _, track in PORT_TRACKS do
+		if not equipped[track] then active[track] = 0 end
+	end
+	return active
 end
 
 local function owns(player: Player, chassisId: string): boolean
@@ -6795,8 +6841,9 @@ end
 
 local function publishProgression(player: Player, character: Model)
 	local chassisId = (player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis
-	local upgrades = upgradesOf(player)
+	local upgrades = activeUpgradesOf(player)
 	local stats = Progression.effectiveStats(chassisId, upgrades)
+	for _, track in TRACKS do character:SetAttribute("ChompUpgrade" .. track, upgrades[track]) end
 	character:SetAttribute("ChompPower", Progression.computePower(chassisId, upgrades))
 	character:SetAttribute("ChompBarCapacity", Config.Chassis[chassisId].BarCapacity)
 	character:SetAttribute("ChompMouthArcDegrees", stats.mouthArcDegrees)
@@ -6805,6 +6852,9 @@ local function publishProgression(player: Player, character: Model)
 	character:SetAttribute("ChompChargeCapacity", stats.chargeCapacity)
 	character:SetAttribute("ChompMaxHealth", stats.maxHealth)
 	character:SetAttribute("ChompModulePorts", stats.modulePorts)
+	character:SetAttribute("ChompPortsUsed", #equippedList(player))
+	character:SetAttribute("ChompEquippedModules",
+		(player:GetAttribute("ChompEquippedModules") :: string?) or "")
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid then humanoid.MaxHealth = stats.maxHealth end
 end
@@ -7134,6 +7184,7 @@ local function buy(player: Player, offer: Offer): (boolean, string)
 	if offer.kind == "chassis" then
 		if owns(player, offer.id) then
 			player:SetAttribute("ChompEquippedChassis", offer.id)
+			setEquipped(player, equippedList(player))
 			character:SetAttribute("ChompChassis", offer.id)
 			publishProgression(player, character)
 			refitVehicle(player)
@@ -7145,6 +7196,7 @@ local function buy(player: Player, offer: Offer): (boolean, string)
 		if dollars < price then return false, "NEED $" .. tostring(price - dollars) .. " MORE" end
 		addOwned(player, offer.id)
 		player:SetAttribute("ChompEquippedChassis", offer.id)
+		setEquipped(player, equippedList(player))
 		character:SetAttribute("ChompChassis", offer.id)
 		publishProgression(player, character)
 		refitVehicle(player)
@@ -7168,8 +7220,17 @@ local function buy(player: Player, offer: Offer): (boolean, string)
 		local key = "ChompUpgrade" .. offer.id
 		local level = (player:GetAttribute(key) :: number?) or 0
 		player:SetAttribute(key, level + 1)
-		character:SetAttribute(key, level + 1)
+		if table.find(PORT_TRACKS, offer.id) then
+			local equipped = equippedList(player)
+			local ports = Config.Chassis[(player:GetAttribute("ChompEquippedChassis") :: string?)
+				or Config.StartingChassis].ModulePorts
+			if not table.find(equipped, offer.id) and #equipped < ports then
+				table.insert(equipped, offer.id)
+				setEquipped(player, equipped)
+			end
+		end
 		publishProgression(player, character)
+		character:SetAttribute("ChompModulesChanged", os.clock())
 	end
 
 	character:SetAttribute("ChompDollars", dollars - price)
@@ -7239,25 +7300,66 @@ local function dwellLoop()
 	end
 end
 
-Players.PlayerAdded:Connect(function(player)
+local function syncCharacter(player: Player, character: Model)
+	character:SetAttribute("ChompChassis",
+		player:GetAttribute("ChompEquippedChassis") or Config.StartingChassis)
+	setEquipped(player, equippedList(player))
+	publishProgression(player, character)
+	character:SetAttribute("ChompModulesChanged", os.clock())
+end
+
+local function setupPlayer(player: Player)
 	if player:GetAttribute("ChompOwnedChassis") == nil then player:SetAttribute("ChompOwnedChassis", "Standard") end
 	if player:GetAttribute("ChompEquippedChassis") == nil then
 		player:SetAttribute("ChompEquippedChassis", Config.StartingChassis)
 	end
+	if player:GetAttribute("ChompEquippedModules") == nil then player:SetAttribute("ChompEquippedModules", "") end
 	for _, track in TRACKS do
 		if player:GetAttribute("ChompUpgrade" .. track) == nil then
 			player:SetAttribute("ChompUpgrade" .. track, 0)
 		end
 	end
 	player.CharacterAdded:Connect(function(character)
-		character:SetAttribute("ChompChassis",
-			player:GetAttribute("ChompEquippedChassis") or Config.StartingChassis)
-		for _, track in TRACKS do
-			character:SetAttribute("ChompUpgrade" .. track,
-				player:GetAttribute("ChompUpgrade" .. track) or 0)
-		end
-		publishProgression(player, character)
+		syncCharacter(player, character)
 	end)
+	player:GetAttributeChangedSignal("ChompProfileReady"):Connect(function()
+		local character = player.Character
+		if player:GetAttribute("ChompProfileReady") == true and character then
+			syncCharacter(player, character)
+		end
+	end)
+	if player.Character then syncCharacter(player, player.Character) end
+end
+
+Players.PlayerAdded:Connect(setupPlayer)
+for _, player in Players:GetPlayers() do setupPlayer(player) end
+
+local toggleLimiter = Remotes.makeLimiter(Remotes.Limits.ToggleModule)
+Remotes.ToggleModule.OnServerEvent:Connect(function(player: Player, track: any)
+	if not toggleLimiter(player) or typeof(track) ~= "string" then return end
+	if not table.find(PORT_TRACKS, track) then return end
+	if ((player:GetAttribute("ChompUpgrade" .. track) :: number?) or 0) <= 0 then return end
+	local character = player.Character
+	if not character or character:GetAttribute("ChompSafe") ~= true then return end
+
+	local equipped = equippedList(player)
+	local index = table.find(equipped, track)
+	if index then
+		table.remove(equipped, index)
+	else
+		local chassisId = (player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis
+		if #equipped >= Config.Chassis[chassisId].ModulePorts then
+			character:SetAttribute("ChompShopResult", "NO FREE MODULE PORT")
+			character:SetAttribute("ChompShopResultAt", os.clock())
+			return
+		end
+		table.insert(equipped, track)
+	end
+	setEquipped(player, equipped)
+	publishProgression(player, character)
+	character:SetAttribute("ChompModulesChanged", os.clock())
+	character:SetAttribute("ChompShopResult", index and (track .. " REMOVED") or (track .. " EQUIPPED"))
+	character:SetAttribute("ChompShopResultAt", os.clock())
 end)
 
 local count = build()
@@ -7274,7 +7376,7 @@ print(("[GarageService] %d plinths (%d of them weapons), dwell %.1fs to buy, " .
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="148">
+      <Item class="Script" referent="149">
         <Properties>
           <string name="Name">GhostService</string>
           <token name="RunContext">0</token>
@@ -7904,7 +8006,7 @@ print(("[GhostService] waves live: %d walls, %d sanctuaries, %d%% stolen per cat
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="149">
+      <Item class="Script" referent="150">
         <Properties>
           <string name="Name">ItemService</string>
           <token name="RunContext">0</token>
@@ -8193,7 +8295,9 @@ local function give(player: Player, id: string, replaceActiveIfFull: boolean?): 
 			local level = (player:GetAttribute("ChompUpgradeCannon") :: number?) or 0
 			if level > 0 then return Config.Upgrades.Cannon.Magazine[level] end
 		elseif id == "HomingBomb" then
-			local level = (player:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0
+			local character = player.Character
+			local level = character
+				and ((character:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0) or 0
 			if level > 0 then return Config.Upgrades.Ordnance.Charges[level] end
 		end
 		return def.charges
@@ -8441,7 +8545,9 @@ local function detonate(player: Player, bomb: BasePart)
 	deployed[player] = nil
 	local centre = bomb.Position
 	local def = DEFS.HomingBomb
-	local level = (player:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0
+	local character = player.Character
+	local level = character
+		and ((character:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0) or 0
 	local radiusBonus = if level > 0 then Config.Upgrades.Ordnance.BlastRadiusFraction[level] else 0
 	local blastRadius = def.blastRadiusStuds * (1 + radiusBonus)
 	local damage = if level > 0 then Config.Upgrades.Ordnance.Damage[level] else 1
@@ -8937,7 +9043,7 @@ print(("[ItemService] running - %d pads, %d slots, %d item types, %d/s use limit
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="150">
+      <Item class="Script" referent="151">
         <Properties>
           <string name="Name">Level1Map</string>
           <token name="RunContext">0</token>
@@ -9234,7 +9340,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="151">
+      <Item class="Script" referent="152">
         <Properties>
           <string name="Name">MovementService</string>
           <token name="RunContext">0</token>
@@ -9389,7 +9495,7 @@ print("[MovementService] running — server owns the numbers, the client owns it
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="152">
+      <Item class="Script" referent="153">
         <Properties>
           <string name="Name">PelletService</string>
           <token name="RunContext">0</token>
@@ -9621,7 +9727,7 @@ print(("[PelletService] %d pellets laid, values %s, bank rate %.1f")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="153">
+      <Item class="Script" referent="154">
         <Properties>
           <string name="Name">PlayerSessionService</string>
           <token name="RunContext">0</token>
@@ -9750,7 +9856,7 @@ print("[PlayerSessionService] protected launch bay and deployment live")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="154">
+      <Item class="Script" referent="155">
         <Properties>
           <string name="Name">ProfileService</string>
           <token name="RunContext">0</token>
@@ -9768,6 +9874,17 @@ local PROFILE = Config.Profile
 local store = DataStoreService:GetDataStore(PROFILE.StoreName)
 local loaded: { [Player]: boolean } = {}
 local blocked: { [Player]: boolean } = {}
+
+local function moduleList(raw: string): { string }
+	local out, seen = {}, {}
+	for track in string.gmatch(raw, "[^,]+") do
+		if table.find(Config.Upgrades.PortTracks, track) and not seen[track] then
+			seen[track] = true
+			table.insert(out, track)
+		end
+	end
+	return out
+end
 
 local function defaultProfile()
 	local upgrades = {}
@@ -9790,7 +9907,6 @@ local function sanitize(raw: any)
 	if typeof(raw.equippedChassis) == "string" and Config.Chassis[raw.equippedChassis] then
 		out.equippedChassis = raw.equippedChassis
 	end
-	if typeof(raw.equippedModules) == "string" then out.equippedModules = raw.equippedModules end
 	if typeof(raw.upgrades) == "table" then
 		for _, track in Config.Upgrades.Tracks do
 			local value = raw.upgrades[track]
@@ -9803,6 +9919,23 @@ local function sanitize(raw: any)
 		out.upgrades.Handling = math.max(out.upgrades.Handling, tonumber(raw.upgrades.Agility) or 0)
 		out.upgrades.Boost = math.max(out.upgrades.Boost, tonumber(raw.upgrades.Consumption) or 0)
 	end
+
+	local ports = Config.Chassis[out.equippedChassis].ModulePorts
+	local equipped = if typeof(raw.equippedModules) == "string"
+		then moduleList(raw.equippedModules) else {}
+	-- Schema 2 stored the field but never used it. Preserve the old always-on
+	-- experience by filling available ports with owned modules during migration.
+	if (tonumber(raw.schemaVersion) or 0) < 3 then
+		table.clear(equipped)
+		for _, track in Config.Upgrades.PortTracks do
+			if out.upgrades[track] > 0 and #equipped < ports then table.insert(equipped, track) end
+		end
+	end
+	local valid = {}
+	for _, track in equipped do
+		if out.upgrades[track] > 0 and #valid < ports then table.insert(valid, track) end
+	end
+	out.equippedModules = table.concat(valid, ",")
 	return out
 end
 
@@ -9820,9 +9953,7 @@ local function publish(player: Player, profile)
 	if character then
 		character:SetAttribute("ChompDollars", profile.bankedDollars)
 		character:SetAttribute("ChompChassis", profile.equippedChassis)
-		for _, track in Config.Upgrades.Tracks do
-			character:SetAttribute("ChompUpgrade" .. track, profile.upgrades[track])
-		end
+		character:SetAttribute("ChompEquippedModules", profile.equippedModules)
 	end
 end
 
@@ -9919,7 +10050,7 @@ print("[ProfileService] versioned profiles live; Studio is ephemeral")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="155">
+      <Item class="Script" referent="156">
         <Properties>
           <string name="Name">TestMap</string>
           <token name="RunContext">0</token>
@@ -10092,7 +10223,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="156">
+      <Item class="Script" referent="157">
         <Properties>
           <string name="Name">VehicleService</string>
           <token name="RunContext">0</token>
@@ -10124,6 +10255,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local VehicleFactory = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleFactory"))
+local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
 
 local SPECS = ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleSpecs")
 
@@ -10360,6 +10492,51 @@ local function ensureMounts(character: Model): boolean
 	return repaired
 end
 
+local MODULE_OFFSETS = {
+	CFrame.new(-3.2, 2.1, 2.6),
+	CFrame.new(3.2, 2.1, 2.6),
+	CFrame.new(-3.2, 2.1, -1.8),
+	CFrame.new(3.2, 2.1, -1.8),
+}
+
+local function refreshModules(player: Player, character: Model)
+	local vehicle = character:FindFirstChild("Vehicle")
+	if not vehicle or not vehicle:IsA("Model") or not vehicle.PrimaryPart then return end
+	local old = vehicle:FindFirstChild("MountedModules")
+	if old then old:Destroy() end
+
+	local folder = Instance.new("Folder")
+	folder.Name = "MountedModules"
+	folder.Parent = vehicle
+	local raw = (player:GetAttribute("ChompEquippedModules") :: string?) or ""
+	local slot = 0
+	for track in string.gmatch(raw, "[^,]+") do
+		local level = (player:GetAttribute("ChompUpgrade" .. track) :: number?) or 0
+		if level <= 0 then continue end
+		slot += 1
+		local offset = MODULE_OFFSETS[slot]
+		if not offset then break end
+		local module = ItemModels.buildUpgrade(track, level)
+		module.Name = track .. "Module"
+		module:ScaleTo(0.38)
+		module:PivotTo(vehicle.PrimaryPart.CFrame * offset)
+		module.Parent = folder
+		for _, piece in module:GetDescendants() do
+			if piece:IsA("BasePart") then
+				piece.Anchored = false
+				piece.Massless = true
+				piece.CanCollide = false
+				piece.CanQuery = false
+				piece.CanTouch = false
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = vehicle.PrimaryPart
+				weld.Part1 = piece
+				weld.Parent = piece
+			end
+		end
+	end
+end
+
 local function fitVehicle(player: Player, character: Model)
 	if character:FindFirstChild("Vehicle") then return end
 
@@ -10438,6 +10615,7 @@ local function fitVehicle(player: Player, character: Model)
 
 	model.Parent = character
 	ensureMounts(character)
+	refreshModules(player, character)
 
 	if Config.Vehicle and Config.Vehicle.NamePlate then
 		nameplate(player, model, primary)
@@ -10457,6 +10635,11 @@ local function onCharacter(player: Player, character: Model)
 	character:GetAttributeChangedSignal("ChompRefit"):Connect(function()
 		task.defer(function()
 			if character.Parent then fitVehicle(player, character) end
+		end)
+	end)
+	character:GetAttributeChangedSignal("ChompModulesChanged"):Connect(function()
+		task.defer(function()
+			if character.Parent then refreshModules(player, character) end
 		end)
 	end)
 end
@@ -10498,7 +10681,7 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="157">
+      <Item class="Script" referent="158">
         <Properties>
           <string name="Name">WorldLook</string>
           <token name="RunContext">0</token>
@@ -10556,15 +10739,15 @@ print("[WorldLook] sharp-edge night rig active")
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="158">
+  <Item class="ServerStorage" referent="159">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="159">
+    <Item class="Folder" referent="160">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="160">
+      <Item class="ModuleScript" referent="161">
         <Properties>
           <string name="Name">ItemModels</string>
           <string name="Source"><![CDATA[--!strict
@@ -10737,7 +10920,7 @@ return ItemModels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="161">
+      <Item class="ModuleScript" referent="162">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -11022,7 +11205,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="162">
+      <Item class="ModuleScript" referent="163">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -11281,11 +11464,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="163">
+      <Item class="Folder" referent="164">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="164">
+        <Item class="ModuleScript" referent="165">
           <Properties>
             <string name="Name">Apex</string>
             <string name="Source"><![CDATA[--!strict
@@ -11294,7 +11477,7 @@ return variant("Apex", Color3.fromRGB(96, 72, 176), Color3.fromRGB(255, 207, 55)
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="165">
+        <Item class="ModuleScript" referent="166">
           <Properties>
             <string name="Name">HeavyJaw</string>
             <string name="Source"><![CDATA[--!strict
@@ -11303,7 +11486,7 @@ return variant("HeavyJaw", Color3.fromRGB(238, 145, 26), Color3.fromRGB(255, 230
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="166">
+        <Item class="ModuleScript" referent="167">
           <Properties>
             <string name="Name">Ravener</string>
             <string name="Source"><![CDATA[--!strict
@@ -11312,7 +11495,7 @@ return variant("Ravener", Color3.fromRGB(208, 64, 104), Color3.fromRGB(95, 235, 
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="167">
+        <Item class="ModuleScript" referent="168">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -11422,7 +11605,7 @@ return {
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="168">
+        <Item class="ModuleScript" referent="169">
           <Properties>
             <string name="Name">Variant</string>
             <string name="Source"><![CDATA[--!strict
@@ -11466,15 +11649,15 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="169">
+  <Item class="StarterPlayer" referent="170">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="170">
+    <Item class="StarterPlayerScripts" referent="171">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="171">
+      <Item class="LocalScript" referent="172">
         <Properties>
           <string name="Name">AudioDirector</string>
           <string name="Source"><![CDATA[--!strict
@@ -11633,7 +11816,7 @@ player.CharacterAdded:Connect(bind)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="172">
+      <Item class="LocalScript" referent="173">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -11885,7 +12068,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="173">
+      <Item class="LocalScript" referent="174">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -12026,7 +12209,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="174">
+      <Item class="LocalScript" referent="175">
         <Properties>
           <string name="Name">ChompHud</string>
           <string name="Source"><![CDATA[--!strict
@@ -12364,6 +12547,36 @@ local wavePanel = panel("Wave", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 72), U
 local waveLabel = label(wavePanel, UDim2.new(1, -20, 1, -10), UDim2.new(0, 10, 0, 5),
 	"WAVE 1", P.Ghost, 18, Enum.TextXAlignment.Center)
 
+-- Loadout controls only appear in a sanctuary. Licences are permanent, but a
+-- chassis can power only as many active systems as it has physical ports.
+local modulePanel = panel("Modules", Vector2.zero, UDim2.new(0, 16, 0, 132), UDim2.new(0, 142, 0, 246))
+local portLabel = label(modulePanel, UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 0, 6),
+	"MODULES 0/1", P.NeonA, 15, Enum.TextXAlignment.Center)
+local moduleButtons: { [string]: TextButton } = {}
+for index, track in Config.Upgrades.PortTracks do
+	local button = Instance.new("TextButton")
+	button.Name = track
+	button.Position = UDim2.new(0, 8, 0, 36 + (index - 1) * 34)
+	button.Size = UDim2.new(1, -16, 0, 28)
+	button.BackgroundColor3 = P.Floor
+	button.BackgroundTransparency = 0.25
+	button.BorderSizePixel = 0
+	button.Text = string.upper(track)
+	button.TextColor3 = P.Ghost
+	button.TextSize = 13
+	button.Font = Enum.Font.GothamBold
+	button.AutoButtonColor = false
+	button.Parent = modulePanel
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 6)
+	corner.Parent = button
+	button.Activated:Connect(function()
+		Remotes.ToggleModule:FireServer(track)
+	end)
+	moduleButtons[track] = button
+end
+modulePanel.Visible = false
+
 -- ── A flash when something is taken ─────────────────────────────────────
 local flash = Instance.new("Frame")
 flash.Name = "StolenFlash"
@@ -12528,6 +12741,28 @@ RunService.RenderStepped:Connect(function(dt)
 	waveLabel.Text = (waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1")
 		.. "  •  " .. tostring(waveAlive) .. " LEFT"
 
+	local safe = character:GetAttribute("ChompSafe") == true
+	modulePanel.Visible = safe
+	if safe then
+		local equippedRaw = (character:GetAttribute("ChompEquippedModules") :: string?) or ""
+		local equipped = {}
+		for track in string.gmatch(equippedRaw, "[^,]+") do equipped[track] = true end
+		local used = attribute("ChompPortsUsed")
+		local ports = attribute("ChompModulePorts")
+		portLabel.Text = "MODULES " .. tostring(used) .. "/" .. tostring(ports)
+		portLabel.TextColor3 = used < ports and P.NeonA or P.Gold
+		for _, track in Config.Upgrades.PortTracks do
+			local button = moduleButtons[track]
+			local level = (player:GetAttribute("ChompUpgrade" .. track) :: number?) or 0
+			local active = equipped[track] == true
+			button.Active = level > 0
+			button.Text = string.upper(track) .. (level > 0 and ("  " .. string.rep("I", level)) or "  LOCKED")
+			button.BackgroundColor3 = active and P.NeonA or P.Floor
+			button.BackgroundTransparency = active and 0.05 or (level > 0 and 0.25 or 0.55)
+			button.TextColor3 = active and P.Floor or (level > 0 and P.Ghost or P.Boundary)
+		end
+	end
+
 	-- Health. Colour carries the reading, so a glance is enough: green is fine,
 	-- gold is careful, red is one more hit.
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -12562,7 +12797,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="175">
+      <Item class="LocalScript" referent="176">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -12823,7 +13058,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="176">
+      <Item class="LocalScript" referent="177">
         <Properties>
           <string name="Name">LaunchBay</string>
           <string name="Source"><![CDATA[--!strict
@@ -12914,7 +13149,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="177">
+      <Item class="LocalScript" referent="178">
         <Properties>
           <string name="Name">PickupFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -13031,7 +13266,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="178">
+      <Item class="LocalScript" referent="179">
         <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
@@ -13125,7 +13360,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="179">
+      <Item class="LocalScript" referent="180">
         <Properties>
           <string name="Name">ShopFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -13244,7 +13479,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="180">
+      <Item class="LocalScript" referent="181">
         <Properties>
           <string name="Name">TargetReticle</string>
           <string name="Source"><![CDATA[--!strict
@@ -13368,7 +13603,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="181">
+      <Item class="LocalScript" referent="182">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -13526,7 +13761,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="182">
+      <Item class="LocalScript" referent="183">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -13673,7 +13908,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="183">
+  <Item class="Workspace" referent="184">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

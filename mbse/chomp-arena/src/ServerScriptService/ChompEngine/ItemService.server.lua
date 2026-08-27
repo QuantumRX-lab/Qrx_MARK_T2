@@ -283,7 +283,9 @@ local function give(player: Player, id: string, replaceActiveIfFull: boolean?): 
 			local level = (player:GetAttribute("ChompUpgradeCannon") :: number?) or 0
 			if level > 0 then return Config.Upgrades.Cannon.Magazine[level] end
 		elseif id == "HomingBomb" then
-			local level = (player:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0
+			local character = player.Character
+			local level = character
+				and ((character:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0) or 0
 			if level > 0 then return Config.Upgrades.Ordnance.Charges[level] end
 		end
 		return def.charges
@@ -531,7 +533,9 @@ local function detonate(player: Player, bomb: BasePart)
 	deployed[player] = nil
 	local centre = bomb.Position
 	local def = DEFS.HomingBomb
-	local level = (player:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0
+	local character = player.Character
+	local level = character
+		and ((character:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0) or 0
 	local radiusBonus = if level > 0 then Config.Upgrades.Ordnance.BlastRadiusFraction[level] else 0
 	local blastRadius = def.blastRadiusStuds * (1 + radiusBonus)
 	local damage = if level > 0 then Config.Upgrades.Ordnance.Damage[level] else 1
