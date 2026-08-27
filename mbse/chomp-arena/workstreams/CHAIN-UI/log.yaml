@@ -229,3 +229,27 @@ entries:
     Belt strip is now 334px wide against the value stack's 236, both anchored
     bottom-right. It fits landscape iPad comfortably; portrait has not been
     checked and CHOMP-TC-040 is still unrun.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: NOTE
+  requirements: [CHOMP-SYS-051, CHOMP-SYS-052]
+  summary: >
+    BUILDING.md's play and test sections and CHOMP-TC-040 rewritten to match the
+    built game. Both still described two decks, a bridge and a tower core that
+    D-CHOMP-046 deleted, and BUILDING.md still told the tester "a second finger
+    is ignored" - the opposite of true since second-finger fire landed. Following
+    either as written would have tested a game that does not exist.
+  status: OPEN
+  handoff: >
+    TC-040's procedure is now a single-level occlusion circuit read off the
+    on-screen readout (D-CHOMP-029), with jump takeoff and landing added because
+    the charge jump is the only vertical motion left on the map.
+    Recorded honestly rather than papered over: the bay sequence, the deployment
+    gate, profile persistence, the degraded read-only path and two-finger fire
+    are all BUILT AND UNSPECIFIED - no requirement covers them and no test case
+    verifies them. BUILDING.md now says so in its own section rather than
+    implying the list is coverage.
+    Note for whoever writes those requirements: the launch bay as built is the
+    home garage pad, not the four-lane bay with turntable and equipment rack in
+    LAUNCH-READINESS. Driving off the yellow pad IS the deployment gate. Specify
+    what exists, or build what is specified, but the two are not the same today.

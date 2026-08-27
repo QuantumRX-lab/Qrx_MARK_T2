@@ -13,73 +13,115 @@
 
 3. In Studio: new Baseplate → Plugins → Rojo → **Connect**. The tree from
    `default.project.json` appears in the Explorer.
-4. Delete the default Baseplate part. `TestMap.server.lua` builds its own
-   ground.
+4. Delete the default Baseplate part. `Level1Map.server.lua` builds its own
+   ground - a sealed 800-stud disc. `TestMap` and `ArenaMap` still exist but
+   gate themselves off unless `ChompConfig.Map.Layout` names them.
+5. There is no managed `Lighting` in the Baseplate template, and the game now
+   builds its own at runtime (`WorldLook.server.lua`). If the arena looks like
+   a bright afternoon rather than a neon night, that script did not run.
 
 ## Press play
 
-Hit Play. You should get:
+Hit Play. In order, you should get:
 
-- A 24 × 24 cell ground deck with a corridor, a tower core, a ramp up to a
-  raised deck, and a bridge crossing the corridor below.
-- A camera locked to world north, 35° down, that follows you.
-- A vehicle driven by direction. `W` `A` `S` `D` or the arrows are north, west,
-  south and east: hold one and it goes that way, release and it coasts to a
-  stop. Stopped, a direction press snaps it round instantly; moving, it turns at
-  the chassis rate. Push the opposite direction to turn around.
+1. **`LOADING GARAGE`** for a moment while the profile loads. In Studio this is
+   instant and ephemeral - `ProfileService` deliberately skips the DataStore
+   when `RunService:IsStudio()`, so nothing you do in Studio is ever saved.
+2. **The launch bay**, which is the home garage pad: a panel reading
+   `CHOOSE VEHICLE + LOADOUT`, the shop row of plinths in front of you, and the
+   gold bank beacon overhead. You are safe here and ghosts cannot reach you.
+3. **Deployment** the moment you drive off the yellow pad - a three-second
+   countdown, then `CHOMP!` and three seconds of spawn protection. There is no
+   button: leaving the pad IS the commitment. Wave one starts when the first
+   player deploys, not at server boot.
+4. **The arena**: one sealed disc 800 studs across, seven concentric ring
+   corridors each in its own surface (neon, brick, slate, neon, cobblestone,
+   brick, concrete), an open centre worth the most, and four garages ringed
+   with a green sanctuary line.
 
-On touch this is a single **floating** stick: it anchors wherever the finger
-lands, so there is nothing to find and nothing to lose (`D-CHOMP-027`, which
-supersedes the always-forward rule of `D-CHOMP-015` and the hold-to-drive
-scheme of `D-CHOMP-026`).
+Controls, keyboard: `W` `A` `S` `D` or the arrows steer proportionally - hold to
+drive, pull back to reverse and swing round. `Space` fires and is **held**, not
+tapped; the cannon is a machine gun and the server paces it (`D-CHOMP-042`,
+`D-CHOMP-056`).
 
-## What to actually test — `CHOMP-TC-040`
+On touch it is a single **floating** stick that anchors wherever the thumb
+lands, plus a **second finger anywhere to hold fire** (`D-CHOMP-027` as amended:
+the second touch used to be discarded, which made the machine gun keyboard-only
+on the one device this game is for). A quick tap of the stick finger also fires,
+for one-handed play.
 
-This is the camera acceptance run, and it is the highest-risk item in the
-project (`RISK-CHOMP-012`). Do it **on the iPad**, not in Studio. Studio's
-window is not the device, and the device is the reference platform.
+## What to actually test on the iPad
+
+Studio's window is not the device, and the device is the reference platform.
+Three things **cannot** be tested in Studio at all:
+
+- **Persistence.** `ProfileService` skips the DataStore in Studio by design.
+  Saving, rejoining and the degraded read-only path only exist on a published
+  place.
+- **Two-finger fire.** A mouse has one pointer.
+- **Frame rate.** The 30 fps budget is a device number, not a desktop one.
 
 ### Getting it onto the device
 
-1. Sync Rojo so the place is current, then run `python guard.py`.
+1. `python guard.py && python validate.py`, then sync Rojo so the place is
+   current.
 2. Studio: **File → Publish to Roblox As…**, name it, create.
 3. **create.roblox.com** → the experience → **Configure** → confirm privacy is
-   **Private**. `CHOMP-SYS-035` says private now; Friends-only later and only by
-   an explicit decision. Do not let it default to public.
+   **Private**. `CHOMP-SYS-035` says private now; anything wider is an explicit
+   decision. Do not let it default to public.
 4. Copy the experience link from the Creator Dashboard.
-5. On the iPad, sign into the Roblox app as the owner, then open that link in
-   Safari and tap Play. Private experiences do not appear in search, so the link
-   is the only way in.
+5. On the iPad, sign into the Roblox app **as the owner**, then open that link
+   in Safari and tap Play. Private experiences do not appear in search, so the
+   link is the only way in.
+
+> **Private means "people with edit access", not "people with the link."** If
+> she plays on her own Roblox account she will be refused, and it looks exactly
+> like the game being broken. Either add her as a collaborator under
+> **Configure → Access**, or sign the iPad in as the owner for now.
 
 ### The run
 
-1. Drive a full circuit of both decks. Go **under the bridge**, **around the
-   tower core**, and up and down the ramp.
-2. Read the figures off the **top of the screen**. The readout shows worst
-   occlusion, the limit, and a breach count, and turns red the moment
-   `CHOMP-SYS-051` fails. **Any breach is a failure.** While the vehicle is
-   actually hidden it shows `HIDDEN` and a running duration, so you can see
-   *which* piece of geometry did it rather than only that something did.
+**A. Arrival and the bay.** Does the panel appear, does the profile resolve, can
+you read the plinth prices at a glance? Drive the shop row: stop at a plinth and
+hold still - the dwell bar fills and the purchase confirms. Buy something cheap.
 
-   There is no command bar on an iPad. `_G.ChompCameraReport()` still works in
-   Studio, but the readout is the device procedure (`D-CHOMP-029`). **RESET**
-   clears the run so you can go again without rejoining.
-3. Watch for a jump cut on the ramp, in either direction. There should be
-   none — deck height eases on a critically damped spring.
-4. Drive off the bridge. The camera should follow you down without cutting.
-5. Hand the iPad to your daughter and watch whether she ever loses track of her
-   own vehicle. She is the acceptance test; the numbers are only the evidence.
-   This is also the first time the touch controls have ever been used: the stick
-   floats and anchors wherever her thumb lands, a second finger is ignored, and
-   pulling back reverses and swings the vehicle around (`D-CHOMP-027`). None of
-   that has been felt by anyone — Studio only ever tested the keyboard.
+**B. Deployment.** Drive off the pad. Countdown, then `CHOMP!`. Confirm ghosts
+do not touch you inside the sanctuary line, and that the wave did not begin
+before you left.
+
+**C. Two-finger fire — the headline.** One thumb steering, a second finger
+holding fire. This is the first time anyone has used it. Can she drive a
+corridor and shoot a ghost at the same time, without stopping? If not, nothing
+else on this list matters.
+
+**D. Camera occlusion (`CHOMP-TC-040`).** Drive a full circuit of every ring,
+through gaps, along the boundary and across the open centre. The readout is at
+the top of the screen: worst occlusion, the limit, and a breach count, going red
+the moment `CHOMP-SYS-051` fails. **Any breach is a failure.** `RESET` clears a
+run without rejoining. There is no command bar on an iPad; the readout is the
+device procedure (`D-CHOMP-029`).
+
+**E. Frame rate under load.** Get a full wave on screen - nine ghosts or more,
+pellets, lighting - and watch for stutter. `Budgets.TargetFPS` is 30.
+
+**F. Persistence, the one Studio cannot do.** Earn, bank, buy a chassis, then
+**fully close the experience and rejoin**. Money and chassis should still be
+there. Then check the degraded path is survivable: it should be impossible to
+reach a state where the bay never releases you.
+
+**G. Hand it to her and say nothing.** She is the acceptance test; the numbers
+are only evidence. Watch whether she ever loses track of her own vehicle, and
+whether she works out what to do without being told.
 
 Turn the readout off in `ChompConfig.Debug.CameraReadout` before anyone plays
 this for fun rather than to measure it.
 
-If the camera cannot pass this on a map this trivial, the multi-level design is
-in trouble — and finding that out now, before any real geometry exists, is the
-entire reason this is built first.
+### What has no test case yet
+
+The bay sequence, the deployment gate, profile persistence, the degraded
+read-only path and two-finger fire are all **built and unspecified**: no
+requirement covers them and no `CHOMP-TC` verifies them. Test them from this
+list, and treat the gap as tree debt rather than as coverage.
 
 ## Before you playtest
 

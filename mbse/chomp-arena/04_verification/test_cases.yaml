@@ -695,22 +695,32 @@ test_cases:
     phase: v1
 
   - id: CHOMP-TC-040
-    title: The camera never loses the player, and other decks are legible
+    title: The camera never loses the player, on the device
     verifies: [CHOMP-SYS-051, CHOMP-SYS-052]
     type: SYSTEM
     method: TEST
-    preconditions: ["A multi-deck map", "Several players spread across decks"]
+    # Rewritten for the single-level disc (D-CHOMP-046 removed the decks,
+    # bridges and tower cores this procedure used to name) and for the device
+    # readout that replaced the command-bar report (D-CHOMP-029). Run it on the
+    # iPad against a PUBLISHED place: Studio's window is not the device.
+    preconditions:
+      - "Level1Map built (ChompConfig.Map.Layout = Level1)"
+      - "Published private experience, opened on the iPad"
+      - "ChompConfig.Debug.CameraReadout = true"
     test_data: {duration_seconds: 300}
     procedure:
-      - "Drive a full circuit of every deck, under bridges and around tower cores, logging occlusion"
-      - "Ride a ramp between decks and confirm the camera rises without a jump cut"
-      - "Confirm players on other decks appear as markers with height indication"
-      - "Ask a 7-year-old to point at where the nearest other player is"
-    expected_result: Occluding geometry fades, the camera tracks across decks smoothly, off-deck players are locatable at a glance.
+      - "Drive a full circuit of every ring corridor, logging occlusion from the on-screen readout"
+      - "Pass through ring gaps and spoke junctions, where two wall faces meet the camera line"
+      - "Run the boundary wall, the tallest geometry on the map, with it between camera and kart"
+      - "Cross the open centre and re-enter the rings at speed"
+      - "Charge-jump and land, confirming the camera holds the floor plane without stepping"
+      - "Hand the iPad to a 7-year-old and watch whether she ever loses her own vehicle"
+    expected_result: Occluding geometry fades before it hides the kart, the camera holds a single ground plane across the whole disc, and the player never has to search for themselves.
     pass_criteria:
       - "no full occlusion lasting more than 0.2 s across a 5 minute circuit"
-      - "no camera jump cut on any ramp"
-      - "child locates an off-deck player correctly from the marker alone"
+      - "zero breaches on the on-screen readout (any breach is a failure)"
+      - "no camera step or jump cut on jump takeoff or landing"
+      - "child never asks where her vehicle is"
     automation: HYBRID
     status: NOT_STARTED
     phase: v1
