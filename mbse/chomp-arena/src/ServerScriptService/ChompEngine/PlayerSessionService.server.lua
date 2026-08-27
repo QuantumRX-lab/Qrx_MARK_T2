@@ -66,8 +66,9 @@ RunService.Heartbeat:Connect(function()
 		if not character or not root then continue end
 		local flat = Vector3.new(root.Position.X, 0, root.Position.Z)
 		local fromHome = flat - homeCentre
-		if fromHome.Magnitude >= Launch.ExitRadiusStuds
-			and flat.Magnitude < homeCentre.Magnitude then
+		-- Deployment follows the visible safe-zone boundary, not the arch. The
+		-- arch points the way, but leaving by either side must behave identically.
+		if fromHome.Magnitude >= Config.Level1.HomeSafeRadiusStuds then
 			deploy(player, character)
 		end
 	end

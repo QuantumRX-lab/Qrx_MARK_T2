@@ -245,7 +245,7 @@ local function build()
 	-- the world so deployment is spatial, not another menu button.
 	local homeFlat = Vector3.new(home.X, 0, home.Z)
 	local inward = -homeFlat.Unit
-	local gateCentre = home + inward * Config.Launch.ExitRadiusStuds
+	local gateCentre = home + inward * L.HomeSafeRadiusStuds
 	local gate = Instance.new("Model")
 	gate.Name = "DeploymentGate"
 	gate.Parent = bays

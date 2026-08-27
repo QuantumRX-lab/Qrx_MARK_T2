@@ -499,7 +499,6 @@ ChompConfig.Launch = {
 	ActiveState = "ACTIVE",
 	DeploymentSeconds = 3,
 	SpawnProtectionSeconds = 3,
-	ExitRadiusStuds = 142,
 	GateWidthStuds = 34,
 	GateHeightStuds = 18,
 }

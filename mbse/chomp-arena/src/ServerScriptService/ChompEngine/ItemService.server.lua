@@ -707,6 +707,10 @@ local function fireCannon(player: Player)
 	cast.FilterType = Enum.RaycastFilterType.Exclude
 	cast.FilterDescendantsInstances = { pellet, character, Workspace:FindFirstChild("Ghosts") }
 	cast.IgnoreWater = true
+	local wallCast = RaycastParams.new()
+	wallCast.FilterType = Enum.RaycastFilterType.Include
+	wallCast.FilterDescendantsInstances = CollectionService:GetTagged("Chomp_Wall")
+	wallCast.IgnoreWater = true
 
 	local travelled = 0
 	local connection: RBXScriptConnection
@@ -717,7 +721,11 @@ local function fireCannon(player: Player)
 
 		-- Swept, not sampled. At 360 studs a second a per-frame position test
 		-- steps straight over a 2-stud wall roughly every other frame.
-		local hit = Workspace:Raycast(pellet.Position, step, cast)
+		-- Sweep the bullet's width against the authored wall set. A centre-line
+		-- ray lets the five-stud visual poke through a thin wall before its centre
+		-- arrives; the box sweep stops the whole visible round at the near face.
+		local wallHit = Workspace:Blockcast(pellet.CFrame, pellet.Size, step, wallCast)
+		local hit = wallHit or Workspace:Raycast(pellet.Position, step, cast)
 		if hit then
 			sparkAt(hit.Position, P.Gold)
 			pellet:Destroy()

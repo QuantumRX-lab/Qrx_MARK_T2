@@ -15,8 +15,8 @@ Lighting.ColorShift_Bottom = Color3.fromRGB(8, 18, 28)
 Lighting.EnvironmentDiffuseScale = 0.45
 Lighting.EnvironmentSpecularScale = 0.7
 Lighting.GlobalShadows = true
-Lighting.ShadowSoftness = 0.35
-Lighting.ExposureCompensation = 0.2
+Lighting.ShadowSoftness = 0.1
+Lighting.ExposureCompensation = 0.08
 
 local function effect(className: string, name: string): Instance
 	local found = Lighting:FindFirstChild(name)
@@ -28,22 +28,22 @@ local function effect(className: string, name: string): Instance
 end
 
 local atmosphere = effect("Atmosphere", "ChompAtmosphere") :: Atmosphere
-atmosphere.Density = 0.2
-atmosphere.Offset = 0.05
+atmosphere.Density = 0.04
+atmosphere.Offset = 0
 atmosphere.Color = Color3.fromRGB(154, 132, 188)
 atmosphere.Decay = Color3.fromRGB(48, 34, 70)
 atmosphere.Glare = 0
-atmosphere.Haze = 0.7
+atmosphere.Haze = 0.08
 
 local bloom = effect("BloomEffect", "ChompBloom") :: BloomEffect
-bloom.Intensity = 0.65
-bloom.Size = 20
-bloom.Threshold = 1.05
+bloom.Intensity = 0.12
+bloom.Size = 8
+bloom.Threshold = 1.6
 
 local grade = effect("ColorCorrectionEffect", "ChompGrade") :: ColorCorrectionEffect
-grade.Brightness = 0.04
-grade.Contrast = 0.14
-grade.Saturation = 0.08
-grade.TintColor = Color3.fromRGB(244, 238, 255)
+grade.Brightness = 0.02
+grade.Contrast = 0.2
+grade.Saturation = 0.04
+grade.TintColor = Color3.fromRGB(250, 250, 255)
 
-print("[WorldLook] midnight contrast rig active")
+print("[WorldLook] sharp-edge night rig active")

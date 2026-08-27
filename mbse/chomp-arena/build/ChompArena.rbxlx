@@ -507,7 +507,6 @@ ChompConfig.Launch = {
 	ActiveState = "ACTIVE",
 	DeploymentSeconds = 3,
 	SpawnProtectionSeconds = 3,
-	ExitRadiusStuds = 142,
 	GateWidthStuds = 34,
 	GateHeightStuds = 18,
 }
@@ -8450,6 +8449,10 @@ local function fireCannon(player: Player)
 	cast.FilterType = Enum.RaycastFilterType.Exclude
 	cast.FilterDescendantsInstances = { pellet, character, Workspace:FindFirstChild("Ghosts") }
 	cast.IgnoreWater = true
+	local wallCast = RaycastParams.new()
+	wallCast.FilterType = Enum.RaycastFilterType.Include
+	wallCast.FilterDescendantsInstances = CollectionService:GetTagged("Chomp_Wall")
+	wallCast.IgnoreWater = true
 
 	local travelled = 0
 	local connection: RBXScriptConnection
@@ -8460,7 +8463,11 @@ local function fireCannon(player: Player)
 
 		-- Swept, not sampled. At 360 studs a second a per-frame position test
 		-- steps straight over a 2-stud wall roughly every other frame.
-		local hit = Workspace:Raycast(pellet.Position, step, cast)
+		-- Sweep the bullet's width against the authored wall set. A centre-line
+		-- ray lets the five-stud visual poke through a thin wall before its centre
+		-- arrives; the box sweep stops the whole visible round at the near face.
+		local wallHit = Workspace:Blockcast(pellet.CFrame, pellet.Size, step, wallCast)
+		local hit = wallHit or Workspace:Raycast(pellet.Position, step, cast)
 		if hit then
 			sparkAt(hit.Position, P.Gold)
 			pellet:Destroy()
@@ -8972,7 +8979,7 @@ local function build()
 	-- the world so deployment is spatial, not another menu button.
 	local homeFlat = Vector3.new(home.X, 0, home.Z)
 	local inward = -homeFlat.Unit
-	local gateCentre = home + inward * Config.Launch.ExitRadiusStuds
+	local gateCentre = home + inward * L.HomeSafeRadiusStuds
 	local gate = Instance.new("Model")
 	gate.Name = "DeploymentGate"
 	gate.Parent = bays
@@ -9456,8 +9463,9 @@ RunService.Heartbeat:Connect(function()
 		if not character or not root then continue end
 		local flat = Vector3.new(root.Position.X, 0, root.Position.Z)
 		local fromHome = flat - homeCentre
-		if fromHome.Magnitude >= Launch.ExitRadiusStuds
-			and flat.Magnitude < homeCentre.Magnitude then
+		-- Deployment follows the visible safe-zone boundary, not the arch. The
+		-- arch points the way, but leaving by either side must behave identically.
+		if fromHome.Magnitude >= Config.Level1.HomeSafeRadiusStuds then
 			deploy(player, character)
 		end
 	end
@@ -10067,8 +10075,8 @@ Lighting.ColorShift_Bottom = Color3.fromRGB(8, 18, 28)
 Lighting.EnvironmentDiffuseScale = 0.45
 Lighting.EnvironmentSpecularScale = 0.7
 Lighting.GlobalShadows = true
-Lighting.ShadowSoftness = 0.35
-Lighting.ExposureCompensation = 0.2
+Lighting.ShadowSoftness = 0.1
+Lighting.ExposureCompensation = 0.08
 
 local function effect(className: string, name: string): Instance
 	local found = Lighting:FindFirstChild(name)
@@ -10080,25 +10088,25 @@ local function effect(className: string, name: string): Instance
 end
 
 local atmosphere = effect("Atmosphere", "ChompAtmosphere") :: Atmosphere
-atmosphere.Density = 0.2
-atmosphere.Offset = 0.05
+atmosphere.Density = 0.04
+atmosphere.Offset = 0
 atmosphere.Color = Color3.fromRGB(154, 132, 188)
 atmosphere.Decay = Color3.fromRGB(48, 34, 70)
 atmosphere.Glare = 0
-atmosphere.Haze = 0.7
+atmosphere.Haze = 0.08
 
 local bloom = effect("BloomEffect", "ChompBloom") :: BloomEffect
-bloom.Intensity = 0.65
-bloom.Size = 20
-bloom.Threshold = 1.05
+bloom.Intensity = 0.12
+bloom.Size = 8
+bloom.Threshold = 1.6
 
 local grade = effect("ColorCorrectionEffect", "ChompGrade") :: ColorCorrectionEffect
-grade.Brightness = 0.04
-grade.Contrast = 0.14
-grade.Saturation = 0.08
-grade.TintColor = Color3.fromRGB(244, 238, 255)
+grade.Brightness = 0.02
+grade.Contrast = 0.2
+grade.Saturation = 0.04
+grade.TintColor = Color3.fromRGB(250, 250, 255)
 
-print("[WorldLook] midnight contrast rig active")
+print("[WorldLook] sharp-edge night rig active")
 ]]></string>
         </Properties>
       </Item>
