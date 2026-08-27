@@ -8,7 +8,7 @@ chain: CHAIN-ECONOMY
 owner: unassigned
 scope: Pellets, eating, the battle bar, carried points, banking at a garage, upgrades
   and Power. The loop the whole game hangs from.
-requirement_count: 6
+requirement_count: 8
 requirements:
 - CHOMP-SYS-004
 - CHOMP-SYS-005
@@ -16,6 +16,8 @@ requirements:
 - CHOMP-SYS-007
 - CHOMP-SYS-008
 - CHOMP-SYS-009
+- CHOMP-SYS-064
+- CHOMP-SYS-067
 phases:
 - v1
 - v2
@@ -86,3 +88,20 @@ entries:
     that can be refused must follow the same order.
     Robux prices remain display-only for every offer including weapons. Wiring
     a real purchase is a parent's decision, not a build's.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: DECIDED
+  requirements: [CHOMP-SYS-007, CHOMP-SYS-064, CHOMP-SYS-067]
+  summary: >
+    Requirement triage (D-CHOMP-068). CHOMP-SYS-007 amended: banking works at ANY
+    garage pad, since per-player garages were never built and the four pads on
+    Level 1 are shared. The charge meter and escape jump (CHOMP-SYS-064) and the
+    plinth shop (CHOMP-SYS-067) now have requirements and test cases.
+  status: OPEN
+  handoff: >
+    CHOMP-SYS-067 puts three rules in a SHALL that were only ever conventions:
+    the server owns the price, anything refusable is granted BEFORE it is
+    charged for, and no real-currency price is displayed while no real purchase
+    is wired. All three were violated at some point by working code.
+    CHOMP-SYS-064 requires spending the COST, not the whole meter - the code
+    zeroed it for two days after D-CHOMP-064 decided otherwise.

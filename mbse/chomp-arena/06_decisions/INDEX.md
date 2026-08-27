@@ -7,7 +7,7 @@ named half was replaced and the rest still rules, `SUPERSEDED` means all
 of it was, `VOID` means the number was never used. Read the ACTIVE
 entries for your topic before writing code that touches it.
 
-67 decisions.
+68 decisions.
 
 ## camera
 
@@ -91,6 +91,7 @@ entries for your topic before writing code that touches it.
 - **D-CHOMP-040** `ACTIVE` 2026-08-25 — Hair and hats stay on, and accessories are never destroyed
 - D-CHOMP-057 `VOID` 2026-08-25 — Number skipped
 - **D-CHOMP-067** `ACTIVE` 2026-08-27 — The tree is made to notice when it stops being true
+- **D-CHOMP-068** `ACTIVE` 2026-08-27 — The requirements are made to describe the game that exists
 
 ## vehicle
 

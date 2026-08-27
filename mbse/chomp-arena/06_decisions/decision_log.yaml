@@ -1910,3 +1910,56 @@ decisions:
       What this does NOT fix: six requirements still describe a deleted game, the
       new mechanics still have no requirement IDs, and the 33 undocumented
       commits are still undocumented. Those need judgement, not a checker.
+
+  - id: D-CHOMP-068
+    date: 2026-08-27
+    status: ACTIVE
+    title: The requirements are made to describe the game that exists
+    decision: >
+      Six requirements amended to the built design: CHOMP-SYS-007 (banking at
+      any shared pad, not only your own), -017 (ghosts pursue rather than path
+      on a grid, and SHALL NOT pass through walls), -018 (contact steals AND
+      damages under one per-player cooldown, shield absorbs the whole contact),
+      -046 (garage count derived from config, not a fixed twelve), -047 (a v1
+      map is one sealed level), -053 (wave size from the ACTIVE lobby, with a
+      ghost speed cap). Eight requirements added for mechanics that were built
+      and unspecified: CHOMP-SYS-062 (stacked decks, re-phased to v2), -063
+      (waves), -064 (charge and the escape jump), -065 (garage sanctuaries),
+      -066 (friendly fire gates damage), -067 (the plinth shop), -068 (launch
+      bay and deployment gate), -069 (profile persistence and safe failure).
+      Each carries a new verifying test case, CHOMP-TC-048 to -055.
+    rationale: >
+      Two failures, opposite in direction, both corrosive.
+      Stale requirements: six APPROVED shall-statements described decks,
+      bridges, per-player garages, grid-pathing ghosts that cannot damage you,
+      and ghost counts that RISE as players leave. None of it exists. An agent
+      reading 02_requirements to learn the game would have built the wrong one,
+      and the conflicts had been known and logged for two days without being
+      resolved, because logging a conflict is easier than settling it.
+      Unspecified mechanics: waves, the charge jump, sanctuaries, friendly fire,
+      the shop, the bay and persistence had no IDs at all. That is worse than it
+      sounds, because validate.py enforces that a chain entry cites a
+      requirement belonging to that chain - so with no honest ID available,
+      entries cited whatever was nearest and in-chain. Wave work was logged
+      against a pathing requirement. The trace stayed green while pointing at
+      the wrong things.
+      CHOMP-SYS-017 is the one deliberately written AHEAD of the code: it now
+      says ghosts SHALL NOT pass through walls, which today they do. A
+      requirement is a statement of intent, and rewriting it to match a defect
+      would have converted the most damaging bug in the game into a feature by
+      documentation. The gap is a defect against a clear SHALL, tracked in
+      CHAIN-GHOSTS and RISK-CHOMP-008.
+    outcome: >
+      CHOMP-SYS-047 was amended rather than re-phased to v2, because six live
+      requirements derive from it including the camera ones - moving it would
+      have made every one of them derive from something shipping later, which
+      validate.py correctly refuses. The deck ambition moved to a NEW v2
+      requirement instead, so nothing was lost and nothing was faked.
+      All eight new test cases are HYBRID and NOT_STARTED. None of them can pass
+      today: three need the published place, one needs two players, one needs
+      ProfileService disabled deliberately. That is the honest state - the tree
+      now names what has to be proven rather than implying it already was.
+      What this still does not fix: 33 commits from 2026-08-26 to -27 carry no
+      decision record. Tagged for the authoring agent in CHAIN-PLATFORM with the
+      commit list and the five changes worth a decision each, rather than
+      reconstructed here from diffs.

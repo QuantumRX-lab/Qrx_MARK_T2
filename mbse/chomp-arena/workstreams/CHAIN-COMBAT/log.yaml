@@ -9,7 +9,7 @@ owner: unassigned
 scope: 'Impact classification and everything downstream of it: head-on contests,
   bites, scatter, invulnerability, being chomped, falls and drop attacks. The signature
   mechanic — nothing here may depend on a client''s word.'
-requirement_count: 14
+requirement_count: 15
 requirements:
 - CHOMP-STK-003
 - CHOMP-SYS-010
@@ -25,6 +25,7 @@ requirements:
 - CHOMP-SYS-059
 - CHOMP-SYS-060
 - CHOMP-SYS-061
+- CHOMP-SYS-066
 phases:
 - v1
 - v2
@@ -266,3 +267,18 @@ entries:
     entry" forbids. The rule was never broken by hand - it was broken by a
     convenience in the serialiser, which is the only way a rule like that ever
     breaks.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: DECIDED
+  requirements: [CHOMP-SYS-066]
+  summary: >
+    Requirement triage (D-CHOMP-068). Friendly fire has a requirement at last:
+    off by default, and off means no weapon damages another player by ANY route -
+    shot, blast or trap - not merely that it cannot target them.
+  status: OPEN
+  handoff: >
+    The phrase "and not merely be prevented from targeting them" is in the SHALL
+    deliberately. The original implementation gated only acquisition, so with the
+    switch off you could not aim at a friend but a stray burst went through them
+    for full damage. That sentence is the one that would have caught it, and any
+    new weapon has to be read against it.

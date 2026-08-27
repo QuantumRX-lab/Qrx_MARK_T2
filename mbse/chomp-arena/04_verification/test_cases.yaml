@@ -901,3 +901,188 @@ test_cases:
     automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
+
+  - id: CHOMP-TC-048
+    title: Two decks, and the camera keeps up
+    verifies: [CHOMP-SYS-062]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["A v2 map with two or more decks", "A ramp between decks"]
+    test_data: {}
+    procedure:
+      - "Drive a full circuit of every deck, logging occlusion from the on-screen readout"
+      - "Ride a ramp in both directions and watch for a camera jump cut"
+      - "Confirm players on another deck are locatable at a glance"
+    expected_result: The camera follows between decks without a cut and never loses the player.
+    pass_criteria:
+      - "no full occlusion lasting more than 0.2 s"
+      - "no camera jump cut on any ramp, in either direction"
+      - "a 7-year-old can point at an off-deck player from the marker alone"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v2
+
+  - id: CHOMP-TC-049
+    title: Waves arrive, grow, and give you room to bank
+    verifies: [CHOMP-SYS-063]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Level1 built", "At least one player able to deploy"]
+    test_data: {}
+    procedure:
+      - "Confirm no wave exists while every player is still in the launch bay"
+      - "Deploy, and time how long until the first ghost is visible"
+      - "Measure the spawn ring radius against Waves.SpawnMinDistanceStuds"
+      - "Clear waves 1 to 5, recording count and measured ghost speed at each"
+      - "Time the break and confirm a garage is reachable within it from mid-map"
+    expected_result: Waves start on deployment, arrive visibly but not on top of the player, escalate within their caps, and leave a usable banking window.
+    pass_criteria:
+      - "no wave begins while all players are in the bay"
+      - "no ghost spawns closer than SpawnMinDistanceStuds to any player"
+      - "measured ghost speed never exceeds Waves.MaxSpeed"
+      - "count never exceeds Waves.MaxCount"
+      - "a garage is reachable from mid-map inside the break at Standard speed"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-050
+    title: The jump costs what it says, and only the server decides
+    verifies: [CHOMP-SYS-064]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["A player able to eat pellets", "A client able to send UseCharge"]
+    test_data: {}
+    procedure:
+      - "Eat to exactly JumpCost, jump, and read the remaining charge"
+      - "Eat to full (Max), jump, and read the remaining charge"
+      - "Send UseCharge repeatedly with an empty meter"
+      - "Send UseCharge faster than the rate limit"
+    expected_result: A jump deducts JumpCost and no more; an empty meter buys nothing however often it is asked.
+    pass_criteria:
+      - "charge after a jump equals charge before minus JumpCost"
+      - "a full meter leaves Max minus JumpCost, not zero"
+      - "no jump occurs below JumpCost regardless of client requests"
+      - "requests beyond the rate limit are dropped without effect"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-051
+    title: Nothing reaches you in the garage
+    verifies: [CHOMP-SYS-065]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Level1 built with tagged garage pads", "An active wave"]
+    test_data: {}
+    procedure:
+      - "Stand inside the home sanctuary with a full carry while a wave hunts you"
+      - "Start a wave while the only player is inside a sanctuary and record where ghosts appear"
+      - "Drive slowly across the sanctuary boundary and watch a pursuing ghost"
+      - "Confirm the boundary is visible on the floor from a driving camera"
+    expected_result: Ghosts cannot enter, spawn inside, steal from or damage anyone in a sanctuary, and they circle the line rather than freezing on it.
+    pass_criteria:
+      - "carried points never fall while inside a sanctuary"
+      - "health never falls while inside a sanctuary"
+      - "no ghost spawns inside a sanctuary radius"
+      - "a blocked ghost keeps moving tangentially rather than stopping"
+      - "the boundary is identifiable without being told where it is"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-052
+    title: Friendly fire off means unharmed, not merely untargeted
+    verifies: [CHOMP-SYS-066]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Two players in one server", "Cannon and bomb available"]
+    test_data: {}
+    procedure:
+      - "With friendly fire OFF, fire a full cannon burst directly into the other player at close range"
+      - "With friendly fire OFF, detonate a bomb while the other player stands inside the blast radius"
+      - "Repeat both with friendly fire ON"
+      - "Join alone and read the switch"
+    expected_result: With the switch off no weapon reduces another player's health by any route; with it on both do.
+    pass_criteria:
+      - "health is unchanged by a point-blank burst while friendly fire is off"
+      - "health is unchanged by a bomb detonated on top of the player while off"
+      - "both deal damage when on"
+      - "the control states plainly that it has no effect when alone"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-053
+    title: The shop cannot take money for nothing
+    verifies: [CHOMP-SYS-067]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Plinths built", "A player with a known dollar balance"]
+    test_data: {}
+    procedure:
+      - "Dwell at a plinth with enough money and confirm the item arrives and the price is deducted"
+      - "Fill the belt, then dwell at a weapon plinth and check the balance afterwards"
+      - "Dwell with insufficient funds and read the refusal"
+      - "Drive past a plinth at speed without stopping"
+      - "Forge a purchase request naming a lower price"
+      - "Inspect every plinth label for a real-currency price"
+    expected_result: Purchases are dwell-only, server-priced, granted before charged, and refusals are free and explained.
+    pass_criteria:
+      - "a refused purchase deducts nothing"
+      - "a full belt refuses and leaves the plinth stocked"
+      - "the refusal states the reason"
+      - "a forged price is ignored and the server price is charged"
+      - "no plinth displays a real-currency price while no real purchase is wired"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-054
+    title: The bay is safe, and it always ends
+    verifies: [CHOMP-SYS-068]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Published place", "A wave running", "Ability to disable ProfileService"]
+    test_data: {}
+    procedure:
+      - "Join mid-wave and confirm ghosts ignore the player while in the bay"
+      - "Confirm bay players do not raise the wave size"
+      - "Drive off the pad and confirm the countdown, then spawn protection on arrival"
+      - "Disable ProfileService entirely and join"
+      - "Rejoin after being caught and confirm the bay sequence repeats cleanly"
+    expected_result: The bay is inert to combat and always releases the player, even when the profile never loads.
+    pass_criteria:
+      - "no damage or theft occurs while in the bay"
+      - "wave size does not change when a player is in the bay"
+      - "deployment countdown and spawn protection both occur"
+      - "with ProfileService absent the player still reaches the arena within the configured timeout"
+      - "the degraded state is stated on screen rather than silent"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-055
+    title: Progress survives, and a bad read never destroys it
+    verifies: [CHOMP-SYS-069]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Published place with API services enabled", "A profile with known values"]
+    test_data: {}
+    procedure:
+      - "Earn, bank, buy a chassis and an upgrade, then leave the experience fully and rejoin"
+      - "Confirm dollars, owned chassis, equipped chassis and upgrade levels all return"
+      - "Force a read failure, then play a session and leave"
+      - "Rejoin normally and confirm the stored profile is intact"
+      - "Attempt a purchase while saving is blocked"
+      - "Write a corrupt or out-of-range profile and load it"
+    expected_result: Progression persists across sessions, and a failed read costs the session but never the save.
+    pass_criteria:
+      - "all persisted fields return unchanged after a rejoin"
+      - "a failed read never overwrites the stored profile"
+      - "purchases are refused while saving is blocked, with a reason"
+      - "out-of-range values are clamped rather than accepted"
+      - "shutdown saves without loss"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1

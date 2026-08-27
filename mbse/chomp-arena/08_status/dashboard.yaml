@@ -37,41 +37,17 @@ note: >
   backlog that statement creates, not a bug in it.
 
 requirements:
-  total: 69
-  by_level:
-    L1_stakeholder: 8
-    L2_system: 61
-  by_phase:
-    v1: 58
-    v2: 8
-    v3: 3
-  by_priority:
-    CRITICAL: 27
-    HIGH: 33
-    MEDIUM: 9
-  by_chain:
-    CHAIN-COMBAT: 14
-    CHAIN-ECONOMY: 6
-    CHAIN-GATES: 5
-    CHAIN-GHOSTS: 8
-    CHAIN-KIT: 4
-    CHAIN-MATCH: 6
-    CHAIN-MAZE: 3
-    CHAIN-PLATFORM: 10
-    CHAIN-UI: 8
-    CHAIN-VEHICLE: 5
+  total: 77
+  by_level: {L1_stakeholder: 8, L2_system: 69}
+  by_phase: {v1: 65, v2: 9, v3: 3}
+  by_priority: {CRITICAL: 28, HIGH: 38, MEDIUM: 11}
+  by_chain: {CHAIN-COMBAT: 15, CHAIN-ECONOMY: 8, CHAIN-GATES: 5, CHAIN-GHOSTS: 10, CHAIN-KIT: 4, CHAIN-MATCH: 6, CHAIN-MAZE: 4, CHAIN-PLATFORM: 12, CHAIN-UI: 8, CHAIN-VEHICLE: 5}
   automation_exempt: 2
 
 test_cases:
-  total: 47
-  by_automation:
-    AUTOMATED: 35
-    HYBRID: 9
-    MANUAL: 3
-  by_phase:
-    v1: 40
-    v2: 4
-    v3: 3
+  total: 55
+  by_automation: {AUTOMATED: 35, HYBRID: 17, MANUAL: 3}
+  by_phase: {v1: 47, v2: 5, v3: 3}
 
 risks:
   total: 13
@@ -82,7 +58,7 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 67
+  total: 68
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder - the daughter names it."

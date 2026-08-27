@@ -9,11 +9,12 @@ owner: unassigned
 scope: 'Map geometry: multi-level decks, four-fold symmetry, twelve garages three
   per quadrant, the prefab pieces everything is built from. The daughter''s chain,
   in practice.'
-requirement_count: 3
+requirement_count: 4
 requirements:
 - CHOMP-SYS-039
 - CHOMP-SYS-046
 - CHOMP-SYS-047
+- CHOMP-SYS-062
 phases:
 - v1
 - v2
@@ -197,3 +198,20 @@ entries:
     and ghosts still have no pathing (they steer straight at you and slide on
     walls). If the chase reads as unfair rather than tense, the lever is wave
     size and speed, not a new invisible rule on a wall.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: DECIDED
+  requirements: [CHOMP-SYS-046, CHOMP-SYS-047, CHOMP-SYS-062]
+  summary: >
+    Requirement triage (D-CHOMP-068). CHOMP-SYS-047 amended from "two or more
+    stacked decks" to "one sealed level", closing the conflict this chain logged
+    on 2026-08-25 and left open. CHOMP-SYS-046 no longer fixes twelve garages at
+    three per quadrant; the count derives from ChompConfig. The deck ambition
+    moves to CHOMP-SYS-062 at v2.
+  status: OPEN
+  handoff: >
+    047 was amended rather than re-phased because six requirements derive from
+    it, including the camera ones - moving it to v2 would have made all six
+    derive from something shipping later, which validate.py refuses. If the
+    decks ever return, they arrive through CHOMP-SYS-062 and CHOMP-TC-048, and
+    the camera acceptance run has to pass on ONE level first.

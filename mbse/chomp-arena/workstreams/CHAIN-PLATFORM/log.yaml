@@ -8,7 +8,7 @@ chain: CHAIN-PLATFORM
 owner: unassigned
 scope: Server authority, the exploit surface, performance on the iPad, publishing
   and safety, ChompConfig, and content discovery by tag.
-requirement_count: 10
+requirement_count: 12
 requirements:
 - CHOMP-STK-005
 - CHOMP-STK-006
@@ -20,6 +20,8 @@ requirements:
 - CHOMP-SYS-037
 - CHOMP-SYS-038
 - CHOMP-SYS-042
+- CHOMP-SYS-068
+- CHOMP-SYS-069
 phases:
 - v1
 - v2
@@ -189,3 +191,39 @@ entries:
     that last one the open question is recorded in the dashboard rather than
     silently reconstructed: inventing rationale nobody held is worse than an
     honest hole.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: BLOCKED
+  requirements: [CHOMP-SYS-035]
+  summary: >
+    FOR CODEX (or whoever authored the 2026-08-26/-27 commits): thirty-three
+    commits have no decision record and I will not invent one. If you hold the
+    rationale, please write it - the work deserves a record and only you have it.
+  status: OPEN
+  handoff: >
+    The commits, by their subject lines, from oldest to newest:
+      9e9ad9a Make progression persist and waves scale with the lobby
+      2b2af60 Make the shop maze and game feedback readable
+      6a5d6e9 Replace placeholder audio with a licensed sourcing plan
+      ec10310 Approve free prototype audio stack
+      4b760dc Add owner-ready game audio director
+      24bd3ae Wire curated Roblox sound effects
+      d27359c Wire exploration and guardian music
+      296b458 Make shop purchases and equipment unmistakable
+      2258ec8 Replicate cannon turret rotation
+      dcd6d5a Baseline launch bay and deployment flow
+      03855c3 Stop cannon fire at walls and sharpen arena
+      f4270fc Fix launch boundary and deterministic wall hits
+      8573a39 Scope vehicle upgrade ladder and personal garages
+    The five worth a decision each, because each changed a rule rather than a
+    number: the upgrade ladder going from three session tracks to seven
+    persistent ones with module ports and costs 150/400/900 -> 800/3500/9500;
+    DataStore persistence and what it means for a match-scoped economy; the
+    launch bay and deployment gate; the audio stack and its licensing basis;
+    and lobby-scaled wave counts, which contradicts CHOMP-SYS-053's inverse
+    mapping and needs a ruling either way.
+    Decision IDs from D-CHOMP-068 are free. The log now carries supersedes /
+    superseded_by / status fields (D-CHOMP-067) - please use them, and note that
+    the ladder rework supersedes D-CHOMP-011's three-track scheme.
+    If the reasoning is genuinely lost, say so in one entry and I will stop
+    asking. An honest hole beats reconstructed rationale nobody actually held.

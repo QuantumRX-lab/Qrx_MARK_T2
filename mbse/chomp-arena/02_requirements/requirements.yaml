@@ -364,11 +364,11 @@ requirements:
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-007
-    title: Banking at your own garage
+    title: Banking at any garage pad
     shall_statement: >
-      Entering your own garage SHALL convert all carried points to banked
-      dollars at 1:1, leave the battle bar untouched, and SHALL be refused at
-      any other player's garage.
+      Driving onto ANY garage pad SHALL convert all carried points to banked
+      dollars at 1:1 and leave the battle bar untouched. Banking SHALL require no
+      button, prompt or confirmation.
     level: L2_system
     status: APPROVED
     priority: CRITICAL
@@ -377,13 +377,17 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      Banking is what makes carried points risky and therefore what makes the
-      whole map tense. It is the mechanic the rest of the design hangs from.
+      Amended 2026-08-27 (D-CHOMP-068). The original refused banking at any other
+      player's garage, which assumed per-player garages that were never built: the
+      four pads on Level 1 are shared, and the geography does the work instead - a
+      pad is far from where the points are, so the drive back is the risk.
+      Ownership would add a rule a child cannot see, to solve a problem distance
+      already solves.
     allocated_to: ServerScriptService/ChompEngine
     chain: CHAIN-ECONOMY
     phase: v1
     created_date: 2026-08-25
-    last_modified: 2026-08-25
+    last_modified: 2026-08-27
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-008
@@ -604,11 +608,12 @@ requirements:
   # ── L2 system — ghosts ──────────────────────────────────────────────────
 
   - id: CHOMP-SYS-017
-    title: Ghosts path on the maze grid
+    title: Ghosts pursue, and walls stop them
     shall_statement: >
-      Ghosts SHALL move junction to junction on the maze grid, choosing a
-      direction at each junction by their behaviour rule, and SHALL NOT reverse
-      mid-corridor except when fleeing.
+      Ghosts SHALL pursue the nearest active player within their sense radius and
+      drift on their ring when no one is in range. They SHALL NOT pass through maze
+      walls, and SHALL slide along a wall toward an opening rather than stopping
+      dead against it. Players inside a garage sanctuary SHALL NOT be pursued.
     level: L2_system
     status: APPROVED
     priority: HIGH
@@ -617,22 +622,30 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      Grid pathing is how the original worked, it costs almost nothing, and it
-      makes ghosts learnable rather than twitchy — which is what makes them
-      fair rather than merely difficult.
+      Amended 2026-08-27 (D-CHOMP-068). Grid pathing was never built and is not
+      wanted: relentless straight pursuit is what makes ghosts frightening to a
+      seven-year-old, and D-CHOMP-049 chose it deliberately over cleverness.
+      What IS wanted, and is not yet true, is the wall clause. Ghosts currently fly
+      straight over 7-stud walls while the kart must corner through gaps, so route
+      planning - the whole skill the maze teaches - does nothing against the only
+      threat in the game. This requirement states the intent; the build does not
+      meet it, and that gap is a defect tracked in CHAIN-GHOSTS and RISK-CHOMP-008
+      rather than a requirement quietly rewritten to match the code.
     allocated_to: ServerScriptService/ChompEngine/Behaviours
     chain: CHAIN-GHOSTS
     phase: v1
     created_date: 2026-08-25
-    last_modified: 2026-08-25
+    last_modified: 2026-08-27
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-018
     title: Ghosts rob, they do not kill
     shall_statement: >
-      Ghost contact SHALL take 25% of the player's carried points, scatter them
-      at the contact point, apply knockback and invulnerability, and SHALL NOT
-      reduce the battle bar or destroy the vehicle.
+      Ghost contact SHALL take a configured fraction of the player's carried points
+      and apply contact damage, both gated by a single per-player cooldown so that a
+      pack cannot apply one penalty per ghost in one instant. An active shield SHALL
+      absorb the entire contact - theft and damage - and throw the ghost clear.
+      Banked dollars SHALL never be touchable.
     level: L2_system
     status: APPROVED
     priority: HIGH
@@ -641,14 +654,18 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      A ghost hit should hurt most when you are fat and far from home — which
-      is exactly when you should already have banked. Killing outright would
-      make the deep rings unplayable for a child.
+      Amended 2026-08-27 (D-CHOMP-068). The original said ghosts may not reduce the
+      battle bar or destroy the vehicle; D-CHOMP-051 introduced contact damage and
+      death, so the requirement described a game two design generations old.
+      The per-player cooldown is the part that matters and is easy to lose: with a
+      per-ghost cooldown, four ghosts brushing you once cost 68% of the carry and
+      over half your health in a single frame, which reads to a child as random
+      deletion rather than as pressure. Worn down, not deleted.
     allocated_to: ServerScriptService/ChompEngine
     chain: CHAIN-GHOSTS
     phase: v1
     created_date: 2026-08-25
-    last_modified: 2026-08-25
+    last_modified: 2026-08-27
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-019
@@ -1221,10 +1238,10 @@ requirements:
   - id: CHOMP-SYS-046
     title: Twelve players, three garages per quadrant
     shall_statement: >
-      MaxPlayers SHALL be 12, each map SHALL provide 12 garages arranged as 3
-      per quadrant, and pellet count and maze footprint SHALL be scaled to the
-      player count so that a full lobby does not strip a ring bare between
-      respawns.
+      MaxPlayers SHALL be 12. Each map SHALL provide at least one garage per four
+      players, with the count and placement derived from ChompConfig rather than
+      fixed in code, and pellet count SHALL be scaled so that a full lobby does not
+      strip a ring bare between respawns.
     level: L2_system
     status: APPROVED
     priority: HIGH
@@ -1233,24 +1250,26 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      Owner decision (D-CHOMP-006). 12 divides by four, so every garage has a
-      symmetric counterpart and no spawn is better than another; it stays
-      comfortable in one maze; and a smaller cap makes the server feel busier
-      with the five or six players actually likely to be on. Raising it later
-      means editing one quadrant, not rebuilding a map.
+      Amended 2026-08-27 (D-CHOMP-068). The original fixed 12 garages at 3 per
+      quadrant, written for the multi-deck map. Level 1 has four, one of them home,
+      and four is right for it: each garage is a sanctuary ghosts may not enter
+      (CHOMP-SYS-065), so garages are safe ground and not only convenience, and
+      twelve on an 800-stud disc would make most of the outer ring safe.
+      Deriving the count from config is what lets the next map differ without
+      amending this again.
     allocated_to: Workspace/Maps
     chain: CHAIN-MAZE
     phase: v1
     created_date: 2026-08-25
-    last_modified: 2026-08-25
+    last_modified: 2026-08-27
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-047
-    title: The maze is multi-level
+    title: Each v1 map is one sealed level
     shall_statement: >
-      Each map SHALL consist of two or more vertically stacked decks connected
-      by ramps and bridges, with rings ascending toward the centre and the
-      Vault at the top of the central tower.
+      Each v1 map SHALL be a single fully enclosed level with no vertical drops and
+      no way to leave the play surface, with concentric ring corridors, offset gaps
+      between rings, and an open high-value centre.
     level: L2_system
     status: APPROVED
     priority: HIGH
@@ -1259,15 +1278,19 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: INSPECTION
     rationale: >
-      Owner decision (D-CHOMP-011). Stacking the rings makes the progression
-      visible from the ground floor — a player can see the treasure they are
-      not yet allowed into, with a guarded ramp in between — and gives the map
-      natural chokepoints on its bridges instead of manufactured ones.
+      Amended 2026-08-27 (D-CHOMP-068). This required two or more stacked decks,
+      which D-CHOMP-046 deleted: a drop between decks is a way to fall out of the
+      map, and the camera could not follow between them without a jump cut. The
+      multi-deck ambition is not abandoned but re-phased - see CHOMP-SYS-062, which
+      carries it at v2.
+      It is amended rather than moved because six live requirements derive from it,
+      including the camera ones; re-phasing it to v2 would have made every one of
+      them derive from something shipping later.
     allocated_to: Workspace/Maps
     chain: CHAIN-MAZE
     phase: v1
     created_date: 2026-08-25
-    last_modified: 2026-08-25
+    last_modified: 2026-08-27
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-048
@@ -1394,11 +1417,13 @@ requirements:
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-053
-    title: The ghost count scales with the player count
+    title: Wave size follows the active lobby
     shall_statement: >
-      The number of active ghosts SHALL be set from the current player count,
-      rising as players leave and falling as they join, recalculated within 10
-      seconds of any join or leave, with the mapping defined in ChompConfig.
+      The size of a ghost wave SHALL be derived from the number of ACTIVE players -
+      those deployed into the arena, not those in the launch bay - from a mapping
+      defined in ChompConfig, and SHALL grow with the wave number up to a configured
+      maximum. Ghost speed SHALL be capped so that the slowest chassis can always
+      outrun a ghost.
     level: L2_system
     status: APPROVED
     priority: CRITICAL
@@ -1407,19 +1432,19 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      Owner decision (D-CHOMP-010). Published to Friends only, the normal case
-      is one or two players in the server, not twelve — and a PvP design with
-      one player in it has nothing happening at all. Scaling the ghosts means
-      the maze itself becomes the opponent when it is quiet: alone, the game is
-      Pac-Man with upgrades and towers, which is already a good game. Chosen
-      over a separate solo mode because it needs no menu, no mode selection and
-      no second set of rules — it is one number the server sets when people
-      join and leave.
+      Amended 2026-08-27 (D-CHOMP-068). The original mapped ghost count INVERSELY to
+      player count - more ghosts as the lobby emptied - to keep a thin server
+      populated. Waves replaced that model entirely: pressure now comes from the
+      wave schedule, and a solo player meeting the full nine was a siege rather than
+      an opening.
+      The speed cap is the child-safety clause and belongs in a SHALL rather than a
+      config comment: without it, growth crossed the Standard chassis at wave 9 and
+      'you can always drive away' silently stopped being true.
     allocated_to: ServerScriptService/ChompEngine
     chain: CHAIN-GHOSTS
     phase: v1
     created_date: 2026-08-25
-    last_modified: 2026-08-25
+    last_modified: 2026-08-27
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-054
@@ -1731,4 +1756,233 @@ requirements:
     phase: v1
     created_date: 2026-08-25
     last_modified: 2026-08-25
+    author: Claude (local session)
+
+  - id: CHOMP-SYS-062
+    title: Stacked decks, deferred to v2
+    shall_statement: >
+      A v2 map SHALL support two or more vertically stacked decks connected by
+      ramps, with the camera following between decks without a jump cut and
+      players on other decks locatable at a glance.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [CHOMP-STK-001]
+    verified_by: [CHOMP-TC-048]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Carries the multi-deck ambition CHOMP-SYS-047 held until D-CHOMP-046 built a
+      single sealed disc instead. It is not abandoned - a game whose arena grows
+      vertically is a better game - but it is blocked on the camera, and the camera
+      acceptance run (CHOMP-TC-040) has still never been done even on one level.
+      Phased v2 so the ambition is recorded without pretending v1 owes it.
+    allocated_to: ServerScriptService/ChompEngine/Level1Map
+    chain: CHAIN-MAZE
+    phase: v2
+    created_date: 2026-08-27
+    last_modified: 2026-08-27
+    author: Claude (local session)
+
+  - id: CHOMP-SYS-063
+    title: Ghost waves
+    shall_statement: >
+      Ghosts SHALL arrive in numbered waves that begin only when at least one
+      player is active, spawn in a ring around a player at a configured minimum
+      distance, grow in count and speed with the wave number within configured
+      caps, and be followed by a break long enough to reach a garage and bank.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-001]
+    verified_by: [CHOMP-TC-049]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Waves are the spine of the session and had no requirement at all: they were
+      specified only in D-CHOMP-059 and -062 prose, so CHAIN-GHOSTS logged wave
+      work against CHOMP-SYS-017, a pathing requirement, which passed validation
+      while corrupting the trace.
+      The minimum spawn distance and the break are the clauses that protect a
+      child: arriving ON someone is a cheap hit rather than a threat, and a break
+      too short to reach a bank makes banking a thing you never do.
+    allocated_to: ServerScriptService/ChompEngine/GhostService
+    chain: CHAIN-GHOSTS
+    phase: v1
+    created_date: 2026-08-27
+    last_modified: 2026-08-27
+    author: Claude (local session)
+
+  - id: CHOMP-SYS-064
+    title: The charge meter and the escape jump
+    shall_statement: >
+      Eating pellets SHALL fill a charge meter. At or above a configured cost the
+      player MAY spend that cost - not the whole meter - on a single jump that
+      carries them up and forward. The client SHALL send only the intent to jump;
+      the server SHALL decide whether there is charge to spend.
+    level: L2_system
+    status: APPROVED
+    priority: MEDIUM
+    derives_from: [CHOMP-STK-001]
+    verified_by: [CHOMP-TC-050]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The one move that rewards collecting for its own sake, and the only escape a
+      frightened player controls. Two details are load-bearing and were both got
+      wrong in code before being written down here: spending the COST rather than
+      zeroing the meter, so topping up past the threshold is not silently taxed;
+      and intent-only on the wire, because a client that could declare a jump could
+      declare a free one.
+    allocated_to: ServerScriptService/ChompEngine/ChargeService
+    chain: CHAIN-ECONOMY
+    phase: v1
+    created_date: 2026-08-27
+    last_modified: 2026-08-27
+    author: Claude (local session)
+
+  - id: CHOMP-SYS-065
+    title: Garages are sanctuaries
+    shall_statement: >
+      Ghosts SHALL NOT enter, spawn inside, steal from or damage anyone within a
+      garage sanctuary. The sanctuary boundary SHALL be visible in the world, and
+      a blocked ghost SHALL circle it rather than stopping against it.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-008]
+    verified_by: [CHOMP-TC-051]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The garage asks the player to stand still - to shop, to bank, to decide - and
+      a wave anchored on a player who has not moved yet arrived on top of them.
+      A safe zone rather than a spawn timer, because a timer protects a moment and
+      this has to protect an activity.
+      Visible is not decoration: an invisible rule is a surprise, not a mechanic.
+      Circling rather than halting is what makes leaving a decision instead of
+      making the ghost look broken.
+    allocated_to: ServerScriptService/ChompEngine/GhostService
+    chain: CHAIN-GHOSTS
+    phase: v1
+    created_date: 2026-08-27
+    last_modified: 2026-08-27
+    author: Claude (local session)
+
+  - id: CHOMP-SYS-066
+    title: Friendly fire is off, and off means unharmed
+    shall_statement: >
+      Friendly fire SHALL default to off. While it is off, no weapon owned by a
+      player SHALL damage another player by any means - shot, blast or trap - and
+      not merely be prevented from targeting them. The switch SHALL be legible on
+      screen and SHALL state when it has no effect because nobody else is present.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-006]
+    verified_by: [CHOMP-TC-052]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Written after the switch was found to gate only target ACQUISITION: with it
+      off you could not aim at a friend, but a stray burst went through them for
+      full damage. In a game two children play together that is the worst possible
+      failure, because it punishes exactly the shot you did not mean to take.
+      'Not merely be prevented from targeting them' is in the SHALL on purpose -
+      it is the sentence that would have prevented the bug.
+    allocated_to: ServerScriptService/ChompEngine/ItemService
+    chain: CHAIN-COMBAT
+    phase: v1
+    created_date: 2026-08-27
+    last_modified: 2026-08-27
+    author: Claude (local session)
+
+  - id: CHOMP-SYS-067
+    title: The plinth shop
+    shall_statement: >
+      Everything buyable SHALL stand on a lit plinth showing what it is and its
+      price. Purchase SHALL be by dwelling beside it, with no menu, button or
+      confirmation dialog, and SHALL show its progress. THE SERVER SHALL OWN THE
+      PRICE. Anything that can be refused SHALL be granted before it is charged
+      for, and a refusal SHALL cost nothing and say why. Real-currency prices SHALL
+      NOT be displayed unless a real purchase is wired.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-007]
+    verified_by: [CHOMP-TC-053]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The shop is where a child spends what they risked their run to earn, so every
+      clause here is about not betraying that.
+      Grant-before-charge is the rule that stops a full belt taking someone's money
+      for an item it then refuses. The Robux clause is separate and blunt: the
+      store has always been dollars-only, and plinths were advertising real
+      currency for a purchase that did not exist, in a game built for a
+      seven-year-old.
+    allocated_to: ServerScriptService/ChompEngine/GarageService
+    chain: CHAIN-ECONOMY
+    phase: v1
+    created_date: 2026-08-27
+    last_modified: 2026-08-27
+    author: Claude (local session)
+
+  - id: CHOMP-SYS-068
+    title: The launch bay and the deployment gate
+    shall_statement: >
+      A joining player SHALL arrive in a launch bay where they are not a valid
+      target, take no damage, and do not count toward wave size. Leaving the bay
+      SHALL be the commitment to deploy, SHALL be announced with a countdown, and
+      SHALL grant brief spawn protection on arrival. No player SHALL be held in the
+      bay indefinitely by the failure of any single service.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-STK-001]
+    verified_by: [CHOMP-TC-054]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The bay is the first thing anyone sees and the place a returning player fits
+      their loadout, so it has to be safe and it has to end.
+      The last clause is written from a real failure: the bay waited on one
+      attribute with one writer and no timeout, so a single absent script parked
+      every player on a loading message for the whole session, with no message and
+      no way out.
+    allocated_to: ServerScriptService/ChompEngine/PlayerSessionService
+    chain: CHAIN-PLATFORM
+    phase: v1
+    created_date: 2026-08-27
+    last_modified: 2026-08-27
+    author: Claude (local session)
+
+  - id: CHOMP-SYS-069
+    title: Profiles persist, and fail safely
+    shall_statement: >
+      Permanent progression - banked dollars, owned and equipped chassis, and
+      upgrade levels - SHALL persist across sessions in versioned storage, be
+      sanitised and clamped on read, and be saved on leave, on shutdown and
+      periodically. A failed read SHALL NOT overwrite the stored profile, SHALL
+      leave the player able to play the session, and SHALL prevent any purchase
+      while saving is blocked.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-STK-006]
+    verified_by: [CHOMP-TC-055]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Persistence is the difference between a toy and a game you come back to, and
+      the failure modes are all worse than not having it.
+      Never-overwrite-on-failed-read is the clause that protects a child's saved
+      progress from a transient DataStore outage. Blocking purchases while saving
+      is blocked is the other half: a session that cannot save must not sell
+      someone a chassis that will be gone when they rejoin.
+    allocated_to: ServerScriptService/ChompEngine/ProfileService
+    chain: CHAIN-PLATFORM
+    phase: v1
+    created_date: 2026-08-27
+    last_modified: 2026-08-27
     author: Claude (local session)

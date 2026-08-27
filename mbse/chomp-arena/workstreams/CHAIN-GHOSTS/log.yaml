@@ -8,7 +8,7 @@ chain: CHAIN-GHOSTS
 owner: unassigned
 scope: Ghost pathing on the deck graph, the pluggable personality modules, robbery
   on contact, power pellets, and scaling the ghost count to the player count.
-requirement_count: 8
+requirement_count: 10
 requirements:
 - CHOMP-SYS-017
 - CHOMP-SYS-018
@@ -18,6 +18,8 @@ requirements:
 - CHOMP-SYS-040
 - CHOMP-SYS-048
 - CHOMP-SYS-053
+- CHOMP-SYS-063
+- CHOMP-SYS-065
 phases:
 - v1
 - v2
@@ -139,3 +141,24 @@ entries:
     what actually distributes them, and pushClear is only the backstop.
     Still open: ghosts have no pathing and walk through maze walls, so the
     sanctuary is currently the only geometry they respect.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: DECIDED
+  requirements: [CHOMP-SYS-017, CHOMP-SYS-018, CHOMP-SYS-053, CHOMP-SYS-063, CHOMP-SYS-065]
+  summary: >
+    Requirement triage (D-CHOMP-068). CHOMP-SYS-017 amended from grid pathing to
+    pursuit-with-walls, -018 from no-damage to steal-plus-damage under one
+    per-player cooldown, -053 from inverse ghost scaling to wave size from the
+    ACTIVE lobby with a speed cap. Waves (CHOMP-SYS-063) and sanctuaries
+    (CHOMP-SYS-065) now have their own requirements and test cases instead of
+    being logged against a pathing requirement.
+  status: OPEN
+  handoff: >
+    READ THIS BEFORE TOUCHING GhostService: CHOMP-SYS-017 now says ghosts SHALL
+    NOT pass through maze walls, and they currently do. That is deliberate. The
+    requirement states intent; the build does not meet it; the gap is a defect,
+    not a licence to rewrite the requirement back. Fixing it is one raycast per
+    ghost per frame with the same slide the sanctuary code already does.
+    This is the highest-value open item in the game: while ghosts cut chords
+    through brick, the maze constrains only the player and route planning - the
+    entire skill the map teaches - does nothing against the only threat.
