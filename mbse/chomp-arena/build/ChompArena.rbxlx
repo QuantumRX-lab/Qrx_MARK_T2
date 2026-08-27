@@ -7452,9 +7452,13 @@ local waveActive = false
 local wallCast = RaycastParams.new()
 wallCast.FilterType = Enum.RaycastFilterType.Include
 wallCast.IgnoreWater = true
+local wallOverlap = OverlapParams.new()
+wallOverlap.FilterType = Enum.RaycastFilterType.Include
 
 local function refreshWallFilter()
-	wallCast.FilterDescendantsInstances = CollectionService:GetTagged("Chomp_Wall")
+	local walls = CollectionService:GetTagged("Chomp_Wall")
+	wallCast.FilterDescendantsInstances = walls
+	wallOverlap.FilterDescendantsInstances = walls
 end
 
 CollectionService:GetInstanceAddedSignal("Chomp_Wall"):Connect(refreshWallFilter)
@@ -7549,6 +7553,25 @@ local function pushClear(position: Vector3): Vector3
 		flat = inside.centre + out * (inside.radius + 6)
 	end
 	return Vector3.new(flat.X, position.Y, flat.Z)
+end
+
+local function clearPointNear(position: Vector3): Vector3
+	local limit = L.OuterRadius - L.RingSpacing
+	for ring = 0, 8 do
+		local radius = ring * 7
+		local samples = ring == 0 and 1 or 12
+		for sample = 1, samples do
+			local angle = math.pi * 2 * ((sample - 1) / samples)
+			local candidate = position + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+			local flat = Vector3.new(candidate.X, 0, candidate.Z)
+			if flat.Magnitude > limit then flat = flat.Unit * limit end
+			candidate = pushClear(Vector3.new(flat.X, 8, flat.Z))
+			local overlaps = Workspace:GetPartBoundsInBox(CFrame.new(candidate),
+				Vector3.new(10, 8, 10), wallOverlap)
+			if #overlaps == 0 and not sanctuaryAt(candidate) then return candidate end
+		end
+	end
+	return position
 end
 
 local function piece(parent: Instance, name: string, size: Vector3, colour: Color3,
@@ -7684,6 +7707,8 @@ local function startWave(n: number)
 			here = here.Unit * limit
 			x, z = here.X, here.Z
 		end
+		here = clearPointNear(Vector3.new(x, 8, z))
+		x, z = here.X, here.Z
 
 		g.radius = Vector3.new(x, 0, z).Magnitude
 		g.angle = math.atan2(z, x)
@@ -7712,9 +7737,32 @@ local function aliveCount(): number
 	return n
 end
 
+local function regroupSurvivors()
+	local players = activePlayers()
+	if #players == 0 then return end
+	local player = players[math.random(1, #players)]
+	local target = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not target then return end
+	local survivors = {}
+	for _, ghost in ghosts do
+		if ghost.model.Parent and ghost.model:GetAttribute("Dead") ~= true then
+			table.insert(survivors, ghost)
+		end
+	end
+	for index, ghost in survivors do
+		local angle = math.pi * 2 * ((index - 1) / math.max(1, #survivors))
+		local wanted = target.Position + Vector3.new(math.cos(angle) * 85, 0, math.sin(angle) * 85)
+		local point = clearPointNear(Vector3.new(wanted.X, 8, wanted.Z))
+		ghost.radius = Vector3.new(point.X, 0, point.Z).Magnitude
+		ghost.angle = math.atan2(point.Z, point.X)
+		ghost.model:PivotTo(CFrame.new(point))
+	end
+end
+
 -- Watch for a cleared wave. A break between waves is not politeness, it is the
 -- moment you bank what you just earned.
 task.spawn(function()
+	local previousAlive = math.huge
 	while true do
 		task.wait(1)
 		local alive = aliveCount()
@@ -7722,6 +7770,10 @@ task.spawn(function()
 			local character = player.Character
 			if character then character:SetAttribute("ChompWaveAlive", alive) end
 		end
+		if alive > 0 and alive <= W.RevealLastAt and previousAlive > W.RevealLastAt then
+			regroupSurvivors()
+		end
+		previousAlive = alive
 		if waveActive and #ghosts > 0 and alive == 0 then
 			waveActive = false
 			for _, player in Players:GetPlayers() do
