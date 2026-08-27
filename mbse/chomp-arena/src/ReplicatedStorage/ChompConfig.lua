@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.2.1-alpha"
+ChompConfig.ReleaseVersion = "0.2.2-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
