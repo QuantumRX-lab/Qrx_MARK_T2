@@ -33,10 +33,10 @@ local ChompConfig = {}
 -- empty bar is genuinely beatable by a topped-up Standard.
 
 ChompConfig.Chassis = {
-	Standard = { Tier = 1, BarCapacity = 100, Power = 100, BaseSpeed = 26.4, BaseTurn = 240, MouthArcDegrees = 90,  Cost = 0 },
-	HeavyJaw = { Tier = 2, BarCapacity = 175, Power = 250, BaseSpeed = 25.3, BaseTurn = 220, MouthArcDegrees = 90,  Cost = 500 },
-	Ravener  = { Tier = 3, BarCapacity = 275, Power = 450, BaseSpeed = 28.6, BaseTurn = 200, MouthArcDegrees = 100, Cost = 1500 },
-	Apex     = { Tier = 4, BarCapacity = 400, Power = 700, BaseSpeed = 30.8, BaseTurn = 185, MouthArcDegrees = 110, Cost = 3500 },
+	Standard = { Tier = 1, ModulePorts = 1, BarCapacity = 100, Power = 100, BaseSpeed = 26.4, BaseTurn = 240, MouthArcDegrees = 90,  Cost = 0 },
+	HeavyJaw = { Tier = 2, ModulePorts = 2, BarCapacity = 175, Power = 250, BaseSpeed = 25.3, BaseTurn = 220, MouthArcDegrees = 90,  Cost = 500 },
+	Ravener  = { Tier = 3, ModulePorts = 3, BarCapacity = 275, Power = 450, BaseSpeed = 28.6, BaseTurn = 200, MouthArcDegrees = 100, Cost = 1500 },
+	Apex     = { Tier = 4, ModulePorts = 4, BarCapacity = 400, Power = 700, BaseSpeed = 30.8, BaseTurn = 185, MouthArcDegrees = 110, Cost = 3500 },
 }
 
 ChompConfig.StartingChassis = "Standard"
@@ -117,13 +117,54 @@ ChompConfig.Movement = {
 -- additively on top of the chassis base.
 
 ChompConfig.Upgrades = {
-	Costs = { 150, 400, 900 },        -- level I, II, III
+	Tracks = { "Engine", "Handling", "Armour", "Cannon", "Ordnance", "Jump", "Boost" },
+	ModuleTracks = { "Engine", "Handling", "Armour", "Jump", "Boost" },
+	Costs = { 800, 3500, 9500 },
 	PowerPerLevel = 40,
 	MaxLevel = 3,
+	Engine = {
+		SpeedFraction = { 0.05, 0.10, 0.15 },
+		AccelerationFraction = { 0, 0.05, 0.10 },
+		TurnPenaltyFraction = { 0, 0.04, 0.08 },
+	},
+	Handling = {
+		TurnFraction = { 0.08, 0.16, 0.24 },
+		SpeedPenaltyFraction = { 0, 0, 0.05 },
+	},
+	Armour = {
+		MaxHealth = { 115, 135, 160 },
+		GhostDamageReduction = { 0, 0.10, 0.20 },
+		AccelerationPenaltyFraction = { 0, 0.04, 0.08 },
+	},
+	Cannon = {
+		Barrels = { 1, 2, 3 },
+		Magazine = { 14, 20, 30 },
+		FireRateFraction = { 0, 0.15, 0.30 },
+		Damage = { 1, 1, 1.25 },
+	},
+	Ordnance = {
+		Charges = { 1, 2, 2 },
+		BlastRadiusFraction = { 0, 0.15, 0.30 },
+		Damage = { 1, 2, 3 },
+	},
+	Jump = {
+		ImpulseFraction = { 0.08, 0.15, 0.20 },
+		AirControlSeconds = { 0.15, 0.35, 0.60 },
+		ForwardFraction = { 0, 0.10, 0.20 },
+	},
+	Boost = {
+		ChargeRateFraction = { 0.10, 0.20, 0.30 },
+		CapacityFraction = { 0, 0.15, 0.25 },
+		CostReductionFraction = { 0, 0, 0.10 },
+	},
+}
 
-	Speed       = { Speed =  3, Turn = -12 },              -- faster, wider turning circle
-	Agility     = { Turn  = 30, Speed = -1.5 },            -- corners better, lower top speed
-	Consumption = { MouthArcDegrees = 10, PelletMultiplier = 0.25, HitboxRadius = 0.25 },
+ChompConfig.Profile = {
+	SchemaVersion = 2,
+	StoreName = "ChompPlayerProfileV2",
+	AutosaveSeconds = 60,
+	RetryCount = 3,
+	RetryDelaySeconds = 0.5,
 }
 
 -- ── Combat ──────────────────────────────────────────────────────────────
@@ -502,6 +543,7 @@ ChompConfig.Items = {
 
 -- ── Arrival bay and deployment ─────────────────────────────────────────
 ChompConfig.Launch = {
+	LoadingState = "PROFILE_LOADING",
 	BayState = "IN_BAY",
 	DeployingState = "DEPLOYING",
 	ActiveState = "ACTIVE",
@@ -814,7 +856,8 @@ local Progression = {}
 function Progression.computePower(chassis: Types.ChassisId, upgrades: Types.UpgradeLevels): number
 	local base = Config.Chassis[chassis]
 	assert(base, "unknown chassis: " .. tostring(chassis))
-	local levels = upgrades.Speed + upgrades.Agility + upgrades.Consumption
+	local levels = upgrades.Engine + upgrades.Handling + upgrades.Armour
+		+ upgrades.Cannon + upgrades.Ordnance + upgrades.Jump + upgrades.Boost
 	return base.Power + levels * Config.Upgrades.PowerPerLevel
 end
 
@@ -826,43 +869,50 @@ end
 	below half its chassis base — a player who dumps everything into Agility
 	must still be able to move.
 
-	Boundary cases: no upgrades returns the chassis base unchanged; three
-	Agility levels on Apex still leaves speed above the floor; Consumption
-	widens the mouth arc and the hitbox together, since a bigger mouth is a
-	bigger target (that trade is the point).
+	Boundary cases: no upgrades returns the chassis base unchanged; Handling III
+	on Apex still leaves speed above the floor; Armour sets health rather than
+	quietly adding another independent damage system.
 ]]
 function Progression.effectiveStats(chassis: Types.ChassisId, upgrades: Types.UpgradeLevels)
 	local base = Config.Chassis[chassis]
 	assert(base, "unknown chassis: " .. tostring(chassis))
-	local speed = base.BaseSpeed
-		+ upgrades.Speed * Config.Upgrades.Speed.Speed
-		+ upgrades.Agility * Config.Upgrades.Agility.Speed
-	local turn = base.BaseTurn
-		+ upgrades.Speed * Config.Upgrades.Speed.Turn
-		+ upgrades.Agility * Config.Upgrades.Agility.Turn
+	local function rung(track: any, level: number, field: string): number
+		if level <= 0 then return 0 end
+		local values = track[field]
+		return values and values[math.clamp(level, 1, Config.Upgrades.MaxLevel)] or 0
+	end
+	local speed = base.BaseSpeed * (1
+		+ rung(Config.Upgrades.Engine, upgrades.Engine, "SpeedFraction")
+		- rung(Config.Upgrades.Handling, upgrades.Handling, "SpeedPenaltyFraction"))
+	local turn = base.BaseTurn * (1
+		+ rung(Config.Upgrades.Handling, upgrades.Handling, "TurnFraction")
+		- rung(Config.Upgrades.Engine, upgrades.Engine, "TurnPenaltyFraction"))
+	local maxHealth = if upgrades.Armour > 0
+		then Config.Upgrades.Armour.MaxHealth[upgrades.Armour] else 100
 	return {
 		speed = math.max(base.BaseSpeed * 0.5, speed),
 		turn = math.max(base.BaseTurn * 0.5, turn),
-		mouthArcDegrees = base.MouthArcDegrees
-			+ upgrades.Consumption * Config.Upgrades.Consumption.MouthArcDegrees,
-		hitboxRadius = upgrades.Consumption * Config.Upgrades.Consumption.HitboxRadius,
-		pelletMultiplier = 1
-			+ upgrades.Consumption * Config.Upgrades.Consumption.PelletMultiplier,
+		mouthArcDegrees = base.MouthArcDegrees,
+		hitboxRadius = 0,
+		pelletMultiplier = 1,
+		chargeMultiplier = 1 + rung(Config.Upgrades.Boost, upgrades.Boost, "ChargeRateFraction"),
+		chargeCapacity = Config.Charge.Max * (1
+			+ rung(Config.Upgrades.Boost, upgrades.Boost, "CapacityFraction")),
+		maxHealth = maxHealth,
+		modulePorts = base.ModulePorts,
 	}
 end
 
 --[[
 	costOf(itemId, upgrades) -> number?
-	itemId is either a chassis id or "Speed"/"Agility"/"Consumption". For a
+	itemId is either a chassis id or one of Config.Upgrades.Tracks. For a
 	track, the cost is the next unowned level's price; nil when already at
 	MaxLevel or when a chassis is already owned or is a downgrade.
 ]]
 function Progression.costOf(itemId: string, chassis: Types.ChassisId, upgrades: Types.UpgradeLevels): number?
 	local track = Config.Upgrades[itemId]
-	if track then
-		local level = if itemId == "Speed" then upgrades.Speed
-			elseif itemId == "Agility" then upgrades.Agility
-			else upgrades.Consumption
+	if track and table.find(Config.Upgrades.Tracks, itemId) then
+		local level = upgrades[itemId]
 		if typeof(level) ~= "number" or level >= Config.Upgrades.MaxLevel then return nil end
 		return Config.Upgrades.Costs[level + 1]
 	end
@@ -1018,12 +1068,16 @@ export type Direction = "North" | "South" | "East" | "West" | "Up" | "Down"
 
 export type ChassisId = "Standard" | "HeavyJaw" | "Ravener" | "Apex"
 
-export type UpgradeTrack = "Speed" | "Agility" | "Consumption"
+export type UpgradeTrack = "Engine" | "Handling" | "Armour" | "Cannon" | "Ordnance" | "Jump" | "Boost"
 
 export type UpgradeLevels = {
-	Speed: number,       -- 0..3
-	Agility: number,     -- 0..3
-	Consumption: number, -- 0..3
+	Engine: number,
+	Handling: number,
+	Armour: number,
+	Cannon: number,
+	Ordnance: number,
+	Jump: number,
+	Boost: number,
 }
 
 -- The authoritative per-player record. Server-side only; clients receive the
@@ -6446,9 +6500,21 @@ Remotes.UseCharge.OnServerEvent:Connect(function(player: Player)
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if not (character and root and humanoid) or humanoid.Health <= 0 then return end
-	if charge(character) < C.JumpCost then return end
+	local jumpLevel = (character:GetAttribute("ChompUpgradeJump") :: number?) or 0
+	local boostLevel = (character:GetAttribute("ChompUpgradeBoost") :: number?) or 0
+	local jumpImpulse = C.JumpImpulse
+	local jumpForward = C.JumpForwardStuds
+	local jumpCost = C.JumpCost
+	if jumpLevel > 0 then
+		jumpImpulse *= 1 + Config.Upgrades.Jump.ImpulseFraction[jumpLevel]
+		jumpForward *= 1 + Config.Upgrades.Jump.ForwardFraction[jumpLevel]
+	end
+	if boostLevel > 0 then
+		jumpCost *= 1 - Config.Upgrades.Boost.CostReductionFraction[boostLevel]
+	end
+	if charge(character) < jumpCost then return end
 
-	character:SetAttribute("ChompCharge", charge(character) - C.JumpCost)
+	character:SetAttribute("ChompCharge", charge(character) - jumpCost)
 	character:SetAttribute("ChompJumpedAt", os.clock())
 
 	-- Up AND forward. A purely vertical hop lands you where you were, which is
@@ -6459,7 +6525,7 @@ Remotes.UseCharge.OnServerEvent:Connect(function(player: Player)
 
 	local body = Instance.new("BodyVelocity")
 	body.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-	body.Velocity = Vector3.new(0, C.JumpImpulse, 0) + flat * C.JumpForwardStuds
+	body.Velocity = Vector3.new(0, jumpImpulse, 0) + flat * jumpForward
 	body.Parent = root
 	Debris:AddItem(body, 0.2)
 end)
@@ -6682,13 +6748,17 @@ end
 
 type Offer = { id: string, kind: string, title: string, dollars: number, robux: number? }
 
-local TRACKS = { "Speed", "Agility", "Consumption" }
+local TRACKS = Config.Upgrades.Tracks
 
 local function upgradesOf(player: Player)
 	return {
-		Speed = (player:GetAttribute("ChompUpgradeSpeed") :: number?) or 0,
-		Agility = (player:GetAttribute("ChompUpgradeAgility") :: number?) or 0,
-		Consumption = (player:GetAttribute("ChompUpgradeConsumption") :: number?) or 0,
+		Engine = (player:GetAttribute("ChompUpgradeEngine") :: number?) or 0,
+		Handling = (player:GetAttribute("ChompUpgradeHandling") :: number?) or 0,
+		Armour = (player:GetAttribute("ChompUpgradeArmour") :: number?) or 0,
+		Cannon = (player:GetAttribute("ChompUpgradeCannon") :: number?) or 0,
+		Ordnance = (player:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0,
+		Jump = (player:GetAttribute("ChompUpgradeJump") :: number?) or 0,
+		Boost = (player:GetAttribute("ChompUpgradeBoost") :: number?) or 0,
 	}
 end
 
@@ -6711,6 +6781,12 @@ local function publishProgression(player: Player, character: Model)
 	character:SetAttribute("ChompBarCapacity", Config.Chassis[chassisId].BarCapacity)
 	character:SetAttribute("ChompMouthArcDegrees", stats.mouthArcDegrees)
 	character:SetAttribute("ChompPelletMultiplier", stats.pelletMultiplier)
+	character:SetAttribute("ChompChargeMultiplier", stats.chargeMultiplier)
+	character:SetAttribute("ChompChargeCapacity", stats.chargeCapacity)
+	character:SetAttribute("ChompMaxHealth", stats.maxHealth)
+	character:SetAttribute("ChompModulePorts", stats.modulePorts)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then humanoid.MaxHealth = stats.maxHealth end
 end
 
 -- Resolved lazily: this script and ItemService are both server scripts with no
@@ -6751,7 +6827,7 @@ local function offers(): { Offer }
 		table.insert(out, 1, weapons[i])
 	end
 
-	for _, track in { "Speed", "Agility", "Consumption" } do
+	for _, track in TRACKS do
 		table.insert(out, {
 			id = track, kind = "upgrade", title = track .. " UPGRADE",
 			dollars = UP.Costs[1], robux = STORE.RobuxPrice[track],
@@ -6768,15 +6844,16 @@ local function build(): number
 	local homeAngle = math.pi / L.GarageCount
 	local radius = L.OuterRadius - L.RingSpacing / 2 - 22
 	local list = offers()
-	-- Tightened again with the sanctuary (D-CHOMP-065). The whole row has to
-	-- fit INSIDE the home garage's safe radius, or the far plinths are places
-	-- you can be caught while standing still trying to buy something.
-	--
-	-- At this radius 2.3 degrees is about 31 studs, so ten plinths span 280 -
-	-- 140 either side of centre, against a 150-stud sanctuary less the 22 studs
-	-- the row sits inboard of the pad. Still wider apart than the 13-stud dwell
-	-- radius, so a kart is never inside two offers at once.
-	local step = math.rad(2.3)
+	-- Permanent unlocks get the hero row. Consumable refills sit on a shorter
+	-- inner row. Fourteen offers on the old single row overlapped dwell radii,
+	-- so stopping at one plinth could buy its neighbour as well.
+	local permanentCount, itemCount = 0, 0
+	for _, offer in list do
+		if offer.kind == "item" then itemCount += 1 else permanentCount += 1 end
+	end
+	local permanentIndex, itemIndex = 0, 0
+	local permanentStep = math.rad(4.4)
+	local itemStep = math.rad(5.2)
 	local shopPos = Vector3.new(math.cos(homeAngle) * radius, 0, math.sin(homeAngle) * radius)
 	local beacon = part("ShopBeacon", Vector3.new(2, 90, 2),
 		CFrame.new(shopPos + Vector3.new(0, 45, 0)), P.NeonB, Enum.Material.Neon, folder)
@@ -6804,9 +6881,18 @@ local function build(): number
 	shopLabel.Font = Enum.Font.GothamBlack
 	shopLabel.Parent = shopGui
 
-	for i, offer in ipairs(list) do
-		local a = homeAngle + step * (i - (#list + 1) / 2)
-		local pos = Vector3.new(math.cos(a) * radius, 0, math.sin(a) * radius)
+	for _, offer in ipairs(list) do
+		local rowRadius, a
+		if offer.kind == "item" then
+			itemIndex += 1
+			rowRadius = radius - 34
+			a = homeAngle + itemStep * (itemIndex - (itemCount + 1) / 2)
+		else
+			permanentIndex += 1
+			rowRadius = radius
+			a = homeAngle + permanentStep * (permanentIndex - (permanentCount + 1) / 2)
+		end
+		local pos = Vector3.new(math.cos(a) * rowRadius, 0, math.sin(a) * rowRadius)
 		local facing = CFrame.Angles(0, -a, 0)
 
 		local base = part("Plinth", Vector3.new(9, 6, 9),
@@ -6869,12 +6955,12 @@ local function build(): number
 			model.Parent = folder
 
 		else
-			-- Upgrades have no model. A clear token beats a misleading one.
-			local token = part("UpgradeToken", Vector3.new(4, 4, 4),
-				CFrame.new(pos + Vector3.new(0, 9.5, 0)) * facing * CFrame.Angles(0.5, 0, 0.5),
-				P.NeonA, Enum.Material.Neon, folder)
-			token.CanCollide = false
-			CollectionService:AddTag(token, "Chomp_Decor")
+			-- Permanent upgrades show the actual module that will be mounted. Generic
+			-- glowing cubes made seven distinct choices look identical.
+			local model = ItemModels.buildUpgrade(offer.id, UP.MaxLevel)
+			model:ScaleTo(1.35)
+			model:PivotTo(CFrame.new(pos + Vector3.new(0, 9.5, 0)) * facing)
+			model.Parent = folder
 		end
 
 		priceLabel(base, offer.title, offer.dollars, offer.robux)
@@ -7688,7 +7774,10 @@ RunService.Heartbeat:Connect(function(dt)
 
 				local humanoid = character:FindFirstChildOfClass("Humanoid")
 				if humanoid and humanoid.Health > 0 then
-					humanoid:TakeDamage(G.ContactDamage)
+					local armour = (character:GetAttribute("ChompUpgradeArmour") :: number?) or 0
+					local reduction = if armour > 0
+						then Config.Upgrades.Armour.GhostDamageReduction[armour] else 0
+					humanoid:TakeDamage(G.ContactDamage * (1 - reduction))
 					character:SetAttribute("ChompHurtAt", os.clock())
 				end
 			end
@@ -7805,7 +7894,8 @@ padsFolder.Name = "ItemPads"
 padsFolder.Parent = Workspace
 
 local function makePad(id: string, position: Vector3)
-	local model = buildItemModel(id)
+	local cannonLevel = (character:GetAttribute("ChompUpgradeCannon") :: number?) or 0
+	local model = buildItemModel(id, id == "Cannon" and cannonLevel or nil)
 	model:SetAttribute("ItemId", id)
 	model:SetAttribute("HomeY", position.Y)
 	model:PivotTo(CFrame.new(position))
@@ -8018,13 +8108,23 @@ end
 local function give(player: Player, id: string, replaceActiveIfFull: boolean?): boolean
 	local def = DEFS[id]
 	if not def then return false end
+	local function chargesFor(): number
+		if id == "Cannon" then
+			local level = (player:GetAttribute("ChompUpgradeCannon") :: number?) or 0
+			if level > 0 then return Config.Upgrades.Cannon.Magazine[level] end
+		elseif id == "HomingBomb" then
+			local level = (player:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0
+			if level > 0 then return Config.Upgrades.Ordnance.Charges[level] end
+		end
+		return def.charges
+	end
 	local b = beltOf(player)
 	if #b >= ITEMS.SlotCount then
 		if not replaceActiveIfFull then return false end
 		local i = math.clamp(active[player] or 1, 1, #b)
-		b[i] = { id = id, charges = def.charges }
+		b[i] = { id = id, charges = chargesFor() }
 	else
-		table.insert(b, { id = id, charges = def.charges })
+		table.insert(b, { id = id, charges = chargesFor() })
 	end
 	if #b == 1 then active[player] = 1 end
 	publish(player)
@@ -8261,10 +8361,14 @@ local function detonate(player: Player, bomb: BasePart)
 	deployed[player] = nil
 	local centre = bomb.Position
 	local def = DEFS.HomingBomb
+	local level = (player:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0
+	local radiusBonus = if level > 0 then Config.Upgrades.Ordnance.BlastRadiusFraction[level] else 0
+	local blastRadius = def.blastRadiusStuds * (1 + radiusBonus)
+	local damage = if level > 0 then Config.Upgrades.Ordnance.Damage[level] else 1
 
 	local blast = Instance.new("Part")
 	blast.Shape = Enum.PartType.Ball
-	blast.Size = Vector3.new(def.blastRadiusStuds * 2, def.blastRadiusStuds * 2, def.blastRadiusStuds * 2)
+	blast.Size = Vector3.new(blastRadius * 2, blastRadius * 2, blastRadius * 2)
 	blast.Position = centre
 	blast.Anchored = true
 	blast.CanCollide = false
@@ -8278,9 +8382,9 @@ local function detonate(player: Player, bomb: BasePart)
 	bomb:Destroy()
 
 	for _, ghost in ghostsAlive() do
-		if (ghost:GetPivot().Position - centre).Magnitude < def.blastRadiusStuds then
+		if (ghost:GetPivot().Position - centre).Magnitude < blastRadius then
 			ghost:SetAttribute("KilledBy", player.UserId)
-			ghost:SetAttribute("Health", 0)
+			ghost:SetAttribute("Health", ((ghost:GetAttribute("Health") :: number?) or 1) - damage)
 		end
 	end
 
@@ -8293,7 +8397,7 @@ local function detonate(player: Player, bomb: BasePart)
 				local humanoid = other.Character
 					and other.Character:FindFirstChildOfClass("Humanoid")
 				if otherRoot and humanoid
-					and (otherRoot.Position - centre).Magnitude < def.blastRadiusStuds then
+					and (otherRoot.Position - centre).Magnitude < blastRadius then
 					humanoid:TakeDamage(35)
 				end
 			end
@@ -8504,8 +8608,10 @@ local function fireCannon(player: Player)
 		for _, ghost in ghostsAlive() do
 			-- 3D, so a shot angled down from a jump connects (D-CHOMP-060).
 			if (ghost:GetPivot().Position - pellet.Position).Magnitude < 11 then
+				local level = (player:GetAttribute("ChompUpgradeCannon") :: number?) or 0
+				local damage = if level > 0 then Config.Upgrades.Cannon.Damage[level] else 1
 				ghost:SetAttribute("KilledBy", player.UserId)
-				ghost:SetAttribute("Health", ((ghost:GetAttribute("Health") :: number?) or 1) - 1)
+				ghost:SetAttribute("Health", ((ghost:GetAttribute("Health") :: number?) or 1) - damage)
 				pellet:Destroy()
 				connection:Disconnect()
 				return
@@ -8610,7 +8716,9 @@ local function useHeld(player: Player)
 	else
 		-- The gun has its own rate, slower than the remote's limit, so holding the
 		-- key gives a steady stream rather than whatever the network allows.
-		local interval = 1 / DEFS.Cannon.fireRatePerSecond
+		local level = (player:GetAttribute("ChompUpgradeCannon") :: number?) or 0
+		local rateBonus = if level > 0 then Config.Upgrades.Cannon.FireRateFraction[level] else 0
+		local interval = 1 / (DEFS.Cannon.fireRatePerSecond * (1 + rateBonus))
 		if os.clock() - (lastShot[player] or 0) < interval then return end
 		lastShot[player] = os.clock()
 		fireCannon(player)
@@ -8677,6 +8785,10 @@ Players.PlayerAdded:Connect(function(player)
 				local current = activeItem(player)
 				if current then mount(character, current.id) end
 			end
+		end)
+		character:GetAttributeChangedSignal("ChompUpgradeCannon"):Connect(function()
+			local current = activeItem(player)
+			if current and current.id == "Cannon" then mount(character, "Cannon") end
 		end)
 	end)
 end)
@@ -9076,9 +9188,13 @@ local tracked: { [Player]: Tracked } = {}
 
 local function upgradesFor(character: Model)
 	return {
-		Speed = (character:GetAttribute("ChompUpgradeSpeed") :: number?) or 0,
-		Agility = (character:GetAttribute("ChompUpgradeAgility") :: number?) or 0,
-		Consumption = (character:GetAttribute("ChompUpgradeConsumption") :: number?) or 0,
+		Engine = (character:GetAttribute("ChompUpgradeEngine") :: number?) or 0,
+		Handling = (character:GetAttribute("ChompUpgradeHandling") :: number?) or 0,
+		Armour = (character:GetAttribute("ChompUpgradeArmour") :: number?) or 0,
+		Cannon = (character:GetAttribute("ChompUpgradeCannon") :: number?) or 0,
+		Ordnance = (character:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0,
+		Jump = (character:GetAttribute("ChompUpgradeJump") :: number?) or 0,
+		Boost = (character:GetAttribute("ChompUpgradeBoost") :: number?) or 0,
 	}
 end
 
@@ -9107,13 +9223,20 @@ local function apply(player: Player, character: Model)
 	-- The client reads these; it never chooses them.
 	character:SetAttribute("ChompSpeed", speed)
 	character:SetAttribute("ChompTurn", turn)
+	local chassisId = character:GetAttribute("ChompChassis") or Config.StartingChassis
+	local stats = Progression.effectiveStats(chassisId, upgradesFor(character))
+	humanoid.MaxHealth = stats.maxHealth
+	if humanoid.Health > humanoid.MaxHealth then humanoid.Health = humanoid.MaxHealth end
+	character:SetAttribute("ChompModulePorts", stats.modulePorts)
 end
 
 local function onCharacter(player: Player, character: Model)
 	tracked[player] = tracked[player] or { chassis = Config.StartingChassis, lastCheck = 0, strikes = 0 }
 	tracked[player].lastPosition = nil
 	apply(player, character)
-	for _, name in { "ChompChassis", "ChompUpgradeSpeed", "ChompUpgradeAgility", "ChompUpgradeConsumption" } do
+	local watched = { "ChompChassis" }
+	for _, track in Config.Upgrades.Tracks do table.insert(watched, "ChompUpgrade" .. track) end
+	for _, name in watched do
 		character:GetAttributeChangedSignal(name):Connect(function()
 			if character.Parent then apply(player, character) end
 		end)
@@ -9351,8 +9474,10 @@ local function loop()
 					-- to be survived with, which gives a frightened player something to
 					-- do other than run.
 					local CH = Config.Charge
-					character:SetAttribute("ChompCharge",
-						math.min(CH.Max, ((character:GetAttribute("ChompCharge") :: number?) or 0) + CH.PerPellet))
+					local chargeMultiplier = (character:GetAttribute("ChompChargeMultiplier") :: number?) or 1
+					local capacity = (character:GetAttribute("ChompChargeCapacity") :: number?) or CH.Max
+					character:SetAttribute("ChompCharge", math.min(capacity,
+						((character:GetAttribute("ChompCharge") :: number?) or 0) + CH.PerPellet * chargeMultiplier))
 					character:SetAttribute("ChompGainedAmount", value)
 					character:SetAttribute("ChompGainedAt", os.clock())
 					pellet.Transparency = 1
@@ -9467,11 +9592,17 @@ local function deploy(player: Player, character: Model)
 end
 
 local function watch(player: Player, character: Model)
-	enterBay(player, character)
+	publish(player, character, Launch.LoadingState)
+	task.spawn(function()
+		while player.Parent and player:GetAttribute("ChompProfileReady") ~= true do
+			player:GetAttributeChangedSignal("ChompProfileReady"):Wait()
+		end
+		if player.Parent and player.Character == character then enterBay(player, character) end
+	end)
 end
 
 Players.PlayerAdded:Connect(function(player)
-	player:SetAttribute("ChompSessionState", Launch.BayState)
+	player:SetAttribute("ChompSessionState", Launch.LoadingState)
 	player.CharacterAdded:Connect(function(character) watch(player, character) end)
 	if player.Character then watch(player, player.Character) end
 end)
@@ -9500,6 +9631,155 @@ print("[PlayerSessionService] protected launch bay and deployment live")
         </Properties>
       </Item>
       <Item class="Script" referent="154">
+        <Properties>
+          <string name="Name">ProfileService</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+-- Versioned cross-session vehicle progression. Studio uses an ephemeral
+-- profile so local testing can never overwrite the live store.
+
+local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local PROFILE = Config.Profile
+local store = DataStoreService:GetDataStore(PROFILE.StoreName)
+local loaded: { [Player]: boolean } = {}
+local blocked: { [Player]: boolean } = {}
+
+local function defaultProfile()
+	local upgrades = {}
+	for _, track in Config.Upgrades.Tracks do upgrades[track] = 0 end
+	return {
+		schemaVersion = PROFILE.SchemaVersion,
+		bankedDollars = 0,
+		ownedChassis = "Standard",
+		equippedChassis = Config.StartingChassis,
+		upgrades = upgrades,
+		equippedModules = "",
+	}
+end
+
+local function sanitize(raw: any)
+	local out = defaultProfile()
+	if typeof(raw) ~= "table" then return out end
+	if typeof(raw.bankedDollars) == "number" then out.bankedDollars = math.max(0, math.floor(raw.bankedDollars)) end
+	if typeof(raw.ownedChassis) == "string" then out.ownedChassis = raw.ownedChassis end
+	if typeof(raw.equippedChassis) == "string" and Config.Chassis[raw.equippedChassis] then
+		out.equippedChassis = raw.equippedChassis
+	end
+	if typeof(raw.equippedModules) == "string" then out.equippedModules = raw.equippedModules end
+	if typeof(raw.upgrades) == "table" then
+		for _, track in Config.Upgrades.Tracks do
+			local value = raw.upgrades[track]
+			if typeof(value) == "number" then out.upgrades[track] = math.clamp(math.floor(value), 0, Config.Upgrades.MaxLevel) end
+		end
+	end
+	-- Migrate the old three session tracks when a captured v1 profile is used.
+	if typeof(raw.upgrades) == "table" then
+		out.upgrades.Engine = math.max(out.upgrades.Engine, tonumber(raw.upgrades.Speed) or 0)
+		out.upgrades.Handling = math.max(out.upgrades.Handling, tonumber(raw.upgrades.Agility) or 0)
+		out.upgrades.Boost = math.max(out.upgrades.Boost, tonumber(raw.upgrades.Consumption) or 0)
+	end
+	return out
+end
+
+local function publish(player: Player, profile)
+	player:SetAttribute("ChompDollarsPersist", profile.bankedDollars)
+	player:SetAttribute("ChompOwnedChassis", profile.ownedChassis)
+	player:SetAttribute("ChompEquippedChassis", profile.equippedChassis)
+	player:SetAttribute("ChompEquippedModules", profile.equippedModules)
+	for _, track in Config.Upgrades.Tracks do
+		player:SetAttribute("ChompUpgrade" .. track, profile.upgrades[track])
+	end
+	player:SetAttribute("ChompProfileReady", true)
+	player:SetAttribute("ChompProfileSaveBlocked", blocked[player] == true)
+	local character = player.Character
+	if character then
+		character:SetAttribute("ChompDollars", profile.bankedDollars)
+		character:SetAttribute("ChompChassis", profile.equippedChassis)
+		for _, track in Config.Upgrades.Tracks do
+			character:SetAttribute("ChompUpgrade" .. track, profile.upgrades[track])
+		end
+	end
+end
+
+local function capture(player: Player)
+	local upgrades = {}
+	for _, track in Config.Upgrades.Tracks do
+		upgrades[track] = player:GetAttribute("ChompUpgrade" .. track) or 0
+	end
+	return {
+		schemaVersion = PROFILE.SchemaVersion,
+		bankedDollars = player:GetAttribute("ChompDollarsPersist") or 0,
+		ownedChassis = player:GetAttribute("ChompOwnedChassis") or "Standard",
+		equippedChassis = player:GetAttribute("ChompEquippedChassis") or Config.StartingChassis,
+		equippedModules = player:GetAttribute("ChompEquippedModules") or "",
+		upgrades = upgrades,
+	}
+end
+
+local function save(player: Player)
+	if RunService:IsStudio() or blocked[player] or not loaded[player] then return end
+	local snapshot = capture(player)
+	local ok, err = false, nil
+	for attempt = 1, PROFILE.RetryCount do
+		ok, err = pcall(function()
+			store:UpdateAsync("player_" .. tostring(player.UserId), function()
+				return snapshot
+			end)
+		end)
+		if ok then break end
+		if attempt < PROFILE.RetryCount then task.wait(PROFILE.RetryDelaySeconds) end
+	end
+	if not ok then warn("[ProfileService] save failed for " .. player.Name .. ": " .. tostring(err)) end
+end
+
+local function load(player: Player)
+	player:SetAttribute("ChompProfileReady", false)
+	local profile = defaultProfile()
+	if not RunService:IsStudio() then
+		local ok, result = false, nil
+		for attempt = 1, PROFILE.RetryCount do
+			ok, result = pcall(function()
+				return store:GetAsync("player_" .. tostring(player.UserId))
+			end)
+			if ok then break end
+			if attempt < PROFILE.RetryCount then task.wait(PROFILE.RetryDelaySeconds) end
+		end
+		if ok then profile = sanitize(result) else blocked[player] = true end
+	end
+	loaded[player] = true
+	publish(player, profile)
+	player.CharacterAdded:Connect(function()
+		task.defer(function() if player.Parent then publish(player, capture(player)) end end)
+	end)
+end
+
+Players.PlayerAdded:Connect(load)
+Players.PlayerRemoving:Connect(function(player)
+	save(player)
+	loaded[player], blocked[player] = nil, nil
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(PROFILE.AutosaveSeconds)
+		for _, player in Players:GetPlayers() do save(player) end
+	end
+end)
+
+game:BindToClose(function()
+	for _, player in Players:GetPlayers() do save(player) end
+end)
+
+print("[ProfileService] versioned profiles live; Studio is ephemeral")
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="155">
         <Properties>
           <string name="Name">TestMap</string>
           <token name="RunContext">0</token>
@@ -9672,7 +9952,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="155">
+      <Item class="Script" referent="156">
         <Properties>
           <string name="Name">VehicleService</string>
           <token name="RunContext">0</token>
@@ -10078,7 +10358,7 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="156">
+      <Item class="Script" referent="157">
         <Properties>
           <string name="Name">WorldLook</string>
           <token name="RunContext">0</token>
@@ -10136,15 +10416,15 @@ print("[WorldLook] sharp-edge night rig active")
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="157">
+  <Item class="ServerStorage" referent="158">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="158">
+    <Item class="Folder" referent="159">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="159">
+      <Item class="ModuleScript" referent="160">
         <Properties>
           <string name="Name">ItemModels</string>
           <string name="Source"><![CDATA[--!strict
@@ -10194,7 +10474,7 @@ local function bit(model: Model, name: string, size: Vector3, offset: CFrame,
 	return p
 end
 
-function ItemModels.build(id: string): Model
+function ItemModels.build(id: string, upgradeLevel: number?): Model
 	local model = Instance.new("Model")
 	model.Name = "Item_" .. id
 	local c = ItemModels.colour(id)
@@ -10214,21 +10494,28 @@ function ItemModels.build(id: string): Model
 		end
 
 	elseif id == "Cannon" then
-		-- A low rotating base, armoured receiver and long barrel. Cylinder length
-		-- is its X dimension in Roblox, so the 90-degree yaw points it forward.
-		bit(model, "Mount", Vector3.new(2.5, 0.8, 2.5), CFrame.new(0, -0.85, 0),
+		-- Compact enough for the upgraded twin and triple mounts to remain inside
+		-- the vehicle envelope. Barrels alternate fire; quantity is visual state,
+		-- not three projectiles per trigger pull.
+		local level = math.clamp(upgradeLevel or 0, 0, Config.Upgrades.MaxLevel)
+		local count = if level > 0 then Config.Upgrades.Cannon.Barrels[level] else 1
+		bit(model, "Mount", Vector3.new(2.1, 0.65, 2.1), CFrame.new(0, -0.72, 0),
 			P.BrickDark, Enum.Material.Metal)
-		bit(model, "BaseRing", Vector3.new(1.0, 3.4, 3.4),
-			CFrame.new(0, -1.0, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		bit(model, "BaseRing", Vector3.new(0.75, 2.7, 2.7),
+			CFrame.new(0, -0.8, 0) * CFrame.Angles(0, 0, math.rad(90)),
 			P.BrickDark, Enum.Material.Metal, Enum.PartType.Cylinder)
-		bit(model, "Receiver", Vector3.new(2.6, 1.9, 3.0), CFrame.new(0, 0.25, -0.35),
+		bit(model, "Receiver", Vector3.new(2.2, 1.5, 2.5), CFrame.new(0, 0.15, -0.25),
 			c, Enum.Material.Metal)
-		bit(model, "Barrel", Vector3.new(1.25, 1.25, 5.8),
-			CFrame.new(0, 0.45, -3.6), P.Ghost, Enum.Material.Metal)
-		bit(model, "Muzzle", Vector3.new(0.9, 1.8, 1.8),
-			CFrame.new(0, 0.45, -6.65) * CFrame.Angles(0, math.rad(90), 0),
-			P.Danger, Enum.Material.Neon, Enum.PartType.Cylinder)
-		bit(model, "Sight", Vector3.new(0.45, 0.45, 1.5), CFrame.new(0, 1.45, -1.0),
+		for index = 1, count do
+			local x = (index - (count + 1) / 2) * 0.78
+			bit(model, index == 1 and "Barrel" or ("Barrel" .. tostring(index)),
+				Vector3.new(0.8, 0.8, 4.6), CFrame.new(x, 0.35, -2.95),
+				P.Ghost, Enum.Material.Metal)
+			bit(model, "Muzzle" .. tostring(index), Vector3.new(0.65, 1.15, 1.15),
+				CFrame.new(x, 0.35, -5.35) * CFrame.Angles(0, math.rad(90), 0),
+				P.Danger, Enum.Material.Neon, Enum.PartType.Cylinder)
+		end
+		bit(model, "Sight", Vector3.new(0.35, 0.35, 1.2), CFrame.new(0, 1.1, -0.8),
 			P.NeonA, Enum.Material.Neon)
 
 	elseif id == "HomingBomb" then
@@ -10269,11 +10556,48 @@ function ItemModels.build(id: string): Model
 	return model
 end
 
+function ItemModels.buildUpgrade(track: string, level: number): Model
+	if track == "Cannon" then return ItemModels.build("Cannon", level) end
+	if track == "Ordnance" then return ItemModels.build("HomingBomb", level) end
+	if track == "Jump" then return ItemModels.build("JetPack", level) end
+
+	local model = Instance.new("Model")
+	model.Name = "Upgrade_" .. track
+	if track == "Engine" then
+		bit(model, "Turbine", Vector3.new(2.4, 3.6, 3.6), CFrame.Angles(0, 0, math.rad(90)),
+			P.Gold, Enum.Material.Metal, Enum.PartType.Cylinder)
+		bit(model, "Core", Vector3.new(2.6, 1.8, 1.8), CFrame.Angles(0, 0, math.rad(90)),
+			P.NeonA, Enum.Material.Neon, Enum.PartType.Cylinder)
+	elseif track == "Handling" then
+		bit(model, "VectorHub", Vector3.new(1.5, 4.4, 4.4), CFrame.Angles(0, 0, math.rad(90)),
+			P.BrickDark, Enum.Material.Metal, Enum.PartType.Cylinder)
+		bit(model, "HubGlow", Vector3.new(1.7, 2.3, 2.3), CFrame.Angles(0, 0, math.rad(90)),
+			P.NeonA, Enum.Material.Neon, Enum.PartType.Cylinder)
+	elseif track == "Armour" then
+		for side = -1, 1, 2 do
+			bit(model, "Plate", Vector3.new(0.7, 3.8, 5.0), CFrame.new(side * 1.5, 0, 0)
+				* CFrame.Angles(0, 0, side * 0.18), P.Gold, Enum.Material.Metal)
+		end
+	else -- Boost
+		for side = -1, 1, 2 do
+			bit(model, "Capacitor", Vector3.new(1.6, 3.8, 1.6), CFrame.new(side * 1.1, 0, 0),
+				P.NeonB, Enum.Material.Neon, Enum.PartType.Cylinder)
+		end
+		bit(model, "PowerCore", Vector3.new(1.5, 1.5, 1.5), CFrame.new(),
+			P.Gold, Enum.Material.Neon, Enum.PartType.Ball)
+	end
+	model.PrimaryPart = model:FindFirstChildWhichIsA("BasePart")
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then CollectionService:AddTag(d, "Chomp_Decor") end
+	end
+	return model
+end
+
 return ItemModels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="160">
+      <Item class="ModuleScript" referent="161">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -10558,7 +10882,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="161">
+      <Item class="ModuleScript" referent="162">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -10817,11 +11141,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="162">
+      <Item class="Folder" referent="163">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="163">
+        <Item class="ModuleScript" referent="164">
           <Properties>
             <string name="Name">Apex</string>
             <string name="Source"><![CDATA[--!strict
@@ -10830,7 +11154,7 @@ return variant("Apex", Color3.fromRGB(96, 72, 176), Color3.fromRGB(255, 207, 55)
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="164">
+        <Item class="ModuleScript" referent="165">
           <Properties>
             <string name="Name">HeavyJaw</string>
             <string name="Source"><![CDATA[--!strict
@@ -10839,7 +11163,7 @@ return variant("HeavyJaw", Color3.fromRGB(238, 145, 26), Color3.fromRGB(255, 230
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="165">
+        <Item class="ModuleScript" referent="166">
           <Properties>
             <string name="Name">Ravener</string>
             <string name="Source"><![CDATA[--!strict
@@ -10848,7 +11172,7 @@ return variant("Ravener", Color3.fromRGB(208, 64, 104), Color3.fromRGB(95, 235, 
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="166">
+        <Item class="ModuleScript" referent="167">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -10958,7 +11282,7 @@ return {
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="167">
+        <Item class="ModuleScript" referent="168">
           <Properties>
             <string name="Name">Variant</string>
             <string name="Source"><![CDATA[--!strict
@@ -11002,15 +11326,15 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="168">
+  <Item class="StarterPlayer" referent="169">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="169">
+    <Item class="StarterPlayerScripts" referent="170">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="170">
+      <Item class="LocalScript" referent="171">
         <Properties>
           <string name="Name">AudioDirector</string>
           <string name="Source"><![CDATA[--!strict
@@ -11169,7 +11493,7 @@ player.CharacterAdded:Connect(bind)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="171">
+      <Item class="LocalScript" referent="172">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -11421,7 +11745,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="172">
+      <Item class="LocalScript" referent="173">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -11562,7 +11886,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="173">
+      <Item class="LocalScript" referent="174">
         <Properties>
           <string name="Name">ChompHud</string>
           <string name="Source"><![CDATA[--!strict
@@ -12098,7 +12422,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="174">
+      <Item class="LocalScript" referent="175">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -12354,7 +12678,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="175">
+      <Item class="LocalScript" referent="176">
         <Properties>
           <string name="Name">LaunchBay</string>
           <string name="Source"><![CDATA[--!strict
@@ -12426,7 +12750,11 @@ RunService.RenderStepped:Connect(function()
 	if not panel.Visible then return end
 	local chassis = player:GetAttribute("ChompEquippedChassis")
 	vehicle.Text = typeof(chassis) == "string" and string.upper(chassis) or "STANDARD"
-	if state == Config.Launch.DeployingState then
+	if state == Config.Launch.LoadingState then
+		title.Text = "LOADING GARAGE"
+		instruction.Text = "RESTORING VEHICLES + UPGRADES"
+		stroke.Color = P.NeonA
+	elseif state == Config.Launch.DeployingState then
 		local countdown = character:GetAttribute("ChompLaunchCountdown")
 		local left = typeof(countdown) == "number" and countdown or Config.Launch.DeploymentSeconds
 		title.Text = tostring(left)
@@ -12441,7 +12769,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="176">
+      <Item class="LocalScript" referent="177">
         <Properties>
           <string name="Name">PickupFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -12558,7 +12886,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="177">
+      <Item class="LocalScript" referent="178">
         <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
@@ -12652,7 +12980,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="178">
+      <Item class="LocalScript" referent="179">
         <Properties>
           <string name="Name">ShopFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -12771,7 +13099,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="179">
+      <Item class="LocalScript" referent="180">
         <Properties>
           <string name="Name">TargetReticle</string>
           <string name="Source"><![CDATA[--!strict
@@ -12895,7 +13223,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="180">
+      <Item class="LocalScript" referent="181">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -13053,7 +13381,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="181">
+      <Item class="LocalScript" referent="182">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -13200,7 +13528,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="182">
+  <Item class="Workspace" referent="183">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

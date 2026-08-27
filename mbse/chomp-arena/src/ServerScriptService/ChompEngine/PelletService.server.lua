@@ -170,8 +170,10 @@ local function loop()
 					-- to be survived with, which gives a frightened player something to
 					-- do other than run.
 					local CH = Config.Charge
-					character:SetAttribute("ChompCharge",
-						math.min(CH.Max, ((character:GetAttribute("ChompCharge") :: number?) or 0) + CH.PerPellet))
+					local chargeMultiplier = (character:GetAttribute("ChompChargeMultiplier") :: number?) or 1
+					local capacity = (character:GetAttribute("ChompChargeCapacity") :: number?) or CH.Max
+					character:SetAttribute("ChompCharge", math.min(capacity,
+						((character:GetAttribute("ChompCharge") :: number?) or 0) + CH.PerPellet * chargeMultiplier))
 					character:SetAttribute("ChompGainedAmount", value)
 					character:SetAttribute("ChompGainedAt", os.clock())
 					pellet.Transparency = 1

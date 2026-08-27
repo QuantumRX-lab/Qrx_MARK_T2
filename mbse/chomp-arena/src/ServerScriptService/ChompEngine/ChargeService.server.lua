@@ -45,9 +45,21 @@ Remotes.UseCharge.OnServerEvent:Connect(function(player: Player)
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if not (character and root and humanoid) or humanoid.Health <= 0 then return end
-	if charge(character) < C.JumpCost then return end
+	local jumpLevel = (character:GetAttribute("ChompUpgradeJump") :: number?) or 0
+	local boostLevel = (character:GetAttribute("ChompUpgradeBoost") :: number?) or 0
+	local jumpImpulse = C.JumpImpulse
+	local jumpForward = C.JumpForwardStuds
+	local jumpCost = C.JumpCost
+	if jumpLevel > 0 then
+		jumpImpulse *= 1 + Config.Upgrades.Jump.ImpulseFraction[jumpLevel]
+		jumpForward *= 1 + Config.Upgrades.Jump.ForwardFraction[jumpLevel]
+	end
+	if boostLevel > 0 then
+		jumpCost *= 1 - Config.Upgrades.Boost.CostReductionFraction[boostLevel]
+	end
+	if charge(character) < jumpCost then return end
 
-	character:SetAttribute("ChompCharge", charge(character) - C.JumpCost)
+	character:SetAttribute("ChompCharge", charge(character) - jumpCost)
 	character:SetAttribute("ChompJumpedAt", os.clock())
 
 	-- Up AND forward. A purely vertical hop lands you where you were, which is
@@ -58,7 +70,7 @@ Remotes.UseCharge.OnServerEvent:Connect(function(player: Player)
 
 	local body = Instance.new("BodyVelocity")
 	body.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-	body.Velocity = Vector3.new(0, C.JumpImpulse, 0) + flat * C.JumpForwardStuds
+	body.Velocity = Vector3.new(0, jumpImpulse, 0) + flat * jumpForward
 	body.Parent = root
 	Debris:AddItem(body, 0.2)
 end)

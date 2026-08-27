@@ -63,7 +63,8 @@ padsFolder.Name = "ItemPads"
 padsFolder.Parent = Workspace
 
 local function makePad(id: string, position: Vector3)
-	local model = buildItemModel(id)
+	local cannonLevel = (character:GetAttribute("ChompUpgradeCannon") :: number?) or 0
+	local model = buildItemModel(id, id == "Cannon" and cannonLevel or nil)
 	model:SetAttribute("ItemId", id)
 	model:SetAttribute("HomeY", position.Y)
 	model:PivotTo(CFrame.new(position))
@@ -276,13 +277,23 @@ end
 local function give(player: Player, id: string, replaceActiveIfFull: boolean?): boolean
 	local def = DEFS[id]
 	if not def then return false end
+	local function chargesFor(): number
+		if id == "Cannon" then
+			local level = (player:GetAttribute("ChompUpgradeCannon") :: number?) or 0
+			if level > 0 then return Config.Upgrades.Cannon.Magazine[level] end
+		elseif id == "HomingBomb" then
+			local level = (player:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0
+			if level > 0 then return Config.Upgrades.Ordnance.Charges[level] end
+		end
+		return def.charges
+	end
 	local b = beltOf(player)
 	if #b >= ITEMS.SlotCount then
 		if not replaceActiveIfFull then return false end
 		local i = math.clamp(active[player] or 1, 1, #b)
-		b[i] = { id = id, charges = def.charges }
+		b[i] = { id = id, charges = chargesFor() }
 	else
-		table.insert(b, { id = id, charges = def.charges })
+		table.insert(b, { id = id, charges = chargesFor() })
 	end
 	if #b == 1 then active[player] = 1 end
 	publish(player)
@@ -519,10 +530,14 @@ local function detonate(player: Player, bomb: BasePart)
 	deployed[player] = nil
 	local centre = bomb.Position
 	local def = DEFS.HomingBomb
+	local level = (player:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0
+	local radiusBonus = if level > 0 then Config.Upgrades.Ordnance.BlastRadiusFraction[level] else 0
+	local blastRadius = def.blastRadiusStuds * (1 + radiusBonus)
+	local damage = if level > 0 then Config.Upgrades.Ordnance.Damage[level] else 1
 
 	local blast = Instance.new("Part")
 	blast.Shape = Enum.PartType.Ball
-	blast.Size = Vector3.new(def.blastRadiusStuds * 2, def.blastRadiusStuds * 2, def.blastRadiusStuds * 2)
+	blast.Size = Vector3.new(blastRadius * 2, blastRadius * 2, blastRadius * 2)
 	blast.Position = centre
 	blast.Anchored = true
 	blast.CanCollide = false
@@ -536,9 +551,9 @@ local function detonate(player: Player, bomb: BasePart)
 	bomb:Destroy()
 
 	for _, ghost in ghostsAlive() do
-		if (ghost:GetPivot().Position - centre).Magnitude < def.blastRadiusStuds then
+		if (ghost:GetPivot().Position - centre).Magnitude < blastRadius then
 			ghost:SetAttribute("KilledBy", player.UserId)
-			ghost:SetAttribute("Health", 0)
+			ghost:SetAttribute("Health", ((ghost:GetAttribute("Health") :: number?) or 1) - damage)
 		end
 	end
 
@@ -551,7 +566,7 @@ local function detonate(player: Player, bomb: BasePart)
 				local humanoid = other.Character
 					and other.Character:FindFirstChildOfClass("Humanoid")
 				if otherRoot and humanoid
-					and (otherRoot.Position - centre).Magnitude < def.blastRadiusStuds then
+					and (otherRoot.Position - centre).Magnitude < blastRadius then
 					humanoid:TakeDamage(35)
 				end
 			end
@@ -762,8 +777,10 @@ local function fireCannon(player: Player)
 		for _, ghost in ghostsAlive() do
 			-- 3D, so a shot angled down from a jump connects (D-CHOMP-060).
 			if (ghost:GetPivot().Position - pellet.Position).Magnitude < 11 then
+				local level = (player:GetAttribute("ChompUpgradeCannon") :: number?) or 0
+				local damage = if level > 0 then Config.Upgrades.Cannon.Damage[level] else 1
 				ghost:SetAttribute("KilledBy", player.UserId)
-				ghost:SetAttribute("Health", ((ghost:GetAttribute("Health") :: number?) or 1) - 1)
+				ghost:SetAttribute("Health", ((ghost:GetAttribute("Health") :: number?) or 1) - damage)
 				pellet:Destroy()
 				connection:Disconnect()
 				return
@@ -868,7 +885,9 @@ local function useHeld(player: Player)
 	else
 		-- The gun has its own rate, slower than the remote's limit, so holding the
 		-- key gives a steady stream rather than whatever the network allows.
-		local interval = 1 / DEFS.Cannon.fireRatePerSecond
+		local level = (player:GetAttribute("ChompUpgradeCannon") :: number?) or 0
+		local rateBonus = if level > 0 then Config.Upgrades.Cannon.FireRateFraction[level] else 0
+		local interval = 1 / (DEFS.Cannon.fireRatePerSecond * (1 + rateBonus))
 		if os.clock() - (lastShot[player] or 0) < interval then return end
 		lastShot[player] = os.clock()
 		fireCannon(player)
@@ -935,6 +954,10 @@ Players.PlayerAdded:Connect(function(player)
 				local current = activeItem(player)
 				if current then mount(character, current.id) end
 			end
+		end)
+		character:GetAttributeChangedSignal("ChompUpgradeCannon"):Connect(function()
+			local current = activeItem(player)
+			if current and current.id == "Cannon" then mount(character, "Cannon") end
 		end)
 	end)
 end)

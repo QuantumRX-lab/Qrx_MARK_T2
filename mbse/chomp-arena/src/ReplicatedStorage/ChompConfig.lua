@@ -25,10 +25,10 @@ local ChompConfig = {}
 -- empty bar is genuinely beatable by a topped-up Standard.
 
 ChompConfig.Chassis = {
-	Standard = { Tier = 1, BarCapacity = 100, Power = 100, BaseSpeed = 26.4, BaseTurn = 240, MouthArcDegrees = 90,  Cost = 0 },
-	HeavyJaw = { Tier = 2, BarCapacity = 175, Power = 250, BaseSpeed = 25.3, BaseTurn = 220, MouthArcDegrees = 90,  Cost = 500 },
-	Ravener  = { Tier = 3, BarCapacity = 275, Power = 450, BaseSpeed = 28.6, BaseTurn = 200, MouthArcDegrees = 100, Cost = 1500 },
-	Apex     = { Tier = 4, BarCapacity = 400, Power = 700, BaseSpeed = 30.8, BaseTurn = 185, MouthArcDegrees = 110, Cost = 3500 },
+	Standard = { Tier = 1, ModulePorts = 1, BarCapacity = 100, Power = 100, BaseSpeed = 26.4, BaseTurn = 240, MouthArcDegrees = 90,  Cost = 0 },
+	HeavyJaw = { Tier = 2, ModulePorts = 2, BarCapacity = 175, Power = 250, BaseSpeed = 25.3, BaseTurn = 220, MouthArcDegrees = 90,  Cost = 500 },
+	Ravener  = { Tier = 3, ModulePorts = 3, BarCapacity = 275, Power = 450, BaseSpeed = 28.6, BaseTurn = 200, MouthArcDegrees = 100, Cost = 1500 },
+	Apex     = { Tier = 4, ModulePorts = 4, BarCapacity = 400, Power = 700, BaseSpeed = 30.8, BaseTurn = 185, MouthArcDegrees = 110, Cost = 3500 },
 }
 
 ChompConfig.StartingChassis = "Standard"
@@ -109,13 +109,54 @@ ChompConfig.Movement = {
 -- additively on top of the chassis base.
 
 ChompConfig.Upgrades = {
-	Costs = { 150, 400, 900 },        -- level I, II, III
+	Tracks = { "Engine", "Handling", "Armour", "Cannon", "Ordnance", "Jump", "Boost" },
+	ModuleTracks = { "Engine", "Handling", "Armour", "Jump", "Boost" },
+	Costs = { 800, 3500, 9500 },
 	PowerPerLevel = 40,
 	MaxLevel = 3,
+	Engine = {
+		SpeedFraction = { 0.05, 0.10, 0.15 },
+		AccelerationFraction = { 0, 0.05, 0.10 },
+		TurnPenaltyFraction = { 0, 0.04, 0.08 },
+	},
+	Handling = {
+		TurnFraction = { 0.08, 0.16, 0.24 },
+		SpeedPenaltyFraction = { 0, 0, 0.05 },
+	},
+	Armour = {
+		MaxHealth = { 115, 135, 160 },
+		GhostDamageReduction = { 0, 0.10, 0.20 },
+		AccelerationPenaltyFraction = { 0, 0.04, 0.08 },
+	},
+	Cannon = {
+		Barrels = { 1, 2, 3 },
+		Magazine = { 14, 20, 30 },
+		FireRateFraction = { 0, 0.15, 0.30 },
+		Damage = { 1, 1, 1.25 },
+	},
+	Ordnance = {
+		Charges = { 1, 2, 2 },
+		BlastRadiusFraction = { 0, 0.15, 0.30 },
+		Damage = { 1, 2, 3 },
+	},
+	Jump = {
+		ImpulseFraction = { 0.08, 0.15, 0.20 },
+		AirControlSeconds = { 0.15, 0.35, 0.60 },
+		ForwardFraction = { 0, 0.10, 0.20 },
+	},
+	Boost = {
+		ChargeRateFraction = { 0.10, 0.20, 0.30 },
+		CapacityFraction = { 0, 0.15, 0.25 },
+		CostReductionFraction = { 0, 0, 0.10 },
+	},
+}
 
-	Speed       = { Speed =  3, Turn = -12 },              -- faster, wider turning circle
-	Agility     = { Turn  = 30, Speed = -1.5 },            -- corners better, lower top speed
-	Consumption = { MouthArcDegrees = 10, PelletMultiplier = 0.25, HitboxRadius = 0.25 },
+ChompConfig.Profile = {
+	SchemaVersion = 2,
+	StoreName = "ChompPlayerProfileV2",
+	AutosaveSeconds = 60,
+	RetryCount = 3,
+	RetryDelaySeconds = 0.5,
 }
 
 -- ── Combat ──────────────────────────────────────────────────────────────
@@ -494,6 +535,7 @@ ChompConfig.Items = {
 
 -- ── Arrival bay and deployment ─────────────────────────────────────────
 ChompConfig.Launch = {
+	LoadingState = "PROFILE_LOADING",
 	BayState = "IN_BAY",
 	DeployingState = "DEPLOYING",
 	ActiveState = "ACTIVE",

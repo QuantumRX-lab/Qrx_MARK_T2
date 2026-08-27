@@ -1,6 +1,12 @@
 # Vehicle upgrade ladder and personal garage scope
 
-**Status:** proposed progression baseline, 2026-08-27
+**Status:** accepted progression baseline; foundation implementation started 2026-08-27
+
+**Implemented foundation:** versioned profiles, seven purchasable three-rung
+licences, derived movement/health/charge/jump/weapon values, distinct plinth
+models, and compact single/twin/triple cannon geometry. **Next phase:** explicit
+port loadout selection, mounting performance modules on the vehicle, and the
+exterior service-ring garages.
 
 ## Core structure
 
@@ -110,7 +116,7 @@ outer wall and guardian chamber.
 
 This replaces the current Consumption track's mostly invisible pellet bonus.
 Mouth-size collection can remain a chassis trait or become a later Collector
-module, but should not displace one of these six readable ladders.
+module, but should not displace one of these seven readable ladders.
 
 ## Prices and pacing
 
@@ -142,7 +148,7 @@ Each personal pad contains:
 
 - a rotating vehicle turntable showing the equipped chassis;
 - a roof-weapon station showing Cannon I, II, and III as real models;
-- six upgrade towers with owned rungs illuminated;
+- seven upgrade towers with owned rungs illuminated;
 - a module rack linked visibly to the vehicle's occupied ports;
 - a low restock counter for ammo, bombs, and shields;
 - a deployment exit visible from every purchase position.

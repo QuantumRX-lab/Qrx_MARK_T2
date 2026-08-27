@@ -39,9 +39,13 @@ local tracked: { [Player]: Tracked } = {}
 
 local function upgradesFor(character: Model)
 	return {
-		Speed = (character:GetAttribute("ChompUpgradeSpeed") :: number?) or 0,
-		Agility = (character:GetAttribute("ChompUpgradeAgility") :: number?) or 0,
-		Consumption = (character:GetAttribute("ChompUpgradeConsumption") :: number?) or 0,
+		Engine = (character:GetAttribute("ChompUpgradeEngine") :: number?) or 0,
+		Handling = (character:GetAttribute("ChompUpgradeHandling") :: number?) or 0,
+		Armour = (character:GetAttribute("ChompUpgradeArmour") :: number?) or 0,
+		Cannon = (character:GetAttribute("ChompUpgradeCannon") :: number?) or 0,
+		Ordnance = (character:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0,
+		Jump = (character:GetAttribute("ChompUpgradeJump") :: number?) or 0,
+		Boost = (character:GetAttribute("ChompUpgradeBoost") :: number?) or 0,
 	}
 end
 
@@ -70,13 +74,20 @@ local function apply(player: Player, character: Model)
 	-- The client reads these; it never chooses them.
 	character:SetAttribute("ChompSpeed", speed)
 	character:SetAttribute("ChompTurn", turn)
+	local chassisId = character:GetAttribute("ChompChassis") or Config.StartingChassis
+	local stats = Progression.effectiveStats(chassisId, upgradesFor(character))
+	humanoid.MaxHealth = stats.maxHealth
+	if humanoid.Health > humanoid.MaxHealth then humanoid.Health = humanoid.MaxHealth end
+	character:SetAttribute("ChompModulePorts", stats.modulePorts)
 end
 
 local function onCharacter(player: Player, character: Model)
 	tracked[player] = tracked[player] or { chassis = Config.StartingChassis, lastCheck = 0, strikes = 0 }
 	tracked[player].lastPosition = nil
 	apply(player, character)
-	for _, name in { "ChompChassis", "ChompUpgradeSpeed", "ChompUpgradeAgility", "ChompUpgradeConsumption" } do
+	local watched = { "ChompChassis" }
+	for _, track in Config.Upgrades.Tracks do table.insert(watched, "ChompUpgrade" .. track) end
+	for _, name in watched do
 		character:GetAttributeChangedSignal(name):Connect(function()
 			if character.Parent then apply(player, character) end
 		end)

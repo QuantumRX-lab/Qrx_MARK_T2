@@ -67,7 +67,11 @@ RunService.RenderStepped:Connect(function()
 	if not panel.Visible then return end
 	local chassis = player:GetAttribute("ChompEquippedChassis")
 	vehicle.Text = typeof(chassis) == "string" and string.upper(chassis) or "STANDARD"
-	if state == Config.Launch.DeployingState then
+	if state == Config.Launch.LoadingState then
+		title.Text = "LOADING GARAGE"
+		instruction.Text = "RESTORING VEHICLES + UPGRADES"
+		stroke.Color = P.NeonA
+	elseif state == Config.Launch.DeployingState then
 		local countdown = character:GetAttribute("ChompLaunchCountdown")
 		local left = typeof(countdown) == "number" and countdown or Config.Launch.DeploymentSeconds
 		title.Text = tostring(left)

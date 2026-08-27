@@ -56,11 +56,17 @@ local function deploy(player: Player, character: Model)
 end
 
 local function watch(player: Player, character: Model)
-	enterBay(player, character)
+	publish(player, character, Launch.LoadingState)
+	task.spawn(function()
+		while player.Parent and player:GetAttribute("ChompProfileReady") ~= true do
+			player:GetAttributeChangedSignal("ChompProfileReady"):Wait()
+		end
+		if player.Parent and player.Character == character then enterBay(player, character) end
+	end)
 end
 
 Players.PlayerAdded:Connect(function(player)
-	player:SetAttribute("ChompSessionState", Launch.BayState)
+	player:SetAttribute("ChompSessionState", Launch.LoadingState)
 	player.CharacterAdded:Connect(function(character) watch(player, character) end)
 	if player.Character then watch(player, player.Character) end
 end)

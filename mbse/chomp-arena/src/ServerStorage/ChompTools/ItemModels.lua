@@ -45,7 +45,7 @@ local function bit(model: Model, name: string, size: Vector3, offset: CFrame,
 	return p
 end
 
-function ItemModels.build(id: string): Model
+function ItemModels.build(id: string, upgradeLevel: number?): Model
 	local model = Instance.new("Model")
 	model.Name = "Item_" .. id
 	local c = ItemModels.colour(id)
@@ -65,21 +65,28 @@ function ItemModels.build(id: string): Model
 		end
 
 	elseif id == "Cannon" then
-		-- A low rotating base, armoured receiver and long barrel. Cylinder length
-		-- is its X dimension in Roblox, so the 90-degree yaw points it forward.
-		bit(model, "Mount", Vector3.new(2.5, 0.8, 2.5), CFrame.new(0, -0.85, 0),
+		-- Compact enough for the upgraded twin and triple mounts to remain inside
+		-- the vehicle envelope. Barrels alternate fire; quantity is visual state,
+		-- not three projectiles per trigger pull.
+		local level = math.clamp(upgradeLevel or 0, 0, Config.Upgrades.MaxLevel)
+		local count = if level > 0 then Config.Upgrades.Cannon.Barrels[level] else 1
+		bit(model, "Mount", Vector3.new(2.1, 0.65, 2.1), CFrame.new(0, -0.72, 0),
 			P.BrickDark, Enum.Material.Metal)
-		bit(model, "BaseRing", Vector3.new(1.0, 3.4, 3.4),
-			CFrame.new(0, -1.0, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		bit(model, "BaseRing", Vector3.new(0.75, 2.7, 2.7),
+			CFrame.new(0, -0.8, 0) * CFrame.Angles(0, 0, math.rad(90)),
 			P.BrickDark, Enum.Material.Metal, Enum.PartType.Cylinder)
-		bit(model, "Receiver", Vector3.new(2.6, 1.9, 3.0), CFrame.new(0, 0.25, -0.35),
+		bit(model, "Receiver", Vector3.new(2.2, 1.5, 2.5), CFrame.new(0, 0.15, -0.25),
 			c, Enum.Material.Metal)
-		bit(model, "Barrel", Vector3.new(1.25, 1.25, 5.8),
-			CFrame.new(0, 0.45, -3.6), P.Ghost, Enum.Material.Metal)
-		bit(model, "Muzzle", Vector3.new(0.9, 1.8, 1.8),
-			CFrame.new(0, 0.45, -6.65) * CFrame.Angles(0, math.rad(90), 0),
-			P.Danger, Enum.Material.Neon, Enum.PartType.Cylinder)
-		bit(model, "Sight", Vector3.new(0.45, 0.45, 1.5), CFrame.new(0, 1.45, -1.0),
+		for index = 1, count do
+			local x = (index - (count + 1) / 2) * 0.78
+			bit(model, index == 1 and "Barrel" or ("Barrel" .. tostring(index)),
+				Vector3.new(0.8, 0.8, 4.6), CFrame.new(x, 0.35, -2.95),
+				P.Ghost, Enum.Material.Metal)
+			bit(model, "Muzzle" .. tostring(index), Vector3.new(0.65, 1.15, 1.15),
+				CFrame.new(x, 0.35, -5.35) * CFrame.Angles(0, math.rad(90), 0),
+				P.Danger, Enum.Material.Neon, Enum.PartType.Cylinder)
+		end
+		bit(model, "Sight", Vector3.new(0.35, 0.35, 1.2), CFrame.new(0, 1.1, -0.8),
 			P.NeonA, Enum.Material.Neon)
 
 	elseif id == "HomingBomb" then
@@ -114,6 +121,43 @@ function ItemModels.build(id: string): Model
 
 	local primary = model:FindFirstChildWhichIsA("BasePart")
 	model.PrimaryPart = primary
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then CollectionService:AddTag(d, "Chomp_Decor") end
+	end
+	return model
+end
+
+function ItemModels.buildUpgrade(track: string, level: number): Model
+	if track == "Cannon" then return ItemModels.build("Cannon", level) end
+	if track == "Ordnance" then return ItemModels.build("HomingBomb", level) end
+	if track == "Jump" then return ItemModels.build("JetPack", level) end
+
+	local model = Instance.new("Model")
+	model.Name = "Upgrade_" .. track
+	if track == "Engine" then
+		bit(model, "Turbine", Vector3.new(2.4, 3.6, 3.6), CFrame.Angles(0, 0, math.rad(90)),
+			P.Gold, Enum.Material.Metal, Enum.PartType.Cylinder)
+		bit(model, "Core", Vector3.new(2.6, 1.8, 1.8), CFrame.Angles(0, 0, math.rad(90)),
+			P.NeonA, Enum.Material.Neon, Enum.PartType.Cylinder)
+	elseif track == "Handling" then
+		bit(model, "VectorHub", Vector3.new(1.5, 4.4, 4.4), CFrame.Angles(0, 0, math.rad(90)),
+			P.BrickDark, Enum.Material.Metal, Enum.PartType.Cylinder)
+		bit(model, "HubGlow", Vector3.new(1.7, 2.3, 2.3), CFrame.Angles(0, 0, math.rad(90)),
+			P.NeonA, Enum.Material.Neon, Enum.PartType.Cylinder)
+	elseif track == "Armour" then
+		for side = -1, 1, 2 do
+			bit(model, "Plate", Vector3.new(0.7, 3.8, 5.0), CFrame.new(side * 1.5, 0, 0)
+				* CFrame.Angles(0, 0, side * 0.18), P.Gold, Enum.Material.Metal)
+		end
+	else -- Boost
+		for side = -1, 1, 2 do
+			bit(model, "Capacitor", Vector3.new(1.6, 3.8, 1.6), CFrame.new(side * 1.1, 0, 0),
+				P.NeonB, Enum.Material.Neon, Enum.PartType.Cylinder)
+		end
+		bit(model, "PowerCore", Vector3.new(1.5, 1.5, 1.5), CFrame.new(),
+			P.Gold, Enum.Material.Neon, Enum.PartType.Ball)
+	end
+	model.PrimaryPart = model:FindFirstChildWhichIsA("BasePart")
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then CollectionService:AddTag(d, "Chomp_Decor") end
 	end

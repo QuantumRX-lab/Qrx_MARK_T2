@@ -521,7 +521,10 @@ RunService.Heartbeat:Connect(function(dt)
 
 				local humanoid = character:FindFirstChildOfClass("Humanoid")
 				if humanoid and humanoid.Health > 0 then
-					humanoid:TakeDamage(G.ContactDamage)
+					local armour = (character:GetAttribute("ChompUpgradeArmour") :: number?) or 0
+					local reduction = if armour > 0
+						then Config.Upgrades.Armour.GhostDamageReduction[armour] else 0
+					humanoid:TakeDamage(G.ContactDamage * (1 - reduction))
 					character:SetAttribute("ChompHurtAt", os.clock())
 				end
 			end

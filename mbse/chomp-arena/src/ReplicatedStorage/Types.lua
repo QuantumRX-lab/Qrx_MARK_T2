@@ -15,12 +15,16 @@ export type Direction = "North" | "South" | "East" | "West" | "Up" | "Down"
 
 export type ChassisId = "Standard" | "HeavyJaw" | "Ravener" | "Apex"
 
-export type UpgradeTrack = "Speed" | "Agility" | "Consumption"
+export type UpgradeTrack = "Engine" | "Handling" | "Armour" | "Cannon" | "Ordnance" | "Jump" | "Boost"
 
 export type UpgradeLevels = {
-	Speed: number,       -- 0..3
-	Agility: number,     -- 0..3
-	Consumption: number, -- 0..3
+	Engine: number,
+	Handling: number,
+	Armour: number,
+	Cannon: number,
+	Ordnance: number,
+	Jump: number,
+	Boost: number,
 }
 
 -- The authoritative per-player record. Server-side only; clients receive the

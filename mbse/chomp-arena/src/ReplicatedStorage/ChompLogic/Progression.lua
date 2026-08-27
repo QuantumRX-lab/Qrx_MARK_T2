@@ -26,7 +26,8 @@ local Progression = {}
 function Progression.computePower(chassis: Types.ChassisId, upgrades: Types.UpgradeLevels): number
 	local base = Config.Chassis[chassis]
 	assert(base, "unknown chassis: " .. tostring(chassis))
-	local levels = upgrades.Speed + upgrades.Agility + upgrades.Consumption
+	local levels = upgrades.Engine + upgrades.Handling + upgrades.Armour
+		+ upgrades.Cannon + upgrades.Ordnance + upgrades.Jump + upgrades.Boost
 	return base.Power + levels * Config.Upgrades.PowerPerLevel
 end
 
@@ -38,43 +39,50 @@ end
 	below half its chassis base — a player who dumps everything into Agility
 	must still be able to move.
 
-	Boundary cases: no upgrades returns the chassis base unchanged; three
-	Agility levels on Apex still leaves speed above the floor; Consumption
-	widens the mouth arc and the hitbox together, since a bigger mouth is a
-	bigger target (that trade is the point).
+	Boundary cases: no upgrades returns the chassis base unchanged; Handling III
+	on Apex still leaves speed above the floor; Armour sets health rather than
+	quietly adding another independent damage system.
 ]]
 function Progression.effectiveStats(chassis: Types.ChassisId, upgrades: Types.UpgradeLevels)
 	local base = Config.Chassis[chassis]
 	assert(base, "unknown chassis: " .. tostring(chassis))
-	local speed = base.BaseSpeed
-		+ upgrades.Speed * Config.Upgrades.Speed.Speed
-		+ upgrades.Agility * Config.Upgrades.Agility.Speed
-	local turn = base.BaseTurn
-		+ upgrades.Speed * Config.Upgrades.Speed.Turn
-		+ upgrades.Agility * Config.Upgrades.Agility.Turn
+	local function rung(track: any, level: number, field: string): number
+		if level <= 0 then return 0 end
+		local values = track[field]
+		return values and values[math.clamp(level, 1, Config.Upgrades.MaxLevel)] or 0
+	end
+	local speed = base.BaseSpeed * (1
+		+ rung(Config.Upgrades.Engine, upgrades.Engine, "SpeedFraction")
+		- rung(Config.Upgrades.Handling, upgrades.Handling, "SpeedPenaltyFraction"))
+	local turn = base.BaseTurn * (1
+		+ rung(Config.Upgrades.Handling, upgrades.Handling, "TurnFraction")
+		- rung(Config.Upgrades.Engine, upgrades.Engine, "TurnPenaltyFraction"))
+	local maxHealth = if upgrades.Armour > 0
+		then Config.Upgrades.Armour.MaxHealth[upgrades.Armour] else 100
 	return {
 		speed = math.max(base.BaseSpeed * 0.5, speed),
 		turn = math.max(base.BaseTurn * 0.5, turn),
-		mouthArcDegrees = base.MouthArcDegrees
-			+ upgrades.Consumption * Config.Upgrades.Consumption.MouthArcDegrees,
-		hitboxRadius = upgrades.Consumption * Config.Upgrades.Consumption.HitboxRadius,
-		pelletMultiplier = 1
-			+ upgrades.Consumption * Config.Upgrades.Consumption.PelletMultiplier,
+		mouthArcDegrees = base.MouthArcDegrees,
+		hitboxRadius = 0,
+		pelletMultiplier = 1,
+		chargeMultiplier = 1 + rung(Config.Upgrades.Boost, upgrades.Boost, "ChargeRateFraction"),
+		chargeCapacity = Config.Charge.Max * (1
+			+ rung(Config.Upgrades.Boost, upgrades.Boost, "CapacityFraction")),
+		maxHealth = maxHealth,
+		modulePorts = base.ModulePorts,
 	}
 end
 
 --[[
 	costOf(itemId, upgrades) -> number?
-	itemId is either a chassis id or "Speed"/"Agility"/"Consumption". For a
+	itemId is either a chassis id or one of Config.Upgrades.Tracks. For a
 	track, the cost is the next unowned level's price; nil when already at
 	MaxLevel or when a chassis is already owned or is a downgrade.
 ]]
 function Progression.costOf(itemId: string, chassis: Types.ChassisId, upgrades: Types.UpgradeLevels): number?
 	local track = Config.Upgrades[itemId]
-	if track then
-		local level = if itemId == "Speed" then upgrades.Speed
-			elseif itemId == "Agility" then upgrades.Agility
-			else upgrades.Consumption
+	if track and table.find(Config.Upgrades.Tracks, itemId) then
+		local level = upgrades[itemId]
 		if typeof(level) ~= "number" or level >= Config.Upgrades.MaxLevel then return nil end
 		return Config.Upgrades.Costs[level + 1]
 	end

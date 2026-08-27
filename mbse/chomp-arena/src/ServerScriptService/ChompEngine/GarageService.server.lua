@@ -116,13 +116,17 @@ end
 
 type Offer = { id: string, kind: string, title: string, dollars: number, robux: number? }
 
-local TRACKS = { "Speed", "Agility", "Consumption" }
+local TRACKS = Config.Upgrades.Tracks
 
 local function upgradesOf(player: Player)
 	return {
-		Speed = (player:GetAttribute("ChompUpgradeSpeed") :: number?) or 0,
-		Agility = (player:GetAttribute("ChompUpgradeAgility") :: number?) or 0,
-		Consumption = (player:GetAttribute("ChompUpgradeConsumption") :: number?) or 0,
+		Engine = (player:GetAttribute("ChompUpgradeEngine") :: number?) or 0,
+		Handling = (player:GetAttribute("ChompUpgradeHandling") :: number?) or 0,
+		Armour = (player:GetAttribute("ChompUpgradeArmour") :: number?) or 0,
+		Cannon = (player:GetAttribute("ChompUpgradeCannon") :: number?) or 0,
+		Ordnance = (player:GetAttribute("ChompUpgradeOrdnance") :: number?) or 0,
+		Jump = (player:GetAttribute("ChompUpgradeJump") :: number?) or 0,
+		Boost = (player:GetAttribute("ChompUpgradeBoost") :: number?) or 0,
 	}
 end
 
@@ -145,6 +149,12 @@ local function publishProgression(player: Player, character: Model)
 	character:SetAttribute("ChompBarCapacity", Config.Chassis[chassisId].BarCapacity)
 	character:SetAttribute("ChompMouthArcDegrees", stats.mouthArcDegrees)
 	character:SetAttribute("ChompPelletMultiplier", stats.pelletMultiplier)
+	character:SetAttribute("ChompChargeMultiplier", stats.chargeMultiplier)
+	character:SetAttribute("ChompChargeCapacity", stats.chargeCapacity)
+	character:SetAttribute("ChompMaxHealth", stats.maxHealth)
+	character:SetAttribute("ChompModulePorts", stats.modulePorts)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then humanoid.MaxHealth = stats.maxHealth end
 end
 
 -- Resolved lazily: this script and ItemService are both server scripts with no
@@ -185,7 +195,7 @@ local function offers(): { Offer }
 		table.insert(out, 1, weapons[i])
 	end
 
-	for _, track in { "Speed", "Agility", "Consumption" } do
+	for _, track in TRACKS do
 		table.insert(out, {
 			id = track, kind = "upgrade", title = track .. " UPGRADE",
 			dollars = UP.Costs[1], robux = STORE.RobuxPrice[track],
@@ -202,15 +212,16 @@ local function build(): number
 	local homeAngle = math.pi / L.GarageCount
 	local radius = L.OuterRadius - L.RingSpacing / 2 - 22
 	local list = offers()
-	-- Tightened again with the sanctuary (D-CHOMP-065). The whole row has to
-	-- fit INSIDE the home garage's safe radius, or the far plinths are places
-	-- you can be caught while standing still trying to buy something.
-	--
-	-- At this radius 2.3 degrees is about 31 studs, so ten plinths span 280 -
-	-- 140 either side of centre, against a 150-stud sanctuary less the 22 studs
-	-- the row sits inboard of the pad. Still wider apart than the 13-stud dwell
-	-- radius, so a kart is never inside two offers at once.
-	local step = math.rad(2.3)
+	-- Permanent unlocks get the hero row. Consumable refills sit on a shorter
+	-- inner row. Fourteen offers on the old single row overlapped dwell radii,
+	-- so stopping at one plinth could buy its neighbour as well.
+	local permanentCount, itemCount = 0, 0
+	for _, offer in list do
+		if offer.kind == "item" then itemCount += 1 else permanentCount += 1 end
+	end
+	local permanentIndex, itemIndex = 0, 0
+	local permanentStep = math.rad(4.4)
+	local itemStep = math.rad(5.2)
 	local shopPos = Vector3.new(math.cos(homeAngle) * radius, 0, math.sin(homeAngle) * radius)
 	local beacon = part("ShopBeacon", Vector3.new(2, 90, 2),
 		CFrame.new(shopPos + Vector3.new(0, 45, 0)), P.NeonB, Enum.Material.Neon, folder)
@@ -238,9 +249,18 @@ local function build(): number
 	shopLabel.Font = Enum.Font.GothamBlack
 	shopLabel.Parent = shopGui
 
-	for i, offer in ipairs(list) do
-		local a = homeAngle + step * (i - (#list + 1) / 2)
-		local pos = Vector3.new(math.cos(a) * radius, 0, math.sin(a) * radius)
+	for _, offer in ipairs(list) do
+		local rowRadius, a
+		if offer.kind == "item" then
+			itemIndex += 1
+			rowRadius = radius - 34
+			a = homeAngle + itemStep * (itemIndex - (itemCount + 1) / 2)
+		else
+			permanentIndex += 1
+			rowRadius = radius
+			a = homeAngle + permanentStep * (permanentIndex - (permanentCount + 1) / 2)
+		end
+		local pos = Vector3.new(math.cos(a) * rowRadius, 0, math.sin(a) * rowRadius)
 		local facing = CFrame.Angles(0, -a, 0)
 
 		local base = part("Plinth", Vector3.new(9, 6, 9),
@@ -303,12 +323,12 @@ local function build(): number
 			model.Parent = folder
 
 		else
-			-- Upgrades have no model. A clear token beats a misleading one.
-			local token = part("UpgradeToken", Vector3.new(4, 4, 4),
-				CFrame.new(pos + Vector3.new(0, 9.5, 0)) * facing * CFrame.Angles(0.5, 0, 0.5),
-				P.NeonA, Enum.Material.Neon, folder)
-			token.CanCollide = false
-			CollectionService:AddTag(token, "Chomp_Decor")
+			-- Permanent upgrades show the actual module that will be mounted. Generic
+			-- glowing cubes made seven distinct choices look identical.
+			local model = ItemModels.buildUpgrade(offer.id, UP.MaxLevel)
+			model:ScaleTo(1.35)
+			model:PivotTo(CFrame.new(pos + Vector3.new(0, 9.5, 0)) * facing)
+			model.Parent = folder
 		end
 
 		priceLabel(base, offer.title, offer.dollars, offer.robux)
