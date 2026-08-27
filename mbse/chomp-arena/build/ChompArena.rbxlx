@@ -500,6 +500,18 @@ ChompConfig.Items = {
 	},
 }
 
+-- ── Arrival bay and deployment ─────────────────────────────────────────
+ChompConfig.Launch = {
+	BayState = "IN_BAY",
+	DeployingState = "DEPLOYING",
+	ActiveState = "ACTIVE",
+	DeploymentSeconds = 3,
+	SpawnProtectionSeconds = 3,
+	ExitRadiusStuds = 142,
+	GateWidthStuds = 34,
+	GateHeightStuds = 18,
+}
+
 -- ── Level 1: the bowl (D-CHOMP-041) ─────────────────────────────────────
 -- Safety and reward as geography: learn and bank on the rim, take risks toward
 -- the middle. Radii are in studs and everything is a multiple of CellSize so
@@ -7220,6 +7232,16 @@ local ghosts: { Ghost } = {}
 local wave = 0
 local waveActive = false
 
+local function activePlayers(): { Player }
+	local out = {}
+	for _, player in Players:GetPlayers() do
+		if player:GetAttribute("ChompSessionState") == Config.Launch.ActiveState then
+			table.insert(out, player)
+		end
+	end
+	return out
+end
+
 -- ── Sanctuaries (D-CHOMP-065) ───────────────────────────────────────────
 -- A garage is somewhere ghosts may not go. Not "spawn away from", which only
 -- buys a second - may not GO: no spawning inside, no walking in, no stealing
@@ -7327,7 +7349,7 @@ local function buildGhost(): Ghost
 end
 
 local function waveStartCount(): number
-	local count = math.max(1, #Players:GetPlayers())
+	local count = math.max(1, #activePlayers())
 	for _, row in W.StartCountByPlayers do
 		if count <= row.players then return row.count end
 	end
@@ -7336,7 +7358,7 @@ end
 
 local function nearestKart(from: Vector3): (BasePart?, number)
 	local best, bestDistance = nil, math.huge
-	for _, player in Players:GetPlayers() do
+	for _, player in activePlayers() do
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if root then
@@ -7367,7 +7389,7 @@ local function startWave(n: number)
 	-- event. SpawnMinDistanceStuds keeps them off your bonnet, because arriving
 	-- ON someone is a cheap hit rather than a threat.
 	local anchorPoint = Vector3.new(0, 8, 0)
-	local players = Players:GetPlayers()
+	local players = activePlayers()
 	if #players > 0 then
 		local who = players[math.random(1, #players)]
 		local root = who.Character and who.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -7456,7 +7478,10 @@ task.spawn(function()
 					character:SetAttribute("ChompShopAdviceAt", os.clock())
 				end
 			end
-			task.delay(W.BreakSeconds, function() startWave(wave + 1) end)
+			task.delay(W.BreakSeconds, function()
+				while #activePlayers() == 0 do task.wait(0.5) end
+				startWave(wave + 1)
+			end)
 		end
 	end
 end)
@@ -7613,6 +7638,11 @@ RunService.Heartbeat:Connect(function(dt)
 		-- shove, still cannot touch you there.
 		local safe = target and sanctuaryAt(target.Position) ~= nil
 		local character = target and target.Parent :: Model
+		local targetPlayer = character and Players:GetPlayerFromCharacter(character)
+		local protectedUntil = character and character:GetAttribute("ChompProtectedUntil")
+		local protected = typeof(protectedUntil) == "number" and os.clock() < protectedUntil
+		local targetActive = targetPlayer ~= nil
+			and targetPlayer:GetAttribute("ChompSessionState") == Config.Launch.ActiveState
 		-- TWO cooldowns, and they answer different questions (D-CHOMP-066).
 		-- g.lastSteal stops ONE ghost machine-gunning you. The per-character
 		-- window stops a PACK doing in one instant what a ghost may only do
@@ -7626,13 +7656,15 @@ RunService.Heartbeat:Connect(function(dt)
 
 		local fullJawActive = character
 			and os.clock() < ((character:GetAttribute("ChompFullJawUntil") :: number?) or 0)
-		if character and not safe and distance < STEAL_RADIUS and fullJawActive then
+		if character and targetActive and not protected and not safe
+			and distance < STEAL_RADIUS and fullJawActive then
 			local eater = Players:GetPlayerFromCharacter(character)
 			if eater then
 				g.model:SetAttribute("KilledBy", eater.UserId)
 				g.model:SetAttribute("Health", 0)
 			end
-		elseif character and not safe and distance < STEAL_RADIUS and packReady
+		elseif character and targetActive and not protected and not safe
+			and distance < STEAL_RADIUS and packReady
 			and (os.clock() - g.lastSteal) > STEAL_COOLDOWN then
 			-- The shield is checked FIRST, and it stops the whole contact
 			-- (D-CHOMP-066). It used to be consulted after the theft had
@@ -7692,7 +7724,12 @@ Players.PlayerAdded:Connect(function(player)
 end)
 
 readSanctuaries()
-startWave(1)
+task.spawn(function()
+	while wave == 0 do
+		task.wait(0.2)
+		if #activePlayers() > 0 then startWave(1) end
+	end
+end)
 print(("[GhostService] waves live: %d sanctuaries, %d%% stolen per catch, " ..
 	"base speed %d vs kart %.1f")
 	:format(#sanctuaries, math.floor(G.StealFraction * 100), G.Speed,
@@ -8479,6 +8516,9 @@ end
 
 local function useHeld(player: Player)
 	if not limiter(player) then return end        -- flood protection, server side
+	-- Equipment may be previewed in the bay, but only a server-deployed player
+	-- can fire or consume it.
+	if player:GetAttribute("ChompSessionState") ~= Config.Launch.ActiveState then return end
 
 	-- A DEPLOYED bomb answers first, whatever you are holding now (D-CHOMP-059).
 	-- Picking up a cannon should not strand a live bomb in the map: you placed
@@ -8600,6 +8640,12 @@ end
 Players.PlayerAdded:Connect(function(player)
 	belt[player] = belt[player] or {}
 	active[player] = active[player] or 1
+	-- The first drive is a combat lesson, not a shopping test. These supplies
+	-- are session loadout; permanent weapon licences belong to profile work.
+	if #belt[player] == 0 then
+		give(player, "Cannon")
+		give(player, "Shield")
+	end
 	player.CharacterAdded:Connect(function(character)
 		-- The belt is match loadout, not character state. Death rebuilds its HUD
 		-- and roof mount without erasing weapons the player already earned.
@@ -8922,6 +8968,26 @@ local function build()
 	end
 
 	local home = garages[1]
+	-- Leaving the garage is the ENTER ARENA action. The threshold is visible in
+	-- the world so deployment is spatial, not another menu button.
+	local homeFlat = Vector3.new(home.X, 0, home.Z)
+	local inward = -homeFlat.Unit
+	local gateCentre = home + inward * Config.Launch.ExitRadiusStuds
+	local gate = Instance.new("Model")
+	gate.Name = "DeploymentGate"
+	gate.Parent = bays
+	local gateCF = CFrame.lookAt(gateCentre, gateCentre + inward)
+	for _, side in { -1, 1 } do
+		local post = part("DeployPost", Vector3.new(2, Config.Launch.GateHeightStuds, 2),
+			gateCF * CFrame.new(side * Config.Launch.GateWidthStuds / 2,
+				Config.Launch.GateHeightStuds / 2, 0), P.NeonA, Enum.Material.Neon, gate)
+		post.CanCollide = false
+	end
+	local header = part("DeployHeader", Vector3.new(Config.Launch.GateWidthStuds + 2, 2, 2),
+		gateCF * CFrame.new(0, Config.Launch.GateHeightStuds, 0),
+		P.Gold, Enum.Material.Neon, gate)
+	header.CanCollide = false
+
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "Level1Spawn"
 	spawn.Size = Vector3.new(M.CellSize, 1, M.CellSize)
@@ -9320,6 +9386,89 @@ print(("[PelletService] %d pellets laid, values %s, bank rate %.1f")
       </Item>
       <Item class="Script" referent="153">
         <Properties>
+          <string name="Name">PlayerSessionService</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+-- Server-owned arrival and deployment lifecycle.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local Launch = Config.Launch
+local homeCentre: Vector3? = nil
+
+local function findHome(): Vector3?
+	for _, pad in CollectionService:GetTagged("Chomp_Garage") do
+		if pad:IsA("BasePart") and pad:GetAttribute("Home") == true then
+			return Vector3.new(pad.Position.X, 0, pad.Position.Z)
+		end
+	end
+	return nil
+end
+
+local function publish(player: Player, character: Model, state: string)
+	player:SetAttribute("ChompSessionState", state)
+	character:SetAttribute("ChompSessionState", state)
+	character:SetAttribute("ChompInLaunchBay", state == Launch.BayState)
+end
+
+local function enterBay(player: Player, character: Model)
+	publish(player, character, Launch.BayState)
+	character:SetAttribute("ChompDeployAt", 0)
+	character:SetAttribute("ChompProtectedUntil", 0)
+	character:SetAttribute("ChompLaunchMessage", "CHOOSE VEHICLE + LOADOUT")
+end
+
+local function deploy(player: Player, character: Model)
+	if player:GetAttribute("ChompSessionState") ~= Launch.BayState then return end
+	publish(player, character, Launch.DeployingState)
+	character:SetAttribute("ChompDeployAt", os.clock())
+	character:SetAttribute("ChompLaunchMessage", "DEPLOYING")
+	task.delay(Launch.DeploymentSeconds, function()
+		if player.Character ~= character or not character.Parent then return end
+		publish(player, character, Launch.ActiveState)
+		character:SetAttribute("ChompProtectedUntil", os.clock() + Launch.SpawnProtectionSeconds)
+		character:SetAttribute("ChompLaunchMessage", "CHOMP!")
+		character:SetAttribute("ChompDeployedAt", os.clock())
+	end)
+end
+
+local function watch(player: Player, character: Model)
+	enterBay(player, character)
+end
+
+Players.PlayerAdded:Connect(function(player)
+	player:SetAttribute("ChompSessionState", Launch.BayState)
+	player.CharacterAdded:Connect(function(character) watch(player, character) end)
+	if player.Character then watch(player, player.Character) end
+end)
+
+RunService.Heartbeat:Connect(function()
+	homeCentre = homeCentre or findHome()
+	if not homeCentre then return end
+	for _, player in Players:GetPlayers() do
+		if player:GetAttribute("ChompSessionState") ~= Launch.BayState then continue end
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not character or not root then continue end
+		local flat = Vector3.new(root.Position.X, 0, root.Position.Z)
+		local fromHome = flat - homeCentre
+		if fromHome.Magnitude >= Launch.ExitRadiusStuds
+			and flat.Magnitude < homeCentre.Magnitude then
+			deploy(player, character)
+		end
+	end
+end)
+
+print("[PlayerSessionService] protected launch bay and deployment live")
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="154">
+        <Properties>
           <string name="Name">TestMap</string>
           <token name="RunContext">0</token>
           <string name="Source"><![CDATA[--!strict
@@ -9491,7 +9640,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="154">
+      <Item class="Script" referent="155">
         <Properties>
           <string name="Name">VehicleService</string>
           <token name="RunContext">0</token>
@@ -9897,7 +10046,7 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="155">
+      <Item class="Script" referent="156">
         <Properties>
           <string name="Name">WorldLook</string>
           <token name="RunContext">0</token>
@@ -9955,15 +10104,15 @@ print("[WorldLook] midnight contrast rig active")
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="156">
+  <Item class="ServerStorage" referent="157">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="157">
+    <Item class="Folder" referent="158">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="158">
+      <Item class="ModuleScript" referent="159">
         <Properties>
           <string name="Name">ItemModels</string>
           <string name="Source"><![CDATA[--!strict
@@ -10092,7 +10241,7 @@ return ItemModels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="159">
+      <Item class="ModuleScript" referent="160">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -10377,7 +10526,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="160">
+      <Item class="ModuleScript" referent="161">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -10636,11 +10785,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="161">
+      <Item class="Folder" referent="162">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="162">
+        <Item class="ModuleScript" referent="163">
           <Properties>
             <string name="Name">Apex</string>
             <string name="Source"><![CDATA[--!strict
@@ -10649,7 +10798,7 @@ return variant("Apex", Color3.fromRGB(96, 72, 176), Color3.fromRGB(255, 207, 55)
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="163">
+        <Item class="ModuleScript" referent="164">
           <Properties>
             <string name="Name">HeavyJaw</string>
             <string name="Source"><![CDATA[--!strict
@@ -10658,7 +10807,7 @@ return variant("HeavyJaw", Color3.fromRGB(238, 145, 26), Color3.fromRGB(255, 230
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="164">
+        <Item class="ModuleScript" referent="165">
           <Properties>
             <string name="Name">Ravener</string>
             <string name="Source"><![CDATA[--!strict
@@ -10667,7 +10816,7 @@ return variant("Ravener", Color3.fromRGB(208, 64, 104), Color3.fromRGB(95, 235, 
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="165">
+        <Item class="ModuleScript" referent="166">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -10777,7 +10926,7 @@ return {
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="166">
+        <Item class="ModuleScript" referent="167">
           <Properties>
             <string name="Name">Variant</string>
             <string name="Source"><![CDATA[--!strict
@@ -10821,15 +10970,15 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="167">
+  <Item class="StarterPlayer" referent="168">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="168">
+    <Item class="StarterPlayerScripts" referent="169">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="169">
+      <Item class="LocalScript" referent="170">
         <Properties>
           <string name="Name">AudioDirector</string>
           <string name="Source"><![CDATA[--!strict
@@ -10988,7 +11137,7 @@ player.CharacterAdded:Connect(bind)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="170">
+      <Item class="LocalScript" referent="171">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -11240,7 +11389,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="171">
+      <Item class="LocalScript" referent="172">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -11381,7 +11530,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="172">
+      <Item class="LocalScript" referent="173">
         <Properties>
           <string name="Name">ChompHud</string>
           <string name="Source"><![CDATA[--!strict
@@ -11917,7 +12066,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="173">
+      <Item class="LocalScript" referent="174">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -12173,7 +12322,95 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="174">
+      <Item class="LocalScript" referent="175">
+        <Properties>
+          <string name="Name">LaunchBay</string>
+          <string name="Source"><![CDATA[--!strict
+-- Compact start guidance. The world remains the primary interface: shop row,
+-- mounted equipment, and deployment arch are all visible behind this panel.
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local P = Config.Palette
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "LaunchBay"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 80
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local panel = Instance.new("Frame")
+panel.Name = "BayPanel"
+panel.AnchorPoint = Vector2.new(0.5, 0)
+panel.Position = UDim2.new(0.5, 0, 0, 68)
+panel.Size = UDim2.new(1, -24, 0, 112)
+panel.BackgroundColor3 = P.Floor
+panel.BackgroundTransparency = 0.08
+panel.BorderSizePixel = 0
+panel.Parent = gui
+local size = Instance.new("UISizeConstraint")
+size.MaxSize = Vector2.new(520, 112)
+size.MinSize = Vector2.new(300, 104)
+size.Parent = panel
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = panel
+local stroke = Instance.new("UIStroke")
+stroke.Color = P.Gold
+stroke.Thickness = 3
+stroke.Parent = panel
+
+local function text(name: string, y: number, height: number, value: string,
+		colour: Color3, textSize: number): TextLabel
+	local label = Instance.new("TextLabel")
+	label.Name = name
+	label.BackgroundTransparency = 1
+	label.Position = UDim2.new(0, 14, 0, y)
+	label.Size = UDim2.new(1, -28, 0, height)
+	label.Text = value
+	label.TextColor3 = colour
+	label.TextSize = textSize
+	label.Font = Enum.Font.GothamBlack
+	label.TextWrapped = true
+	label.Parent = panel
+	return label
+end
+
+local title = text("Title", 10, 32, "LAUNCH BAY", P.Gold, 26)
+local vehicle = text("Vehicle", 44, 24, "STANDARD", P.NeonA, 18)
+local instruction = text("Instruction", 70, 34,
+	"SHOP THE PLINTHS  •  DRIVE THROUGH THE GOLD GATE", P.Ghost, 15)
+
+RunService.RenderStepped:Connect(function()
+	local character = player.Character
+	if not character then panel.Visible = false return end
+	local state = player:GetAttribute("ChompSessionState")
+	panel.Visible = state ~= Config.Launch.ActiveState
+	if not panel.Visible then return end
+	local chassis = player:GetAttribute("ChompEquippedChassis")
+	vehicle.Text = typeof(chassis) == "string" and string.upper(chassis) or "STANDARD"
+	if state == Config.Launch.DeployingState then
+		local at = character:GetAttribute("ChompDeployAt")
+		local elapsed = typeof(at) == "number" and os.clock() - at or 0
+		local left = math.max(1, math.ceil(Config.Launch.DeploymentSeconds - elapsed))
+		title.Text = tostring(left)
+		instruction.Text = "SYSTEMS ARMED  •  GET READY"
+		stroke.Color = P.NeonA
+	else
+		title.Text = "LAUNCH BAY"
+		instruction.Text = "SHOP THE PLINTHS  •  DRIVE THROUGH THE GOLD GATE"
+		stroke.Color = P.Gold
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="176">
         <Properties>
           <string name="Name">PickupFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -12290,7 +12527,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="175">
+      <Item class="LocalScript" referent="177">
         <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
@@ -12384,7 +12621,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="176">
+      <Item class="LocalScript" referent="178">
         <Properties>
           <string name="Name">ShopFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -12503,7 +12740,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="177">
+      <Item class="LocalScript" referent="179">
         <Properties>
           <string name="Name">TargetReticle</string>
           <string name="Source"><![CDATA[--!strict
@@ -12627,7 +12864,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="178">
+      <Item class="LocalScript" referent="180">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -12785,7 +13022,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="179">
+      <Item class="LocalScript" referent="181">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -12932,7 +13169,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="180">
+  <Item class="Workspace" referent="182">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

@@ -492,6 +492,18 @@ ChompConfig.Items = {
 	},
 }
 
+-- ── Arrival bay and deployment ─────────────────────────────────────────
+ChompConfig.Launch = {
+	BayState = "IN_BAY",
+	DeployingState = "DEPLOYING",
+	ActiveState = "ACTIVE",
+	DeploymentSeconds = 3,
+	SpawnProtectionSeconds = 3,
+	ExitRadiusStuds = 142,
+	GateWidthStuds = 34,
+	GateHeightStuds = 18,
+}
+
 -- ── Level 1: the bowl (D-CHOMP-041) ─────────────────────────────────────
 -- Safety and reward as geography: learn and bank on the rim, take risks toward
 -- the middle. Radii are in studs and everything is a multiple of CellSize so

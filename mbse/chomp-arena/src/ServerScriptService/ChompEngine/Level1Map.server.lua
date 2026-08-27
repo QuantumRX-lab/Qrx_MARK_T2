@@ -241,6 +241,26 @@ local function build()
 	end
 
 	local home = garages[1]
+	-- Leaving the garage is the ENTER ARENA action. The threshold is visible in
+	-- the world so deployment is spatial, not another menu button.
+	local homeFlat = Vector3.new(home.X, 0, home.Z)
+	local inward = -homeFlat.Unit
+	local gateCentre = home + inward * Config.Launch.ExitRadiusStuds
+	local gate = Instance.new("Model")
+	gate.Name = "DeploymentGate"
+	gate.Parent = bays
+	local gateCF = CFrame.lookAt(gateCentre, gateCentre + inward)
+	for _, side in { -1, 1 } do
+		local post = part("DeployPost", Vector3.new(2, Config.Launch.GateHeightStuds, 2),
+			gateCF * CFrame.new(side * Config.Launch.GateWidthStuds / 2,
+				Config.Launch.GateHeightStuds / 2, 0), P.NeonA, Enum.Material.Neon, gate)
+		post.CanCollide = false
+	end
+	local header = part("DeployHeader", Vector3.new(Config.Launch.GateWidthStuds + 2, 2, 2),
+		gateCF * CFrame.new(0, Config.Launch.GateHeightStuds, 0),
+		P.Gold, Enum.Material.Neon, gate)
+	header.CanCollide = false
+
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "Level1Spawn"
 	spawn.Size = Vector3.new(M.CellSize, 1, M.CellSize)

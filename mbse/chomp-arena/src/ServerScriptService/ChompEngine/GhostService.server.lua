@@ -64,6 +64,16 @@ local ghosts: { Ghost } = {}
 local wave = 0
 local waveActive = false
 
+local function activePlayers(): { Player }
+	local out = {}
+	for _, player in Players:GetPlayers() do
+		if player:GetAttribute("ChompSessionState") == Config.Launch.ActiveState then
+			table.insert(out, player)
+		end
+	end
+	return out
+end
+
 -- ── Sanctuaries (D-CHOMP-065) ───────────────────────────────────────────
 -- A garage is somewhere ghosts may not go. Not "spawn away from", which only
 -- buys a second - may not GO: no spawning inside, no walking in, no stealing
@@ -171,7 +181,7 @@ local function buildGhost(): Ghost
 end
 
 local function waveStartCount(): number
-	local count = math.max(1, #Players:GetPlayers())
+	local count = math.max(1, #activePlayers())
 	for _, row in W.StartCountByPlayers do
 		if count <= row.players then return row.count end
 	end
@@ -180,7 +190,7 @@ end
 
 local function nearestKart(from: Vector3): (BasePart?, number)
 	local best, bestDistance = nil, math.huge
-	for _, player in Players:GetPlayers() do
+	for _, player in activePlayers() do
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if root then
@@ -211,7 +221,7 @@ local function startWave(n: number)
 	-- event. SpawnMinDistanceStuds keeps them off your bonnet, because arriving
 	-- ON someone is a cheap hit rather than a threat.
 	local anchorPoint = Vector3.new(0, 8, 0)
-	local players = Players:GetPlayers()
+	local players = activePlayers()
 	if #players > 0 then
 		local who = players[math.random(1, #players)]
 		local root = who.Character and who.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -300,7 +310,10 @@ task.spawn(function()
 					character:SetAttribute("ChompShopAdviceAt", os.clock())
 				end
 			end
-			task.delay(W.BreakSeconds, function() startWave(wave + 1) end)
+			task.delay(W.BreakSeconds, function()
+				while #activePlayers() == 0 do task.wait(0.5) end
+				startWave(wave + 1)
+			end)
 		end
 	end
 end)
@@ -457,6 +470,11 @@ RunService.Heartbeat:Connect(function(dt)
 		-- shove, still cannot touch you there.
 		local safe = target and sanctuaryAt(target.Position) ~= nil
 		local character = target and target.Parent :: Model
+		local targetPlayer = character and Players:GetPlayerFromCharacter(character)
+		local protectedUntil = character and character:GetAttribute("ChompProtectedUntil")
+		local protected = typeof(protectedUntil) == "number" and os.clock() < protectedUntil
+		local targetActive = targetPlayer ~= nil
+			and targetPlayer:GetAttribute("ChompSessionState") == Config.Launch.ActiveState
 		-- TWO cooldowns, and they answer different questions (D-CHOMP-066).
 		-- g.lastSteal stops ONE ghost machine-gunning you. The per-character
 		-- window stops a PACK doing in one instant what a ghost may only do
@@ -470,13 +488,15 @@ RunService.Heartbeat:Connect(function(dt)
 
 		local fullJawActive = character
 			and os.clock() < ((character:GetAttribute("ChompFullJawUntil") :: number?) or 0)
-		if character and not safe and distance < STEAL_RADIUS and fullJawActive then
+		if character and targetActive and not protected and not safe
+			and distance < STEAL_RADIUS and fullJawActive then
 			local eater = Players:GetPlayerFromCharacter(character)
 			if eater then
 				g.model:SetAttribute("KilledBy", eater.UserId)
 				g.model:SetAttribute("Health", 0)
 			end
-		elseif character and not safe and distance < STEAL_RADIUS and packReady
+		elseif character and targetActive and not protected and not safe
+			and distance < STEAL_RADIUS and packReady
 			and (os.clock() - g.lastSteal) > STEAL_COOLDOWN then
 			-- The shield is checked FIRST, and it stops the whole contact
 			-- (D-CHOMP-066). It used to be consulted after the theft had
@@ -536,7 +556,12 @@ Players.PlayerAdded:Connect(function(player)
 end)
 
 readSanctuaries()
-startWave(1)
+task.spawn(function()
+	while wave == 0 do
+		task.wait(0.2)
+		if #activePlayers() > 0 then startWave(1) end
+	end
+end)
 print(("[GhostService] waves live: %d sanctuaries, %d%% stolen per catch, " ..
 	"base speed %d vs kart %.1f")
 	:format(#sanctuaries, math.floor(G.StealFraction * 100), G.Speed,

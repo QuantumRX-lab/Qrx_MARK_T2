@@ -1,5 +1,10 @@
 # Chomp Arena — MBSE Tree
 
+The accepted player lifecycle and Roblox release gates are defined in
+[`LAUNCH-READINESS-2026-08-27.md`](LAUNCH-READINESS-2026-08-27.md). New gameplay
+work must preserve its protected arrival bay, server-owned deployment state,
+and persistence boundary.
+
 Model-based systems engineering tree for a **combative multiplayer Pac-Man**
 game built in Roblox: players drive a Pac-Man-shaped vehicle through a
 multi-level maze, eat pellets for points, bank them, buy upgrades, and fight

@@ -773,6 +773,9 @@ end
 
 local function useHeld(player: Player)
 	if not limiter(player) then return end        -- flood protection, server side
+	-- Equipment may be previewed in the bay, but only a server-deployed player
+	-- can fire or consume it.
+	if player:GetAttribute("ChompSessionState") ~= Config.Launch.ActiveState then return end
 
 	-- A DEPLOYED bomb answers first, whatever you are holding now (D-CHOMP-059).
 	-- Picking up a cannon should not strand a live bomb in the map: you placed
@@ -894,6 +897,12 @@ end
 Players.PlayerAdded:Connect(function(player)
 	belt[player] = belt[player] or {}
 	active[player] = active[player] or 1
+	-- The first drive is a combat lesson, not a shopping test. These supplies
+	-- are session loadout; permanent weapon licences belong to profile work.
+	if #belt[player] == 0 then
+		give(player, "Cannon")
+		give(player, "Shield")
+	end
 	player.CharacterAdded:Connect(function(character)
 		-- The belt is match loadout, not character state. Death rebuilds its HUD
 		-- and roof mount without erasing weapons the player already earned.
