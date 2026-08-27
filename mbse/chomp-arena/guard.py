@@ -392,7 +392,7 @@ KNOWN_GLOBALS = {
     "Font", "Path2DControlPoint", "SharedTable",
 }
 
-CALL = re.compile("(?<![\w.:\"'])([a-zA-Z_]\w*)\s*\(")
+CALL = re.compile(r"""(?<![\w.:"'])([a-zA-Z_]\w*)\s*\(""")
 DEFINES = [
     re.compile(r'^\s*local\s+function\s+(\w+)', re.M),
     re.compile(r'^\s*function\s+(\w+)', re.M),
