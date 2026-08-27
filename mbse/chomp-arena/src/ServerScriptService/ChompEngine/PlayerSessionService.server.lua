@@ -55,11 +55,40 @@ local function deploy(player: Player, character: Model)
 	end)
 end
 
+--[[
+	Wait for the profile, but never forever (D-CHOMP-066).
+
+	This loop had no timeout and no fallback. ChompProfileReady has exactly one
+	writer, ProfileService, so anything that stopped that script from setting it
+	- a DataStore outage, an error thrown inside load(), or the file simply not
+	being in the build - left every player parked on LOADING GARAGE for the rest
+	of the session. There was no message, no retry and no way out, and the bay
+	is the first thing anyone sees.
+
+	It is not a hypothetical: ProfileService was untracked in git for a day, so
+	every clean checkout of this branch built exactly that place.
+
+	On timeout the player enters the bay DEGRADED rather than not at all. They
+	can drive, fight and bank for the session; they cannot spend, because
+	spending money that will not be saved is worse than not spending it.
+	LAUNCH-READINESS section 2 phase A calls for the read-only practice bay,
+	and this is it.
+]]
 local function watch(player: Player, character: Model)
 	publish(player, character, Launch.LoadingState)
 	task.spawn(function()
+		local deadline = os.clock() + Config.Profile.ReadyTimeoutSeconds
 		while player.Parent and player:GetAttribute("ChompProfileReady") ~= true do
-			player:GetAttributeChangedSignal("ChompProfileReady"):Wait()
+			if os.clock() >= deadline then
+				-- Degraded, and SAID so. A silent default profile is how someone
+				-- concludes their progress was deleted.
+				player:SetAttribute("ChompProfileSaveBlocked", true)
+				player:SetAttribute("ChompProfileDegraded", true)
+				warn(("[PlayerSessionService] %s waited %.0fs for a profile; entering the bay read-only")
+					:format(player.Name, Config.Profile.ReadyTimeoutSeconds))
+				break
+			end
+			task.wait(0.25)
 		end
 		if player.Parent and player.Character == character then enterBay(player, character) end
 	end)

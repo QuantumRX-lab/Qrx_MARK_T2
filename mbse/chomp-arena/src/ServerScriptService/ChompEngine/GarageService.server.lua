@@ -109,7 +109,16 @@ local function priceLabel(plinth: BasePart, title: string, dollars: number, robu
 
 	line(title, P.Ghost, 22, 0, Enum.Font.GothamBlack)
 	line("$" .. tostring(dollars), P.Gold, 26, 26, Enum.Font.GothamBold)
-	if robux then
+	-- Robux lines are OFF (D-CHOMP-066, LAUNCH-READINESS P0). They never charged
+	-- anyone - the store has always been dollars-only - so every one of them was
+	-- an advertisement for a purchase that does not exist, priced in real money,
+	-- on a plinth in a game built for a seven-year-old. Showing a child a real
+	-- currency the game cannot take is the kind of thing you fix before the
+	-- first stranger plays it, not after.
+	--
+	-- The prices stay in ChompConfig. Wiring a real purchase is a decision for
+	-- a parent, and when someone makes it this flag is where it starts.
+	if robux and STORE.ShowRobuxPrices then
 		line("or R$" .. tostring(robux), P.NeonA, 16, 60, Enum.Font.Gotham)
 	end
 end
@@ -469,6 +478,13 @@ end
 local function buy(player: Player, offer: Offer): (boolean, string)
 	local character = player.Character
 	if not character then return false, "VEHICLE NOT READY" end
+	-- Nothing permanent may be sold into a session that cannot save
+	-- (D-CHOMP-066). A degraded profile still plays, banks and fights; it just
+	-- does not spend, because a chassis bought and then gone at rejoin is worse
+	-- than one never bought.
+	if player:GetAttribute("ChompProfileSaveBlocked") == true then
+		return false, "PROGRESS NOT SAVING - CANNOT BUY"
+	end
 	local dollars = (character:GetAttribute("ChompDollars") :: number?) or 0
 	local displayTitle, price = currentOffer(player, offer)
 

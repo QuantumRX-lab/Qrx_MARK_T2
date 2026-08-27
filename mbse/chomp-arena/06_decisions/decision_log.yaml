@@ -1728,3 +1728,48 @@ decisions:
       ChompSafe is a server-written attribute like every other HUD value. The
       ring says where the sanctuary is; the objective says you are in it, which
       is the thing worth confirming when something has just been chasing you.
+
+  - id: D-CHOMP-066
+    date: 2026-08-27
+    title: Nothing waits forever, and no child is shown a Robux price
+    decision: >
+      The launch bay waits at most Profile.ReadyTimeoutSeconds (10) for a
+      profile and then admits the player DEGRADED rather than not at all:
+      ChompProfileSaveBlocked and ChompProfileDegraded are set, the player may
+      drive, fight and bank for the session, and the shop refuses every
+      purchase with "PROGRESS NOT SAVING - CANNOT BUY". ProfileService wraps
+      load() in a pcall so a throw still publishes a default profile and still
+      sets ChompProfileReady, and it now also loads any player already present
+      when the script starts. Robux prices are no longer drawn on plinths,
+      behind a new Store.ShowRobuxPrices flag defaulting to false.
+    rationale: >
+      Both halves are launch blockers found by reading the code against
+      LAUNCH-READINESS-2026-08-27.
+      On the wait: ChompProfileReady has exactly one writer, and
+      PlayerSessionService looped on it with no timeout, no message and no way
+      out. Any failure of that one script - an outage, an error thrown inside
+      load(), or the file not being in the build - parked every player on
+      LOADING GARAGE for the whole session. That last case was not
+      hypothetical: ProfileService.server.lua was untracked in git, so every
+      clean checkout of this branch built exactly that place. The game ran on
+      one machine in the world and only until its working tree was cleaned.
+      A timeout alone would have been a silent default profile, which is how
+      someone concludes their progress was deleted. Hence degraded-and-told,
+      and hence the purchase block: a session that cannot save must not sell
+      anyone a chassis that will be gone when they rejoin. LAUNCH-READINESS
+      phase A already specified the read-only practice bay; this is it.
+      On Robux: the store has always been dollars-only. Every "or R$99" was an
+      advertisement, in real currency, for a purchase that does not exist, on a
+      plinth in a game built for a seven-year-old. It is a P0 gate, it is one
+      conditional, and it is the kind of thing to fix before the first stranger
+      plays rather than after.
+    outcome: >
+      Belt and braces on purpose: the pcall in ProfileService stops the common
+      case, and the timeout in PlayerSessionService catches everything else
+      including ProfileService being absent entirely. Neither alone would have
+      survived the untracked-file case.
+      The Robux figures stay in ChompConfig behind the flag rather than being
+      deleted. Wiring a real purchase is a parent's decision, and when someone
+      makes it, the flag is where it starts.
+      ChompProfileSaveBlocked was published and read by nothing before this;
+      it now gates the shop, which is what it was always for.

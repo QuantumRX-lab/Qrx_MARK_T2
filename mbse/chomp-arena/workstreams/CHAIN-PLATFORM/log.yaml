@@ -126,3 +126,28 @@ entries:
     calls for: duplicate child names under one parent in the built place should
     fail the build, because the symptom appears at runtime on one side only and
     reads as a missing instance.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: DECIDED
+  requirements: [CHOMP-SYS-035]
+  summary: >
+    Launch-blocker pass (D-CHOMP-066). ProfileService.server.lua was UNTRACKED -
+    committed unchanged first, at 56fc177, before anything was edited. It is the
+    only writer of ChompProfileReady, which PlayerSessionService awaited in an
+    unbounded loop, so a clean checkout built a place where every player sat on
+    LOADING GARAGE forever. The wait is now bounded at 10s with a degraded
+    read-only bay, load() is pcall-wrapped, players already present are loaded,
+    and Robux prices are hidden behind Store.ShowRobuxPrices = false.
+  status: OPEN
+  handoff: >
+    The rule this cost us: an attribute with exactly ONE writer is a
+    single-point-of-failure for everything that awaits it. Any future
+    await-an-attribute needs a timeout and a degraded path, not just a retry
+    inside the writer.
+    Check untracked files before treating a working tree as the build. `git
+    status` was the whole diagnosis here; validate.py and guard.py both passed
+    the entire time, because both read the working tree, which is exactly the
+    thing that was lying.
+    Still open against LAUNCH-READINESS P0: no GuardianService (chamber
+    geometry and tuning only), no end condition after the guardian, no
+    analytics, no exploit pass, and CHOMP-TC-040 has still never run.

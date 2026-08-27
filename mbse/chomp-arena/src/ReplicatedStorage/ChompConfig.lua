@@ -157,6 +157,12 @@ ChompConfig.Profile = {
 	AutosaveSeconds = 60,
 	RetryCount = 3,
 	RetryDelaySeconds = 0.5,
+	-- How long the launch bay will wait for a profile before letting the player
+	-- in anyway, degraded (D-CHOMP-066). Nothing may wait forever on a
+	-- DataStore: three retries at half a second is the happy path, and this is
+	-- the floor under everything that can go wrong beyond it - an outage, a
+	-- throw, or a ProfileService that is not in the build at all.
+	ReadyTimeoutSeconds = 10,
 }
 
 -- ── Combat ──────────────────────────────────────────────────────────────
@@ -418,6 +424,11 @@ ChompConfig.Store = {
 		HomingBomb = 90,
 		Cannon = 120,
 	},
+	-- Display only, and now not displayed (D-CHOMP-066). The plinths drew
+	-- "or R$99" beside every dollar price while nothing in the game could
+	-- charge Robux at all. Flip this to true on the day a real purchase is
+	-- wired and a parent has decided it should be.
+	ShowRobuxPrices = false,
 	RobuxPrice = {
 		HeavyJaw = 99,
 		Ravener = 249,

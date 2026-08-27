@@ -122,7 +122,27 @@ local function load(player: Player)
 	end)
 end
 
-Players.PlayerAdded:Connect(load)
+-- load() must not be able to throw its way out of setting ChompProfileReady:
+-- the launch bay waits on that attribute, so an error anywhere in here used to
+-- be indistinguishable from an infinite DataStore call (D-CHOMP-066). The
+-- pcall is the belt; PlayerSessionService's timeout is the braces.
+local function safeLoad(player: Player)
+	local ok, err = pcall(load, player)
+	if not ok then
+		warn("[ProfileService] load threw for " .. player.Name .. ": " .. tostring(err))
+		blocked[player] = true
+		loaded[player] = true
+		publish(player, defaultProfile())
+	end
+end
+
+Players.PlayerAdded:Connect(safeLoad)
+-- Anyone already here when this script starts. In a live server nothing joins
+-- before server scripts run, but Studio's Start Server and a mid-session
+-- reload both produce a player with no profile and no one loading one.
+for _, player in Players:GetPlayers() do
+	task.spawn(safeLoad, player)
+end
 Players.PlayerRemoving:Connect(function(player)
 	save(player)
 	loaded[player], blocked[player] = nil, nil
