@@ -222,24 +222,64 @@ local function mount(character: Model, id: string)
 		end
 	end
 	model:PivotTo(point.CFrame)
-	for _, d in model:GetDescendants() do
-		if d:IsA("BasePart") then
-			local weld = Instance.new("WeldConstraint")
-			weld.Part0 = point
-			weld.Part1 = d
-			weld.Parent = d
+	model.Parent = vehicle
+
+	if id == "Cannon" then
+		local base = model:FindFirstChild("Mount") :: BasePart?
+		local receiver = model:FindFirstChild("Receiver") :: BasePart?
+		local barrel = model:FindFirstChild("Barrel") :: BasePart?
+		if not (base and receiver and barrel) then model:Destroy() return end
+
+		local yaw = Instance.new("Motor6D")
+		yaw.Name = "TurretMotor"
+		yaw.Part0 = point
+		yaw.Part1 = base
+		yaw.C0 = point.CFrame:ToObjectSpace(base.CFrame)
+		yaw.Parent = base
+
+		local receiverWeld = Instance.new("WeldConstraint")
+		receiverWeld.Part0 = base
+		receiverWeld.Part1 = receiver
+		receiverWeld.Parent = receiver
+
+		local pitch = Instance.new("Motor6D")
+		pitch.Name = "BarrelMotor"
+		pitch.Part0 = receiver
+		pitch.Part1 = barrel
+		pitch.C0 = receiver.CFrame:ToObjectSpace(barrel.CFrame)
+		pitch.Parent = barrel
+
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") and d ~= base and d ~= receiver and d ~= barrel then
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = if d.Name == "BaseRing" then base else barrel
+				weld.Part1 = d
+				weld.Parent = d
+			end
+		end
+	else
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") then
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = point
+				weld.Part1 = d
+				weld.Parent = d
+			end
 		end
 	end
-	model.Parent = vehicle
 end
 
-local function give(player: Player, id: string): boolean
+local function give(player: Player, id: string, replaceActiveIfFull: boolean?): boolean
 	local def = DEFS[id]
 	if not def then return false end
 	local b = beltOf(player)
-	if #b >= ITEMS.SlotCount then return false end
-
-	table.insert(b, { id = id, charges = def.charges })
+	if #b >= ITEMS.SlotCount then
+		if not replaceActiveIfFull then return false end
+		local i = math.clamp(active[player] or 1, 1, #b)
+		b[i] = { id = id, charges = def.charges }
+	else
+		table.insert(b, { id = id, charges = def.charges })
+	end
 	if #b == 1 then active[player] = 1 end
 	publish(player)
 	if player.Character then mount(player.Character, (activeItem(player) :: Held).id) end
@@ -415,9 +455,12 @@ local function updateLock(player: Player, dt: number)
 	-- Swing the barrel. Turning at a rate rather than snapping is what makes a
 	-- lock feel earned instead of automatic.
 	local vehicle = character:FindFirstChild("Vehicle")
-	local primary = vehicle and vehicle:FindFirstChild("Chassis") :: BasePart?
-	local motor = primary and primary:FindFirstChild("TurretMotor") :: Motor6D?
-	if motor then
+	local mounted = vehicle and vehicle:FindFirstChild("MountedItem")
+	local base = mounted and mounted:FindFirstChild("Mount") :: BasePart?
+	local barrel = mounted and mounted:FindFirstChild("Barrel") :: BasePart?
+	local motor = base and base:FindFirstChild("TurretMotor") :: Motor6D?
+	local barrelMotor = barrel and barrel:FindFirstChild("BarrelMotor") :: Motor6D?
+	if motor and barrelMotor then
 		local wantedYaw, wantedPitch = 0, 0
 		if best then
 			local to = targetPosition(best) - (mountPosition(character) or root.Position)
@@ -434,7 +477,8 @@ local function updateLock(player: Player, dt: number)
 			end
 		end
 
-		local currentPitch, currentYaw = motor.Transform:ToOrientation()
+		local _, currentYaw = motor.Transform:ToOrientation()
+		local currentPitch = select(1, barrelMotor.Transform:ToOrientation())
 		local step = math.rad(def.turretTurnDegrees) * dt
 
 		local yawDiff = (wantedYaw - currentYaw + math.pi) % (math.pi * 2) - math.pi
@@ -446,7 +490,8 @@ local function updateLock(player: Player, dt: number)
 			or currentPitch + (pitchDiff > 0 and step or -step)
 
 		-- Yaw about the kart, then pitch about the barrel's own axis.
-		motor.Transform = CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
+		motor.Transform = CFrame.Angles(0, yaw, 0)
+		barrelMotor.Transform = CFrame.Angles(pitch, 0, 0)
 	end
 end
 
@@ -560,8 +605,16 @@ end
 local function muzzle(player: Player, root: BasePart): (Vector3, Vector3)
 	local character = player.Character
 	local vehicle = character and character:FindFirstChild("Vehicle")
+	local mounted = vehicle and vehicle:FindFirstChild("MountedItem")
+	local muzzlePart = mounted and mounted:FindFirstChild("Muzzle") :: BasePart?
 	local mount = vehicle and vehicle:FindFirstChild("ItemMount") :: BasePart?
-	if mount then
+	if muzzlePart then
+		-- The cannon barrel is a Cylinder, whose length axis is local X.
+		local look = muzzlePart.CFrame.RightVector
+		if look.Magnitude > 0.001 then
+			return muzzlePart.Position + look.Unit * 1.2, look.Unit
+		end
+	elseif mount then
 		-- The FULL look vector, pitch included. Flattening it here was what made
 		-- an airborne shot fly level (D-CHOMP-060).
 		local look = mount.CFrame.LookVector
@@ -811,7 +864,11 @@ local function collectionLoop()
 								-- rebuilt, so the map restocks without anything
 								-- having to remember where a pad was
 								setCollected(model, true)
-								task.delay(ITEMS.RespawnSeconds, function()
+								local wave = math.max(1, (player.Character
+									and player.Character:GetAttribute("ChompWave") :: number?) or 1)
+								local respawn = math.max(Config.Waves.MinimumItemRespawnSeconds,
+									ITEMS.RespawnSeconds - Config.Waves.ItemRespawnReductionPerWave * (wave - 1))
+								task.delay(respawn, function()
 									if model.Parent then setCollected(model, false) end
 								end)
 							end
@@ -886,9 +943,9 @@ end)
 -- and it is not a remote: nothing here widens the client surface.
 local grant = Instance.new("BindableFunction")
 grant.Name = "GrantItem"
-grant.OnInvoke = function(player: Player, id: string): boolean
+grant.OnInvoke = function(player: Player, id: string, replaceActiveIfFull: boolean?): boolean
 	if typeof(id) ~= "string" or not DEFS[id] then return false end
-	return give(player, id)
+	return give(player, id, replaceActiveIfFull == true)
 end
 grant.Parent = ServerStorage:WaitForChild("ChompTools")
 

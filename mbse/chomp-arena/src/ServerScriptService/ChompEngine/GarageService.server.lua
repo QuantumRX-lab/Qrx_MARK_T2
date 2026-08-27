@@ -187,7 +187,7 @@ local function offers(): { Offer }
 
 	for _, track in { "Speed", "Agility", "Consumption" } do
 		table.insert(out, {
-			id = track, kind = "upgrade", title = track .. " I",
+			id = track, kind = "upgrade", title = track .. " UPGRADE",
 			dollars = UP.Costs[1], robux = STORE.RobuxPrice[track],
 		})
 	end
@@ -437,11 +437,20 @@ local function refitVehicle(player: Player)
 	if character then character:SetAttribute("ChompRefit", os.clock()) end
 end
 
-local function buy(player: Player, offer: Offer): boolean
+local function currentOffer(player: Player, offer: Offer): (string, number)
+	if offer.kind ~= "upgrade" then return offer.title, offer.dollars end
+	local level = (player:GetAttribute("ChompUpgrade" .. offer.id) :: number?) or 0
+	local price = Progression.costOf(offer.id,
+		(player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis,
+		upgradesOf(player)) or -1
+	return offer.id .. " " .. tostring(level + 1), price
+end
+
+local function buy(player: Player, offer: Offer): (boolean, string)
 	local character = player.Character
-	if not character then return false end
+	if not character then return false, "VEHICLE NOT READY" end
 	local dollars = (character:GetAttribute("ChompDollars") :: number?) or 0
-	local price = offer.dollars
+	local displayTitle, price = currentOffer(player, offer)
 
 	if offer.kind == "chassis" then
 		if owns(player, offer.id) then
@@ -449,34 +458,34 @@ local function buy(player: Player, offer: Offer): boolean
 			character:SetAttribute("ChompChassis", offer.id)
 			publishProgression(player, character)
 			refitVehicle(player)
-			return true
+			character:SetAttribute("ChompBoughtWhat", offer.title .. " EQUIPPED")
+			character:SetAttribute("ChompBoughtAt", os.clock())
+			return true, "EQUIPPED"
 		end
-		if not SPECS:FindFirstChild(offer.id) then return false end
-		if dollars < price then return false end
+		if not SPECS:FindFirstChild(offer.id) then return false, "MODEL NOT READY" end
+		if dollars < price then return false, "NEED $" .. tostring(price - dollars) .. " MORE" end
 		addOwned(player, offer.id)
 		player:SetAttribute("ChompEquippedChassis", offer.id)
 		character:SetAttribute("ChompChassis", offer.id)
 		publishProgression(player, character)
 		refitVehicle(player)
 	elseif offer.kind == "item" then
-		if dollars < price then return false end
+		if dollars < price then return false, "NEED $" .. tostring(price - dollars) .. " MORE" end
 		-- Hand it over FIRST. give() refuses a full belt, and a refusal must
 		-- cost nothing - the player drives away with their money and the plinth
 		-- still stocked (D-CHOMP-064).
 		local hook = grantHook()
 		if not hook then
 			warn("[GarageService] ItemService has not published GrantItem; weapons unsellable")
-			return false
+			return false, "ITEM SYSTEM NOT READY"
 		end
 		local ok, granted = pcall(function()
-			return hook:Invoke(player, offer.id)
+			return hook:Invoke(player, offer.id, true)
 		end)
-		if not (ok and granted == true) then return false end
+		if not (ok and granted == true) then return false, "COULD NOT EQUIP" end
 	else
-		price = Progression.costOf(offer.id,
-			(player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis,
-			upgradesOf(player)) or -1
-		if price < 0 or dollars < price then return false end
+		if price < 0 then return false, "MAX LEVEL" end
+		if dollars < price then return false, "NEED $" .. tostring(price - dollars) .. " MORE" end
 		local key = "ChompUpgrade" .. offer.id
 		local level = (player:GetAttribute(key) :: number?) or 0
 		player:SetAttribute(key, level + 1)
@@ -485,13 +494,13 @@ local function buy(player: Player, offer: Offer): boolean
 	end
 
 	character:SetAttribute("ChompDollars", dollars - price)
-	character:SetAttribute("ChompBoughtWhat", offer.title)
+	character:SetAttribute("ChompBoughtWhat", displayTitle)
 	character:SetAttribute("ChompBoughtAt", os.clock())
-	return true
+	return true, "PURCHASED"
 end
 
 local function dwellLoop()
-	local dwelling: { [Player]: { plinth: BasePart?, since: number } } = {}
+	local dwelling: { [Player]: { plinth: BasePart?, since: number, complete: boolean? } } = {}
 	while true do
 		task.wait(0.15)
 		for _, player in Players:GetPlayers() do
@@ -508,18 +517,44 @@ local function dwellLoop()
 				end
 			end
 
+			if nearOffer and character then
+				local title, price = currentOffer(player, nearOffer)
+				character:SetAttribute("ChompShopOffer", title)
+				character:SetAttribute("ChompShopPrice", price)
+			else
+				character:SetAttribute("ChompShopOffer", "")
+				character:SetAttribute("ChompShopProgress", 0)
+			end
+
 			local state = dwelling[player]
-			if nearPart and state and state.plinth == nearPart then
-				if os.clock() - state.since >= STORE.DwellSeconds then
-					if nearOffer and buy(player, nearOffer) then
-						dwelling[player] = { plinth = nil, since = 0 }
+			local moving = root.AssemblyLinearVelocity.Magnitude > STORE.MaxPurchaseSpeed
+			if nearPart and state and state.plinth == nearPart and state.complete then
+				character:SetAttribute("ChompShopProgress", 1)
+				character:SetAttribute("ChompShopHint", "PURCHASED - DRIVE AWAY")
+			elseif nearPart and moving then
+				dwelling[player] = { plinth = nearPart, since = os.clock() }
+				character:SetAttribute("ChompShopProgress", 0)
+				character:SetAttribute("ChompShopHint", "STOP TO BUY")
+			elseif nearPart and state and state.plinth == nearPart then
+				local elapsed = os.clock() - state.since
+				character:SetAttribute("ChompShopProgress", math.clamp(elapsed / STORE.DwellSeconds, 0, 1))
+				character:SetAttribute("ChompShopHint", "HOLD STILL")
+				if elapsed >= STORE.DwellSeconds then
+					local bought, reason = false, "NO OFFER"
+					if nearOffer then bought, reason = buy(player, nearOffer) end
+					if bought then
+						character:SetAttribute("ChompShopResult", reason)
+						character:SetAttribute("ChompShopResultAt", os.clock())
+						dwelling[player] = { plinth = nearPart, since = 0, complete = true }
 					else
-						-- Refused: back off rather than retrying every tick.
-						state.since = os.clock() + 3
+						character:SetAttribute("ChompShopResult", reason)
+						character:SetAttribute("ChompShopResultAt", os.clock())
+						state.since = os.clock() + STORE.RefusalCooldownSeconds
 					end
 				end
 			else
 				dwelling[player] = { plinth = nearPart, since = os.clock() }
+				character:SetAttribute("ChompShopProgress", 0)
 			end
 		end
 	end

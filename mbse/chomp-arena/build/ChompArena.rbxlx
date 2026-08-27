@@ -324,6 +324,8 @@ ChompConfig.Waves = {
 	RewardPerWave = 60,        -- extra banked dollars per kill, per wave
 	BreakSeconds = 15,         -- enough time to bank and read the next wave
 	RevealLastAt = 2,
+	ItemRespawnReductionPerWave = 1.25,
+	MinimumItemRespawnSeconds = 8,
 }
 
 -- Audio asset IDs are deliberately blank in source control. Roblox audio must
@@ -367,6 +369,8 @@ ChompConfig.Audio = {
 ChompConfig.Store = {
 	DwellSeconds = 1.2,        -- hold still at a plinth to buy; no button, no misclick
 	PlinthRadiusStuds = 13,
+	MaxPurchaseSpeed = 2.5,
+	RefusalCooldownSeconds = 1.5,
 	-- Weapons on plinths (D-CHOMP-064). Picking one up in the maze is luck;
 	-- buying one is a plan. Prices are deliberately under a single good bank
 	-- run, because the point of selling weapons is that a player who keeps
@@ -6738,7 +6742,7 @@ local function offers(): { Offer }
 
 	for _, track in { "Speed", "Agility", "Consumption" } do
 		table.insert(out, {
-			id = track, kind = "upgrade", title = track .. " I",
+			id = track, kind = "upgrade", title = track .. " UPGRADE",
 			dollars = UP.Costs[1], robux = STORE.RobuxPrice[track],
 		})
 	end
@@ -6988,11 +6992,20 @@ local function refitVehicle(player: Player)
 	if character then character:SetAttribute("ChompRefit", os.clock()) end
 end
 
-local function buy(player: Player, offer: Offer): boolean
+local function currentOffer(player: Player, offer: Offer): (string, number)
+	if offer.kind ~= "upgrade" then return offer.title, offer.dollars end
+	local level = (player:GetAttribute("ChompUpgrade" .. offer.id) :: number?) or 0
+	local price = Progression.costOf(offer.id,
+		(player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis,
+		upgradesOf(player)) or -1
+	return offer.id .. " " .. tostring(level + 1), price
+end
+
+local function buy(player: Player, offer: Offer): (boolean, string)
 	local character = player.Character
-	if not character then return false end
+	if not character then return false, "VEHICLE NOT READY" end
 	local dollars = (character:GetAttribute("ChompDollars") :: number?) or 0
-	local price = offer.dollars
+	local displayTitle, price = currentOffer(player, offer)
 
 	if offer.kind == "chassis" then
 		if owns(player, offer.id) then
@@ -7000,34 +7013,34 @@ local function buy(player: Player, offer: Offer): boolean
 			character:SetAttribute("ChompChassis", offer.id)
 			publishProgression(player, character)
 			refitVehicle(player)
-			return true
+			character:SetAttribute("ChompBoughtWhat", offer.title .. " EQUIPPED")
+			character:SetAttribute("ChompBoughtAt", os.clock())
+			return true, "EQUIPPED"
 		end
-		if not SPECS:FindFirstChild(offer.id) then return false end
-		if dollars < price then return false end
+		if not SPECS:FindFirstChild(offer.id) then return false, "MODEL NOT READY" end
+		if dollars < price then return false, "NEED $" .. tostring(price - dollars) .. " MORE" end
 		addOwned(player, offer.id)
 		player:SetAttribute("ChompEquippedChassis", offer.id)
 		character:SetAttribute("ChompChassis", offer.id)
 		publishProgression(player, character)
 		refitVehicle(player)
 	elseif offer.kind == "item" then
-		if dollars < price then return false end
+		if dollars < price then return false, "NEED $" .. tostring(price - dollars) .. " MORE" end
 		-- Hand it over FIRST. give() refuses a full belt, and a refusal must
 		-- cost nothing - the player drives away with their money and the plinth
 		-- still stocked (D-CHOMP-064).
 		local hook = grantHook()
 		if not hook then
 			warn("[GarageService] ItemService has not published GrantItem; weapons unsellable")
-			return false
+			return false, "ITEM SYSTEM NOT READY"
 		end
 		local ok, granted = pcall(function()
-			return hook:Invoke(player, offer.id)
+			return hook:Invoke(player, offer.id, true)
 		end)
-		if not (ok and granted == true) then return false end
+		if not (ok and granted == true) then return false, "COULD NOT EQUIP" end
 	else
-		price = Progression.costOf(offer.id,
-			(player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis,
-			upgradesOf(player)) or -1
-		if price < 0 or dollars < price then return false end
+		if price < 0 then return false, "MAX LEVEL" end
+		if dollars < price then return false, "NEED $" .. tostring(price - dollars) .. " MORE" end
 		local key = "ChompUpgrade" .. offer.id
 		local level = (player:GetAttribute(key) :: number?) or 0
 		player:SetAttribute(key, level + 1)
@@ -7036,13 +7049,13 @@ local function buy(player: Player, offer: Offer): boolean
 	end
 
 	character:SetAttribute("ChompDollars", dollars - price)
-	character:SetAttribute("ChompBoughtWhat", offer.title)
+	character:SetAttribute("ChompBoughtWhat", displayTitle)
 	character:SetAttribute("ChompBoughtAt", os.clock())
-	return true
+	return true, "PURCHASED"
 end
 
 local function dwellLoop()
-	local dwelling: { [Player]: { plinth: BasePart?, since: number } } = {}
+	local dwelling: { [Player]: { plinth: BasePart?, since: number, complete: boolean? } } = {}
 	while true do
 		task.wait(0.15)
 		for _, player in Players:GetPlayers() do
@@ -7059,18 +7072,44 @@ local function dwellLoop()
 				end
 			end
 
+			if nearOffer and character then
+				local title, price = currentOffer(player, nearOffer)
+				character:SetAttribute("ChompShopOffer", title)
+				character:SetAttribute("ChompShopPrice", price)
+			else
+				character:SetAttribute("ChompShopOffer", "")
+				character:SetAttribute("ChompShopProgress", 0)
+			end
+
 			local state = dwelling[player]
-			if nearPart and state and state.plinth == nearPart then
-				if os.clock() - state.since >= STORE.DwellSeconds then
-					if nearOffer and buy(player, nearOffer) then
-						dwelling[player] = { plinth = nil, since = 0 }
+			local moving = root.AssemblyLinearVelocity.Magnitude > STORE.MaxPurchaseSpeed
+			if nearPart and state and state.plinth == nearPart and state.complete then
+				character:SetAttribute("ChompShopProgress", 1)
+				character:SetAttribute("ChompShopHint", "PURCHASED - DRIVE AWAY")
+			elseif nearPart and moving then
+				dwelling[player] = { plinth = nearPart, since = os.clock() }
+				character:SetAttribute("ChompShopProgress", 0)
+				character:SetAttribute("ChompShopHint", "STOP TO BUY")
+			elseif nearPart and state and state.plinth == nearPart then
+				local elapsed = os.clock() - state.since
+				character:SetAttribute("ChompShopProgress", math.clamp(elapsed / STORE.DwellSeconds, 0, 1))
+				character:SetAttribute("ChompShopHint", "HOLD STILL")
+				if elapsed >= STORE.DwellSeconds then
+					local bought, reason = false, "NO OFFER"
+					if nearOffer then bought, reason = buy(player, nearOffer) end
+					if bought then
+						character:SetAttribute("ChompShopResult", reason)
+						character:SetAttribute("ChompShopResultAt", os.clock())
+						dwelling[player] = { plinth = nearPart, since = 0, complete = true }
 					else
-						-- Refused: back off rather than retrying every tick.
-						state.since = os.clock() + 3
+						character:SetAttribute("ChompShopResult", reason)
+						character:SetAttribute("ChompShopResultAt", os.clock())
+						state.since = os.clock() + STORE.RefusalCooldownSeconds
 					end
 				end
 			else
 				dwelling[player] = { plinth = nearPart, since = os.clock() }
+				character:SetAttribute("ChompShopProgress", 0)
 			end
 		end
 	end
@@ -7406,7 +7445,16 @@ task.spawn(function()
 			waveActive = false
 			for _, player in Players:GetPlayers() do
 				local character = player.Character
-				if character then character:SetAttribute("ChompWaveCleared", os.clock()) end
+				if character then
+					local nextWave = wave + 1
+					local advice = if nextWave % 3 == 0 then "SHIELD ADVISED"
+						elseif nextWave % 2 == 0 then "CANNON ADVISED"
+						else "RESTOCK YOUR BELT"
+					character:SetAttribute("ChompWaveCleared", os.clock())
+					character:SetAttribute("ChompShopAdvice",
+						"WAVE " .. tostring(nextWave) .. " IN " .. tostring(W.BreakSeconds) .. "s  -  " .. advice)
+					character:SetAttribute("ChompShopAdviceAt", os.clock())
+				end
 			end
 			task.delay(W.BreakSeconds, function() startWave(wave + 1) end)
 		end
@@ -7880,24 +7928,64 @@ local function mount(character: Model, id: string)
 		end
 	end
 	model:PivotTo(point.CFrame)
-	for _, d in model:GetDescendants() do
-		if d:IsA("BasePart") then
-			local weld = Instance.new("WeldConstraint")
-			weld.Part0 = point
-			weld.Part1 = d
-			weld.Parent = d
+	model.Parent = vehicle
+
+	if id == "Cannon" then
+		local base = model:FindFirstChild("Mount") :: BasePart?
+		local receiver = model:FindFirstChild("Receiver") :: BasePart?
+		local barrel = model:FindFirstChild("Barrel") :: BasePart?
+		if not (base and receiver and barrel) then model:Destroy() return end
+
+		local yaw = Instance.new("Motor6D")
+		yaw.Name = "TurretMotor"
+		yaw.Part0 = point
+		yaw.Part1 = base
+		yaw.C0 = point.CFrame:ToObjectSpace(base.CFrame)
+		yaw.Parent = base
+
+		local receiverWeld = Instance.new("WeldConstraint")
+		receiverWeld.Part0 = base
+		receiverWeld.Part1 = receiver
+		receiverWeld.Parent = receiver
+
+		local pitch = Instance.new("Motor6D")
+		pitch.Name = "BarrelMotor"
+		pitch.Part0 = receiver
+		pitch.Part1 = barrel
+		pitch.C0 = receiver.CFrame:ToObjectSpace(barrel.CFrame)
+		pitch.Parent = barrel
+
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") and d ~= base and d ~= receiver and d ~= barrel then
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = if d.Name == "BaseRing" then base else barrel
+				weld.Part1 = d
+				weld.Parent = d
+			end
+		end
+	else
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") then
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = point
+				weld.Part1 = d
+				weld.Parent = d
+			end
 		end
 	end
-	model.Parent = vehicle
 end
 
-local function give(player: Player, id: string): boolean
+local function give(player: Player, id: string, replaceActiveIfFull: boolean?): boolean
 	local def = DEFS[id]
 	if not def then return false end
 	local b = beltOf(player)
-	if #b >= ITEMS.SlotCount then return false end
-
-	table.insert(b, { id = id, charges = def.charges })
+	if #b >= ITEMS.SlotCount then
+		if not replaceActiveIfFull then return false end
+		local i = math.clamp(active[player] or 1, 1, #b)
+		b[i] = { id = id, charges = def.charges }
+	else
+		table.insert(b, { id = id, charges = def.charges })
+	end
 	if #b == 1 then active[player] = 1 end
 	publish(player)
 	if player.Character then mount(player.Character, (activeItem(player) :: Held).id) end
@@ -8073,9 +8161,12 @@ local function updateLock(player: Player, dt: number)
 	-- Swing the barrel. Turning at a rate rather than snapping is what makes a
 	-- lock feel earned instead of automatic.
 	local vehicle = character:FindFirstChild("Vehicle")
-	local primary = vehicle and vehicle:FindFirstChild("Chassis") :: BasePart?
-	local motor = primary and primary:FindFirstChild("TurretMotor") :: Motor6D?
-	if motor then
+	local mounted = vehicle and vehicle:FindFirstChild("MountedItem")
+	local base = mounted and mounted:FindFirstChild("Mount") :: BasePart?
+	local barrel = mounted and mounted:FindFirstChild("Barrel") :: BasePart?
+	local motor = base and base:FindFirstChild("TurretMotor") :: Motor6D?
+	local barrelMotor = barrel and barrel:FindFirstChild("BarrelMotor") :: Motor6D?
+	if motor and barrelMotor then
 		local wantedYaw, wantedPitch = 0, 0
 		if best then
 			local to = targetPosition(best) - (mountPosition(character) or root.Position)
@@ -8092,7 +8183,8 @@ local function updateLock(player: Player, dt: number)
 			end
 		end
 
-		local currentPitch, currentYaw = motor.Transform:ToOrientation()
+		local _, currentYaw = motor.Transform:ToOrientation()
+		local currentPitch = select(1, barrelMotor.Transform:ToOrientation())
 		local step = math.rad(def.turretTurnDegrees) * dt
 
 		local yawDiff = (wantedYaw - currentYaw + math.pi) % (math.pi * 2) - math.pi
@@ -8104,7 +8196,8 @@ local function updateLock(player: Player, dt: number)
 			or currentPitch + (pitchDiff > 0 and step or -step)
 
 		-- Yaw about the kart, then pitch about the barrel's own axis.
-		motor.Transform = CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
+		motor.Transform = CFrame.Angles(0, yaw, 0)
+		barrelMotor.Transform = CFrame.Angles(pitch, 0, 0)
 	end
 end
 
@@ -8218,8 +8311,16 @@ end
 local function muzzle(player: Player, root: BasePart): (Vector3, Vector3)
 	local character = player.Character
 	local vehicle = character and character:FindFirstChild("Vehicle")
+	local mounted = vehicle and vehicle:FindFirstChild("MountedItem")
+	local muzzlePart = mounted and mounted:FindFirstChild("Muzzle") :: BasePart?
 	local mount = vehicle and vehicle:FindFirstChild("ItemMount") :: BasePart?
-	if mount then
+	if muzzlePart then
+		-- The cannon barrel is a Cylinder, whose length axis is local X.
+		local look = muzzlePart.CFrame.RightVector
+		if look.Magnitude > 0.001 then
+			return muzzlePart.Position + look.Unit * 1.2, look.Unit
+		end
+	elseif mount then
 		-- The FULL look vector, pitch included. Flattening it here was what made
 		-- an airborne shot fly level (D-CHOMP-060).
 		local look = mount.CFrame.LookVector
@@ -8469,7 +8570,11 @@ local function collectionLoop()
 								-- rebuilt, so the map restocks without anything
 								-- having to remember where a pad was
 								setCollected(model, true)
-								task.delay(ITEMS.RespawnSeconds, function()
+								local wave = math.max(1, (player.Character
+									and player.Character:GetAttribute("ChompWave") :: number?) or 1)
+								local respawn = math.max(Config.Waves.MinimumItemRespawnSeconds,
+									ITEMS.RespawnSeconds - Config.Waves.ItemRespawnReductionPerWave * (wave - 1))
+								task.delay(respawn, function()
 									if model.Parent then setCollected(model, false) end
 								end)
 							end
@@ -8544,9 +8649,9 @@ end)
 -- and it is not a remote: nothing here widens the client surface.
 local grant = Instance.new("BindableFunction")
 grant.Name = "GrantItem"
-grant.OnInvoke = function(player: Player, id: string): boolean
+grant.OnInvoke = function(player: Player, id: string, replaceActiveIfFull: boolean?): boolean
 	if typeof(id) ~= "string" or not DEFS[id] then return false end
-	return give(player, id)
+	return give(player, id, replaceActiveIfFull == true)
 end
 grant.Parent = ServerStorage:WaitForChild("ChompTools")
 
@@ -9906,24 +10011,33 @@ function ItemModels.build(id: string): Model
 		-- Two thrusters and a pack. It points DOWN, because that is the way the
 		-- thrust goes and the way you are about to go is up.
 		bit(model, "Pack", Vector3.new(3, 3.4, 1.6), CFrame.new(0, 0.4, 0), c, Enum.Material.Metal)
+		bit(model, "Tank", Vector3.new(1.4, 2.8, 1.4), CFrame.new(0, 0.35, 0.9),
+			P.BrickDark, Enum.Material.Metal, Enum.PartType.Cylinder)
 		for _, side in { -1, 1 } do
 			bit(model, "Thruster", Vector3.new(1.1, 2.6, 1.1),
 				CFrame.new(side * 1.9, -0.2, 0) * CFrame.Angles(0, 0, math.rad(90)),
-				c, Enum.Material.Neon, Enum.PartType.Cylinder)
-			bit(model, "Flame", Vector3.new(0.9, 1.4, 0.9),
-				CFrame.new(side * 1.9, -2.1, 0), P.Gold, Enum.Material.Neon, Enum.PartType.Ball)
+				P.BrickDark, Enum.Material.Metal, Enum.PartType.Cylinder)
+			bit(model, "Nozzle", Vector3.new(0.8, 0.8, 0.8),
+				CFrame.new(side * 1.9, -1.6, 0), c, Enum.Material.Neon, Enum.PartType.Cylinder)
 		end
 
 	elseif id == "Cannon" then
-		-- A barrel on a mount. Long, straight and obviously pointing somewhere.
-		bit(model, "Mount", Vector3.new(2.6, 1.4, 2.6), CFrame.new(0, -1.2, 0),
+		-- A low rotating base, armoured receiver and long barrel. Cylinder length
+		-- is its X dimension in Roblox, so the 90-degree yaw points it forward.
+		bit(model, "Mount", Vector3.new(2.5, 0.8, 2.5), CFrame.new(0, -0.85, 0),
 			P.BrickDark, Enum.Material.Metal)
-		bit(model, "Barrel", Vector3.new(1.8, 5.6, 1.8),
-			CFrame.new(0, 0.6, -1.2) * CFrame.Angles(math.rad(90), 0, 0),
-			c, Enum.Material.Metal, Enum.PartType.Cylinder)
-		bit(model, "Muzzle", Vector3.new(2.2, 0.8, 2.2),
-			CFrame.new(0, 0.6, -3.9) * CFrame.Angles(math.rad(90), 0, 0),
+		bit(model, "BaseRing", Vector3.new(1.0, 3.4, 3.4),
+			CFrame.new(0, -1.0, 0) * CFrame.Angles(0, 0, math.rad(90)),
+			P.BrickDark, Enum.Material.Metal, Enum.PartType.Cylinder)
+		bit(model, "Receiver", Vector3.new(2.6, 1.9, 3.0), CFrame.new(0, 0.25, -0.35),
+			c, Enum.Material.Metal)
+		bit(model, "Barrel", Vector3.new(1.25, 1.25, 5.8),
+			CFrame.new(0, 0.45, -3.6), P.Ghost, Enum.Material.Metal)
+		bit(model, "Muzzle", Vector3.new(0.9, 1.8, 1.8),
+			CFrame.new(0, 0.45, -6.65) * CFrame.Angles(0, math.rad(90), 0),
 			P.Danger, Enum.Material.Neon, Enum.PartType.Cylinder)
+		bit(model, "Sight", Vector3.new(0.45, 0.45, 1.5), CFrame.new(0, 1.45, -1.0),
+			P.NeonA, Enum.Material.Neon)
 
 	elseif id == "HomingBomb" then
 		-- A finned bomb. Fins say it steers; a plain ball would not.
@@ -9931,6 +10045,8 @@ function ItemModels.build(id: string): Model
 			c, Enum.Material.Metal, Enum.PartType.Ball)
 		bit(model, "Eye", Vector3.new(1.2, 1.2, 1.2), CFrame.new(0, 0, -1.5),
 			P.NeonA, Enum.Material.Neon, Enum.PartType.Ball)
+		bit(model, "Band", Vector3.new(0.5, 3.5, 3.5), CFrame.new(0, 0, 0),
+			P.BrickDark, Enum.Material.Metal, Enum.PartType.Cylinder)
 		for i = 0, 3 do
 			local a = (math.pi / 2) * i
 			bit(model, "Fin", Vector3.new(0.35, 1.8, 2.2),
@@ -9942,6 +10058,8 @@ function ItemModels.build(id: string): Model
 		-- A ring around a core: something that surrounds you rather than fires.
 		bit(model, "Core", Vector3.new(1.8, 1.8, 1.8), CFrame.new(0, 0, 0),
 			c, Enum.Material.Neon, Enum.PartType.Ball)
+		bit(model, "Projector", Vector3.new(2.2, 0.7, 2.2), CFrame.new(0, -1.35, 0),
+			P.BrickDark, Enum.Material.Metal, Enum.PartType.Cylinder)
 		local segments = 12
 		for i = 0, segments - 1 do
 			local a = (math.pi * 2) * (i / segments)
@@ -12257,6 +12375,125 @@ end)
       </Item>
       <Item class="LocalScript" referent="176">
         <Properties>
+          <string name="Name">ShopFeedback</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local P = Config.Palette
+local player = Players.LocalPlayer
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "ShopFeedback"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 65
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local panel = Instance.new("Frame")
+panel.AnchorPoint = Vector2.new(0.5, 1)
+panel.Position = UDim2.new(0.5, 0, 1, -112)
+panel.Size = UDim2.new(0, 360, 0, 86)
+panel.BackgroundColor3 = P.Floor
+panel.BackgroundTransparency = 0.08
+panel.BorderSizePixel = 0
+panel.Visible = false
+panel.Parent = gui
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = panel
+
+local title = Instance.new("TextLabel")
+title.BackgroundTransparency = 1
+title.Position = UDim2.new(0, 14, 0, 8)
+title.Size = UDim2.new(1, -28, 0, 28)
+title.Font = Enum.Font.GothamBlack
+title.TextColor3 = P.Ghost
+title.TextSize = 21
+title.Text = ""
+title.Parent = panel
+
+local hint = Instance.new("TextLabel")
+hint.BackgroundTransparency = 1
+hint.Position = UDim2.new(0, 14, 0, 38)
+hint.Size = UDim2.new(1, -28, 0, 18)
+hint.Font = Enum.Font.GothamBold
+hint.TextColor3 = P.Gold
+hint.TextSize = 14
+hint.Text = ""
+hint.Parent = panel
+
+local track = Instance.new("Frame")
+track.Position = UDim2.new(0, 14, 1, -20)
+track.Size = UDim2.new(1, -28, 0, 8)
+track.BackgroundColor3 = P.BrickDark
+track.BorderSizePixel = 0
+track.Parent = panel
+local fill = Instance.new("Frame")
+fill.Size = UDim2.fromScale(0, 1)
+fill.BackgroundColor3 = P.NeonA
+fill.BorderSizePixel = 0
+fill.Parent = track
+
+local toast = Instance.new("TextLabel")
+toast.AnchorPoint = Vector2.new(0.5, 0)
+toast.Position = UDim2.new(0.5, 0, 0, 122)
+toast.Size = UDim2.new(0, 520, 0, 54)
+toast.BackgroundColor3 = P.Floor
+toast.BackgroundTransparency = 0.06
+toast.BorderSizePixel = 0
+toast.Font = Enum.Font.GothamBlack
+toast.TextSize = 24
+toast.TextColor3 = P.Gold
+toast.Visible = false
+toast.Parent = gui
+local toastCorner = Instance.new("UICorner")
+toastCorner.CornerRadius = UDim.new(0, 8)
+toastCorner.Parent = toast
+
+local shownResult = 0
+local shownAdvice = 0
+local hideToastAt = 0
+
+RunService.RenderStepped:Connect(function()
+	local character = player.Character
+	if not character then panel.Visible = false return end
+	local offer = (character:GetAttribute("ChompShopOffer") :: string?) or ""
+	local price = (character:GetAttribute("ChompShopPrice") :: number?) or 0
+	panel.Visible = offer ~= ""
+	title.Text = offer .. (price >= 0 and ("  $" .. tostring(price)) or "  MAX")
+	hint.Text = (character:GetAttribute("ChompShopHint") :: string?) or ""
+	fill.Size = UDim2.fromScale(math.clamp((character:GetAttribute("ChompShopProgress") :: number?) or 0, 0, 1), 1)
+
+	local resultAt = (character:GetAttribute("ChompShopResultAt") :: number?) or 0
+	if resultAt > shownResult then
+		shownResult = resultAt
+		local result = (character:GetAttribute("ChompShopResult") :: string?) or ""
+		local bought = (character:GetAttribute("ChompBoughtAt") :: number?) or 0
+		local what = (character:GetAttribute("ChompBoughtWhat") :: string?) or offer
+		toast.Text = bought >= resultAt - 0.1 and (what .. " EQUIPPED") or result
+		toast.TextColor3 = bought >= resultAt - 0.1 and P.Gold or P.Danger
+		toast.Visible = true
+		hideToastAt = os.clock() + 2.2
+	end
+	local adviceAt = (character:GetAttribute("ChompShopAdviceAt") :: number?) or 0
+	if adviceAt > shownAdvice then
+		shownAdvice = adviceAt
+		toast.Text = (character:GetAttribute("ChompShopAdvice") :: string?) or "RESTOCK NOW"
+		toast.TextColor3 = P.NeonA
+		toast.Visible = true
+		hideToastAt = os.clock() + 5
+	end
+	if toast.Visible and os.clock() >= hideToastAt then toast.Visible = false end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="177">
+        <Properties>
           <string name="Name">TargetReticle</string>
           <string name="Source"><![CDATA[--!strict
 --[[
@@ -12379,7 +12616,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="177">
+      <Item class="LocalScript" referent="178">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -12537,7 +12774,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="178">
+      <Item class="LocalScript" referent="179">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -12684,7 +12921,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="179">
+  <Item class="Workspace" referent="180">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

@@ -316,6 +316,8 @@ ChompConfig.Waves = {
 	RewardPerWave = 60,        -- extra banked dollars per kill, per wave
 	BreakSeconds = 15,         -- enough time to bank and read the next wave
 	RevealLastAt = 2,
+	ItemRespawnReductionPerWave = 1.25,
+	MinimumItemRespawnSeconds = 8,
 }
 
 -- Audio asset IDs are deliberately blank in source control. Roblox audio must
@@ -359,6 +361,8 @@ ChompConfig.Audio = {
 ChompConfig.Store = {
 	DwellSeconds = 1.2,        -- hold still at a plinth to buy; no button, no misclick
 	PlinthRadiusStuds = 13,
+	MaxPurchaseSpeed = 2.5,
+	RefusalCooldownSeconds = 1.5,
 	-- Weapons on plinths (D-CHOMP-064). Picking one up in the maze is luck;
 	-- buying one is a plan. Prices are deliberately under a single good bank
 	-- run, because the point of selling weapons is that a player who keeps

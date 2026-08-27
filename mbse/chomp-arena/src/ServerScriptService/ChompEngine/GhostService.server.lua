@@ -289,7 +289,16 @@ task.spawn(function()
 			waveActive = false
 			for _, player in Players:GetPlayers() do
 				local character = player.Character
-				if character then character:SetAttribute("ChompWaveCleared", os.clock()) end
+				if character then
+					local nextWave = wave + 1
+					local advice = if nextWave % 3 == 0 then "SHIELD ADVISED"
+						elseif nextWave % 2 == 0 then "CANNON ADVISED"
+						else "RESTOCK YOUR BELT"
+					character:SetAttribute("ChompWaveCleared", os.clock())
+					character:SetAttribute("ChompShopAdvice",
+						"WAVE " .. tostring(nextWave) .. " IN " .. tostring(W.BreakSeconds) .. "s  -  " .. advice)
+					character:SetAttribute("ChompShopAdviceAt", os.clock())
+				end
 			end
 			task.delay(W.BreakSeconds, function() startWave(wave + 1) end)
 		end
