@@ -33,6 +33,8 @@ if M.Layout ~= "Level1" then
 	return
 end
 
+Workspace:SetAttribute("ChompLevel1MapReady", false)
+
 local WALL_H = M.WallHeight
 local WALL_T = M.WallThickness
 local SLAB = M.SlabThickness
@@ -269,6 +271,12 @@ local function build()
 	spawn.CanCollide = false
 	spawn.Transparency = 1
 	spawn.Parent = map
+
+	-- Sibling server scripts start in no guaranteed order. GhostService uses
+	-- this only after the final wall and garage tag exists, so its collision
+	-- filter can never capture a half-built (or empty) maze.
+	map:SetAttribute("ChompMapReady", true)
+	Workspace:SetAttribute("ChompLevel1MapReady", true)
 
 	local surfaces = {}
 	for index = 1, #radii do table.insert(surfaces, styleAt(index).material.Name) end

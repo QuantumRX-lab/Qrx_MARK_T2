@@ -75,6 +75,9 @@ local function refreshWallFilter()
 	wallCast.FilterDescendantsInstances = CollectionService:GetTagged("Chomp_Wall")
 end
 
+CollectionService:GetInstanceAddedSignal("Chomp_Wall"):Connect(refreshWallFilter)
+CollectionService:GetInstanceRemovedSignal("Chomp_Wall"):Connect(refreshWallFilter)
+
 local function slideAlongWalls(here: Vector3, step: Vector3, goal: Vector3): Vector3
 	if step.Magnitude < 0.001 then return Vector3.zero end
 	local hit = Workspace:Blockcast(CFrame.new(here), Vector3.new(8, 8, 8), step, wallCast)
@@ -123,8 +126,8 @@ end
 -- moved yet, so nine ghosts landed on top of somebody sitting still in the
 -- shop. That is not difficulty, it is arriving dead.
 --
--- Read once and cached: the pads are built by Level1Map before this runs and
--- never move. If a future map builds them late, this is the thing to revisit.
+-- Cached after the map-ready handshake below and refreshed if Studio replaces
+-- the generated map while this service is alive.
 local sanctuaries: { { centre: Vector3, radius: number } } = {}
 local function readSanctuaries()
 	table.clear(sanctuaries)
@@ -138,6 +141,9 @@ local function readSanctuaries()
 		end
 	end
 end
+
+CollectionService:GetInstanceAddedSignal("Chomp_Garage"):Connect(readSanctuaries)
+CollectionService:GetInstanceRemovedSignal("Chomp_Garage"):Connect(readSanctuaries)
 
 -- The sanctuary a point is inside, or nil.
 local function sanctuaryAt(position: Vector3): { centre: Vector3, radius: number }?
@@ -599,6 +605,9 @@ Players.PlayerAdded:Connect(function(player)
 	end)
 end)
 
+while Workspace:GetAttribute("ChompLevel1MapReady") ~= true do
+	Workspace:GetAttributeChangedSignal("ChompLevel1MapReady"):Wait()
+end
 readSanctuaries()
 refreshWallFilter()
 task.spawn(function()
@@ -607,7 +616,8 @@ task.spawn(function()
 		if #activePlayers() > 0 then startWave(1) end
 	end
 end)
-print(("[GhostService] waves live: %d sanctuaries, %d%% stolen per catch, " ..
+print(("[GhostService] waves live: %d walls, %d sanctuaries, %d%% stolen per catch, " ..
 	"base speed %d vs kart %.1f")
-	:format(#sanctuaries, math.floor(G.StealFraction * 100), G.Speed,
+	:format(#wallCast.FilterDescendantsInstances, #sanctuaries,
+		math.floor(G.StealFraction * 100), G.Speed,
 		Config.Chassis[Config.StartingChassis].BaseSpeed))
