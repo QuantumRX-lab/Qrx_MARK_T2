@@ -7344,6 +7344,45 @@ local ghosts: { Ghost } = {}
 local wave = 0
 local waveActive = false
 
+-- Ghosts are anchored puppets moved with PivotTo, so physics cannot stop them
+-- at a wall. Sweep a body-sized box through the authored wall set and turn any
+-- blocked movement into travel along the wall face.
+local wallCast = RaycastParams.new()
+wallCast.FilterType = Enum.RaycastFilterType.Include
+wallCast.IgnoreWater = true
+
+local function refreshWallFilter()
+	wallCast.FilterDescendantsInstances = CollectionService:GetTagged("Chomp_Wall")
+end
+
+local function slideAlongWalls(here: Vector3, step: Vector3, goal: Vector3): Vector3
+	if step.Magnitude < 0.001 then return Vector3.zero end
+	local hit = Workspace:Blockcast(CFrame.new(here), Vector3.new(8, 8, 8), step, wallCast)
+	if not hit then return step end
+
+	local normal = Vector3.new(hit.Normal.X, 0, hit.Normal.Z)
+	if normal.Magnitude < 0.001 then return Vector3.zero end
+	normal = normal.Unit
+	local slide = step - normal * step:Dot(normal)
+
+	-- A straight-on pursuit has no tangent component. Choose the direction along
+	-- the wall that makes the most progress toward the target, so the ghost
+	-- searches for an opening instead of looking switched off.
+	if slide.Magnitude < step.Magnitude * 0.15 then
+		local tangent = Vector3.new(-normal.Z, 0, normal.X)
+		local towardGoal = Vector3.new(goal.X - here.X, 0, goal.Z - here.Z)
+		if tangent:Dot(towardGoal) < 0 then tangent = -tangent end
+		slide = tangent * step.Magnitude
+	end
+
+	-- Corners need a second sweep; otherwise sliding along one wall can carry
+	-- the puppet through the wall meeting it.
+	if Workspace:Blockcast(CFrame.new(here), Vector3.new(8, 8, 8), slide, wallCast) then
+		return Vector3.zero
+	end
+	return slide
+end
+
 local function activePlayers(): { Player }
 	local out = {}
 	for _, player in Players:GetPlayers() do
@@ -7656,6 +7695,8 @@ RunService.Heartbeat:Connect(function(dt)
 			end
 		end
 
+		step = slideAlongWalls(here, step, goal)
+
 		-- Close in, the bobbing stops. A ghost that steadies as it arrives reads
 		-- as deliberate, and deliberate is what makes it frightening.
 		local closing = target and distance < 60
@@ -7839,6 +7880,7 @@ Players.PlayerAdded:Connect(function(player)
 end)
 
 readSanctuaries()
+refreshWallFilter()
 task.spawn(function()
 	while wave == 0 do
 		task.wait(0.2)
