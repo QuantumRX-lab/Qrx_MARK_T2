@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.3.2-alpha"
+ChompConfig.ReleaseVersion = "0.3.3-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -112,6 +112,10 @@ ChompConfig.Movement = {
 
 ChompConfig.Upgrades = {
 	Tracks = { "Engine", "Handling", "Armour", "Cannon", "Ordnance", "Jump", "Boost" },
+	DisplayNames = {
+		Engine = "SPEED", Handling = "HANDLING", Armour = "ARMOUR",
+		Cannon = "FIRE POWER", Ordnance = "BOMBS", Jump = "JUMP", Boost = "BOOST",
+	},
 	-- Cannon owns the dedicated roof hardpoint. Every other performance system
 	-- consumes one chassis module port when active.
 	PortTracks = { "Engine", "Handling", "Armour", "Ordnance", "Jump", "Boost" },

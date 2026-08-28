@@ -333,21 +333,41 @@ local wavePanel = panel("Wave", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 72), U
 local waveLabel = label(wavePanel, UDim2.new(1, -20, 1, -10), UDim2.new(0, 10, 0, 5),
 	"WAVE 1", P.Ghost, 18, Enum.TextXAlignment.Center)
 
--- All seven permanent upgrade levels remain visible while driving. The player
--- should never have to remember what they bought when deciding whether to
--- enter the guardian hatch.
+-- The three attributes that define a fight stay visible as yellow segmented
+-- bars. One purchase lights one segment; empty segments show what remains.
 local levelPanel = panel("Levels", Vector2.new(0.5, 0),
-	UDim2.new(0.5, 0, 0, 118), UDim2.new(0, 520, 0, 48))
+	UDim2.new(0.5, 0, 0, 118), UDim2.new(0, 520, 0, 54))
 local powerLabel = label(levelPanel, UDim2.new(0, 90, 1, 0), UDim2.new(0, 8, 0, 0),
 	"POWER 100", P.Gold, 14, Enum.TextXAlignment.Left)
-local levelLabels: { [string]: TextLabel } = {}
-local shortNames = { Engine = "ENG", Handling = "TURN", Armour = "ARM",
-	Cannon = "GUN", Ordnance = "BOMB", Jump = "JUMP", Boost = "BOOST" }
-for index, track in Config.Upgrades.Tracks do
-	local t = label(levelPanel, UDim2.new(0, 58, 1, 0),
-		UDim2.new(0, 98 + (index - 1) * 59, 0, 0), shortNames[track] .. " 0",
-		P.Ghost, 12, Enum.TextXAlignment.Center)
-	levelLabels[track] = t
+local primaryAttributes = {
+	{ track = "Engine", name = "SPEED" },
+	{ track = "Armour", name = "ARMOUR" },
+	{ track = "Cannon", name = "FIRE POWER" },
+}
+local attributeLabels: { [string]: TextLabel } = {}
+local attributeBars: { [string]: { Frame } } = {}
+for index, spec in primaryAttributes do
+	local x = 96 + (index - 1) * 138
+	attributeLabels[spec.track] = label(levelPanel, UDim2.new(0, 130, 0, 22),
+		UDim2.new(0, x, 0, 3), spec.name .. "  LV 0", P.Ghost, 12,
+		Enum.TextXAlignment.Center)
+	local segments = {}
+	for level = 1, Config.Upgrades.MaxLevel do
+		local segment = Instance.new("Frame")
+		segment.Name = spec.track .. tostring(level)
+		segment.Position = UDim2.new(0, x + 3 + (level - 1) * 42, 0, 30)
+		segment.Size = UDim2.new(0, 36, 0, 14)
+		segment.BackgroundColor3 = P.BrickDark
+		segment.BorderSizePixel = 0
+		segment.Parent = levelPanel
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = P.Gold
+		stroke.Thickness = 1
+		stroke.Transparency = 0.15
+		stroke.Parent = segment
+		table.insert(segments, segment)
+	end
+	attributeBars[spec.track] = segments
 end
 
 local guardianPanel = panel("Guardian", Vector2.new(0.5, 0),
@@ -579,10 +599,14 @@ RunService.RenderStepped:Connect(function(dt)
 	wavePanel.Visible = not inGuardian
 
 	powerLabel.Text = "POWER " .. tostring(math.floor(power))
-	for _, track in Config.Upgrades.Tracks do
-		local level = (player:GetAttribute("ChompUpgrade" .. track) :: number?) or 0
-		levelLabels[track].Text = shortNames[track] .. " " .. tostring(level)
-		levelLabels[track].TextColor3 = level > 0 and P.NeonA or P.Boundary
+	for _, spec in primaryAttributes do
+		local level = (player:GetAttribute("ChompUpgrade" .. spec.track) :: number?) or 0
+		attributeLabels[spec.track].Text = spec.name .. "  LV " .. tostring(level)
+		attributeLabels[spec.track].TextColor3 = level > 0 and P.Gold or P.Ghost
+		for segmentLevel, segment in attributeBars[spec.track] do
+			segment.BackgroundColor3 = segmentLevel <= level and P.Gold or P.BrickDark
+			segment.BackgroundTransparency = segmentLevel <= level and 0 or 0.35
+		end
 	end
 
 	guardianPanel.Visible = inGuardian

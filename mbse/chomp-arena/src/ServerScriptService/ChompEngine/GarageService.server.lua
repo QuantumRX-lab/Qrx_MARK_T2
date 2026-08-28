@@ -253,7 +253,8 @@ local function offers(): { Offer }
 
 	for _, track in TRACKS do
 		table.insert(out, {
-			id = track, kind = "upgrade", title = track .. " UPGRADE",
+			id = track, kind = "upgrade",
+			title = (UP.DisplayNames[track] or string.upper(track)) .. " UPGRADE",
 			dollars = UP.Costs[1], robux = STORE.RobuxPrice[track],
 		})
 	end
@@ -523,7 +524,8 @@ local function currentOffer(player: Player, offer: Offer): (string, number)
 	local price = Progression.costOf(offer.id,
 		(player:GetAttribute("ChompEquippedChassis") :: string?) or Config.StartingChassis,
 		upgradesOf(player)) or -1
-	return offer.id .. " " .. tostring(level + 1), price
+	return (UP.DisplayNames[offer.id] or string.upper(offer.id))
+		.. " LV " .. tostring(level + 1), price
 end
 
 local function buy(player: Player, offer: Offer): (boolean, string)
