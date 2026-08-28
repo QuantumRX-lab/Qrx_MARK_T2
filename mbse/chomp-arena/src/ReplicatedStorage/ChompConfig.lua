@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.2.3-alpha"
+ChompConfig.ReleaseVersion = "0.2.4-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -390,7 +390,7 @@ ChompConfig.Audio = {
 			"106432309102763", "128293073466263" },
 		PowerPellet = "72416914518123",
 		Bank = "79168431123739",
-		Purchase = "87941613087421",
+		Purchase = "79168431123739",
 		Cannon = { "86582069102792", "74202937516850", "94011105268340" },
 		CannonHit = "138035988005770",
 		BombArm = "94747791937634",
@@ -400,7 +400,7 @@ ChompConfig.Audio = {
 		JetPack = "140526400915279",
 		Hurt = { "99885999815502", "109495522818192" },
 		Death = "101291490507949",
-		WaveClear = "87941613087421",
+		WaveClear = "72416914518123",
 	},
 }
 
