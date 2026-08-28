@@ -272,3 +272,18 @@ entries:
     The header today holds 8 and that is correct. Only the historical entry was
     wrong. See the CHAIN-COMBAT note of the same date for the general rule and
     the validate.py check that now enforces it.
+- date: '2026-08-28'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-032, CHOMP-SYS-055, CHOMP-SYS-056]
+  summary: >
+    Release 0.3.6-alpha removes the development camera readout and reset control,
+    removes the solo/friendly-fire HUD button, and moves Roblox platform chat to
+    the right. The utility belt now sits below the money panel, with health above
+    that group, and the jump charge button has a persistent high-contrast outline,
+    readable live level/progress, and an active touch target in every charge state.
+  status: OPEN
+  handoff: >
+    Rebuilt build/ChompArena.rbxlx from source. Verify the right-aligned platform
+    chat at the target Studio viewport and confirm the bottom-right stack remains
+    clear of Roblox controls on touch hardware.

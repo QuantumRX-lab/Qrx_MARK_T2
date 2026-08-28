@@ -7,11 +7,16 @@
 # validator (D-INFRA-009): atomic records stay accurate, handwritten totals
 # drift.
 
-as_of: 2026-08-27
+as_of: 2026-08-28
 build_status: IN_PROGRESS
 note: >
   The game is publishable and the tree is behind it. Both halves of that
   sentence matter.
+
+  Release 0.3.6-alpha simplifies the play HUD: development camera controls and
+  the solo/PVP switch are gone, chat is right-aligned, the jump control remains
+  visibly active while charging, and the utility belt sits below the economy
+  panel. The place was rebuilt from the same source before delivery.
 
   Built and playable since this dashboard last spoke: the sealed single-level
   Level 1 disc, ghost waves with a speed cap and lobby scaling, the five-slot

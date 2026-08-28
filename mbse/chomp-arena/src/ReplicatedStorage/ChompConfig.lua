@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.3.5-alpha"
+ChompConfig.ReleaseVersion = "0.3.6-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -327,7 +327,7 @@ ChompConfig.Budgets = {
 -- On by default while step 1 is being accepted. Turn CameraReadout off before
 -- anyone plays this for fun rather than to measure it.
 ChompConfig.Debug = {
-	CameraReadout = true,   -- on-screen occlusion figures, for CHOMP-TC-040
+	CameraReadout = false,  -- development-only camera diagnostics
 }
 
 ChompConfig.Controls = {

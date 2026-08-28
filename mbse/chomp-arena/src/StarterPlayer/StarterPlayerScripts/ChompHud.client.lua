@@ -31,6 +31,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextChatService = game:GetService("TextChatService")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
@@ -45,6 +46,15 @@ gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 50
 gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Keep Roblox's own chat, but move it away from the attribute panel and jump
+-- control. This configures the platform UI rather than maintaining a second
+-- chat implementation.
+local chatWindow = TextChatService:FindFirstChildOfClass("ChatWindowConfiguration")
+if chatWindow then
+	chatWindow.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	chatWindow.VerticalAlignment = Enum.VerticalAlignment.Top
+end
 
 local function panel(name: string, anchor: Vector2, position: UDim2, size: UDim2): Frame
 	local f = Instance.new("Frame")
@@ -80,7 +90,7 @@ end
 -- ── Bottom right: one stack, safest value at the bottom ─────────────────
 -- Banked sits lowest because it is the number you check least often and the
 -- one you most want to end the round looking at.
-local stack = panel("Values", Vector2.new(1, 1), UDim2.new(1, -16, 1, -16), UDim2.new(0, 236, 0, 168))
+local stack = panel("Values", Vector2.new(1, 1), UDim2.new(1, -16, 1, -92), UDim2.new(0, 236, 0, 168))
 
 local carriedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 10),
 	"0", P.NeonB, 34, Enum.TextXAlignment.Right)
@@ -112,7 +122,7 @@ end
 local beltStrip = Instance.new("Frame")
 beltStrip.Name = "Belt"
 beltStrip.AnchorPoint = Vector2.new(1, 1)
-beltStrip.Position = UDim2.new(1, -16, 1, -212)
+beltStrip.Position = UDim2.new(1, -16, 1, -16)
 beltStrip.Size = UDim2.new(0, BELT_W, 0, SLOT_H)
 beltStrip.BackgroundTransparency = 1
 beltStrip.Parent = gui
@@ -209,7 +219,7 @@ local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 1
 label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 148),
 	"BANKED — SAFE", P.Gold, 12, Enum.TextXAlignment.Right)
 
--- ── Bottom left: the two big buttons ────────────────────────────────────
+-- ── Bottom left: the jump control ───────────────────────────────────────
 -- Buttons DO belong in the thumb zone. CHOMP-SYS-032 reserves the lower corners
 -- so that nothing you need to READ sits under a hand — a thing you need to
 -- PRESS wants to be exactly there (D-CHOMP-059).
@@ -222,8 +232,8 @@ chargeButton.Name = "ChargeButton"
 chargeButton.AnchorPoint = Vector2.new(0, 1)
 chargeButton.Position = UDim2.new(0, 20, 1, -20)
 chargeButton.Size = UDim2.new(0, 190, 0, 140)
-chargeButton.BackgroundColor3 = P.Floor
-chargeButton.BackgroundTransparency = 0.15
+chargeButton.BackgroundColor3 = P.BrickDark
+chargeButton.BackgroundTransparency = 0.05
 chargeButton.BorderSizePixel = 0
 chargeButton.Text = ""
 chargeButton.AutoButtonColor = false
@@ -231,6 +241,12 @@ chargeButton.Parent = gui
 local cbCorner = Instance.new("UICorner")
 cbCorner.CornerRadius = UDim.new(0, 12)
 cbCorner.Parent = chargeButton
+local chargeStroke = Instance.new("UIStroke")
+chargeStroke.Name = "ActiveOutline"
+chargeStroke.Color = P.NeonA
+chargeStroke.Thickness = 3
+chargeStroke.Transparency = 0
+chargeStroke.Parent = chargeButton
 
 -- The fill rises from the bottom, because a meter that fills upward is one
 -- nobody has to be taught to read.
@@ -296,33 +312,6 @@ local function pressCharge()
 	end
 end
 chargeButton.Activated:Connect(pressCharge)
-
-local ffButton = Instance.new("TextButton")
-ffButton.Name = "FriendlyFire"
-ffButton.AnchorPoint = Vector2.new(0, 1)
-ffButton.Position = UDim2.new(0, 20, 1, -174)
-ffButton.Size = UDim2.new(0, 190, 0, 48)
-ffButton.BackgroundColor3 = P.Floor
-ffButton.BackgroundTransparency = 0.15
-ffButton.BorderSizePixel = 0
-ffButton.Text = "FRIENDLY FIRE"
--- P.Brick on P.Floor was dark purple on near-black: the switch was working the
--- whole time and simply could not be read, which looks exactly like a disabled
--- control (D-CHOMP-064). Off is legible now; on is red.
-ffButton.TextColor3 = P.Ghost
-ffButton.TextSize = 15
-ffButton.Font = Enum.Font.GothamBold
-ffButton.AutoButtonColor = false
-ffButton.Parent = gui
-local ffCorner = Instance.new("UICorner")
-ffCorner.CornerRadius = UDim.new(0, 14)
-ffCorner.Parent = ffButton
-
-ffButton.Activated:Connect(function()
-	if Remotes and Remotes.ToggleFriendlyFire then
-		Remotes.ToggleFriendlyFire:FireServer()
-	end
-end)
 
 -- ── Top centre: one objective ───────────────────────────────────────────
 local centre = panel("Objective", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 280, 0, 48))
@@ -415,7 +404,7 @@ flash.Parent = gui
 local healthBack = Instance.new("Frame")
 healthBack.Name = "HealthBack"
 healthBack.AnchorPoint = Vector2.new(1, 1)
-healthBack.Position = UDim2.new(1, -16, 1, -190)
+healthBack.Position = UDim2.new(1, -16, 1, -268)
 healthBack.Size = UDim2.new(0, 236, 0, 14)
 healthBack.BackgroundColor3 = P.Floor
 healthBack.BackgroundTransparency = 0.25
@@ -545,7 +534,9 @@ RunService.RenderStepped:Connect(function(dt)
 	chargePercent.Text = "LV " .. tostring(jumpLevel) .. "  •  "
 		.. (ready and "TAP TO JUMP" or (math.floor(progress * 100) .. "%"))
 	chargePercent.TextColor3 = ready and P.Floor or P.NeonA
-	chargeButton.BackgroundTransparency = ready and 0.05 or 0.15
+	chargeButton.Active = true
+	chargeButton.BackgroundTransparency = ready and 0.02 or 0.05
+	chargeStroke.Color = ready and P.Gold or P.NeonA
 
 	-- Refusal pulse: 0.35 seconds of red, then back to whatever it was.
 	local sinceRefused = os.clock() - refusedAt
@@ -553,23 +544,7 @@ RunService.RenderStepped:Connect(function(dt)
 		chargeButton.BackgroundColor3 = P.Danger
 		chargeButton.BackgroundTransparency = 0.25 + sinceRefused
 	else
-		chargeButton.BackgroundColor3 = P.Floor
-	end
-
-	-- Friendly fire only means something when there is a friend to fire at. On
-	-- your own the switch is real but inert, and saying so is better than
-	-- offering a control that cannot do anything (D-CHOMP-064).
-	local ff = character:GetAttribute("ChompFriendlyFire") == true
-	local alone = #Players:GetPlayers() < 2
-	ffButton.Active = not alone
-	if alone then
-		ffButton.Text = "SOLO — NO PVP"
-		ffButton.TextColor3 = P.Boundary
-		ffButton.BackgroundTransparency = 0.45
-	else
-		ffButton.Text = ff and "FRIENDLY FIRE: ON" or "FRIENDLY FIRE: OFF"
-		ffButton.TextColor3 = ff and P.Danger or P.Ghost
-		ffButton.BackgroundTransparency = ff and 0.05 or 0.15
+		chargeButton.BackgroundColor3 = P.BrickDark
 	end
 
 	local waveNumber = attribute("ChompWave")
