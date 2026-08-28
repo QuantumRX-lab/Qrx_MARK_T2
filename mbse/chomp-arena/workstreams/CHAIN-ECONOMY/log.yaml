@@ -105,3 +105,16 @@ entries:
     is wired. All three were violated at some point by working code.
     CHOMP-SYS-064 requires spending the COST, not the whole meter - the code
     zeroed it for two days after D-CHOMP-064 decided otherwise.
+- date: '2026-08-28'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-064]
+  summary: >
+    Release 0.3.9-alpha adds visible passive jump-charge recovery at 5 per second,
+    rising to 12 per second in the guardian chamber. Pellet charge remains an
+    immediate bonus, while the escape control can no longer remain visually dead.
+  status: OPEN
+  handoff: >
+    Confirm a zero meter reaches jump cost in about 12 seconds in Level 1 and
+    about 5 seconds in the guardian chamber, then verify one jump spends only
+    the configured cost.

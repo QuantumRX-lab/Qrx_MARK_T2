@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.3.8-alpha"
+ChompConfig.ReleaseVersion = "0.3.9-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -360,6 +360,8 @@ ChompConfig.Controls = {
 -- move you spend rather than the weapon you carry.
 ChompConfig.Charge = {
 	PerPellet = 4,             -- a full bar is roughly 25 pellets
+	PassivePerSecond = 5,      -- the control always visibly advances
+	GuardianPerSecond = 12,    -- escape recovers quickly during the boss fight
 	Max = 100,
 	-- 60, not 100 (D-CHOMP-064). A jump should still be a decision, but the
 	-- first one has to ARRIVE: at a full bar the escape existed only for a

@@ -22,6 +22,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
@@ -207,6 +208,34 @@ local function build()
 		guide.CanCollide = false
 	end
 
+	-- A deliberate way home. The long fall commits the player to the guardian
+	-- encounter, but it must not trap them there forever.
+	local exitPosition = Vector3.new(0, chamberY + SLAB / 2 + 0.6, chamberHalf - 30)
+	local exitZone = part("GuardianExitZone", Vector3.new(24, 1, 24),
+		CFrame.new(exitPosition), P.Shield, Enum.Material.Neon, arena)
+	exitZone.CanCollide = false
+	CollectionService:AddTag(exitZone, "Chomp_GuardianExit")
+	local exitLight = Instance.new("PointLight")
+	exitLight.Color = P.Shield
+	exitLight.Brightness = 8
+	exitLight.Range = 75
+	exitLight.Parent = exitZone
+	local exitLabel = Instance.new("BillboardGui")
+	exitLabel.Name = "ExitLabel"
+	exitLabel.Size = UDim2.fromOffset(180, 54)
+	exitLabel.StudsOffset = Vector3.new(0, 7, 0)
+	exitLabel.AlwaysOnTop = true
+	exitLabel.Parent = exitZone
+	local exitText = Instance.new("TextLabel")
+	exitText.Size = UDim2.fromScale(1, 1)
+	exitText.BackgroundTransparency = 1
+	exitText.Text = "EXIT TO ARENA"
+	exitText.TextColor3 = P.Ghost
+	exitText.TextStrokeTransparency = 0
+	exitText.TextScaled = true
+	exitText.Font = Enum.Font.GothamBlack
+	exitText.Parent = exitLabel
+
 	-- ── Boundary: brick, taller than the rings, and unbroken ─────────────
 	-- Nothing is outside this. The guardian chamber is carved INTO the band
 	-- rather than hung off the edge, because anything outside the boundary is a
@@ -344,6 +373,29 @@ local function build()
 	spawn.CanCollide = false
 	spawn.Transparency = 1
 	spawn.Parent = map
+
+	local exitDebounce: { [Player]: number } = {}
+	exitZone.Touched:Connect(function(hit)
+		local ancestor: Instance? = hit
+		local player: Player? = nil
+		while ancestor and ancestor ~= Workspace do
+			if ancestor:IsA("Model") then
+				player = Players:GetPlayerFromCharacter(ancestor)
+				if player then break end
+			end
+			ancestor = ancestor.Parent
+		end
+		if not (player and player.Character) then return end
+		if os.clock() - (exitDebounce[player] or 0) < 2 then return end
+		exitDebounce[player] = os.clock()
+		player.Character:PivotTo(spawn.CFrame + Vector3.new(0, 4, 0))
+		local root = player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+		end
+		player.Character:SetAttribute("ChompGuardianExitedAt", os.clock())
+	end)
 
 	-- Sibling server scripts start in no guaranteed order. GhostService uses
 	-- this only after the final wall and garage tag exists, so its collision

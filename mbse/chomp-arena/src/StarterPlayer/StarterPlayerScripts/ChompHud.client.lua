@@ -32,6 +32,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextChatService = game:GetService("TextChatService")
+local StarterGui = game:GetService("StarterGui")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
@@ -52,9 +53,26 @@ gui.Parent = player:WaitForChild("PlayerGui")
 -- chat implementation.
 local chatWindow = TextChatService:FindFirstChildOfClass("ChatWindowConfiguration")
 if chatWindow then
+	chatWindow.Enabled = true
 	chatWindow.HorizontalAlignment = Enum.HorizontalAlignment.Right
 	chatWindow.VerticalAlignment = Enum.VerticalAlignment.Top
 end
+
+-- Studio can still run the legacy chat implementation. SetCore is registered
+-- asynchronously, so retry briefly; the modern configuration above remains
+-- the path used by current published clients.
+task.spawn(function()
+	for _ = 1, 20 do
+		local ok = pcall(function()
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+			StarterGui:SetCore("ChatActive", true)
+			StarterGui:SetCore("ChatWindowPosition", UDim2.new(1, -430, 0, 10))
+			StarterGui:SetCore("ChatWindowSize", UDim2.new(0, 410, 0, 180))
+		end)
+		if ok then return end
+		task.wait(0.25)
+	end
+end)
 
 local function panel(name: string, anchor: Vector2, position: UDim2, size: UDim2): Frame
 	local f = Instance.new("Frame")
@@ -231,20 +249,21 @@ local chargeButton = Instance.new("TextButton")
 chargeButton.Name = "ChargeButton"
 chargeButton.AnchorPoint = Vector2.new(0, 1)
 chargeButton.Position = UDim2.new(0, 20, 1, -20)
-chargeButton.Size = UDim2.new(0, 190, 0, 140)
+chargeButton.Size = UDim2.new(0, 128, 0, 128)
 chargeButton.BackgroundColor3 = P.BrickDark
 chargeButton.BackgroundTransparency = 0.05
 chargeButton.BorderSizePixel = 0
 chargeButton.Text = ""
 chargeButton.AutoButtonColor = false
+chargeButton.ClipsDescendants = true
 chargeButton.Parent = gui
 local cbCorner = Instance.new("UICorner")
-cbCorner.CornerRadius = UDim.new(0, 12)
+cbCorner.CornerRadius = UDim.new(1, 0)
 cbCorner.Parent = chargeButton
 local chargeStroke = Instance.new("UIStroke")
 chargeStroke.Name = "ActiveOutline"
 chargeStroke.Color = P.NeonA
-chargeStroke.Thickness = 3
+chargeStroke.Thickness = 4
 chargeStroke.Transparency = 0
 chargeStroke.Parent = chargeButton
 
@@ -261,14 +280,14 @@ chargeFill.BorderSizePixel = 0
 chargeFill.ZIndex = 0
 chargeFill.Parent = chargeButton
 local cfCorner = Instance.new("UICorner")
-cfCorner.CornerRadius = UDim.new(0, 12)
+cfCorner.CornerRadius = UDim.new(1, 0)
 cfCorner.Parent = chargeFill
 
 local chargeLabel = Instance.new("TextLabel")
 chargeLabel.Name = "Word"
 chargeLabel.BackgroundTransparency = 1
-chargeLabel.Size = UDim2.new(1, -40, 0, 40)
-chargeLabel.Position = UDim2.new(0, 20, 0, 36)
+chargeLabel.Size = UDim2.new(1, -28, 0, 32)
+chargeLabel.Position = UDim2.new(0, 14, 0, 34)
 chargeLabel.Text = "CHARGE"
 chargeLabel.TextColor3 = P.Ghost
 chargeLabel.TextScaled = true
@@ -283,11 +302,12 @@ chargeLabel.Parent = chargeButton
 local chargePercent = Instance.new("TextLabel")
 chargePercent.Name = "Percent"
 chargePercent.BackgroundTransparency = 1
-chargePercent.Size = UDim2.new(1, -40, 0, 22)
-chargePercent.Position = UDim2.new(0, 20, 0, 80)
+chargePercent.Size = UDim2.new(1, -22, 0, 36)
+chargePercent.Position = UDim2.new(0, 11, 0, 70)
 chargePercent.Text = "0%"
 chargePercent.TextColor3 = P.NeonA
-chargePercent.TextSize = 18
+chargePercent.TextSize = 13
+chargePercent.TextWrapped = true
 chargePercent.Font = Enum.Font.GothamBold
 chargePercent.ZIndex = 2
 chargePercent.Parent = chargeButton

@@ -26,6 +26,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
@@ -37,6 +38,25 @@ local limiter = Remotes.makeLimiter(3)
 local function charge(character: Model): number
 	return (character:GetAttribute("ChompCharge") :: number?) or 0
 end
+
+-- Pellets remain the fastest top-up in the main arena, but an escape control
+-- must never look permanently dead. The guardian chamber recharges faster so
+-- a player who has just jumped can earn another evasive move during the fight.
+RunService.Heartbeat:Connect(function(dt)
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if character and humanoid and humanoid.Health > 0 then
+			local capacity = (character:GetAttribute("ChompChargeCapacity") :: number?) or C.Max
+			local rate = character:GetAttribute("ChompInGuardianArena") == true
+				and C.GuardianPerSecond or C.PassivePerSecond
+			local current = charge(character)
+			if current < capacity then
+				character:SetAttribute("ChompCharge", math.min(capacity, current + rate * dt))
+			end
+		end
+	end
+end)
 
 Remotes.UseCharge.OnServerEvent:Connect(function(player: Player)
 	if not limiter(player) then return end

@@ -27,7 +27,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.3.8-alpha"
+ChompConfig.ReleaseVersion = "0.3.9-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -368,6 +368,8 @@ ChompConfig.Controls = {
 -- move you spend rather than the weapon you carry.
 ChompConfig.Charge = {
 	PerPellet = 4,             -- a full bar is roughly 25 pellets
+	PassivePerSecond = 5,      -- the control always visibly advances
+	GuardianPerSecond = 12,    -- escape recovers quickly during the boss fight
 	Max = 100,
 	-- 60, not 100 (D-CHOMP-064). A jump should still be a decision, but the
 	-- first one has to ARRIVE: at a full bar the escape existed only for a
@@ -6542,6 +6544,7 @@ build()
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
@@ -6553,6 +6556,25 @@ local limiter = Remotes.makeLimiter(3)
 local function charge(character: Model): number
 	return (character:GetAttribute("ChompCharge") :: number?) or 0
 end
+
+-- Pellets remain the fastest top-up in the main arena, but an escape control
+-- must never look permanently dead. The guardian chamber recharges faster so
+-- a player who has just jumped can earn another evasive move during the fight.
+RunService.Heartbeat:Connect(function(dt)
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if character and humanoid and humanoid.Health > 0 then
+			local capacity = (character:GetAttribute("ChompChargeCapacity") :: number?) or C.Max
+			local rate = character:GetAttribute("ChompInGuardianArena") == true
+				and C.GuardianPerSecond or C.PassivePerSecond
+			local current = charge(character)
+			if current < capacity then
+				character:SetAttribute("ChompCharge", math.min(capacity, current + rate * dt))
+			end
+		end
+	end
+end)
 
 Remotes.UseCharge.OnServerEvent:Connect(function(player: Player)
 	if not limiter(player) then return end
@@ -9548,6 +9570,7 @@ print(("[ItemService] running - %d pads, %d slots, %d item types, %d/s use limit
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
@@ -9733,6 +9756,34 @@ local function build()
 		guide.CanCollide = false
 	end
 
+	-- A deliberate way home. The long fall commits the player to the guardian
+	-- encounter, but it must not trap them there forever.
+	local exitPosition = Vector3.new(0, chamberY + SLAB / 2 + 0.6, chamberHalf - 30)
+	local exitZone = part("GuardianExitZone", Vector3.new(24, 1, 24),
+		CFrame.new(exitPosition), P.Shield, Enum.Material.Neon, arena)
+	exitZone.CanCollide = false
+	CollectionService:AddTag(exitZone, "Chomp_GuardianExit")
+	local exitLight = Instance.new("PointLight")
+	exitLight.Color = P.Shield
+	exitLight.Brightness = 8
+	exitLight.Range = 75
+	exitLight.Parent = exitZone
+	local exitLabel = Instance.new("BillboardGui")
+	exitLabel.Name = "ExitLabel"
+	exitLabel.Size = UDim2.fromOffset(180, 54)
+	exitLabel.StudsOffset = Vector3.new(0, 7, 0)
+	exitLabel.AlwaysOnTop = true
+	exitLabel.Parent = exitZone
+	local exitText = Instance.new("TextLabel")
+	exitText.Size = UDim2.fromScale(1, 1)
+	exitText.BackgroundTransparency = 1
+	exitText.Text = "EXIT TO ARENA"
+	exitText.TextColor3 = P.Ghost
+	exitText.TextStrokeTransparency = 0
+	exitText.TextScaled = true
+	exitText.Font = Enum.Font.GothamBlack
+	exitText.Parent = exitLabel
+
 	-- ── Boundary: brick, taller than the rings, and unbroken ─────────────
 	-- Nothing is outside this. The guardian chamber is carved INTO the band
 	-- rather than hung off the edge, because anything outside the boundary is a
@@ -9870,6 +9921,29 @@ local function build()
 	spawn.CanCollide = false
 	spawn.Transparency = 1
 	spawn.Parent = map
+
+	local exitDebounce: { [Player]: number } = {}
+	exitZone.Touched:Connect(function(hit)
+		local ancestor: Instance? = hit
+		local player: Player? = nil
+		while ancestor and ancestor ~= Workspace do
+			if ancestor:IsA("Model") then
+				player = Players:GetPlayerFromCharacter(ancestor)
+				if player then break end
+			end
+			ancestor = ancestor.Parent
+		end
+		if not (player and player.Character) then return end
+		if os.clock() - (exitDebounce[player] or 0) < 2 then return end
+		exitDebounce[player] = os.clock()
+		player.Character:PivotTo(spawn.CFrame + Vector3.new(0, 4, 0))
+		local root = player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+		end
+		player.Character:SetAttribute("ChompGuardianExitedAt", os.clock())
+	end)
 
 	-- Sibling server scripts start in no guaranteed order. GhostService uses
 	-- this only after the final wall and garage tag exists, so its collision
@@ -12823,6 +12897,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextChatService = game:GetService("TextChatService")
+local StarterGui = game:GetService("StarterGui")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
@@ -12843,9 +12918,26 @@ gui.Parent = player:WaitForChild("PlayerGui")
 -- chat implementation.
 local chatWindow = TextChatService:FindFirstChildOfClass("ChatWindowConfiguration")
 if chatWindow then
+	chatWindow.Enabled = true
 	chatWindow.HorizontalAlignment = Enum.HorizontalAlignment.Right
 	chatWindow.VerticalAlignment = Enum.VerticalAlignment.Top
 end
+
+-- Studio can still run the legacy chat implementation. SetCore is registered
+-- asynchronously, so retry briefly; the modern configuration above remains
+-- the path used by current published clients.
+task.spawn(function()
+	for _ = 1, 20 do
+		local ok = pcall(function()
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+			StarterGui:SetCore("ChatActive", true)
+			StarterGui:SetCore("ChatWindowPosition", UDim2.new(1, -430, 0, 10))
+			StarterGui:SetCore("ChatWindowSize", UDim2.new(0, 410, 0, 180))
+		end)
+		if ok then return end
+		task.wait(0.25)
+	end
+end)
 
 local function panel(name: string, anchor: Vector2, position: UDim2, size: UDim2): Frame
 	local f = Instance.new("Frame")
@@ -13022,20 +13114,21 @@ local chargeButton = Instance.new("TextButton")
 chargeButton.Name = "ChargeButton"
 chargeButton.AnchorPoint = Vector2.new(0, 1)
 chargeButton.Position = UDim2.new(0, 20, 1, -20)
-chargeButton.Size = UDim2.new(0, 190, 0, 140)
+chargeButton.Size = UDim2.new(0, 128, 0, 128)
 chargeButton.BackgroundColor3 = P.BrickDark
 chargeButton.BackgroundTransparency = 0.05
 chargeButton.BorderSizePixel = 0
 chargeButton.Text = ""
 chargeButton.AutoButtonColor = false
+chargeButton.ClipsDescendants = true
 chargeButton.Parent = gui
 local cbCorner = Instance.new("UICorner")
-cbCorner.CornerRadius = UDim.new(0, 12)
+cbCorner.CornerRadius = UDim.new(1, 0)
 cbCorner.Parent = chargeButton
 local chargeStroke = Instance.new("UIStroke")
 chargeStroke.Name = "ActiveOutline"
 chargeStroke.Color = P.NeonA
-chargeStroke.Thickness = 3
+chargeStroke.Thickness = 4
 chargeStroke.Transparency = 0
 chargeStroke.Parent = chargeButton
 
@@ -13052,14 +13145,14 @@ chargeFill.BorderSizePixel = 0
 chargeFill.ZIndex = 0
 chargeFill.Parent = chargeButton
 local cfCorner = Instance.new("UICorner")
-cfCorner.CornerRadius = UDim.new(0, 12)
+cfCorner.CornerRadius = UDim.new(1, 0)
 cfCorner.Parent = chargeFill
 
 local chargeLabel = Instance.new("TextLabel")
 chargeLabel.Name = "Word"
 chargeLabel.BackgroundTransparency = 1
-chargeLabel.Size = UDim2.new(1, -40, 0, 40)
-chargeLabel.Position = UDim2.new(0, 20, 0, 36)
+chargeLabel.Size = UDim2.new(1, -28, 0, 32)
+chargeLabel.Position = UDim2.new(0, 14, 0, 34)
 chargeLabel.Text = "CHARGE"
 chargeLabel.TextColor3 = P.Ghost
 chargeLabel.TextScaled = true
@@ -13074,11 +13167,12 @@ chargeLabel.Parent = chargeButton
 local chargePercent = Instance.new("TextLabel")
 chargePercent.Name = "Percent"
 chargePercent.BackgroundTransparency = 1
-chargePercent.Size = UDim2.new(1, -40, 0, 22)
-chargePercent.Position = UDim2.new(0, 20, 0, 80)
+chargePercent.Size = UDim2.new(1, -22, 0, 36)
+chargePercent.Position = UDim2.new(0, 11, 0, 70)
 chargePercent.Text = "0%"
 chargePercent.TextColor3 = P.NeonA
-chargePercent.TextSize = 18
+chargePercent.TextSize = 13
+chargePercent.TextWrapped = true
 chargePercent.Font = Enum.Font.GothamBold
 chargePercent.ZIndex = 2
 chargePercent.Parent = chargeButton

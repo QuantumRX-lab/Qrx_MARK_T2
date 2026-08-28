@@ -62,3 +62,16 @@ entries:
     Play-test the guardian with Standard at base speed. The intended feel is
     dangerous in a straight line but escapable through committed direction
     changes; tune Guardian.TurnDegreesPerSecond rather than MoveSpeed first.
+- date: '2026-08-28'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-023, CHOMP-SYS-025]
+  summary: >
+    Release 0.3.9-alpha adds a bright, labelled EXIT TO ARENA zone at the far
+    edge of the guardian chamber. Touching it returns the complete player vehicle
+    to the Level 1 spawn and clears residual linear and angular motion.
+  status: OPEN
+  handoff: >
+    Verify the exit is visible from across the chamber, cannot be triggered by
+    the guardian, and returns each player to the arena without separating their
+    vehicle model.

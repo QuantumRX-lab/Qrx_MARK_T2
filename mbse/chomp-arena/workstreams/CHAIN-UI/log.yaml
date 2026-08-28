@@ -300,3 +300,16 @@ entries:
   handoff: >
     Confirm the five-second cadence is readable while driving and that each tip
     fits the objective panel at the target tablet viewport.
+- date: '2026-08-28'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-032, CHOMP-SYS-055]
+  summary: >
+    Release 0.3.9-alpha replaces the large rectangular jump control with a
+    compact 128-pixel circular button, clipped rising charge fill and four-pixel
+    neon readiness ring. Roblox chat is explicitly enabled and right-aligned,
+    with a retried legacy SetCore fallback for Studio clients.
+  status: OPEN
+  handoff: >
+    Verify the button remains a comfortable touch target on iPad and that both
+    modern TextChatService and the current Studio chat open at the upper right.
