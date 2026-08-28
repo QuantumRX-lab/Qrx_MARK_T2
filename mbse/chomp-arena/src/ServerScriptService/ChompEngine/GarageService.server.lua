@@ -37,6 +37,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
@@ -517,11 +518,13 @@ end
 local function buy(player: Player, offer: Offer): (boolean, string)
 	local character = player.Character
 	if not character then return false, "VEHICLE NOT READY" end
+	local sessionOnly = player:GetAttribute("ChompProfileSaveBlocked") == true
+		and RunService:IsStudio()
 	-- Nothing permanent may be sold into a session that cannot save
 	-- (D-CHOMP-066). A degraded profile still plays, banks and fights; it just
 	-- does not spend, because a chassis bought and then gone at rejoin is worse
 	-- than one never bought.
-	if player:GetAttribute("ChompProfileSaveBlocked") == true then
+	if player:GetAttribute("ChompProfileSaveBlocked") == true and not sessionOnly then
 		return false, "PROGRESS NOT SAVING - CANNOT BUY"
 	end
 	local dollars = (character:GetAttribute("ChompDollars") :: number?) or 0
@@ -582,7 +585,7 @@ local function buy(player: Player, offer: Offer): (boolean, string)
 	character:SetAttribute("ChompDollars", dollars - price)
 	character:SetAttribute("ChompBoughtWhat", displayTitle)
 	character:SetAttribute("ChompBoughtAt", os.clock())
-	return true, "PURCHASED"
+	return true, if sessionOnly then "TEST PURCHASE - NOT SAVED" else "PURCHASED"
 end
 
 local function dwellLoop()

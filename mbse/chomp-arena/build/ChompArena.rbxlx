@@ -27,7 +27,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.2.4-alpha"
+ChompConfig.ReleaseVersion = "0.2.5-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -6693,6 +6693,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
@@ -7173,11 +7174,13 @@ end
 local function buy(player: Player, offer: Offer): (boolean, string)
 	local character = player.Character
 	if not character then return false, "VEHICLE NOT READY" end
+	local sessionOnly = player:GetAttribute("ChompProfileSaveBlocked") == true
+		and RunService:IsStudio()
 	-- Nothing permanent may be sold into a session that cannot save
 	-- (D-CHOMP-066). A degraded profile still plays, banks and fights; it just
 	-- does not spend, because a chassis bought and then gone at rejoin is worse
 	-- than one never bought.
-	if player:GetAttribute("ChompProfileSaveBlocked") == true then
+	if player:GetAttribute("ChompProfileSaveBlocked") == true and not sessionOnly then
 		return false, "PROGRESS NOT SAVING - CANNOT BUY"
 	end
 	local dollars = (character:GetAttribute("ChompDollars") :: number?) or 0
@@ -7238,7 +7241,7 @@ local function buy(player: Player, offer: Offer): (boolean, string)
 	character:SetAttribute("ChompDollars", dollars - price)
 	character:SetAttribute("ChompBoughtWhat", displayTitle)
 	character:SetAttribute("ChompBoughtAt", os.clock())
-	return true, "PURCHASED"
+	return true, if sessionOnly then "TEST PURCHASE - NOT SAVED" else "PURCHASED"
 end
 
 local function dwellLoop()
@@ -9946,9 +9949,14 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local PROFILE = Config.Profile
-local store = DataStoreService:GetDataStore(PROFILE.StoreName)
+local store: any = nil
 local loaded: { [Player]: boolean } = {}
 local blocked: { [Player]: boolean } = {}
+
+local function liveStore()
+	if not store then store = DataStoreService:GetDataStore(PROFILE.StoreName) end
+	return store
+end
 
 local function moduleList(raw: string): { string }
 	local out, seen = {}, {}
@@ -10053,7 +10061,7 @@ local function save(player: Player)
 	local ok, err = false, nil
 	for attempt = 1, PROFILE.RetryCount do
 		ok, err = pcall(function()
-			store:UpdateAsync("player_" .. tostring(player.UserId), function()
+			liveStore():UpdateAsync("player_" .. tostring(player.UserId), function()
 				return snapshot
 			end)
 		end)
@@ -10070,7 +10078,7 @@ local function load(player: Player)
 		local ok, result = false, nil
 		for attempt = 1, PROFILE.RetryCount do
 			ok, result = pcall(function()
-				return store:GetAsync("player_" .. tostring(player.UserId))
+				return liveStore():GetAsync("player_" .. tostring(player.UserId))
 			end)
 			if ok then break end
 			if attempt < PROFILE.RetryCount then task.wait(PROFILE.RetryDelaySeconds) end

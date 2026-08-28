@@ -9,9 +9,14 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local PROFILE = Config.Profile
-local store = DataStoreService:GetDataStore(PROFILE.StoreName)
+local store: any = nil
 local loaded: { [Player]: boolean } = {}
 local blocked: { [Player]: boolean } = {}
+
+local function liveStore()
+	if not store then store = DataStoreService:GetDataStore(PROFILE.StoreName) end
+	return store
+end
 
 local function moduleList(raw: string): { string }
 	local out, seen = {}, {}
@@ -116,7 +121,7 @@ local function save(player: Player)
 	local ok, err = false, nil
 	for attempt = 1, PROFILE.RetryCount do
 		ok, err = pcall(function()
-			store:UpdateAsync("player_" .. tostring(player.UserId), function()
+			liveStore():UpdateAsync("player_" .. tostring(player.UserId), function()
 				return snapshot
 			end)
 		end)
@@ -133,7 +138,7 @@ local function load(player: Player)
 		local ok, result = false, nil
 		for attempt = 1, PROFILE.RetryCount do
 			ok, result = pcall(function()
-				return store:GetAsync("player_" .. tostring(player.UserId))
+				return liveStore():GetAsync("player_" .. tostring(player.UserId))
 			end)
 			if ok then break end
 			if attempt < PROFILE.RetryCount then task.wait(PROFILE.RetryDelaySeconds) end
