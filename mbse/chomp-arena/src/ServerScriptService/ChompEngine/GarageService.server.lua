@@ -49,6 +49,7 @@ local L = Config.Level1
 local P = Config.Palette
 local STORE = Config.Store
 local UP = Config.Upgrades
+local TAU = math.pi * 2
 
 local SPECS = ServerStorage:WaitForChild("ChompTools"):WaitForChild("VehicleSpecs")
 
@@ -269,16 +270,14 @@ local function build(): number
 	local homeAngle = math.pi / L.GarageCount
 	local radius = L.OuterRadius - L.RingSpacing / 2 - 22
 	local list = offers()
-	-- Permanent unlocks get the hero row. Consumable refills sit on a shorter
-	-- inner row. Fourteen offers on the old single row overlapped dwell radii,
-	-- so stopping at one plinth could buy its neighbour as well.
-	local permanentCount, itemCount = 0, 0
+	-- Vehicles remain a home showroom. Every weapon and upgrade occupies one
+	-- evenly spaced position on the outer rim, turning the shop into navigation.
+	local chassisCount, rimCount = 0, 0
 	for _, offer in list do
-		if offer.kind == "item" then itemCount += 1 else permanentCount += 1 end
+		if offer.kind == "chassis" then chassisCount += 1 else rimCount += 1 end
 	end
-	local permanentIndex, itemIndex = 0, 0
-	local permanentStep = math.rad(4.4)
-	local itemStep = math.rad(5.2)
+	local chassisIndex, rimIndex = 0, 0
+	local chassisStep = math.rad(7.5)
 	local shopPos = Vector3.new(math.cos(homeAngle) * radius, 0, math.sin(homeAngle) * radius)
 	local beacon = part("ShopBeacon", Vector3.new(2, 90, 2),
 		CFrame.new(shopPos + Vector3.new(0, 45, 0)), P.NeonB, Enum.Material.Neon, folder)
@@ -298,7 +297,7 @@ local function build(): number
 	shopLabel.Size = UDim2.fromScale(1, 1)
 	shopLabel.BackgroundColor3 = P.Floor
 	shopLabel.BackgroundTransparency = 0.08
-	shopLabel.Text = "SHOP\nWEAPONS  •  VEHICLES  •  UPGRADES"
+	shopLabel.Text = "VEHICLE SHOWROOM\nWEAPONS + UPGRADES AROUND THE RIM"
 	shopLabel.TextColor3 = P.Gold
 	shopLabel.TextStrokeColor3 = P.Floor
 	shopLabel.TextStrokeTransparency = 0
@@ -308,14 +307,14 @@ local function build(): number
 
 	for _, offer in ipairs(list) do
 		local rowRadius, a
-		if offer.kind == "item" then
-			itemIndex += 1
-			rowRadius = radius - 34
-			a = homeAngle + itemStep * (itemIndex - (itemCount + 1) / 2)
-		else
-			permanentIndex += 1
+		if offer.kind == "chassis" then
+			chassisIndex += 1
 			rowRadius = radius
-			a = homeAngle + permanentStep * (permanentIndex - (permanentCount + 1) / 2)
+			a = homeAngle + chassisStep * (chassisIndex - (chassisCount + 1) / 2)
+		else
+			rimIndex += 1
+			rowRadius = L.OuterRadius - L.RingSpacing / 2
+			a = homeAngle + TAU * ((rimIndex - 0.5) / rimCount)
 		end
 		local pos = Vector3.new(math.cos(a) * rowRadius, 0, math.sin(a) * rowRadius)
 		local facing = CFrame.Angles(0, -a, 0)
@@ -329,8 +328,11 @@ local function build(): number
 		-- The glow says WHAT KIND of thing this is before you can read the sign:
 		-- gold for a vehicle, the item's own colour for a weapon, teal for a
 		-- tuning upgrade.
+		local primaryAttribute = offer.kind == "upgrade"
+			and table.find({ "Engine", "Armour", "Cannon" }, offer.id) ~= nil
 		local glowColour = if offer.kind == "chassis" then P.Gold
 			elseif offer.kind == "item" then ItemModels.colour(offer.id)
+			elseif primaryAttribute then P.Gold
 			else P.NeonA
 		local glow = part("PlinthGlow", Vector3.new(baseSize + 0.4, 0.6, baseSize + 0.4),
 			CFrame.new(pos + Vector3.new(0, baseHeight + 0.2, 0)) * facing,
@@ -342,13 +344,23 @@ local function build(): number
 		light.Range = 28
 		light.Shadows = false
 		light.Parent = glow
-		local column = part("OfferBeam", Vector3.new(0.8, 18, 0.8),
-			CFrame.new(pos + Vector3.new(0, 14, 0)), glowColour, Enum.Material.Neon, folder)
-		column.Transparency = 0.58
+		local beamHeight = if hero then 34 else 180
+		local column = part("OfferBeam", Vector3.new(hero and 1.2 or 2.2, beamHeight, hero and 1.2 or 2.2),
+			CFrame.new(pos + Vector3.new(0, beamHeight / 2 + baseHeight, 0)),
+			glowColour, Enum.Material.Neon, folder)
+		column.Transparency = hero and 0.5 or 0.42
 		column.CanCollide = false
 		column.CanQuery = false
 		column.CastShadow = false
 		CollectionService:AddTag(column, "Chomp_Decor")
+		if not hero then
+			local skyLight = Instance.new("PointLight")
+			skyLight.Color = glowColour
+			skyLight.Brightness = 5
+			skyLight.Range = 75
+			skyLight.Shadows = false
+			skyLight.Parent = column
+		end
 		CollectionService:AddTag(base, "Chomp_Decor")
 		CollectionService:AddTag(glow, "Chomp_Decor")
 
