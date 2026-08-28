@@ -287,3 +287,16 @@ entries:
     Rebuilt build/ChompArena.rbxlx from source. Verify the right-aligned platform
     chat at the target Studio viewport and confirm the bottom-right stack remains
     clear of Roblox controls on touch hardware.
+- date: '2026-08-28'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-055]
+  summary: >
+    Release 0.3.7-alpha removes the persistent BANK IT - GARAGE objective. During
+    ordinary arena play the objective panel now rotates five concise tips covering
+    ghost points, side ambushes, two-tap bombs, jumping and yellow-zone banking.
+    Guardian and safe-zone messages retain priority over the rotation.
+  status: OPEN
+  handoff: >
+    Confirm the five-second cadence is readable while driving and that each tip
+    fits the objective panel at the target tablet viewport.

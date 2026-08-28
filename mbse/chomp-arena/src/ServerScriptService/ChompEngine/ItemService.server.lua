@@ -329,6 +329,19 @@ local function consumeActive(player: Player)
 	end
 end
 
+-- Keep the visible vehicle loadout in step with the authoritative belt. Bombs
+-- can be consumed from a non-active slot, so that path cannot rely on
+-- consumeActive to replace the mounted model.
+local function refreshMountedItem(player: Player)
+	if not player.Character then return end
+	local current = activeItem(player)
+	if current then
+		mount(player.Character, current.id)
+	else
+		unmount(player.Character)
+	end
+end
+
 local function clearBelt(player: Player)
 	belt[player] = {}
 	active[player] = 1
@@ -627,6 +640,7 @@ local function dropBomb(player: Player)
 				end
 			end
 			publish(player)
+			refreshMountedItem(player)
 		end
 	end)
 end
@@ -847,6 +861,7 @@ local function useHeld(player: Player)
 				end
 			end
 			publish(player)
+			refreshMountedItem(player)
 			return
 		end
 		-- A held input can repeat before the mine arms. Never replace the bomb

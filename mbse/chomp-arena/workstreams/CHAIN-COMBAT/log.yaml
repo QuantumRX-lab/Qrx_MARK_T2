@@ -282,3 +282,15 @@ entries:
     switch off you could not aim at a friend but a stray burst went through them
     for full damage. That sentence is the one that would have caught it, and any
     new weapon has to be read against it.
+- date: '2026-08-28'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-060]
+  summary: >
+    Release 0.3.7-alpha refreshes the visible mounted item after a deployed bomb
+    detonates or expires. When the bomb charge reaches zero, its model is removed
+    from the vehicle and the next active belt item is mounted immediately.
+  status: OPEN
+  handoff: >
+    Rebuilt build/ChompArena.rbxlx. In Studio, drop and detonate the final bomb
+    charge and confirm the rear-mounted bomb disappears at the same moment.

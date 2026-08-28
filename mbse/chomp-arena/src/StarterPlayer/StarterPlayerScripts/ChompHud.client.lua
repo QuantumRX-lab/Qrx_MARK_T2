@@ -322,6 +322,15 @@ local wavePanel = panel("Wave", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 72), U
 local waveLabel = label(wavePanel, UDim2.new(1, -20, 1, -10), UDim2.new(0, 10, 0, 5),
 	"WAVE 1", P.Ghost, 18, Enum.TextXAlignment.Center)
 
+local ROTATING_TIPS = {
+	{ text = "CHOMP GHOSTS FOR POINTS", colour = P.NeonA },
+	{ text = "AMBUSH FROM THE SIDE", colour = P.Gold },
+	{ text = "TAP BOMB TWICE", colour = P.NeonB },
+	{ text = "JUMP TO ESCAPE", colour = P.NeonA },
+	{ text = "YELLOW ZONES BANK CASH", colour = P.Shield },
+}
+local TIP_SECONDS = 5
+
 -- The module selector used to occupy this space. Progression is the useful
 -- information here: three continuous bars, finely ticked but never fragmented.
 local levelPanel = panel("Attributes", Vector2.zero,
@@ -505,15 +514,11 @@ RunService.RenderStepped:Connect(function(dt)
 	elseif character:GetAttribute("ChompSafe") == true then
 		objective.Text = "SAFE — SHOP OR BANK"
 		objective.TextColor3 = P.Shield
-	elseif carried >= 250 then
-		objective.Text = "BANK IT — GARAGE"
-		objective.TextColor3 = P.Danger
-	elseif carried > 0 then
-		objective.Text = "COLLECT — THEN BANK"
-		objective.TextColor3 = P.Gold
 	else
-		objective.Text = "COLLECT"
-		objective.TextColor3 = P.NeonA
+		local tipIndex = math.floor(os.clock() / TIP_SECONDS) % #ROTATING_TIPS + 1
+		local tip = ROTATING_TIPS[tipIndex]
+		objective.Text = tip.text
+		objective.TextColor3 = tip.colour
 	end
 
 	-- Charge. Full is the only state that matters, so full is the only state
