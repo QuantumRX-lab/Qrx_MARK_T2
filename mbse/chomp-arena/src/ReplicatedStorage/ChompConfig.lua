@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.2.5-alpha"
+ChompConfig.ReleaseVersion = "0.3.0-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -28,9 +28,9 @@ ChompConfig.ReleaseVersion = "0.2.5-alpha"
 
 ChompConfig.Chassis = {
 	Standard = { Tier = 1, ModulePorts = 1, BarCapacity = 100, Power = 100, BaseSpeed = 26.4, BaseTurn = 240, MouthArcDegrees = 90,  Cost = 0 },
-	HeavyJaw = { Tier = 2, ModulePorts = 2, BarCapacity = 175, Power = 250, BaseSpeed = 25.3, BaseTurn = 220, MouthArcDegrees = 90,  Cost = 500 },
-	Ravener  = { Tier = 3, ModulePorts = 3, BarCapacity = 275, Power = 450, BaseSpeed = 28.6, BaseTurn = 200, MouthArcDegrees = 100, Cost = 1500 },
-	Apex     = { Tier = 4, ModulePorts = 4, BarCapacity = 400, Power = 700, BaseSpeed = 30.8, BaseTurn = 185, MouthArcDegrees = 110, Cost = 3500 },
+	HeavyJaw = { Tier = 2, ModulePorts = 2, BarCapacity = 175, Power = 250, BaseSpeed = 25.3, BaseTurn = 220, MouthArcDegrees = 90,  Cost = 150000 },
+	Ravener  = { Tier = 3, ModulePorts = 3, BarCapacity = 275, Power = 450, BaseSpeed = 28.6, BaseTurn = 200, MouthArcDegrees = 100, Cost = 300000 },
+	Apex     = { Tier = 4, ModulePorts = 4, BarCapacity = 400, Power = 700, BaseSpeed = 30.8, BaseTurn = 185, MouthArcDegrees = 110, Cost = 600000 },
 }
 
 ChompConfig.StartingChassis = "Standard"
@@ -256,6 +256,24 @@ ChompConfig.Rings = {
 	UnderPoweredScatterFraction = 0.50,
 	GateOpenSeconds = 60,
 	GuardianReformSeconds = 60,
+}
+
+-- Infinite Level 1 guardian encounter. Level 2 is not authored yet, so each
+-- victory reforms the guardian with more health instead of opening a gate.
+ChompConfig.Guardian = {
+	RequiredPower = 500,
+	BaseHealth = 120,
+	HealthPerVictory = 40,
+	RewardDollars = 15000,
+	ReformSeconds = 8,
+	MoveSpeed = 13,
+	ContactDamage = 28,
+	ContactRadiusStuds = 20,
+	ContactCooldownSeconds = 1.5,
+	ChamberY = -96,
+	ChamberHalfStuds = 100,
+	HatchHalfStuds = 28,
+	PickupRespawnSeconds = 8,
 }
 
 -- ── Match ───────────────────────────────────────────────────────────────

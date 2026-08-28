@@ -221,7 +221,7 @@ local chargeButton = Instance.new("TextButton")
 chargeButton.Name = "ChargeButton"
 chargeButton.AnchorPoint = Vector2.new(0, 1)
 chargeButton.Position = UDim2.new(0, 20, 1, -20)
-chargeButton.Size = UDim2.new(0, 150, 0, 150)
+chargeButton.Size = UDim2.new(0, 190, 0, 140)
 chargeButton.BackgroundColor3 = P.Floor
 chargeButton.BackgroundTransparency = 0.15
 chargeButton.BorderSizePixel = 0
@@ -229,7 +229,7 @@ chargeButton.Text = ""
 chargeButton.AutoButtonColor = false
 chargeButton.Parent = gui
 local cbCorner = Instance.new("UICorner")
-cbCorner.CornerRadius = UDim.new(1, 0)
+cbCorner.CornerRadius = UDim.new(0, 12)
 cbCorner.Parent = chargeButton
 
 -- The fill rises from the bottom, because a meter that fills upward is one
@@ -245,14 +245,14 @@ chargeFill.BorderSizePixel = 0
 chargeFill.ZIndex = 0
 chargeFill.Parent = chargeButton
 local cfCorner = Instance.new("UICorner")
-cfCorner.CornerRadius = UDim.new(1, 0)
+cfCorner.CornerRadius = UDim.new(0, 12)
 cfCorner.Parent = chargeFill
 
 local chargeLabel = Instance.new("TextLabel")
 chargeLabel.Name = "Word"
 chargeLabel.BackgroundTransparency = 1
 chargeLabel.Size = UDim2.new(1, -40, 0, 40)
-chargeLabel.Position = UDim2.new(0, 20, 0, 48)
+chargeLabel.Position = UDim2.new(0, 20, 0, 36)
 chargeLabel.Text = "CHARGE"
 chargeLabel.TextColor3 = P.Ghost
 chargeLabel.TextScaled = true
@@ -268,7 +268,7 @@ local chargePercent = Instance.new("TextLabel")
 chargePercent.Name = "Percent"
 chargePercent.BackgroundTransparency = 1
 chargePercent.Size = UDim2.new(1, -40, 0, 22)
-chargePercent.Position = UDim2.new(0, 20, 0, 86)
+chargePercent.Position = UDim2.new(0, 20, 0, 80)
 chargePercent.Text = "0%"
 chargePercent.TextColor3 = P.NeonA
 chargePercent.TextSize = 18
@@ -300,8 +300,8 @@ chargeButton.Activated:Connect(pressCharge)
 local ffButton = Instance.new("TextButton")
 ffButton.Name = "FriendlyFire"
 ffButton.AnchorPoint = Vector2.new(0, 1)
-ffButton.Position = UDim2.new(0, 20, 1, -184)
-ffButton.Size = UDim2.new(0, 150, 0, 52)
+ffButton.Position = UDim2.new(0, 20, 1, -174)
+ffButton.Size = UDim2.new(0, 190, 0, 48)
 ffButton.BackgroundColor3 = P.Floor
 ffButton.BackgroundTransparency = 0.15
 ffButton.BorderSizePixel = 0
@@ -332,6 +332,40 @@ local objective = label(centre, UDim2.new(1, -20, 1, -12), UDim2.new(0, 10, 0, 6
 local wavePanel = panel("Wave", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 72), UDim2.new(0, 200, 0, 38))
 local waveLabel = label(wavePanel, UDim2.new(1, -20, 1, -10), UDim2.new(0, 10, 0, 5),
 	"WAVE 1", P.Ghost, 18, Enum.TextXAlignment.Center)
+
+-- All seven permanent upgrade levels remain visible while driving. The player
+-- should never have to remember what they bought when deciding whether to
+-- enter the guardian hatch.
+local levelPanel = panel("Levels", Vector2.new(0.5, 0),
+	UDim2.new(0.5, 0, 0, 118), UDim2.new(0, 520, 0, 48))
+local powerLabel = label(levelPanel, UDim2.new(0, 90, 1, 0), UDim2.new(0, 8, 0, 0),
+	"POWER 100", P.Gold, 14, Enum.TextXAlignment.Left)
+local levelLabels: { [string]: TextLabel } = {}
+local shortNames = { Engine = "ENG", Handling = "TURN", Armour = "ARM",
+	Cannon = "GUN", Ordnance = "BOMB", Jump = "JUMP", Boost = "BOOST" }
+for index, track in Config.Upgrades.Tracks do
+	local t = label(levelPanel, UDim2.new(0, 58, 1, 0),
+		UDim2.new(0, 98 + (index - 1) * 59, 0, 0), shortNames[track] .. " 0",
+		P.Ghost, 12, Enum.TextXAlignment.Center)
+	levelLabels[track] = t
+end
+
+local guardianPanel = panel("Guardian", Vector2.new(0.5, 0),
+	UDim2.new(0.5, 0, 0, 174), UDim2.new(0, 420, 0, 46))
+local guardianLabel = label(guardianPanel, UDim2.new(1, -20, 0, 20), UDim2.new(0, 10, 0, 3),
+	"GUARDIAN", P.Gold, 15, Enum.TextXAlignment.Center)
+local guardianBack = Instance.new("Frame")
+guardianBack.Position = UDim2.new(0, 10, 0, 28)
+guardianBack.Size = UDim2.new(1, -20, 0, 10)
+guardianBack.BackgroundColor3 = P.BrickDark
+guardianBack.BorderSizePixel = 0
+guardianBack.Parent = guardianPanel
+local guardianFill = Instance.new("Frame")
+guardianFill.Size = UDim2.fromScale(1, 1)
+guardianFill.BackgroundColor3 = P.Danger
+guardianFill.BorderSizePixel = 0
+guardianFill.Parent = guardianBack
+guardianPanel.Visible = false
 
 -- Loadout controls only appear in a sanctuary. Licences are permanent, but a
 -- chassis can power only as many active systems as it has physical ports.
@@ -465,7 +499,16 @@ RunService.RenderStepped:Connect(function(dt)
 	-- the thing worth being told about.
 	-- Safe outranks everything, including a big carry: the whole reason to know
 	-- you are safe is that you were not a moment ago (D-CHOMP-065).
-	if character:GetAttribute("ChompSafe") == true then
+	local inGuardian = character:GetAttribute("ChompInGuardianArena") == true
+	local power = attribute("ChompPower")
+	local requiredPower = attribute("ChompGuardianRequiredPower")
+	if inGuardian and power < requiredPower then
+		objective.Text = "POWER " .. tostring(requiredPower) .. " REQUIRED"
+		objective.TextColor3 = P.Danger
+	elseif inGuardian then
+		objective.Text = "DESTROY THE GUARDIAN"
+		objective.TextColor3 = P.Gold
+	elseif character:GetAttribute("ChompSafe") == true then
 		objective.Text = "SAFE — SHOP OR BANK"
 		objective.TextColor3 = P.Shield
 	elseif carried >= 250 then
@@ -493,7 +536,9 @@ RunService.RenderStepped:Connect(function(dt)
 	chargeFill.BackgroundColor3 = ready and P.Gold or P.NeonA
 	chargeLabel.Text = ready and "JUMP" or "CHARGE"
 	chargeLabel.TextColor3 = ready and P.Floor or P.Ghost
-	chargePercent.Text = ready and "TAP TO JUMP" or (math.floor(progress * 100) .. "%")
+	local jumpLevel = attribute("ChompUpgradeJump")
+	chargePercent.Text = "LV " .. tostring(jumpLevel) .. "  •  "
+		.. (ready and "TAP TO JUMP" or (math.floor(progress * 100) .. "%"))
 	chargePercent.TextColor3 = ready and P.Floor or P.NeonA
 	chargeButton.BackgroundTransparency = ready and 0.05 or 0.15
 
@@ -526,6 +571,25 @@ RunService.RenderStepped:Connect(function(dt)
 	local waveAlive = attribute("ChompWaveAlive")
 	waveLabel.Text = (waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1")
 		.. "  •  " .. tostring(waveAlive) .. " LEFT"
+	wavePanel.Visible = not inGuardian
+
+	powerLabel.Text = "POWER " .. tostring(math.floor(power))
+	for _, track in Config.Upgrades.Tracks do
+		local level = (player:GetAttribute("ChompUpgrade" .. track) :: number?) or 0
+		levelLabels[track].Text = shortNames[track] .. " " .. tostring(level)
+		levelLabels[track].TextColor3 = level > 0 and P.NeonA or P.Boundary
+	end
+
+	guardianPanel.Visible = inGuardian
+	if inGuardian then
+		local guardianLevel = attribute("ChompGuardianLevel")
+		local health = attribute("ChompGuardianHealth")
+		local maxHealth = math.max(1, attribute("ChompGuardianMaxHealth"))
+		guardianLabel.Text = "GUARDIAN " .. tostring(guardianLevel) .. "  •  "
+			.. tostring(math.ceil(health)) .. "/" .. tostring(math.ceil(maxHealth))
+		guardianFill.Size = UDim2.new(math.clamp(health / maxHealth, 0, 1), 0, 1, 0)
+		guardianFill.BackgroundColor3 = power >= requiredPower and P.Danger or P.Boundary
+	end
 
 	local safe = character:GetAttribute("ChompSafe") == true
 	modulePanel.Visible = safe

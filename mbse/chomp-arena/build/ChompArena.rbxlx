@@ -27,7 +27,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.2.5-alpha"
+ChompConfig.ReleaseVersion = "0.3.0-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -36,9 +36,9 @@ ChompConfig.ReleaseVersion = "0.2.5-alpha"
 
 ChompConfig.Chassis = {
 	Standard = { Tier = 1, ModulePorts = 1, BarCapacity = 100, Power = 100, BaseSpeed = 26.4, BaseTurn = 240, MouthArcDegrees = 90,  Cost = 0 },
-	HeavyJaw = { Tier = 2, ModulePorts = 2, BarCapacity = 175, Power = 250, BaseSpeed = 25.3, BaseTurn = 220, MouthArcDegrees = 90,  Cost = 500 },
-	Ravener  = { Tier = 3, ModulePorts = 3, BarCapacity = 275, Power = 450, BaseSpeed = 28.6, BaseTurn = 200, MouthArcDegrees = 100, Cost = 1500 },
-	Apex     = { Tier = 4, ModulePorts = 4, BarCapacity = 400, Power = 700, BaseSpeed = 30.8, BaseTurn = 185, MouthArcDegrees = 110, Cost = 3500 },
+	HeavyJaw = { Tier = 2, ModulePorts = 2, BarCapacity = 175, Power = 250, BaseSpeed = 25.3, BaseTurn = 220, MouthArcDegrees = 90,  Cost = 150000 },
+	Ravener  = { Tier = 3, ModulePorts = 3, BarCapacity = 275, Power = 450, BaseSpeed = 28.6, BaseTurn = 200, MouthArcDegrees = 100, Cost = 300000 },
+	Apex     = { Tier = 4, ModulePorts = 4, BarCapacity = 400, Power = 700, BaseSpeed = 30.8, BaseTurn = 185, MouthArcDegrees = 110, Cost = 600000 },
 }
 
 ChompConfig.StartingChassis = "Standard"
@@ -264,6 +264,24 @@ ChompConfig.Rings = {
 	UnderPoweredScatterFraction = 0.50,
 	GateOpenSeconds = 60,
 	GuardianReformSeconds = 60,
+}
+
+-- Infinite Level 1 guardian encounter. Level 2 is not authored yet, so each
+-- victory reforms the guardian with more health instead of opening a gate.
+ChompConfig.Guardian = {
+	RequiredPower = 500,
+	BaseHealth = 120,
+	HealthPerVictory = 40,
+	RewardDollars = 15000,
+	ReformSeconds = 8,
+	MoveSpeed = 13,
+	ContactDamage = 28,
+	ContactRadiusStuds = 20,
+	ContactCooldownSeconds = 1.5,
+	ChamberY = -96,
+	ChamberHalfStuds = 100,
+	HatchHalfStuds = 28,
+	PickupRespawnSeconds = 8,
 }
 
 -- ── Match ───────────────────────────────────────────────────────────────
@@ -6727,10 +6745,10 @@ local function part(name: string, size: Vector3, cf: CFrame, colour: Color3,
 	return p
 end
 
-local function priceLabel(plinth: BasePart, title: string, dollars: number, robux: number?)
+local function priceLabel(plinth: BasePart, title: string, dollars: number, robux: number?, prominent: boolean?)
 	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.new(0, 220, 0, 96)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, 12, 0)
+	gui.Size = if prominent then UDim2.new(0, 340, 0, 128) else UDim2.new(0, 220, 0, 96)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, prominent and 22 or 12, 0)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = 600
 	gui.Adornee = plinth
@@ -6765,8 +6783,14 @@ local function priceLabel(plinth: BasePart, title: string, dollars: number, robu
 		t.Parent = gui
 	end
 
-	line(title, P.Ghost, 22, 0, Enum.Font.GothamBlack)
-	line("$" .. tostring(dollars), P.Gold, 26, 26, Enum.Font.GothamBold)
+	line(title, P.Ghost, prominent and 30 or 22, 0, Enum.Font.GothamBlack)
+	local price = tostring(math.floor(dollars))
+	repeat
+		local changed
+		price, changed = string.gsub(price, "^(-?%d+)(%d%d%d)", "%1,%2")
+	until changed == 0
+	line("$" .. price, P.Gold, prominent and 36 or 26,
+		prominent and 38 or 26, Enum.Font.GothamBold)
 	-- Robux lines are OFF (D-CHOMP-066, LAUNCH-READINESS P0). They never charged
 	-- anyone - the store has always been dollars-only - so every one of them was
 	-- an advertisement for a purchase that does not exist, priced in real money,
@@ -6875,7 +6899,8 @@ local function offers(): { Offer }
 	for id, chassis in Config.Chassis do
 		if chassis.Cost and chassis.Cost > 0 then
 			table.insert(out, {
-				id = id, kind = "chassis", title = id,
+				id = id, kind = "chassis",
+				title = string.upper(id) .. "  •  TIER " .. tostring(chassis.Tier),
 				dollars = chassis.Cost, robux = STORE.RobuxPrice[id],
 			})
 		end
@@ -6968,8 +6993,11 @@ local function build(): number
 		local pos = Vector3.new(math.cos(a) * rowRadius, 0, math.sin(a) * rowRadius)
 		local facing = CFrame.Angles(0, -a, 0)
 
-		local base = part("Plinth", Vector3.new(9, 6, 9),
-			CFrame.new(pos + Vector3.new(0, 3, 0)) * facing,
+		local hero = offer.kind == "chassis"
+		local baseSize = if hero then 18 else 9
+		local baseHeight = if hero then 8 else 6
+		local base = part("Plinth", Vector3.new(baseSize, baseHeight, baseSize),
+			CFrame.new(pos + Vector3.new(0, baseHeight / 2, 0)) * facing,
 			P.BrickDark, Enum.Material.Metal, folder)
 		-- The glow says WHAT KIND of thing this is before you can read the sign:
 		-- gold for a vehicle, the item's own colour for a weapon, teal for a
@@ -6977,8 +7005,8 @@ local function build(): number
 		local glowColour = if offer.kind == "chassis" then P.Gold
 			elseif offer.kind == "item" then ItemModels.colour(offer.id)
 			else P.NeonA
-		local glow = part("PlinthGlow", Vector3.new(9.4, 0.6, 9.4),
-			CFrame.new(pos + Vector3.new(0, 6.2, 0)) * facing,
+		local glow = part("PlinthGlow", Vector3.new(baseSize + 0.4, 0.6, baseSize + 0.4),
+			CFrame.new(pos + Vector3.new(0, baseHeight + 0.2, 0)) * facing,
 			glowColour, Enum.Material.Neon, folder)
 		glow.CanCollide = false
 		local light = Instance.new("PointLight")
@@ -7014,7 +7042,8 @@ local function build(): number
 							CollectionService:AddTag(d, "Chomp_Decor")
 						end
 					end
-					model:PivotTo(CFrame.new(pos + Vector3.new(0, 9, 0)) * facing)
+					model:ScaleTo(1.8)
+					model:PivotTo(CFrame.new(pos + Vector3.new(0, 14, 0)) * facing)
 					model.Parent = folder
 				end
 			end
@@ -7036,7 +7065,7 @@ local function build(): number
 			model.Parent = folder
 		end
 
-		priceLabel(base, offer.title, offer.dollars, offer.robux)
+		priceLabel(base, offer.title, offer.dollars, offer.robux, hero)
 		table.insert(plinths, { part = base, offer = offer })
 	end
 	return #plinths
@@ -8086,6 +8115,295 @@ print(("[GhostService] waves live: %d walls, %d sanctuaries, %d%% stolen per cat
       </Item>
       <Item class="Script" referent="150">
         <Properties>
+          <string name="Name">GuardianService</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+-- Infinite guardian encounter beneath the Level 1 centre hatch.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Debris = game:GetService("Debris")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
+local G = Config.Guardian
+local P = Config.Palette
+
+while Workspace:GetAttribute("ChompLevel1MapReady") ~= true do
+	Workspace:GetAttributeChangedSignal("ChompLevel1MapReady"):Wait()
+end
+
+local ghostFolder = Workspace:FindFirstChild("Ghosts")
+while not ghostFolder do
+	task.wait(0.1)
+	ghostFolder = Workspace:FindFirstChild("Ghosts")
+end
+local maps = Workspace:FindFirstChild("Maps")
+local pickupFolder = Instance.new("Folder")
+pickupFolder.Name = "GuardianPickups"
+pickupFolder.Parent = Workspace
+
+local function piece(model: Model, name: string, size: Vector3, offset: CFrame,
+		colour: Color3, material: Enum.Material, shape: Enum.PartType?): BasePart
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = offset
+	p.Color = colour
+	p.Material = material
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CastShadow = true
+	if shape then p.Shape = shape end
+	p.Parent = model
+	return p
+end
+
+local function guardianModel(): Model
+	local model = Instance.new("Model")
+	model.Name = "Guardian"
+	local body = piece(model, "Body", Vector3.new(30, 30, 30), CFrame.new(),
+		Color3.fromRGB(5, 5, 8), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	piece(model, "Crown", Vector3.new(18, 7, 12), CFrame.new(0, 13, 1),
+		Color3.fromRGB(12, 12, 16), Enum.Material.Slate)
+	for _, side in { -1, 1 } do
+		piece(model, "Eye", Vector3.new(6.5, 7.5, 2.2), CFrame.new(side * 6.2, 5, -13.5),
+			P.Gold, Enum.Material.Neon, Enum.PartType.Ball)
+		piece(model, "Brow", Vector3.new(8, 2.5, 2.5),
+			CFrame.new(side * 6, 9, -13) * CFrame.Angles(0, 0, side * -0.25),
+			Color3.fromRGB(3, 3, 5), Enum.Material.Slate)
+	end
+	piece(model, "MouthGlow", Vector3.new(18, 7, 2), CFrame.new(0, -5, -14),
+		P.Danger, Enum.Material.Neon)
+	piece(model, "UpperMaw", Vector3.new(22, 4, 4), CFrame.new(0, -2, -14),
+		Color3.fromRGB(4, 4, 6), Enum.Material.Slate)
+	piece(model, "LowerMaw", Vector3.new(22, 4, 4), CFrame.new(0, -8, -14),
+		Color3.fromRGB(4, 4, 6), Enum.Material.Slate)
+	for row = -1, 1, 2 do
+		for tooth = -3, 3 do
+			piece(model, "Tooth", Vector3.new(2.1, 3.8, 2.1),
+				CFrame.new(tooth * 2.5, -5 + row * 2.3, -16),
+				P.Gold, Enum.Material.Neon)
+		end
+	end
+	model.PrimaryPart = body
+	model:SetAttribute("Dead", false)
+	model:SetAttribute("Guardian", true)
+	CollectionService:AddTag(model, "Chomp_Ghost")
+	return model
+end
+
+local function chamberPlayers(): { Player }
+	local out = {}
+	for _, player in Players:GetPlayers() do
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root and root.Position.Y < G.ChamberY + 45 then table.insert(out, player) end
+	end
+	return out
+end
+
+local function publish(model: Model, level: number, health: number, maxHealth: number)
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		if character then
+			character:SetAttribute("ChompGuardianLevel", level)
+			character:SetAttribute("ChompGuardianHealth", math.max(0, health))
+			character:SetAttribute("ChompGuardianMaxHealth", maxHealth)
+			character:SetAttribute("ChompGuardianRequiredPower", G.RequiredPower)
+			character:SetAttribute("ChompInGuardianArena",
+				(character:GetPivot().Position.Y < G.ChamberY + 45))
+		end
+	end
+	model:SetAttribute("GuardianLevel", level)
+end
+
+local function burst(at: Vector3)
+	for i = 1, 28 do
+		local shard = Instance.new("Part")
+		shard.Size = Vector3.new(3, 3, 3) * math.random(8, 18) / 10
+		shard.Shape = Enum.PartType.Ball
+		shard.Color = i <= 8 and P.Gold or Color3.fromRGB(4, 4, 7)
+		shard.Material = i <= 8 and Enum.Material.Neon or Enum.Material.Slate
+		shard.Position = at + Vector3.new(math.random(-80, 80) / 10,
+			math.random(-60, 80) / 10, math.random(-80, 80) / 10)
+		shard.CanCollide = false
+		shard.AssemblyLinearVelocity = Vector3.new(math.random(-100, 100),
+			math.random(35, 120), math.random(-100, 100))
+		CollectionService:AddTag(shard, "Chomp_Decor")
+		shard.Parent = Workspace
+		Debris:AddItem(shard, 2.2)
+	end
+end
+
+local function grantHook(): BindableFunction?
+	local hook = ServerStorage:WaitForChild("ChompTools"):FindFirstChild("GrantItem")
+	return hook and hook:IsA("BindableFunction") and hook or nil
+end
+
+local pickupPlan = {
+	{ id = "Cannon", angle = 0 }, { id = "HomingBomb", angle = math.pi / 2 },
+	{ id = "Cannon", angle = math.pi }, { id = "Shield", angle = math.pi * 1.5 },
+	{ id = "JetPack", angle = math.pi * 0.25 },
+}
+
+for _, entry in pickupPlan do
+	local position = Vector3.new(math.cos(entry.angle) * 56, G.ChamberY + 3,
+		math.sin(entry.angle) * 56)
+	local holder = Instance.new("Model")
+	holder.Name = "GuardianPickup_" .. entry.id
+	holder.Parent = pickupFolder
+	local pad = piece(holder, "Pad", Vector3.new(10, 1, 10), CFrame.new(position),
+		ItemModels.colour(entry.id), Enum.Material.Neon)
+	local display = ItemModels.build(entry.id)
+	display:ScaleTo(1.8)
+	display:PivotTo(CFrame.new(position + Vector3.new(0, 5, 0)))
+	display.Parent = holder
+	local available = true
+	task.spawn(function()
+		while holder.Parent do
+			task.wait(0.2)
+			if not available then continue end
+			for _, player in chamberPlayers() do
+				local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if root and (root.Position - position).Magnitude < 11 then
+					local hook = grantHook()
+					local ok, granted = false, false
+					if hook then ok, granted = pcall(function() return hook:Invoke(player, entry.id, false) end) end
+					if ok and granted then
+						available = false
+						for _, d in holder:GetDescendants() do
+							if d:IsA("BasePart") then d.Transparency = 1 end
+						end
+						task.delay(G.PickupRespawnSeconds, function()
+							if not holder.Parent then return end
+							available = true
+							for _, d in holder:GetDescendants() do
+								if d:IsA("BasePart") then d.Transparency = 0 end
+							end
+						end)
+						break
+					end
+				end
+			end
+		end
+	end)
+	pad.CanCollide = false
+end
+
+local level = 0
+local guardian: Model? = nil
+local currentHealth = 0
+local maxHealth = 0
+local position = Vector3.new(0, G.ChamberY + 17, 0)
+local contactAt: { [Player]: number } = {}
+
+local function spawnGuardian()
+	level += 1
+	maxHealth = G.BaseHealth + G.HealthPerVictory * (level - 1)
+	currentHealth = maxHealth
+	position = Vector3.new(0, G.ChamberY + 17, 0)
+	local model = guardianModel()
+	guardian = model
+	model:SetAttribute("Health", maxHealth)
+	model:PivotTo(CFrame.new(position))
+	model.Parent = ghostFolder
+	publish(model, level, currentHealth, maxHealth)
+
+	local changing = false
+	model:GetAttributeChangedSignal("Health"):Connect(function()
+		if changing or model:GetAttribute("Dead") == true then return end
+		local proposed = (model:GetAttribute("Health") :: number?) or currentHealth
+		if proposed >= currentHealth then currentHealth = proposed return end
+		local killerId = model:GetAttribute("KilledBy")
+		local killer = typeof(killerId) == "number" and Players:GetPlayerByUserId(killerId) or nil
+		local character = killer and killer.Character
+		local power = character and ((character:GetAttribute("ChompPower") :: number?) or 0) or 0
+		if not killer or power < G.RequiredPower then
+			changing = true
+			model:SetAttribute("Health", currentHealth)
+			changing = false
+			if character then
+				character:SetAttribute("ChompGuardianDeniedAt", os.clock())
+				character:SetAttribute("ChompGuardianRequiredPower", G.RequiredPower)
+			end
+			model:SetAttribute("KilledBy", nil)
+			return
+		end
+		currentHealth = math.max(0, proposed)
+		publish(model, level, currentHealth, maxHealth)
+		if currentHealth > 0 then return end
+		model:SetAttribute("Dead", true)
+		burst(model:GetPivot().Position)
+		local dollars = (character:GetAttribute("ChompDollars") :: number?) or 0
+		character:SetAttribute("ChompDollars", dollars + G.RewardDollars)
+		character:SetAttribute("ChompBankedAmount", G.RewardDollars)
+		character:SetAttribute("ChompBankedAt", os.clock())
+		character:SetAttribute("ChompGuardianDefeatedAt", os.clock())
+		model:Destroy()
+		guardian = nil
+		task.delay(G.ReformSeconds, spawnGuardian)
+	end)
+end
+
+RunService.Heartbeat:Connect(function(dt)
+	local model = guardian
+	if not (model and model.Parent and model.PrimaryPart) then return end
+	local players = chamberPlayers()
+	local target: BasePart? = nil
+	local nearest = math.huge
+	for _, player in players do
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			local distance = (root.Position - position).Magnitude
+			if distance < nearest then nearest, target = distance, root end
+		end
+	end
+	local look = Vector3.new(0, 0, -1)
+	if target then
+		local flat = Vector3.new(target.Position.X - position.X, 0, target.Position.Z - position.Z)
+		if flat.Magnitude > 0.1 then
+			look = flat.Unit
+			local wanted = look * math.min(flat.Magnitude, G.MoveSpeed * dt)
+			local cast = RaycastParams.new()
+			cast.FilterType = Enum.RaycastFilterType.Include
+			cast.FilterDescendantsInstances = if maps then { maps } else {}
+			if not maps or not Workspace:Blockcast(model.PrimaryPart.CFrame,
+				Vector3.new(25, 24, 25), wanted, cast) then
+				position += wanted
+			end
+		end
+		local player = Players:GetPlayerFromCharacter(target.Parent)
+		if player and nearest < G.ContactRadiusStuds
+			and os.clock() - (contactAt[player] or 0) > G.ContactCooldownSeconds then
+			local humanoid = target.Parent and target.Parent:FindFirstChildOfClass("Humanoid")
+			if humanoid then humanoid:TakeDamage(G.ContactDamage) end
+			if target.Parent then target.Parent:SetAttribute("ChompHurtAt", os.clock()) end
+			contactAt[player] = os.clock()
+		end
+	end
+	local bob = math.sin(os.clock() * 1.8) * 1.2
+	local pivot = CFrame.lookAt(position + Vector3.new(0, bob, 0), position + Vector3.new(look.X, bob, look.Z))
+	model:PivotTo(pivot)
+	local gape = 2.2 + (math.sin(os.clock() * 5) + 1) * 1.6
+	local upper = model:FindFirstChild("UpperMaw") :: BasePart?
+	local lower = model:FindFirstChild("LowerMaw") :: BasePart?
+	if upper then upper.CFrame = pivot * CFrame.new(0, -2 + gape / 2, -14) * CFrame.Angles(-0.12, 0, 0) end
+	if lower then lower.CFrame = pivot * CFrame.new(0, -8 - gape / 2, -14) * CFrame.Angles(0.12, 0, 0) end
+	publish(model, level, currentHealth, maxHealth)
+end)
+
+spawnGuardian()
+print("[GuardianService] infinite chamber guardian live")
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="151">
+        <Properties>
           <string name="Name">ItemService</string>
           <token name="RunContext">0</token>
           <string name="Source"><![CDATA[--!strict
@@ -9121,7 +9439,7 @@ print(("[ItemService] running - %d pads, %d slots, %d item types, %d/s use limit
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="151">
+      <Item class="Script" referent="152">
         <Properties>
           <string name="Name">Level1Map</string>
           <token name="RunContext">0</token>
@@ -9247,19 +9565,71 @@ local function build()
 	local rings = Instance.new("Folder"); rings.Name = "Rings"; rings.Parent = map
 	local bays = Instance.new("Folder"); bays.Name = "Garages"; bays.Parent = map
 
-	-- ── Floor: one disc, and a lighter disc marking the centre arena ─────
-	local floor = part("Floor", Vector3.new(SLAB, L.OuterRadius * 2, L.OuterRadius * 2),
-		CFrame.new(0, 0, 0) * CFrame.Angles(0, 0, math.rad(90)),
-		P.Floor, Enum.Material.Concrete, map)
-	floor.Shape = Enum.PartType.Cylinder
+	-- ── Floor and centre hatch ───────────────────────────────────────────
+	-- Four slabs leave a real opening. A single cylinder can look like a hole,
+	-- but it cannot contain one, and the guardian entrance must be physical.
+	local diameter = L.OuterRadius * 2
+	local hatch = Config.Guardian.HatchHalfStuds
+	local sideDepth = L.OuterRadius - hatch
+	for _, z in { -(hatch + sideDepth / 2), hatch + sideDepth / 2 } do
+		part("Floor", Vector3.new(diameter, SLAB, sideDepth),
+			CFrame.new(0, 0, z), P.Floor, Enum.Material.Concrete, map)
+	end
+	for _, x in { -(hatch + sideDepth / 2), hatch + sideDepth / 2 } do
+		part("Floor", Vector3.new(sideDepth, SLAB, hatch * 2),
+			CFrame.new(x, 0, 0), P.Floor, Enum.Material.Concrete, map)
+	end
 
-	local centre = part("CentreFloor", Vector3.new(0.6, L.CentreRadius * 2, L.CentreRadius * 2),
-		CFrame.new(0, SLAB / 2 + 0.3, 0) * CFrame.Angles(0, 0, math.rad(90)),
-		P.FloorCentre, Enum.Material.Neon, map)
-	centre.Shape = Enum.PartType.Cylinder
-	centre.Transparency = 0.55
-	centre.CanCollide = false
-	CollectionService:AddTag(centre, "Chomp_Decor")
+	local rimWidth = 3
+	for _, z in { -hatch, hatch } do
+		local rim = part("GuardianHatchRim", Vector3.new(hatch * 2 + rimWidth * 2, 0.6, rimWidth),
+			CFrame.new(0, SLAB / 2 + 0.3, z), P.Danger, Enum.Material.Neon, map)
+		rim.CanCollide = false
+	end
+	for _, x in { -hatch, hatch } do
+		local rim = part("GuardianHatchRim", Vector3.new(rimWidth, 0.6, hatch * 2),
+			CFrame.new(x, SLAB / 2 + 0.3, 0), P.Danger, Enum.Material.Neon, map)
+		rim.CanCollide = false
+	end
+
+	-- The shaft and chamber are authored as map geometry so bullets, vehicles,
+	-- camera occlusion, and ghosts all agree about what is solid.
+	local arena = Instance.new("Folder"); arena.Name = "GuardianArena"; arena.Parent = map
+	local chamberY = Config.Guardian.ChamberY
+	local chamberHalf = Config.Guardian.ChamberHalfStuds
+	local shaftHeight = math.abs(chamberY) - 12
+	for _, x in { -(hatch + WALL_T / 2), hatch + WALL_T / 2 } do
+		local wall = part("ShaftWall", Vector3.new(WALL_T, shaftHeight, hatch * 2 + WALL_T * 2),
+			CFrame.new(x, -shaftHeight / 2, 0), P.BrickDark, Enum.Material.Slate, arena)
+		CollectionService:AddTag(wall, "Chomp_Wall")
+	end
+	for _, z in { -(hatch + WALL_T / 2), hatch + WALL_T / 2 } do
+		local wall = part("ShaftWall", Vector3.new(hatch * 2, shaftHeight, WALL_T),
+			CFrame.new(0, -shaftHeight / 2, z), P.BrickDark, Enum.Material.Slate, arena)
+		CollectionService:AddTag(wall, "Chomp_Wall")
+	end
+	part("GuardianFloor", Vector3.new(chamberHalf * 2, SLAB, chamberHalf * 2),
+		CFrame.new(0, chamberY, 0), P.BrickDark, Enum.Material.Slate, arena)
+	for _, x in { -chamberHalf, chamberHalf } do
+		local wall = part("GuardianWall", Vector3.new(WALL_T * 2, 30, chamberHalf * 2),
+			CFrame.new(x, chamberY + 15, 0), P.Boundary, Enum.Material.Cobblestone, arena)
+		CollectionService:AddTag(wall, "Chomp_Wall")
+	end
+	for _, z in { -chamberHalf, chamberHalf } do
+		local wall = part("GuardianWall", Vector3.new(chamberHalf * 2, 30, WALL_T * 2),
+			CFrame.new(0, chamberY + 15, z), P.Boundary, Enum.Material.Cobblestone, arena)
+		CollectionService:AddTag(wall, "Chomp_Wall")
+	end
+	for row, radius in { 42, 68 } do
+		local count = if row == 1 then 8 else 12
+		for i = 0, count - 1 do
+			local angle = TAU * (i / count) + row * 0.18
+			local block = part("ColosseumBlock", Vector3.new(12, 14, 9),
+				CFrame.new(onCircle(radius, angle, chamberY + 7)) * CFrame.Angles(0, -angle, 0),
+				row == 1 and P.Stone or P.Rust, Enum.Material.Cobblestone, arena)
+			CollectionService:AddTag(block, "Chomp_Wall")
+		end
+	end
 
 	-- ── Boundary: brick, taller than the rings, and unbroken ─────────────
 	-- Nothing is outside this. The guardian chamber is carved INTO the band
@@ -9418,7 +9788,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="152">
+      <Item class="Script" referent="153">
         <Properties>
           <string name="Name">MovementService</string>
           <token name="RunContext">0</token>
@@ -9573,7 +9943,7 @@ print("[MovementService] running — server owns the numbers, the client owns it
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="153">
+      <Item class="Script" referent="154">
         <Properties>
           <string name="Name">PelletService</string>
           <token name="RunContext">0</token>
@@ -9805,7 +10175,7 @@ print(("[PelletService] %d pellets laid, values %s, bank rate %.1f")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="154">
+      <Item class="Script" referent="155">
         <Properties>
           <string name="Name">PlayerSessionService</string>
           <token name="RunContext">0</token>
@@ -9934,7 +10304,7 @@ print("[PlayerSessionService] protected launch bay and deployment live")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="155">
+      <Item class="Script" referent="156">
         <Properties>
           <string name="Name">ProfileService</string>
           <token name="RunContext">0</token>
@@ -10133,7 +10503,7 @@ print("[ProfileService] versioned profiles live; Studio is ephemeral")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="156">
+      <Item class="Script" referent="157">
         <Properties>
           <string name="Name">TestMap</string>
           <token name="RunContext">0</token>
@@ -10306,7 +10676,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="157">
+      <Item class="Script" referent="158">
         <Properties>
           <string name="Name">VehicleService</string>
           <token name="RunContext">0</token>
@@ -10764,7 +11134,7 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="158">
+      <Item class="Script" referent="159">
         <Properties>
           <string name="Name">WorldLook</string>
           <token name="RunContext">0</token>
@@ -10822,15 +11192,15 @@ print("[WorldLook] sharp-edge night rig active")
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="159">
+  <Item class="ServerStorage" referent="160">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="160">
+    <Item class="Folder" referent="161">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="161">
+      <Item class="ModuleScript" referent="162">
         <Properties>
           <string name="Name">ItemModels</string>
           <string name="Source"><![CDATA[--!strict
@@ -11003,7 +11373,7 @@ return ItemModels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="162">
+      <Item class="ModuleScript" referent="163">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -11288,7 +11658,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="163">
+      <Item class="ModuleScript" referent="164">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -11547,11 +11917,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="164">
+      <Item class="Folder" referent="165">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="165">
+        <Item class="ModuleScript" referent="166">
           <Properties>
             <string name="Name">Apex</string>
             <string name="Source"><![CDATA[--!strict
@@ -11560,7 +11930,7 @@ return variant("Apex", Color3.fromRGB(96, 72, 176), Color3.fromRGB(255, 207, 55)
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="166">
+        <Item class="ModuleScript" referent="167">
           <Properties>
             <string name="Name">HeavyJaw</string>
             <string name="Source"><![CDATA[--!strict
@@ -11569,7 +11939,7 @@ return variant("HeavyJaw", Color3.fromRGB(238, 145, 26), Color3.fromRGB(255, 230
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="167">
+        <Item class="ModuleScript" referent="168">
           <Properties>
             <string name="Name">Ravener</string>
             <string name="Source"><![CDATA[--!strict
@@ -11578,7 +11948,7 @@ return variant("Ravener", Color3.fromRGB(208, 64, 104), Color3.fromRGB(95, 235, 
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="168">
+        <Item class="ModuleScript" referent="169">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -11688,7 +12058,7 @@ return {
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="169">
+        <Item class="ModuleScript" referent="170">
           <Properties>
             <string name="Name">Variant</string>
             <string name="Source"><![CDATA[--!strict
@@ -11732,15 +12102,15 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="170">
+  <Item class="StarterPlayer" referent="171">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="171">
+    <Item class="StarterPlayerScripts" referent="172">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="172">
+      <Item class="LocalScript" referent="173">
         <Properties>
           <string name="Name">AudioDirector</string>
           <string name="Source"><![CDATA[--!strict
@@ -11828,6 +12198,19 @@ if exploration then
 	exploration.Volume = 1
 	exploration:Play()
 end
+local guardianMusic = sound(Audio.Music.Guardian, musicGroup, true)
+if guardianMusic then guardianMusic.Volume = 1 end
+
+local function updateMusic(character: Model)
+	local inGuardian = character:GetAttribute("ChompInGuardianArena") == true
+	if inGuardian then
+		if exploration and exploration.IsPlaying then exploration:Stop() end
+		if guardianMusic and not guardianMusic.IsPlaying then guardianMusic:Play() end
+	else
+		if guardianMusic and guardianMusic.IsPlaying then guardianMusic:Stop() end
+		if exploration and not exploration.IsPlaying then exploration:Play() end
+	end
+end
 
 local seen: { [string]: number } = {}
 local pelletStep = 0
@@ -11846,6 +12229,10 @@ end
 local function bind(character: Model)
 	table.clear(seen)
 	pelletStep = 0
+	updateMusic(character)
+	character:GetAttributeChangedSignal("ChompInGuardianArena"):Connect(function()
+		updateMusic(character)
+	end)
 
 	character:GetAttributeChangedSignal("ChompGainedAt"):Connect(function()
 		if not changed(character, "ChompGainedAt") then return end
@@ -11899,7 +12286,7 @@ player.CharacterAdded:Connect(bind)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="173">
+      <Item class="LocalScript" referent="174">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -12151,7 +12538,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="174">
+      <Item class="LocalScript" referent="175">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -12292,7 +12679,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="175">
+      <Item class="LocalScript" referent="176">
         <Properties>
           <string name="Name">ChompHud</string>
           <string name="Source"><![CDATA[--!strict
@@ -12518,7 +12905,7 @@ local chargeButton = Instance.new("TextButton")
 chargeButton.Name = "ChargeButton"
 chargeButton.AnchorPoint = Vector2.new(0, 1)
 chargeButton.Position = UDim2.new(0, 20, 1, -20)
-chargeButton.Size = UDim2.new(0, 150, 0, 150)
+chargeButton.Size = UDim2.new(0, 190, 0, 140)
 chargeButton.BackgroundColor3 = P.Floor
 chargeButton.BackgroundTransparency = 0.15
 chargeButton.BorderSizePixel = 0
@@ -12526,7 +12913,7 @@ chargeButton.Text = ""
 chargeButton.AutoButtonColor = false
 chargeButton.Parent = gui
 local cbCorner = Instance.new("UICorner")
-cbCorner.CornerRadius = UDim.new(1, 0)
+cbCorner.CornerRadius = UDim.new(0, 12)
 cbCorner.Parent = chargeButton
 
 -- The fill rises from the bottom, because a meter that fills upward is one
@@ -12542,14 +12929,14 @@ chargeFill.BorderSizePixel = 0
 chargeFill.ZIndex = 0
 chargeFill.Parent = chargeButton
 local cfCorner = Instance.new("UICorner")
-cfCorner.CornerRadius = UDim.new(1, 0)
+cfCorner.CornerRadius = UDim.new(0, 12)
 cfCorner.Parent = chargeFill
 
 local chargeLabel = Instance.new("TextLabel")
 chargeLabel.Name = "Word"
 chargeLabel.BackgroundTransparency = 1
 chargeLabel.Size = UDim2.new(1, -40, 0, 40)
-chargeLabel.Position = UDim2.new(0, 20, 0, 48)
+chargeLabel.Position = UDim2.new(0, 20, 0, 36)
 chargeLabel.Text = "CHARGE"
 chargeLabel.TextColor3 = P.Ghost
 chargeLabel.TextScaled = true
@@ -12565,7 +12952,7 @@ local chargePercent = Instance.new("TextLabel")
 chargePercent.Name = "Percent"
 chargePercent.BackgroundTransparency = 1
 chargePercent.Size = UDim2.new(1, -40, 0, 22)
-chargePercent.Position = UDim2.new(0, 20, 0, 86)
+chargePercent.Position = UDim2.new(0, 20, 0, 80)
 chargePercent.Text = "0%"
 chargePercent.TextColor3 = P.NeonA
 chargePercent.TextSize = 18
@@ -12597,8 +12984,8 @@ chargeButton.Activated:Connect(pressCharge)
 local ffButton = Instance.new("TextButton")
 ffButton.Name = "FriendlyFire"
 ffButton.AnchorPoint = Vector2.new(0, 1)
-ffButton.Position = UDim2.new(0, 20, 1, -184)
-ffButton.Size = UDim2.new(0, 150, 0, 52)
+ffButton.Position = UDim2.new(0, 20, 1, -174)
+ffButton.Size = UDim2.new(0, 190, 0, 48)
 ffButton.BackgroundColor3 = P.Floor
 ffButton.BackgroundTransparency = 0.15
 ffButton.BorderSizePixel = 0
@@ -12629,6 +13016,40 @@ local objective = label(centre, UDim2.new(1, -20, 1, -12), UDim2.new(0, 10, 0, 6
 local wavePanel = panel("Wave", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 72), UDim2.new(0, 200, 0, 38))
 local waveLabel = label(wavePanel, UDim2.new(1, -20, 1, -10), UDim2.new(0, 10, 0, 5),
 	"WAVE 1", P.Ghost, 18, Enum.TextXAlignment.Center)
+
+-- All seven permanent upgrade levels remain visible while driving. The player
+-- should never have to remember what they bought when deciding whether to
+-- enter the guardian hatch.
+local levelPanel = panel("Levels", Vector2.new(0.5, 0),
+	UDim2.new(0.5, 0, 0, 118), UDim2.new(0, 520, 0, 48))
+local powerLabel = label(levelPanel, UDim2.new(0, 90, 1, 0), UDim2.new(0, 8, 0, 0),
+	"POWER 100", P.Gold, 14, Enum.TextXAlignment.Left)
+local levelLabels: { [string]: TextLabel } = {}
+local shortNames = { Engine = "ENG", Handling = "TURN", Armour = "ARM",
+	Cannon = "GUN", Ordnance = "BOMB", Jump = "JUMP", Boost = "BOOST" }
+for index, track in Config.Upgrades.Tracks do
+	local t = label(levelPanel, UDim2.new(0, 58, 1, 0),
+		UDim2.new(0, 98 + (index - 1) * 59, 0, 0), shortNames[track] .. " 0",
+		P.Ghost, 12, Enum.TextXAlignment.Center)
+	levelLabels[track] = t
+end
+
+local guardianPanel = panel("Guardian", Vector2.new(0.5, 0),
+	UDim2.new(0.5, 0, 0, 174), UDim2.new(0, 420, 0, 46))
+local guardianLabel = label(guardianPanel, UDim2.new(1, -20, 0, 20), UDim2.new(0, 10, 0, 3),
+	"GUARDIAN", P.Gold, 15, Enum.TextXAlignment.Center)
+local guardianBack = Instance.new("Frame")
+guardianBack.Position = UDim2.new(0, 10, 0, 28)
+guardianBack.Size = UDim2.new(1, -20, 0, 10)
+guardianBack.BackgroundColor3 = P.BrickDark
+guardianBack.BorderSizePixel = 0
+guardianBack.Parent = guardianPanel
+local guardianFill = Instance.new("Frame")
+guardianFill.Size = UDim2.fromScale(1, 1)
+guardianFill.BackgroundColor3 = P.Danger
+guardianFill.BorderSizePixel = 0
+guardianFill.Parent = guardianBack
+guardianPanel.Visible = false
 
 -- Loadout controls only appear in a sanctuary. Licences are permanent, but a
 -- chassis can power only as many active systems as it has physical ports.
@@ -12762,7 +13183,16 @@ RunService.RenderStepped:Connect(function(dt)
 	-- the thing worth being told about.
 	-- Safe outranks everything, including a big carry: the whole reason to know
 	-- you are safe is that you were not a moment ago (D-CHOMP-065).
-	if character:GetAttribute("ChompSafe") == true then
+	local inGuardian = character:GetAttribute("ChompInGuardianArena") == true
+	local power = attribute("ChompPower")
+	local requiredPower = attribute("ChompGuardianRequiredPower")
+	if inGuardian and power < requiredPower then
+		objective.Text = "POWER " .. tostring(requiredPower) .. " REQUIRED"
+		objective.TextColor3 = P.Danger
+	elseif inGuardian then
+		objective.Text = "DESTROY THE GUARDIAN"
+		objective.TextColor3 = P.Gold
+	elseif character:GetAttribute("ChompSafe") == true then
 		objective.Text = "SAFE — SHOP OR BANK"
 		objective.TextColor3 = P.Shield
 	elseif carried >= 250 then
@@ -12790,7 +13220,9 @@ RunService.RenderStepped:Connect(function(dt)
 	chargeFill.BackgroundColor3 = ready and P.Gold or P.NeonA
 	chargeLabel.Text = ready and "JUMP" or "CHARGE"
 	chargeLabel.TextColor3 = ready and P.Floor or P.Ghost
-	chargePercent.Text = ready and "TAP TO JUMP" or (math.floor(progress * 100) .. "%")
+	local jumpLevel = attribute("ChompUpgradeJump")
+	chargePercent.Text = "LV " .. tostring(jumpLevel) .. "  •  "
+		.. (ready and "TAP TO JUMP" or (math.floor(progress * 100) .. "%"))
 	chargePercent.TextColor3 = ready and P.Floor or P.NeonA
 	chargeButton.BackgroundTransparency = ready and 0.05 or 0.15
 
@@ -12823,6 +13255,25 @@ RunService.RenderStepped:Connect(function(dt)
 	local waveAlive = attribute("ChompWaveAlive")
 	waveLabel.Text = (waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1")
 		.. "  •  " .. tostring(waveAlive) .. " LEFT"
+	wavePanel.Visible = not inGuardian
+
+	powerLabel.Text = "POWER " .. tostring(math.floor(power))
+	for _, track in Config.Upgrades.Tracks do
+		local level = (player:GetAttribute("ChompUpgrade" .. track) :: number?) or 0
+		levelLabels[track].Text = shortNames[track] .. " " .. tostring(level)
+		levelLabels[track].TextColor3 = level > 0 and P.NeonA or P.Boundary
+	end
+
+	guardianPanel.Visible = inGuardian
+	if inGuardian then
+		local guardianLevel = attribute("ChompGuardianLevel")
+		local health = attribute("ChompGuardianHealth")
+		local maxHealth = math.max(1, attribute("ChompGuardianMaxHealth"))
+		guardianLabel.Text = "GUARDIAN " .. tostring(guardianLevel) .. "  •  "
+			.. tostring(math.ceil(health)) .. "/" .. tostring(math.ceil(maxHealth))
+		guardianFill.Size = UDim2.new(math.clamp(health / maxHealth, 0, 1), 0, 1, 0)
+		guardianFill.BackgroundColor3 = power >= requiredPower and P.Danger or P.Boundary
+	end
 
 	local safe = character:GetAttribute("ChompSafe") == true
 	modulePanel.Visible = safe
@@ -12880,7 +13331,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="176">
+      <Item class="LocalScript" referent="177">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -13141,7 +13592,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="177">
+      <Item class="LocalScript" referent="178">
         <Properties>
           <string name="Name">LaunchBay</string>
           <string name="Source"><![CDATA[--!strict
@@ -13232,7 +13683,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="178">
+      <Item class="LocalScript" referent="179">
         <Properties>
           <string name="Name">PickupFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -13349,7 +13800,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="179">
+      <Item class="LocalScript" referent="180">
         <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
@@ -13443,7 +13894,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="180">
+      <Item class="LocalScript" referent="181">
         <Properties>
           <string name="Name">ShopFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -13562,7 +14013,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="181">
+      <Item class="LocalScript" referent="182">
         <Properties>
           <string name="Name">TargetReticle</string>
           <string name="Source"><![CDATA[--!strict
@@ -13686,7 +14137,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="182">
+      <Item class="LocalScript" referent="183">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -13844,7 +14295,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="183">
+      <Item class="LocalScript" referent="184">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -13991,7 +14442,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="184">
+  <Item class="Workspace" referent="185">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

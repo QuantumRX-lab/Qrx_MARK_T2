@@ -120,19 +120,71 @@ local function build()
 	local rings = Instance.new("Folder"); rings.Name = "Rings"; rings.Parent = map
 	local bays = Instance.new("Folder"); bays.Name = "Garages"; bays.Parent = map
 
-	-- ── Floor: one disc, and a lighter disc marking the centre arena ─────
-	local floor = part("Floor", Vector3.new(SLAB, L.OuterRadius * 2, L.OuterRadius * 2),
-		CFrame.new(0, 0, 0) * CFrame.Angles(0, 0, math.rad(90)),
-		P.Floor, Enum.Material.Concrete, map)
-	floor.Shape = Enum.PartType.Cylinder
+	-- ── Floor and centre hatch ───────────────────────────────────────────
+	-- Four slabs leave a real opening. A single cylinder can look like a hole,
+	-- but it cannot contain one, and the guardian entrance must be physical.
+	local diameter = L.OuterRadius * 2
+	local hatch = Config.Guardian.HatchHalfStuds
+	local sideDepth = L.OuterRadius - hatch
+	for _, z in { -(hatch + sideDepth / 2), hatch + sideDepth / 2 } do
+		part("Floor", Vector3.new(diameter, SLAB, sideDepth),
+			CFrame.new(0, 0, z), P.Floor, Enum.Material.Concrete, map)
+	end
+	for _, x in { -(hatch + sideDepth / 2), hatch + sideDepth / 2 } do
+		part("Floor", Vector3.new(sideDepth, SLAB, hatch * 2),
+			CFrame.new(x, 0, 0), P.Floor, Enum.Material.Concrete, map)
+	end
 
-	local centre = part("CentreFloor", Vector3.new(0.6, L.CentreRadius * 2, L.CentreRadius * 2),
-		CFrame.new(0, SLAB / 2 + 0.3, 0) * CFrame.Angles(0, 0, math.rad(90)),
-		P.FloorCentre, Enum.Material.Neon, map)
-	centre.Shape = Enum.PartType.Cylinder
-	centre.Transparency = 0.55
-	centre.CanCollide = false
-	CollectionService:AddTag(centre, "Chomp_Decor")
+	local rimWidth = 3
+	for _, z in { -hatch, hatch } do
+		local rim = part("GuardianHatchRim", Vector3.new(hatch * 2 + rimWidth * 2, 0.6, rimWidth),
+			CFrame.new(0, SLAB / 2 + 0.3, z), P.Danger, Enum.Material.Neon, map)
+		rim.CanCollide = false
+	end
+	for _, x in { -hatch, hatch } do
+		local rim = part("GuardianHatchRim", Vector3.new(rimWidth, 0.6, hatch * 2),
+			CFrame.new(x, SLAB / 2 + 0.3, 0), P.Danger, Enum.Material.Neon, map)
+		rim.CanCollide = false
+	end
+
+	-- The shaft and chamber are authored as map geometry so bullets, vehicles,
+	-- camera occlusion, and ghosts all agree about what is solid.
+	local arena = Instance.new("Folder"); arena.Name = "GuardianArena"; arena.Parent = map
+	local chamberY = Config.Guardian.ChamberY
+	local chamberHalf = Config.Guardian.ChamberHalfStuds
+	local shaftHeight = math.abs(chamberY) - 12
+	for _, x in { -(hatch + WALL_T / 2), hatch + WALL_T / 2 } do
+		local wall = part("ShaftWall", Vector3.new(WALL_T, shaftHeight, hatch * 2 + WALL_T * 2),
+			CFrame.new(x, -shaftHeight / 2, 0), P.BrickDark, Enum.Material.Slate, arena)
+		CollectionService:AddTag(wall, "Chomp_Wall")
+	end
+	for _, z in { -(hatch + WALL_T / 2), hatch + WALL_T / 2 } do
+		local wall = part("ShaftWall", Vector3.new(hatch * 2, shaftHeight, WALL_T),
+			CFrame.new(0, -shaftHeight / 2, z), P.BrickDark, Enum.Material.Slate, arena)
+		CollectionService:AddTag(wall, "Chomp_Wall")
+	end
+	part("GuardianFloor", Vector3.new(chamberHalf * 2, SLAB, chamberHalf * 2),
+		CFrame.new(0, chamberY, 0), P.BrickDark, Enum.Material.Slate, arena)
+	for _, x in { -chamberHalf, chamberHalf } do
+		local wall = part("GuardianWall", Vector3.new(WALL_T * 2, 30, chamberHalf * 2),
+			CFrame.new(x, chamberY + 15, 0), P.Boundary, Enum.Material.Cobblestone, arena)
+		CollectionService:AddTag(wall, "Chomp_Wall")
+	end
+	for _, z in { -chamberHalf, chamberHalf } do
+		local wall = part("GuardianWall", Vector3.new(chamberHalf * 2, 30, WALL_T * 2),
+			CFrame.new(0, chamberY + 15, z), P.Boundary, Enum.Material.Cobblestone, arena)
+		CollectionService:AddTag(wall, "Chomp_Wall")
+	end
+	for row, radius in { 42, 68 } do
+		local count = if row == 1 then 8 else 12
+		for i = 0, count - 1 do
+			local angle = TAU * (i / count) + row * 0.18
+			local block = part("ColosseumBlock", Vector3.new(12, 14, 9),
+				CFrame.new(onCircle(radius, angle, chamberY + 7)) * CFrame.Angles(0, -angle, 0),
+				row == 1 and P.Stone or P.Rust, Enum.Material.Cobblestone, arena)
+			CollectionService:AddTag(block, "Chomp_Wall")
+		end
+	end
 
 	-- ── Boundary: brick, taller than the rings, and unbroken ─────────────
 	-- Nothing is outside this. The guardian chamber is carved INTO the band

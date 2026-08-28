@@ -83,6 +83,19 @@ if exploration then
 	exploration.Volume = 1
 	exploration:Play()
 end
+local guardianMusic = sound(Audio.Music.Guardian, musicGroup, true)
+if guardianMusic then guardianMusic.Volume = 1 end
+
+local function updateMusic(character: Model)
+	local inGuardian = character:GetAttribute("ChompInGuardianArena") == true
+	if inGuardian then
+		if exploration and exploration.IsPlaying then exploration:Stop() end
+		if guardianMusic and not guardianMusic.IsPlaying then guardianMusic:Play() end
+	else
+		if guardianMusic and guardianMusic.IsPlaying then guardianMusic:Stop() end
+		if exploration and not exploration.IsPlaying then exploration:Play() end
+	end
+end
 
 local seen: { [string]: number } = {}
 local pelletStep = 0
@@ -101,6 +114,10 @@ end
 local function bind(character: Model)
 	table.clear(seen)
 	pelletStep = 0
+	updateMusic(character)
+	character:GetAttributeChangedSignal("ChompInGuardianArena"):Connect(function()
+		updateMusic(character)
+	end)
 
 	character:GetAttributeChangedSignal("ChompGainedAt"):Connect(function()
 		if not changed(character, "ChompGainedAt") then return end

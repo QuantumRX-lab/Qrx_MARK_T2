@@ -71,10 +71,10 @@ local function part(name: string, size: Vector3, cf: CFrame, colour: Color3,
 	return p
 end
 
-local function priceLabel(plinth: BasePart, title: string, dollars: number, robux: number?)
+local function priceLabel(plinth: BasePart, title: string, dollars: number, robux: number?, prominent: boolean?)
 	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.new(0, 220, 0, 96)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, 12, 0)
+	gui.Size = if prominent then UDim2.new(0, 340, 0, 128) else UDim2.new(0, 220, 0, 96)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, prominent and 22 or 12, 0)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = 600
 	gui.Adornee = plinth
@@ -109,8 +109,14 @@ local function priceLabel(plinth: BasePart, title: string, dollars: number, robu
 		t.Parent = gui
 	end
 
-	line(title, P.Ghost, 22, 0, Enum.Font.GothamBlack)
-	line("$" .. tostring(dollars), P.Gold, 26, 26, Enum.Font.GothamBold)
+	line(title, P.Ghost, prominent and 30 or 22, 0, Enum.Font.GothamBlack)
+	local price = tostring(math.floor(dollars))
+	repeat
+		local changed
+		price, changed = string.gsub(price, "^(-?%d+)(%d%d%d)", "%1,%2")
+	until changed == 0
+	line("$" .. price, P.Gold, prominent and 36 or 26,
+		prominent and 38 or 26, Enum.Font.GothamBold)
 	-- Robux lines are OFF (D-CHOMP-066, LAUNCH-READINESS P0). They never charged
 	-- anyone - the store has always been dollars-only - so every one of them was
 	-- an advertisement for a purchase that does not exist, priced in real money,
@@ -219,7 +225,8 @@ local function offers(): { Offer }
 	for id, chassis in Config.Chassis do
 		if chassis.Cost and chassis.Cost > 0 then
 			table.insert(out, {
-				id = id, kind = "chassis", title = id,
+				id = id, kind = "chassis",
+				title = string.upper(id) .. "  •  TIER " .. tostring(chassis.Tier),
 				dollars = chassis.Cost, robux = STORE.RobuxPrice[id],
 			})
 		end
@@ -312,8 +319,11 @@ local function build(): number
 		local pos = Vector3.new(math.cos(a) * rowRadius, 0, math.sin(a) * rowRadius)
 		local facing = CFrame.Angles(0, -a, 0)
 
-		local base = part("Plinth", Vector3.new(9, 6, 9),
-			CFrame.new(pos + Vector3.new(0, 3, 0)) * facing,
+		local hero = offer.kind == "chassis"
+		local baseSize = if hero then 18 else 9
+		local baseHeight = if hero then 8 else 6
+		local base = part("Plinth", Vector3.new(baseSize, baseHeight, baseSize),
+			CFrame.new(pos + Vector3.new(0, baseHeight / 2, 0)) * facing,
 			P.BrickDark, Enum.Material.Metal, folder)
 		-- The glow says WHAT KIND of thing this is before you can read the sign:
 		-- gold for a vehicle, the item's own colour for a weapon, teal for a
@@ -321,8 +331,8 @@ local function build(): number
 		local glowColour = if offer.kind == "chassis" then P.Gold
 			elseif offer.kind == "item" then ItemModels.colour(offer.id)
 			else P.NeonA
-		local glow = part("PlinthGlow", Vector3.new(9.4, 0.6, 9.4),
-			CFrame.new(pos + Vector3.new(0, 6.2, 0)) * facing,
+		local glow = part("PlinthGlow", Vector3.new(baseSize + 0.4, 0.6, baseSize + 0.4),
+			CFrame.new(pos + Vector3.new(0, baseHeight + 0.2, 0)) * facing,
 			glowColour, Enum.Material.Neon, folder)
 		glow.CanCollide = false
 		local light = Instance.new("PointLight")
@@ -358,7 +368,8 @@ local function build(): number
 							CollectionService:AddTag(d, "Chomp_Decor")
 						end
 					end
-					model:PivotTo(CFrame.new(pos + Vector3.new(0, 9, 0)) * facing)
+					model:ScaleTo(1.8)
+					model:PivotTo(CFrame.new(pos + Vector3.new(0, 14, 0)) * facing)
 					model.Parent = folder
 				end
 			end
@@ -380,7 +391,7 @@ local function build(): number
 			model.Parent = folder
 		end
 
-		priceLabel(base, offer.title, offer.dollars, offer.robux)
+		priceLabel(base, offer.title, offer.dollars, offer.robux, hero)
 		table.insert(plinths, { part = base, offer = offer })
 	end
 	return #plinths
