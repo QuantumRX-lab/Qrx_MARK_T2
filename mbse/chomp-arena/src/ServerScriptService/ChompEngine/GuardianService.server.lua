@@ -97,7 +97,7 @@ local function publish(model: Model, level: number, health: number, maxHealth: n
 			character:SetAttribute("ChompGuardianMaxHealth", maxHealth)
 			character:SetAttribute("ChompGuardianRequiredPower", G.RequiredPower)
 			character:SetAttribute("ChompInGuardianArena",
-				(character:GetPivot().Position.Y < G.ChamberY + 45))
+				(character:GetPivot().Position.Y < G.RevealY))
 		end
 	end
 	model:SetAttribute("GuardianLevel", level)
@@ -130,11 +130,14 @@ local pickupPlan = {
 	{ id = "Cannon", angle = 0 }, { id = "HomingBomb", angle = math.pi / 2 },
 	{ id = "Cannon", angle = math.pi }, { id = "Shield", angle = math.pi * 1.5 },
 	{ id = "JetPack", angle = math.pi * 0.25 },
+	{ id = "Cannon", angle = math.pi * 0.75 },
+	{ id = "HomingBomb", angle = math.pi * 1.25 },
+	{ id = "Shield", angle = math.pi * 1.75 },
 }
 
 for _, entry in pickupPlan do
-	local position = Vector3.new(math.cos(entry.angle) * 56, G.ChamberY + 3,
-		math.sin(entry.angle) * 56)
+	local position = Vector3.new(math.cos(entry.angle) * G.PickupRadiusStuds, G.ChamberY + 3,
+		math.sin(entry.angle) * G.PickupRadiusStuds)
 	local holder = Instance.new("Model")
 	holder.Name = "GuardianPickup_" .. entry.id
 	holder.Parent = pickupFolder
@@ -180,18 +183,18 @@ local level = 0
 local guardian: Model? = nil
 local currentHealth = 0
 local maxHealth = 0
-local position = Vector3.new(0, G.ChamberY + 17, 0)
+local position = Vector3.new(0, G.ChamberY + 17, G.GuardianStartZ)
 local contactAt: { [Player]: number } = {}
 
 local function spawnGuardian()
 	level += 1
 	maxHealth = G.BaseHealth + G.HealthPerVictory * (level - 1)
 	currentHealth = maxHealth
-	position = Vector3.new(0, G.ChamberY + 17, 0)
+	position = Vector3.new(0, G.ChamberY + 17, G.GuardianStartZ)
 	local model = guardianModel()
 	guardian = model
 	model:SetAttribute("Health", maxHealth)
-	model:PivotTo(CFrame.new(position))
+	model:PivotTo(CFrame.lookAt(position, Vector3.new(0, position.Y, 0)))
 	model.Parent = ghostFolder
 	publish(model, level, currentHealth, maxHealth)
 
@@ -244,7 +247,7 @@ RunService.Heartbeat:Connect(function(dt)
 			if distance < nearest then nearest, target = distance, root end
 		end
 	end
-	local look = Vector3.new(0, 0, -1)
+	local look = Vector3.new(0, 0, 1)
 	if target then
 		local flat = Vector3.new(target.Position.X - position.X, 0, target.Position.Z - position.Z)
 		if flat.Magnitude > 0.1 then

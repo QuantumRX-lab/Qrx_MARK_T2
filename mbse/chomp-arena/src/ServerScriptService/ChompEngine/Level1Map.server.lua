@@ -152,7 +152,7 @@ local function build()
 	local arena = Instance.new("Folder"); arena.Name = "GuardianArena"; arena.Parent = map
 	local chamberY = Config.Guardian.ChamberY
 	local chamberHalf = Config.Guardian.ChamberHalfStuds
-	local shaftHeight = math.abs(chamberY) - 12
+	local shaftHeight = Config.Guardian.ShaftLengthStuds
 	for _, x in { -(hatch + WALL_T / 2), hatch + WALL_T / 2 } do
 		local wall = part("ShaftWall", Vector3.new(WALL_T, shaftHeight, hatch * 2 + WALL_T * 2),
 			CFrame.new(x, -shaftHeight / 2, 0), P.BrickDark, Enum.Material.Slate, arena)
@@ -166,24 +166,45 @@ local function build()
 	part("GuardianFloor", Vector3.new(chamberHalf * 2, SLAB, chamberHalf * 2),
 		CFrame.new(0, chamberY, 0), P.BrickDark, Enum.Material.Slate, arena)
 	for _, x in { -chamberHalf, chamberHalf } do
-		local wall = part("GuardianWall", Vector3.new(WALL_T * 2, 30, chamberHalf * 2),
-			CFrame.new(x, chamberY + 15, 0), P.Boundary, Enum.Material.Cobblestone, arena)
+		local wall = part("GuardianWall", Vector3.new(WALL_T * 2, 48, chamberHalf * 2),
+			CFrame.new(x, chamberY + 24, 0), P.Boundary, Enum.Material.Cobblestone, arena)
 		CollectionService:AddTag(wall, "Chomp_Wall")
 	end
 	for _, z in { -chamberHalf, chamberHalf } do
-		local wall = part("GuardianWall", Vector3.new(chamberHalf * 2, 30, WALL_T * 2),
-			CFrame.new(0, chamberY + 15, z), P.Boundary, Enum.Material.Cobblestone, arena)
+		local wall = part("GuardianWall", Vector3.new(chamberHalf * 2, 48, WALL_T * 2),
+			CFrame.new(0, chamberY + 24, z), P.Boundary, Enum.Material.Cobblestone, arena)
 		CollectionService:AddTag(wall, "Chomp_Wall")
 	end
-	for row, radius in { 42, 68 } do
-		local count = if row == 1 then 8 else 12
+	for row, radius in Config.Guardian.CoverRadii do
+		local count = if row == 1 then 10 else 16
 		for i = 0, count - 1 do
 			local angle = TAU * (i / count) + row * 0.18
-			local block = part("ColosseumBlock", Vector3.new(12, 14, 9),
-				CFrame.new(onCircle(radius, angle, chamberY + 7)) * CFrame.Angles(0, -angle, 0),
+			local block = part("ColosseumBlock", Vector3.new(18, 20, 12),
+				CFrame.new(onCircle(radius, angle, chamberY + 10)) * CFrame.Angles(0, -angle, 0),
 				row == 1 and P.Stone or P.Rust, Enum.Material.Cobblestone, arena)
 			CollectionService:AddTag(block, "Chomp_Wall")
 		end
+	end
+
+	-- Broad pools of light keep the cavern readable without flattening it into
+	-- daylight. The far pair silhouette the guardian during the open fall.
+	for i, angle in { 0, math.pi / 2, math.pi, math.pi * 1.5 } do
+		local position = onCircle(chamberHalf - 28, angle, chamberY + 18)
+		local tower = part("CavernLight", Vector3.new(7, 36, 7), CFrame.new(position),
+			i % 2 == 0 and P.NeonA or P.Gold, Enum.Material.Neon, arena)
+		tower.CanCollide = false
+		local light = Instance.new("PointLight")
+		light.Color = tower.Color
+		light.Brightness = 4.5
+		light.Range = 190
+		light.Shadows = true
+		light.Parent = tower
+	end
+	for _, x in { -1, 1 } do
+		local guide = part("LandingGuide", Vector3.new(3, 0.5, 110),
+			CFrame.new(x * 18, chamberY + SLAB / 2 + 0.3, -48),
+			P.NeonA, Enum.Material.Neon, arena)
+		guide.CanCollide = false
 	end
 
 	-- ── Boundary: brick, taller than the rings, and unbroken ─────────────

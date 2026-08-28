@@ -27,13 +27,9 @@ local camera = workspace.CurrentCamera
 
 -- ── Fixed world-space offset ────────────────────────────────────────────
 -- Yaw is locked, so this vector never changes. North is always up.
-local pitch = math.rad(C.PitchDegrees)
-local OFFSET = Vector3.new(0, math.sin(pitch) * C.Distance, math.cos(pitch) * C.Distance)
-
--- To sit the vehicle at TargetScreenHeight (below centre) the camera looks
--- slightly above it. Roblox FieldOfView is vertical, so the angular offset is
--- the fraction of the screen we want to shift by, times the vertical FOV.
-local FOCUS_RAISE = math.tan(math.rad((C.TargetScreenHeight - 0.5) * C.FieldOfView)) * C.Distance
+local cameraPitch = C.PitchDegrees
+local cameraDistance = C.Distance
+local cameraFov = C.FieldOfView
 
 -- ── Critically damped spring for deck changes ───────────────────────────
 -- Critically damped, not linear and not bouncy: a linear ease lurches at both
@@ -193,7 +189,16 @@ local function onRenderStep(dt: number)
 	end
 
 	camera.CameraType = Enum.CameraType.Scriptable
-	camera.FieldOfView = C.FieldOfView
+	local inGuardian = character:GetAttribute("ChompInGuardianArena") == true
+	local blend = math.clamp(dt / C.GuardianTransitionSeconds, 0, 1)
+	cameraPitch += ((inGuardian and C.GuardianPitchDegrees or C.PitchDegrees) - cameraPitch) * blend
+	cameraDistance += ((inGuardian and C.GuardianDistance or C.Distance) - cameraDistance) * blend
+	cameraFov += ((inGuardian and C.GuardianFieldOfView or C.FieldOfView) - cameraFov) * blend
+	camera.FieldOfView = cameraFov
+	local pitch = math.rad(cameraPitch)
+	local offset = Vector3.new(0, math.sin(pitch) * cameraDistance,
+		math.cos(pitch) * cameraDistance)
+	local focusRaise = math.tan(math.rad((C.TargetScreenHeight - 0.5) * cameraFov)) * cameraDistance
 
 	-- Deck is derived from height, so a fall eases down exactly as a ramp
 	-- eases up. No jump cuts, including when a player falls (CHOMP-SYS-049).
@@ -223,9 +228,9 @@ local function onRenderStep(dt: number)
 
 	local focus = Vector3.new(followX, deckY, followZ)
 		+ aheadVector
-		+ Vector3.new(0, FOCUS_RAISE, 0)
+		+ Vector3.new(0, focusRaise, 0)
 
-	local position = focus + OFFSET + shakeOffset()
+	local position = focus + offset + shakeOffset()
 	camera.CFrame = CFrame.lookAt(position, focus)
 
 	local obscuring = camera:GetPartsObscuringTarget({ root.Position }, { character })

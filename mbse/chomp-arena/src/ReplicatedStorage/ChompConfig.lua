@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.3.0-alpha"
+ChompConfig.ReleaseVersion = "0.3.1-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -270,9 +270,14 @@ ChompConfig.Guardian = {
 	ContactDamage = 28,
 	ContactRadiusStuds = 20,
 	ContactCooldownSeconds = 1.5,
-	ChamberY = -96,
-	ChamberHalfStuds = 100,
-	HatchHalfStuds = 28,
+	ChamberY = -260,
+	ChamberHalfStuds = 200,
+	HatchHalfStuds = 15,
+	ShaftLengthStuds = 80,
+	RevealY = -80,
+	GuardianStartZ = -150,
+	CoverRadii = { 82, 142 },
+	PickupRadiusStuds = 112,
 	PickupRespawnSeconds = 8,
 }
 
@@ -675,6 +680,10 @@ ChompConfig.Camera = {
 	PitchDegrees = 38,
 	Distance = 34,
 	FieldOfView = 75,
+	GuardianPitchDegrees = 46,
+	GuardianDistance = 58,
+	GuardianFieldOfView = 82,
+	GuardianTransitionSeconds = 0.6,
 	TargetScreenHeight = 0.55,    -- vehicle sits slightly below centre
 	LookAheadStuds = 5,
 	LookAheadEaseSeconds = 0.45,  -- the look-ahead must NOT snap round with the vehicle

@@ -27,7 +27,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.3.0-alpha"
+ChompConfig.ReleaseVersion = "0.3.1-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -278,9 +278,14 @@ ChompConfig.Guardian = {
 	ContactDamage = 28,
 	ContactRadiusStuds = 20,
 	ContactCooldownSeconds = 1.5,
-	ChamberY = -96,
-	ChamberHalfStuds = 100,
-	HatchHalfStuds = 28,
+	ChamberY = -260,
+	ChamberHalfStuds = 200,
+	HatchHalfStuds = 15,
+	ShaftLengthStuds = 80,
+	RevealY = -80,
+	GuardianStartZ = -150,
+	CoverRadii = { 82, 142 },
+	PickupRadiusStuds = 112,
 	PickupRespawnSeconds = 8,
 }
 
@@ -683,6 +688,10 @@ ChompConfig.Camera = {
 	PitchDegrees = 38,
 	Distance = 34,
 	FieldOfView = 75,
+	GuardianPitchDegrees = 46,
+	GuardianDistance = 58,
+	GuardianFieldOfView = 82,
+	GuardianTransitionSeconds = 0.6,
 	TargetScreenHeight = 0.55,    -- vehicle sits slightly below centre
 	LookAheadStuds = 5,
 	LookAheadEaseSeconds = 0.45,  -- the look-ahead must NOT snap round with the vehicle
@@ -8216,7 +8225,7 @@ local function publish(model: Model, level: number, health: number, maxHealth: n
 			character:SetAttribute("ChompGuardianMaxHealth", maxHealth)
 			character:SetAttribute("ChompGuardianRequiredPower", G.RequiredPower)
 			character:SetAttribute("ChompInGuardianArena",
-				(character:GetPivot().Position.Y < G.ChamberY + 45))
+				(character:GetPivot().Position.Y < G.RevealY))
 		end
 	end
 	model:SetAttribute("GuardianLevel", level)
@@ -8249,11 +8258,14 @@ local pickupPlan = {
 	{ id = "Cannon", angle = 0 }, { id = "HomingBomb", angle = math.pi / 2 },
 	{ id = "Cannon", angle = math.pi }, { id = "Shield", angle = math.pi * 1.5 },
 	{ id = "JetPack", angle = math.pi * 0.25 },
+	{ id = "Cannon", angle = math.pi * 0.75 },
+	{ id = "HomingBomb", angle = math.pi * 1.25 },
+	{ id = "Shield", angle = math.pi * 1.75 },
 }
 
 for _, entry in pickupPlan do
-	local position = Vector3.new(math.cos(entry.angle) * 56, G.ChamberY + 3,
-		math.sin(entry.angle) * 56)
+	local position = Vector3.new(math.cos(entry.angle) * G.PickupRadiusStuds, G.ChamberY + 3,
+		math.sin(entry.angle) * G.PickupRadiusStuds)
 	local holder = Instance.new("Model")
 	holder.Name = "GuardianPickup_" .. entry.id
 	holder.Parent = pickupFolder
@@ -8299,18 +8311,18 @@ local level = 0
 local guardian: Model? = nil
 local currentHealth = 0
 local maxHealth = 0
-local position = Vector3.new(0, G.ChamberY + 17, 0)
+local position = Vector3.new(0, G.ChamberY + 17, G.GuardianStartZ)
 local contactAt: { [Player]: number } = {}
 
 local function spawnGuardian()
 	level += 1
 	maxHealth = G.BaseHealth + G.HealthPerVictory * (level - 1)
 	currentHealth = maxHealth
-	position = Vector3.new(0, G.ChamberY + 17, 0)
+	position = Vector3.new(0, G.ChamberY + 17, G.GuardianStartZ)
 	local model = guardianModel()
 	guardian = model
 	model:SetAttribute("Health", maxHealth)
-	model:PivotTo(CFrame.new(position))
+	model:PivotTo(CFrame.lookAt(position, Vector3.new(0, position.Y, 0)))
 	model.Parent = ghostFolder
 	publish(model, level, currentHealth, maxHealth)
 
@@ -8363,7 +8375,7 @@ RunService.Heartbeat:Connect(function(dt)
 			if distance < nearest then nearest, target = distance, root end
 		end
 	end
-	local look = Vector3.new(0, 0, -1)
+	local look = Vector3.new(0, 0, 1)
 	if target then
 		local flat = Vector3.new(target.Position.X - position.X, 0, target.Position.Z - position.Z)
 		if flat.Magnitude > 0.1 then
@@ -9597,7 +9609,7 @@ local function build()
 	local arena = Instance.new("Folder"); arena.Name = "GuardianArena"; arena.Parent = map
 	local chamberY = Config.Guardian.ChamberY
 	local chamberHalf = Config.Guardian.ChamberHalfStuds
-	local shaftHeight = math.abs(chamberY) - 12
+	local shaftHeight = Config.Guardian.ShaftLengthStuds
 	for _, x in { -(hatch + WALL_T / 2), hatch + WALL_T / 2 } do
 		local wall = part("ShaftWall", Vector3.new(WALL_T, shaftHeight, hatch * 2 + WALL_T * 2),
 			CFrame.new(x, -shaftHeight / 2, 0), P.BrickDark, Enum.Material.Slate, arena)
@@ -9611,24 +9623,45 @@ local function build()
 	part("GuardianFloor", Vector3.new(chamberHalf * 2, SLAB, chamberHalf * 2),
 		CFrame.new(0, chamberY, 0), P.BrickDark, Enum.Material.Slate, arena)
 	for _, x in { -chamberHalf, chamberHalf } do
-		local wall = part("GuardianWall", Vector3.new(WALL_T * 2, 30, chamberHalf * 2),
-			CFrame.new(x, chamberY + 15, 0), P.Boundary, Enum.Material.Cobblestone, arena)
+		local wall = part("GuardianWall", Vector3.new(WALL_T * 2, 48, chamberHalf * 2),
+			CFrame.new(x, chamberY + 24, 0), P.Boundary, Enum.Material.Cobblestone, arena)
 		CollectionService:AddTag(wall, "Chomp_Wall")
 	end
 	for _, z in { -chamberHalf, chamberHalf } do
-		local wall = part("GuardianWall", Vector3.new(chamberHalf * 2, 30, WALL_T * 2),
-			CFrame.new(0, chamberY + 15, z), P.Boundary, Enum.Material.Cobblestone, arena)
+		local wall = part("GuardianWall", Vector3.new(chamberHalf * 2, 48, WALL_T * 2),
+			CFrame.new(0, chamberY + 24, z), P.Boundary, Enum.Material.Cobblestone, arena)
 		CollectionService:AddTag(wall, "Chomp_Wall")
 	end
-	for row, radius in { 42, 68 } do
-		local count = if row == 1 then 8 else 12
+	for row, radius in Config.Guardian.CoverRadii do
+		local count = if row == 1 then 10 else 16
 		for i = 0, count - 1 do
 			local angle = TAU * (i / count) + row * 0.18
-			local block = part("ColosseumBlock", Vector3.new(12, 14, 9),
-				CFrame.new(onCircle(radius, angle, chamberY + 7)) * CFrame.Angles(0, -angle, 0),
+			local block = part("ColosseumBlock", Vector3.new(18, 20, 12),
+				CFrame.new(onCircle(radius, angle, chamberY + 10)) * CFrame.Angles(0, -angle, 0),
 				row == 1 and P.Stone or P.Rust, Enum.Material.Cobblestone, arena)
 			CollectionService:AddTag(block, "Chomp_Wall")
 		end
+	end
+
+	-- Broad pools of light keep the cavern readable without flattening it into
+	-- daylight. The far pair silhouette the guardian during the open fall.
+	for i, angle in { 0, math.pi / 2, math.pi, math.pi * 1.5 } do
+		local position = onCircle(chamberHalf - 28, angle, chamberY + 18)
+		local tower = part("CavernLight", Vector3.new(7, 36, 7), CFrame.new(position),
+			i % 2 == 0 and P.NeonA or P.Gold, Enum.Material.Neon, arena)
+		tower.CanCollide = false
+		local light = Instance.new("PointLight")
+		light.Color = tower.Color
+		light.Brightness = 4.5
+		light.Range = 190
+		light.Shadows = true
+		light.Parent = tower
+	end
+	for _, x in { -1, 1 } do
+		local guide = part("LandingGuide", Vector3.new(3, 0.5, 110),
+			CFrame.new(x * 18, chamberY + SLAB / 2 + 0.3, -48),
+			P.NeonA, Enum.Material.Neon, arena)
+		guide.CanCollide = false
 	end
 
 	-- ── Boundary: brick, taller than the rings, and unbroken ─────────────
@@ -12318,13 +12351,9 @@ local camera = workspace.CurrentCamera
 
 -- ── Fixed world-space offset ────────────────────────────────────────────
 -- Yaw is locked, so this vector never changes. North is always up.
-local pitch = math.rad(C.PitchDegrees)
-local OFFSET = Vector3.new(0, math.sin(pitch) * C.Distance, math.cos(pitch) * C.Distance)
-
--- To sit the vehicle at TargetScreenHeight (below centre) the camera looks
--- slightly above it. Roblox FieldOfView is vertical, so the angular offset is
--- the fraction of the screen we want to shift by, times the vertical FOV.
-local FOCUS_RAISE = math.tan(math.rad((C.TargetScreenHeight - 0.5) * C.FieldOfView)) * C.Distance
+local cameraPitch = C.PitchDegrees
+local cameraDistance = C.Distance
+local cameraFov = C.FieldOfView
 
 -- ── Critically damped spring for deck changes ───────────────────────────
 -- Critically damped, not linear and not bouncy: a linear ease lurches at both
@@ -12484,7 +12513,16 @@ local function onRenderStep(dt: number)
 	end
 
 	camera.CameraType = Enum.CameraType.Scriptable
-	camera.FieldOfView = C.FieldOfView
+	local inGuardian = character:GetAttribute("ChompInGuardianArena") == true
+	local blend = math.clamp(dt / C.GuardianTransitionSeconds, 0, 1)
+	cameraPitch += ((inGuardian and C.GuardianPitchDegrees or C.PitchDegrees) - cameraPitch) * blend
+	cameraDistance += ((inGuardian and C.GuardianDistance or C.Distance) - cameraDistance) * blend
+	cameraFov += ((inGuardian and C.GuardianFieldOfView or C.FieldOfView) - cameraFov) * blend
+	camera.FieldOfView = cameraFov
+	local pitch = math.rad(cameraPitch)
+	local offset = Vector3.new(0, math.sin(pitch) * cameraDistance,
+		math.cos(pitch) * cameraDistance)
+	local focusRaise = math.tan(math.rad((C.TargetScreenHeight - 0.5) * cameraFov)) * cameraDistance
 
 	-- Deck is derived from height, so a fall eases down exactly as a ramp
 	-- eases up. No jump cuts, including when a player falls (CHOMP-SYS-049).
@@ -12514,9 +12552,9 @@ local function onRenderStep(dt: number)
 
 	local focus = Vector3.new(followX, deckY, followZ)
 		+ aheadVector
-		+ Vector3.new(0, FOCUS_RAISE, 0)
+		+ Vector3.new(0, focusRaise, 0)
 
-	local position = focus + OFFSET + shakeOffset()
+	local position = focus + offset + shakeOffset()
 	camera.CFrame = CFrame.lookAt(position, focus)
 
 	local obscuring = camera:GetPartsObscuringTarget({ root.Position }, { character })
