@@ -72,38 +72,6 @@ local function guardianModel(): Model
 				P.Gold, Enum.Material.Neon)
 		end
 	end
-	local healthGui = Instance.new("BillboardGui")
-	healthGui.Name = "HealthBillboard"
-	healthGui.Size = UDim2.new(0, 360, 0, 62)
-	healthGui.StudsOffsetWorldSpace = Vector3.new(0, 23, 0)
-	healthGui.AlwaysOnTop = true
-	healthGui.MaxDistance = 600
-	healthGui.Adornee = body
-	healthGui.Parent = model
-	local healthTitle = Instance.new("TextLabel")
-	healthTitle.Name = "Title"
-	healthTitle.Size = UDim2.new(1, 0, 0, 28)
-	healthTitle.BackgroundTransparency = 1
-	healthTitle.Text = "GUARDIAN"
-	healthTitle.TextColor3 = P.Ghost
-	healthTitle.TextStrokeColor3 = Color3.new(0, 0, 0)
-	healthTitle.TextStrokeTransparency = 0
-	healthTitle.TextSize = 22
-	healthTitle.Font = Enum.Font.GothamBlack
-	healthTitle.Parent = healthGui
-	local healthBack = Instance.new("Frame")
-	healthBack.Name = "HealthBack"
-	healthBack.Position = UDim2.new(0, 10, 0, 34)
-	healthBack.Size = UDim2.new(1, -20, 0, 18)
-	healthBack.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
-	healthBack.BorderSizePixel = 0
-	healthBack.Parent = healthGui
-	local healthFill = Instance.new("Frame")
-	healthFill.Name = "HealthFill"
-	healthFill.Size = UDim2.fromScale(1, 1)
-	healthFill.BackgroundColor3 = P.Danger
-	healthFill.BorderSizePixel = 0
-	healthFill.Parent = healthBack
 	model.PrimaryPart = body
 	model:SetAttribute("Dead", false)
 	model:SetAttribute("Guardian", true)
@@ -133,16 +101,6 @@ local function publish(model: Model, level: number, health: number, maxHealth: n
 		end
 	end
 	model:SetAttribute("GuardianLevel", level)
-	local gui = model:FindFirstChild("HealthBillboard")
-	local back = gui and gui:FindFirstChild("HealthBack")
-	local fill = back and back:FindFirstChild("HealthFill")
-	local title = gui and gui:FindFirstChild("Title")
-	if fill and fill:IsA("Frame") then
-		fill.Size = UDim2.new(math.clamp(health / math.max(1, maxHealth), 0, 1), 0, 1, 0)
-	end
-	if title and title:IsA("TextLabel") then
-		title.Text = "GUARDIAN  " .. tostring(math.ceil(health)) .. "/" .. tostring(maxHealth)
-	end
 end
 
 local function burst(at: Vector3)

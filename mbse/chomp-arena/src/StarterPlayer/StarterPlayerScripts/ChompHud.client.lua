@@ -333,45 +333,54 @@ local wavePanel = panel("Wave", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 72), U
 local waveLabel = label(wavePanel, UDim2.new(1, -20, 1, -10), UDim2.new(0, 10, 0, 5),
 	"WAVE 1", P.Ghost, 18, Enum.TextXAlignment.Center)
 
--- The three attributes that define a fight stay visible as yellow segmented
--- bars. One purchase lights one segment; empty segments show what remains.
-local levelPanel = panel("Levels", Vector2.new(0.5, 0),
-	UDim2.new(0.5, 0, 0, 118), UDim2.new(0, 520, 0, 54))
-local powerLabel = label(levelPanel, UDim2.new(0, 90, 1, 0), UDim2.new(0, 8, 0, 0),
-	"POWER 100", P.Gold, 14, Enum.TextXAlignment.Left)
+-- The module selector used to occupy this space. Progression is the useful
+-- information here: three continuous bars, finely ticked but never fragmented.
+local levelPanel = panel("Attributes", Vector2.zero,
+	UDim2.new(0, 16, 0, 170), UDim2.new(0, 218, 0, 150))
+local powerLabel = label(levelPanel, UDim2.new(1, -20, 0, 24), UDim2.new(0, 10, 0, 6),
+	"POWER 100", P.Gold, 16, Enum.TextXAlignment.Center)
 local primaryAttributes = {
 	{ track = "Engine", name = "SPEED" },
 	{ track = "Armour", name = "ARMOUR" },
 	{ track = "Cannon", name = "FIRE POWER" },
 }
 local attributeLabels: { [string]: TextLabel } = {}
-local attributeBars: { [string]: { Frame } } = {}
+local attributeBars: { [string]: Frame } = {}
 for index, spec in primaryAttributes do
-	local x = 96 + (index - 1) * 138
-	attributeLabels[spec.track] = label(levelPanel, UDim2.new(0, 130, 0, 22),
-		UDim2.new(0, x, 0, 3), spec.name .. "  LV 0", P.Ghost, 12,
-		Enum.TextXAlignment.Center)
-	local segments = {}
-	for level = 1, Config.Upgrades.MaxLevel do
-		local segment = Instance.new("Frame")
-		segment.Name = spec.track .. tostring(level)
-		segment.Position = UDim2.new(0, x + 3 + (level - 1) * 42, 0, 30)
-		segment.Size = UDim2.new(0, 36, 0, 14)
-		segment.BackgroundColor3 = P.BrickDark
-		segment.BorderSizePixel = 0
-		segment.Parent = levelPanel
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = P.Gold
-		stroke.Thickness = 1
-		stroke.Transparency = 0.15
-		stroke.Parent = segment
-		table.insert(segments, segment)
+	local y = 34 + (index - 1) * 37
+	attributeLabels[spec.track] = label(levelPanel, UDim2.new(1, -24, 0, 16),
+		UDim2.new(0, 12, 0, y), spec.name .. "  LV 0", P.Ghost, 12,
+		Enum.TextXAlignment.Left)
+	local back = Instance.new("Frame")
+	back.Name = spec.track .. "Bar"
+	back.Position = UDim2.new(0, 12, 0, y + 18)
+	back.Size = UDim2.new(1, -24, 0, 12)
+	back.BackgroundColor3 = P.BrickDark
+	back.BorderSizePixel = 0
+	back.ClipsDescendants = true
+	back.Parent = levelPanel
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.Size = UDim2.new(0, 0, 1, 0)
+	fill.BackgroundColor3 = P.Gold
+	fill.BorderSizePixel = 0
+	fill.Parent = back
+	for tick = 1, 11 do
+		local mark = Instance.new("Frame")
+		mark.Name = "Tick"
+		mark.Position = UDim2.new(tick / 12, 0, 0, 0)
+		mark.Size = UDim2.new(0, 1, 1, 0)
+		mark.BackgroundColor3 = P.Ghost
+		mark.BackgroundTransparency = 0.55
+		mark.BorderSizePixel = 0
+		mark.ZIndex = 2
+		mark.Parent = back
 	end
-	attributeBars[spec.track] = segments
+	attributeBars[spec.track] = fill
 end
 
 local guardianPanel = panel("Guardian", Vector2.new(0.5, 0),
-	UDim2.new(0.5, 0, 0, 174), UDim2.new(0, 460, 0, 66))
+	UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 520, 0, 66))
 local guardianLabel = label(guardianPanel, UDim2.new(1, -20, 0, 26), UDim2.new(0, 10, 0, 3),
 	"GUARDIAN", P.Ghost, 19, Enum.TextXAlignment.Center)
 local guardianBack = Instance.new("Frame")
@@ -391,36 +400,6 @@ guardianFill.BackgroundColor3 = P.Danger
 guardianFill.BorderSizePixel = 0
 guardianFill.Parent = guardianBack
 guardianPanel.Visible = false
-
--- Loadout controls only appear in a sanctuary. Licences are permanent, but a
--- chassis can power only as many active systems as it has physical ports.
-local modulePanel = panel("Modules", Vector2.zero, UDim2.new(0, 16, 0, 132), UDim2.new(0, 142, 0, 246))
-local portLabel = label(modulePanel, UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 0, 6),
-	"MODULES 0/1", P.NeonA, 15, Enum.TextXAlignment.Center)
-local moduleButtons: { [string]: TextButton } = {}
-for index, track in Config.Upgrades.PortTracks do
-	local button = Instance.new("TextButton")
-	button.Name = track
-	button.Position = UDim2.new(0, 8, 0, 36 + (index - 1) * 34)
-	button.Size = UDim2.new(1, -16, 0, 28)
-	button.BackgroundColor3 = P.Floor
-	button.BackgroundTransparency = 0.25
-	button.BorderSizePixel = 0
-	button.Text = string.upper(track)
-	button.TextColor3 = P.Ghost
-	button.TextSize = 13
-	button.Font = Enum.Font.GothamBold
-	button.AutoButtonColor = false
-	button.Parent = modulePanel
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 6)
-	corner.Parent = button
-	button.Activated:Connect(function()
-		Remotes.ToggleModule:FireServer(track)
-	end)
-	moduleButtons[track] = button
-end
-modulePanel.Visible = false
 
 -- ── A flash when something is taken ─────────────────────────────────────
 local flash = Instance.new("Frame")
@@ -524,7 +503,8 @@ RunService.RenderStepped:Connect(function(dt)
 	-- the thing worth being told about.
 	-- Safe outranks everything, including a big carry: the whole reason to know
 	-- you are safe is that you were not a moment ago (D-CHOMP-065).
-	local inGuardian = character:GetAttribute("ChompInGuardianArena") == true
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local inGuardian = root ~= nil and root.Position.Y < Config.Guardian.RevealY
 	local power = attribute("ChompPower")
 	local requiredPower = attribute("ChompGuardianRequiredPower")
 	if inGuardian and power < requiredPower then
@@ -597,16 +577,15 @@ RunService.RenderStepped:Connect(function(dt)
 	waveLabel.Text = (waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1")
 		.. "  •  " .. tostring(waveAlive) .. " LEFT"
 	wavePanel.Visible = not inGuardian
+	centre.Visible = not inGuardian
 
 	powerLabel.Text = "POWER " .. tostring(math.floor(power))
 	for _, spec in primaryAttributes do
 		local level = (player:GetAttribute("ChompUpgrade" .. spec.track) :: number?) or 0
 		attributeLabels[spec.track].Text = spec.name .. "  LV " .. tostring(level)
 		attributeLabels[spec.track].TextColor3 = level > 0 and P.Gold or P.Ghost
-		for segmentLevel, segment in attributeBars[spec.track] do
-			segment.BackgroundColor3 = segmentLevel <= level and P.Gold or P.BrickDark
-			segment.BackgroundTransparency = segmentLevel <= level and 0 or 0.35
-		end
+		attributeBars[spec.track].Size = UDim2.new(
+			math.clamp(level / Config.Upgrades.MaxLevel, 0, 1), 0, 1, 0)
 	end
 
 	guardianPanel.Visible = inGuardian
@@ -618,28 +597,6 @@ RunService.RenderStepped:Connect(function(dt)
 			.. tostring(math.ceil(health)) .. "/" .. tostring(math.ceil(maxHealth))
 		guardianFill.Size = UDim2.new(math.clamp(health / maxHealth, 0, 1), 0, 1, 0)
 		guardianFill.BackgroundColor3 = P.Danger
-	end
-
-	local safe = character:GetAttribute("ChompSafe") == true
-	modulePanel.Visible = safe
-	if safe then
-		local equippedRaw = (character:GetAttribute("ChompEquippedModules") :: string?) or ""
-		local equipped = {}
-		for track in string.gmatch(equippedRaw, "[^,]+") do equipped[track] = true end
-		local used = attribute("ChompPortsUsed")
-		local ports = attribute("ChompModulePorts")
-		portLabel.Text = "MODULES " .. tostring(used) .. "/" .. tostring(ports)
-		portLabel.TextColor3 = used < ports and P.NeonA or P.Gold
-		for _, track in Config.Upgrades.PortTracks do
-			local button = moduleButtons[track]
-			local level = (player:GetAttribute("ChompUpgrade" .. track) :: number?) or 0
-			local active = equipped[track] == true
-			button.Active = level > 0
-			button.Text = string.upper(track) .. (level > 0 and ("  " .. string.rep("I", level)) or "  LOCKED")
-			button.BackgroundColor3 = active and P.NeonA or P.Floor
-			button.BackgroundTransparency = active and 0.05 or (level > 0 and 0.25 or 0.55)
-			button.TextColor3 = active and P.Floor or (level > 0 and P.Ghost or P.Boundary)
-		end
 	end
 
 	-- Health. Colour carries the reading, so a glance is enough: green is fine,
