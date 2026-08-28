@@ -72,6 +72,38 @@ local function guardianModel(): Model
 				P.Gold, Enum.Material.Neon)
 		end
 	end
+	local healthGui = Instance.new("BillboardGui")
+	healthGui.Name = "HealthBillboard"
+	healthGui.Size = UDim2.new(0, 360, 0, 62)
+	healthGui.StudsOffsetWorldSpace = Vector3.new(0, 23, 0)
+	healthGui.AlwaysOnTop = true
+	healthGui.MaxDistance = 600
+	healthGui.Adornee = body
+	healthGui.Parent = model
+	local healthTitle = Instance.new("TextLabel")
+	healthTitle.Name = "Title"
+	healthTitle.Size = UDim2.new(1, 0, 0, 28)
+	healthTitle.BackgroundTransparency = 1
+	healthTitle.Text = "GUARDIAN"
+	healthTitle.TextColor3 = P.Ghost
+	healthTitle.TextStrokeColor3 = Color3.new(0, 0, 0)
+	healthTitle.TextStrokeTransparency = 0
+	healthTitle.TextSize = 22
+	healthTitle.Font = Enum.Font.GothamBlack
+	healthTitle.Parent = healthGui
+	local healthBack = Instance.new("Frame")
+	healthBack.Name = "HealthBack"
+	healthBack.Position = UDim2.new(0, 10, 0, 34)
+	healthBack.Size = UDim2.new(1, -20, 0, 18)
+	healthBack.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+	healthBack.BorderSizePixel = 0
+	healthBack.Parent = healthGui
+	local healthFill = Instance.new("Frame")
+	healthFill.Name = "HealthFill"
+	healthFill.Size = UDim2.fromScale(1, 1)
+	healthFill.BackgroundColor3 = P.Danger
+	healthFill.BorderSizePixel = 0
+	healthFill.Parent = healthBack
 	model.PrimaryPart = body
 	model:SetAttribute("Dead", false)
 	model:SetAttribute("Guardian", true)
@@ -101,6 +133,16 @@ local function publish(model: Model, level: number, health: number, maxHealth: n
 		end
 	end
 	model:SetAttribute("GuardianLevel", level)
+	local gui = model:FindFirstChild("HealthBillboard")
+	local back = gui and gui:FindFirstChild("HealthBack")
+	local fill = back and back:FindFirstChild("HealthFill")
+	local title = gui and gui:FindFirstChild("Title")
+	if fill and fill:IsA("Frame") then
+		fill.Size = UDim2.new(math.clamp(health / math.max(1, maxHealth), 0, 1), 0, 1, 0)
+	end
+	if title and title:IsA("TextLabel") then
+		title.Text = "GUARDIAN  " .. tostring(math.ceil(health)) .. "/" .. tostring(maxHealth)
+	end
 end
 
 local function burst(at: Vector3)
@@ -207,7 +249,16 @@ local function spawnGuardian()
 		local killer = typeof(killerId) == "number" and Players:GetPlayerByUserId(killerId) or nil
 		local character = killer and killer.Character
 		local power = character and ((character:GetAttribute("ChompPower") :: number?) or 0) or 0
-		if not killer or power < G.RequiredPower then
+		if not killer then
+			changing = true
+			model:SetAttribute("Health", currentHealth)
+			changing = false
+			model:SetAttribute("KilledBy", nil)
+			return
+		end
+		if power < G.RequiredPower then
+			local damage = (currentHealth - proposed) * G.UnderpoweredDamageFraction
+			currentHealth = math.max(1, currentHealth - damage)
 			changing = true
 			model:SetAttribute("Health", currentHealth)
 			changing = false
@@ -216,6 +267,7 @@ local function spawnGuardian()
 				character:SetAttribute("ChompGuardianRequiredPower", G.RequiredPower)
 			end
 			model:SetAttribute("KilledBy", nil)
+			publish(model, level, currentHealth, maxHealth)
 			return
 		end
 		currentHealth = math.max(0, proposed)
@@ -256,9 +308,16 @@ RunService.Heartbeat:Connect(function(dt)
 			local cast = RaycastParams.new()
 			cast.FilterType = Enum.RaycastFilterType.Include
 			cast.FilterDescendantsInstances = if maps then { maps } else {}
-			if not maps or not Workspace:Blockcast(model.PrimaryPart.CFrame,
-				Vector3.new(25, 24, 25), wanted, cast) then
+			local hit = maps and Workspace:Blockcast(model.PrimaryPart.CFrame,
+				Vector3.new(25, 24, 25), wanted, cast) or nil
+			if not hit then
 				position += wanted
+			else
+				local slide = wanted - hit.Normal * wanted:Dot(hit.Normal)
+				if slide.Magnitude > 0.01 and not Workspace:Blockcast(model.PrimaryPart.CFrame,
+					Vector3.new(25, 24, 25), slide, cast) then
+					position += slide
+				end
 			end
 		end
 		local player = Players:GetPlayerFromCharacter(target.Parent)

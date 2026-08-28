@@ -164,15 +164,15 @@ local function build()
 		CollectionService:AddTag(wall, "Chomp_Wall")
 	end
 	part("GuardianFloor", Vector3.new(chamberHalf * 2, SLAB, chamberHalf * 2),
-		CFrame.new(0, chamberY, 0), P.BrickDark, Enum.Material.Slate, arena)
+		CFrame.new(0, chamberY, 0), P.CavernFloor, Enum.Material.Concrete, arena)
 	for _, x in { -chamberHalf, chamberHalf } do
 		local wall = part("GuardianWall", Vector3.new(WALL_T * 2, 48, chamberHalf * 2),
-			CFrame.new(x, chamberY + 24, 0), P.Boundary, Enum.Material.Cobblestone, arena)
+			CFrame.new(x, chamberY + 24, 0), P.CavernWall, Enum.Material.Rock, arena)
 		CollectionService:AddTag(wall, "Chomp_Wall")
 	end
 	for _, z in { -chamberHalf, chamberHalf } do
 		local wall = part("GuardianWall", Vector3.new(chamberHalf * 2, 48, WALL_T * 2),
-			CFrame.new(0, chamberY + 24, z), P.Boundary, Enum.Material.Cobblestone, arena)
+			CFrame.new(0, chamberY + 24, z), P.CavernWall, Enum.Material.Rock, arena)
 		CollectionService:AddTag(wall, "Chomp_Wall")
 	end
 	for row, radius in Config.Guardian.CoverRadii do
@@ -181,7 +181,7 @@ local function build()
 			local angle = TAU * (i / count) + row * 0.18
 			local block = part("ColosseumBlock", Vector3.new(18, 20, 12),
 				CFrame.new(onCircle(radius, angle, chamberY + 10)) * CFrame.Angles(0, -angle, 0),
-				row == 1 and P.Stone or P.Rust, Enum.Material.Cobblestone, arena)
+				row == 1 and P.CavernCoverA or P.CavernCoverB, Enum.Material.Concrete, arena)
 			CollectionService:AddTag(block, "Chomp_Wall")
 		end
 	end
@@ -195,8 +195,8 @@ local function build()
 		tower.CanCollide = false
 		local light = Instance.new("PointLight")
 		light.Color = tower.Color
-		light.Brightness = 4.5
-		light.Range = 190
+		light.Brightness = 6
+		light.Range = 220
 		light.Shadows = true
 		light.Parent = tower
 	end

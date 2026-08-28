@@ -351,15 +351,20 @@ for index, track in Config.Upgrades.Tracks do
 end
 
 local guardianPanel = panel("Guardian", Vector2.new(0.5, 0),
-	UDim2.new(0.5, 0, 0, 174), UDim2.new(0, 420, 0, 46))
-local guardianLabel = label(guardianPanel, UDim2.new(1, -20, 0, 20), UDim2.new(0, 10, 0, 3),
-	"GUARDIAN", P.Gold, 15, Enum.TextXAlignment.Center)
+	UDim2.new(0.5, 0, 0, 174), UDim2.new(0, 460, 0, 66))
+local guardianLabel = label(guardianPanel, UDim2.new(1, -20, 0, 26), UDim2.new(0, 10, 0, 3),
+	"GUARDIAN", P.Ghost, 19, Enum.TextXAlignment.Center)
 local guardianBack = Instance.new("Frame")
-guardianBack.Position = UDim2.new(0, 10, 0, 28)
-guardianBack.Size = UDim2.new(1, -20, 0, 10)
+guardianBack.Position = UDim2.new(0, 12, 0, 36)
+guardianBack.Size = UDim2.new(1, -24, 0, 20)
 guardianBack.BackgroundColor3 = P.BrickDark
 guardianBack.BorderSizePixel = 0
 guardianBack.Parent = guardianPanel
+local guardianStroke = Instance.new("UIStroke")
+guardianStroke.Color = P.Ghost
+guardianStroke.Thickness = 2
+guardianStroke.Transparency = 0.25
+guardianStroke.Parent = guardianBack
 local guardianFill = Instance.new("Frame")
 guardianFill.Size = UDim2.fromScale(1, 1)
 guardianFill.BackgroundColor3 = P.Danger
@@ -588,7 +593,7 @@ RunService.RenderStepped:Connect(function(dt)
 		guardianLabel.Text = "GUARDIAN " .. tostring(guardianLevel) .. "  •  "
 			.. tostring(math.ceil(health)) .. "/" .. tostring(math.ceil(maxHealth))
 		guardianFill.Size = UDim2.new(math.clamp(health / maxHealth, 0, 1), 0, 1, 0)
-		guardianFill.BackgroundColor3 = power >= requiredPower and P.Danger or P.Boundary
+		guardianFill.BackgroundColor3 = P.Danger
 	end
 
 	local safe = character:GetAttribute("ChompSafe") == true

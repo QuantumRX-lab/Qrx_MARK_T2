@@ -27,7 +27,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.3.1-alpha"
+ChompConfig.ReleaseVersion = "0.3.2-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -274,13 +274,14 @@ ChompConfig.Guardian = {
 	HealthPerVictory = 40,
 	RewardDollars = 15000,
 	ReformSeconds = 8,
-	MoveSpeed = 13,
+	MoveSpeed = 21.5,
+	UnderpoweredDamageFraction = 0.25,
 	ContactDamage = 28,
 	ContactRadiusStuds = 20,
 	ContactCooldownSeconds = 1.5,
 	ChamberY = -260,
 	ChamberHalfStuds = 200,
-	HatchHalfStuds = 15,
+	HatchHalfStuds = 10,
 	ShaftLengthStuds = 80,
 	RevealY = -80,
 	GuardianStartZ = -150,
@@ -682,6 +683,10 @@ ChompConfig.Palette = {
 	-- The one green in the game, and it means SAFE: the shield, and a lock that
 	-- has closed. It was written out twice as a literal before (D-CHOMP-064).
 	Shield      = Color3.fromRGB(126, 217, 87),
+	CavernFloor = Color3.fromRGB(66, 72, 84),
+	CavernWall  = Color3.fromRGB(158, 166, 180),
+	CavernCoverA = Color3.fromRGB(232, 188, 82),
+	CavernCoverB = Color3.fromRGB(72, 194, 205),
 }
 
 ChompConfig.Camera = {
@@ -8200,6 +8205,38 @@ local function guardianModel(): Model
 				P.Gold, Enum.Material.Neon)
 		end
 	end
+	local healthGui = Instance.new("BillboardGui")
+	healthGui.Name = "HealthBillboard"
+	healthGui.Size = UDim2.new(0, 360, 0, 62)
+	healthGui.StudsOffsetWorldSpace = Vector3.new(0, 23, 0)
+	healthGui.AlwaysOnTop = true
+	healthGui.MaxDistance = 600
+	healthGui.Adornee = body
+	healthGui.Parent = model
+	local healthTitle = Instance.new("TextLabel")
+	healthTitle.Name = "Title"
+	healthTitle.Size = UDim2.new(1, 0, 0, 28)
+	healthTitle.BackgroundTransparency = 1
+	healthTitle.Text = "GUARDIAN"
+	healthTitle.TextColor3 = P.Ghost
+	healthTitle.TextStrokeColor3 = Color3.new(0, 0, 0)
+	healthTitle.TextStrokeTransparency = 0
+	healthTitle.TextSize = 22
+	healthTitle.Font = Enum.Font.GothamBlack
+	healthTitle.Parent = healthGui
+	local healthBack = Instance.new("Frame")
+	healthBack.Name = "HealthBack"
+	healthBack.Position = UDim2.new(0, 10, 0, 34)
+	healthBack.Size = UDim2.new(1, -20, 0, 18)
+	healthBack.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+	healthBack.BorderSizePixel = 0
+	healthBack.Parent = healthGui
+	local healthFill = Instance.new("Frame")
+	healthFill.Name = "HealthFill"
+	healthFill.Size = UDim2.fromScale(1, 1)
+	healthFill.BackgroundColor3 = P.Danger
+	healthFill.BorderSizePixel = 0
+	healthFill.Parent = healthBack
 	model.PrimaryPart = body
 	model:SetAttribute("Dead", false)
 	model:SetAttribute("Guardian", true)
@@ -8229,6 +8266,16 @@ local function publish(model: Model, level: number, health: number, maxHealth: n
 		end
 	end
 	model:SetAttribute("GuardianLevel", level)
+	local gui = model:FindFirstChild("HealthBillboard")
+	local back = gui and gui:FindFirstChild("HealthBack")
+	local fill = back and back:FindFirstChild("HealthFill")
+	local title = gui and gui:FindFirstChild("Title")
+	if fill and fill:IsA("Frame") then
+		fill.Size = UDim2.new(math.clamp(health / math.max(1, maxHealth), 0, 1), 0, 1, 0)
+	end
+	if title and title:IsA("TextLabel") then
+		title.Text = "GUARDIAN  " .. tostring(math.ceil(health)) .. "/" .. tostring(maxHealth)
+	end
 end
 
 local function burst(at: Vector3)
@@ -8335,7 +8382,16 @@ local function spawnGuardian()
 		local killer = typeof(killerId) == "number" and Players:GetPlayerByUserId(killerId) or nil
 		local character = killer and killer.Character
 		local power = character and ((character:GetAttribute("ChompPower") :: number?) or 0) or 0
-		if not killer or power < G.RequiredPower then
+		if not killer then
+			changing = true
+			model:SetAttribute("Health", currentHealth)
+			changing = false
+			model:SetAttribute("KilledBy", nil)
+			return
+		end
+		if power < G.RequiredPower then
+			local damage = (currentHealth - proposed) * G.UnderpoweredDamageFraction
+			currentHealth = math.max(1, currentHealth - damage)
 			changing = true
 			model:SetAttribute("Health", currentHealth)
 			changing = false
@@ -8344,6 +8400,7 @@ local function spawnGuardian()
 				character:SetAttribute("ChompGuardianRequiredPower", G.RequiredPower)
 			end
 			model:SetAttribute("KilledBy", nil)
+			publish(model, level, currentHealth, maxHealth)
 			return
 		end
 		currentHealth = math.max(0, proposed)
@@ -8384,9 +8441,16 @@ RunService.Heartbeat:Connect(function(dt)
 			local cast = RaycastParams.new()
 			cast.FilterType = Enum.RaycastFilterType.Include
 			cast.FilterDescendantsInstances = if maps then { maps } else {}
-			if not maps or not Workspace:Blockcast(model.PrimaryPart.CFrame,
-				Vector3.new(25, 24, 25), wanted, cast) then
+			local hit = maps and Workspace:Blockcast(model.PrimaryPart.CFrame,
+				Vector3.new(25, 24, 25), wanted, cast) or nil
+			if not hit then
 				position += wanted
+			else
+				local slide = wanted - hit.Normal * wanted:Dot(hit.Normal)
+				if slide.Magnitude > 0.01 and not Workspace:Blockcast(model.PrimaryPart.CFrame,
+					Vector3.new(25, 24, 25), slide, cast) then
+					position += slide
+				end
 			end
 		end
 		local player = Players:GetPlayerFromCharacter(target.Parent)
@@ -9621,15 +9685,15 @@ local function build()
 		CollectionService:AddTag(wall, "Chomp_Wall")
 	end
 	part("GuardianFloor", Vector3.new(chamberHalf * 2, SLAB, chamberHalf * 2),
-		CFrame.new(0, chamberY, 0), P.BrickDark, Enum.Material.Slate, arena)
+		CFrame.new(0, chamberY, 0), P.CavernFloor, Enum.Material.Concrete, arena)
 	for _, x in { -chamberHalf, chamberHalf } do
 		local wall = part("GuardianWall", Vector3.new(WALL_T * 2, 48, chamberHalf * 2),
-			CFrame.new(x, chamberY + 24, 0), P.Boundary, Enum.Material.Cobblestone, arena)
+			CFrame.new(x, chamberY + 24, 0), P.CavernWall, Enum.Material.Rock, arena)
 		CollectionService:AddTag(wall, "Chomp_Wall")
 	end
 	for _, z in { -chamberHalf, chamberHalf } do
 		local wall = part("GuardianWall", Vector3.new(chamberHalf * 2, 48, WALL_T * 2),
-			CFrame.new(0, chamberY + 24, z), P.Boundary, Enum.Material.Cobblestone, arena)
+			CFrame.new(0, chamberY + 24, z), P.CavernWall, Enum.Material.Rock, arena)
 		CollectionService:AddTag(wall, "Chomp_Wall")
 	end
 	for row, radius in Config.Guardian.CoverRadii do
@@ -9638,7 +9702,7 @@ local function build()
 			local angle = TAU * (i / count) + row * 0.18
 			local block = part("ColosseumBlock", Vector3.new(18, 20, 12),
 				CFrame.new(onCircle(radius, angle, chamberY + 10)) * CFrame.Angles(0, -angle, 0),
-				row == 1 and P.Stone or P.Rust, Enum.Material.Cobblestone, arena)
+				row == 1 and P.CavernCoverA or P.CavernCoverB, Enum.Material.Concrete, arena)
 			CollectionService:AddTag(block, "Chomp_Wall")
 		end
 	end
@@ -9652,8 +9716,8 @@ local function build()
 		tower.CanCollide = false
 		local light = Instance.new("PointLight")
 		light.Color = tower.Color
-		light.Brightness = 4.5
-		light.Range = 190
+		light.Brightness = 6
+		light.Range = 220
 		light.Shadows = true
 		light.Parent = tower
 	end
@@ -13073,15 +13137,20 @@ for index, track in Config.Upgrades.Tracks do
 end
 
 local guardianPanel = panel("Guardian", Vector2.new(0.5, 0),
-	UDim2.new(0.5, 0, 0, 174), UDim2.new(0, 420, 0, 46))
-local guardianLabel = label(guardianPanel, UDim2.new(1, -20, 0, 20), UDim2.new(0, 10, 0, 3),
-	"GUARDIAN", P.Gold, 15, Enum.TextXAlignment.Center)
+	UDim2.new(0.5, 0, 0, 174), UDim2.new(0, 460, 0, 66))
+local guardianLabel = label(guardianPanel, UDim2.new(1, -20, 0, 26), UDim2.new(0, 10, 0, 3),
+	"GUARDIAN", P.Ghost, 19, Enum.TextXAlignment.Center)
 local guardianBack = Instance.new("Frame")
-guardianBack.Position = UDim2.new(0, 10, 0, 28)
-guardianBack.Size = UDim2.new(1, -20, 0, 10)
+guardianBack.Position = UDim2.new(0, 12, 0, 36)
+guardianBack.Size = UDim2.new(1, -24, 0, 20)
 guardianBack.BackgroundColor3 = P.BrickDark
 guardianBack.BorderSizePixel = 0
 guardianBack.Parent = guardianPanel
+local guardianStroke = Instance.new("UIStroke")
+guardianStroke.Color = P.Ghost
+guardianStroke.Thickness = 2
+guardianStroke.Transparency = 0.25
+guardianStroke.Parent = guardianBack
 local guardianFill = Instance.new("Frame")
 guardianFill.Size = UDim2.fromScale(1, 1)
 guardianFill.BackgroundColor3 = P.Danger
@@ -13310,7 +13379,7 @@ RunService.RenderStepped:Connect(function(dt)
 		guardianLabel.Text = "GUARDIAN " .. tostring(guardianLevel) .. "  •  "
 			.. tostring(math.ceil(health)) .. "/" .. tostring(math.ceil(maxHealth))
 		guardianFill.Size = UDim2.new(math.clamp(health / maxHealth, 0, 1), 0, 1, 0)
-		guardianFill.BackgroundColor3 = power >= requiredPower and P.Danger or P.Boundary
+		guardianFill.BackgroundColor3 = P.Danger
 	end
 
 	local safe = character:GetAttribute("ChompSafe") == true

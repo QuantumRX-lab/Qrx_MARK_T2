@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.3.1-alpha"
+ChompConfig.ReleaseVersion = "0.3.2-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -266,13 +266,14 @@ ChompConfig.Guardian = {
 	HealthPerVictory = 40,
 	RewardDollars = 15000,
 	ReformSeconds = 8,
-	MoveSpeed = 13,
+	MoveSpeed = 21.5,
+	UnderpoweredDamageFraction = 0.25,
 	ContactDamage = 28,
 	ContactRadiusStuds = 20,
 	ContactCooldownSeconds = 1.5,
 	ChamberY = -260,
 	ChamberHalfStuds = 200,
-	HatchHalfStuds = 15,
+	HatchHalfStuds = 10,
 	ShaftLengthStuds = 80,
 	RevealY = -80,
 	GuardianStartZ = -150,
@@ -674,6 +675,10 @@ ChompConfig.Palette = {
 	-- The one green in the game, and it means SAFE: the shield, and a lock that
 	-- has closed. It was written out twice as a literal before (D-CHOMP-064).
 	Shield      = Color3.fromRGB(126, 217, 87),
+	CavernFloor = Color3.fromRGB(66, 72, 84),
+	CavernWall  = Color3.fromRGB(158, 166, 180),
+	CavernCoverA = Color3.fromRGB(232, 188, 82),
+	CavernCoverB = Color3.fromRGB(72, 194, 205),
 }
 
 ChompConfig.Camera = {
