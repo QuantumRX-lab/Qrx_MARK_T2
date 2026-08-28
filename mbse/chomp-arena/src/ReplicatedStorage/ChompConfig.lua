@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.3.7-alpha"
+ChompConfig.ReleaseVersion = "0.3.8-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -271,6 +271,7 @@ ChompConfig.Guardian = {
 	RewardDollars = 15000,
 	ReformSeconds = 8,
 	MoveSpeed = 21.5,
+	TurnDegreesPerSecond = 42,
 	UnderpoweredDamageFraction = 0.25,
 	ContactDamage = 28,
 	ContactRadiusStuds = 20,

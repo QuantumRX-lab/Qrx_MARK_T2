@@ -184,6 +184,7 @@ local guardian: Model? = nil
 local currentHealth = 0
 local maxHealth = 0
 local position = Vector3.new(0, G.ChamberY + 17, G.GuardianStartZ)
+local heading = Vector3.new(0, 0, 1)
 local contactAt: { [Player]: number } = {}
 
 local function spawnGuardian()
@@ -191,6 +192,7 @@ local function spawnGuardian()
 	maxHealth = G.BaseHealth + G.HealthPerVictory * (level - 1)
 	currentHealth = maxHealth
 	position = Vector3.new(0, G.ChamberY + 17, G.GuardianStartZ)
+	heading = Vector3.new(0, 0, 1)
 	local model = guardianModel()
 	guardian = model
 	model:SetAttribute("Health", maxHealth)
@@ -257,11 +259,22 @@ RunService.Heartbeat:Connect(function(dt)
 			if distance < nearest then nearest, target = distance, root end
 		end
 	end
-	local look = Vector3.new(0, 0, 1)
+	local look = heading
 	if target then
 		local flat = Vector3.new(target.Position.X - position.X, 0, target.Position.Z - position.Z)
 		if flat.Magnitude > 0.1 then
-			look = flat.Unit
+			local desired = flat.Unit
+			local angle = math.acos(math.clamp(heading:Dot(desired), -1, 1))
+			local maxTurn = math.rad(G.TurnDegreesPerSecond) * dt
+			if angle <= maxTurn then
+				heading = desired
+			elseif angle > 0.001 then
+				-- A capped heading change makes the guardian commit to an attack
+				-- line. Sharp player turns now produce an escape window instead of
+				-- being matched by an instantaneous correction.
+				heading = heading:Lerp(desired, maxTurn / angle).Unit
+			end
+			look = heading
 			local wanted = look * math.min(flat.Magnitude, G.MoveSpeed * dt)
 			local cast = RaycastParams.new()
 			cast.FilterType = Enum.RaycastFilterType.Include

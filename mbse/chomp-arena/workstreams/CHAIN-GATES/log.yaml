@@ -48,3 +48,17 @@ entries:
     Review the change against CHOMP-SYS-026 Full Jaw behaviour and decide whether
     multiplayer guardian fights are private, cooperative, or open to interference
     before implementation. CHOMP-TC-024 and CHOMP-TC-025 carry the proposed tests.
+- date: '2026-08-28'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-025]
+  summary: >
+    Release 0.3.8-alpha caps the chamber guardian at 42 degrees of turning per
+    second. It retains its 21.5-stud pursuit speed but now carries its heading
+    through an attack, allowing a player who cuts sharply around cover to make
+    it overshoot and open a real escape window.
+  status: OPEN
+  handoff: >
+    Play-test the guardian with Standard at base speed. The intended feel is
+    dangerous in a straight line but escapable through committed direction
+    changes; tune Guardian.TurnDegreesPerSecond rather than MoveSpeed first.
