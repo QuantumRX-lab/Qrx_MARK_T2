@@ -8,7 +8,8 @@
 ## The idea in one line
 
 **Beat the guardian once, and a second maze opens — one built around height,
-where a player can climb out of the chase and shoot down into it.**
+where you jump or jet-pack up out of the chase and rain homing missiles down
+into it.**
 
 ## How you get there
 
@@ -41,9 +42,14 @@ Not "the same maze, harder". It asks a different question.
 |---|---|
 | Can you route and bank under pressure? | Can you do it when the floor isn't all one place? |
 
-**Sniper perches.** Raised blocks, reached by jet pack, where a player can stop,
-stand still, and shoot down into the maze. That is a genuinely different verb
-from drive-and-chomp.
+**Perches.** Raised blocks you reach with the two moves you already have — the
+**charge jump** or the **jet pack**. No climbing, no platforming, no new
+traversal to learn: the same button that saves you from a corner is the one that
+puts you above the maze.
+
+Once up there, the **homing missile** is the weapon. You stop, you lock, and you
+send it down into the corridors. That is a genuinely different verb from
+drive-and-chomp, and it costs you your mobility while you do it.
 
 Rings, pellets, garages, sanctuaries and waves all carry over unchanged. The new
 maze earns its place through the perches and the new weapons — not through
@@ -56,18 +62,24 @@ Each answers a fear the current belt handles badly:
 | Weapon | Answers | Costs you |
 |---|---|---|
 | **Flamethrower** | "they are all around me" | very short range — they have to get close |
-| **Homing missile** | "that one, far away, that I can't line up" | slow, one target, long lock |
+| **Homing missile** | "that one, far away, that I can't line up" — and the perch weapon | slow, one target, long lock |
 
 They are opposites on purpose: panic-close and patient-far. If two weapons
 answer the same fear, one of them is just a skin.
+
+The homing missile earns its slot twice over — it is both the answer to a ghost
+you cannot line up from the ground, and the reason to be on a perch at all. A
+perch without a weapon made for it would just be a place to hide.
 
 ## Why the perches matter most
 
 The game has one verb today, so in co-op everyone does the same thing — and the
 least confident driver simply dies more often.
 
-A perch is a **stationary, ranged, safer** job. It is the right role for whoever
-is worst at driving: the youngest player, or the friend who keeps hitting walls.
+A perch is a **stationary, ranged, safer** job — jump up, lock on, fire down. It
+is the right role for whoever is worst at driving: the youngest player, or the
+friend who keeps hitting walls. Getting up there needs one button press, not
+skill.
 
 A guardian fought by three people with three jobs — one holding its attention,
 one clearing the ghosts it summons, one perched hitting the weak point — is a
@@ -82,10 +94,10 @@ Height is what deleted the last map. The two-deck design was scrapped because a
 drop is a way to fall out of the world and the camera could not follow between
 levels.
 
-So perches come with rules: **falling is harmless**, they are reached by jet
-pack only, a perch is a place to stand rather than a route to traverse, and
-**nothing you need is ever up there** — a player who never climbs must not fall
-behind one who does.
+So perches come with rules: **falling is harmless**, you get up by jump or jet
+pack rather than by platforming, a perch is a place to stand rather than a route
+to traverse, and **nothing you need is ever up there** — a player who never goes
+up must not fall behind one who does.
 
 And they are built **last**. The camera test has still never run, even on flat
 ground. If it fails, the perches do not happen.

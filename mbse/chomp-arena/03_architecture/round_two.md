@@ -85,10 +85,14 @@ Not "the same maze, harder". The maze must ask a different question.
 |---|---|
 | Can you route and bank under pressure? | Can you route and bank when the floor is not all one place? |
 
-Concretely: **sniper perches**. Raised blocks, reachable by jet pack, from which
-a stationary player can shoot down into the maze. That is a genuinely different
-verb from drive-and-chomp, and §7 explains why it is the most valuable idea in
-the sketch.
+Concretely: **perches**. Raised blocks reached with the two moves the player
+already has — the **charge jump** and the **jet pack** — from which a stationary
+player fires **homing missiles** down into the maze.
+
+No climbing and no platforming. Reusing the existing mobility is the point: the
+same button that saves you from a corner is the one that puts you above the
+maze, so there is nothing new to teach and nothing new to fail at. §7 explains
+why this is the most valuable idea in the sketch.
 
 Everything else — ring corridors, pellets, garages, sanctuaries, waves — carries
 over unchanged. The new maze earns its place through the perches and the new
@@ -106,7 +110,7 @@ If two weapons answer the same fear, one is a skin.
 | Shield | "I am about to lose the carry" | one hit only | built |
 | Jet pack | "I am cornered" | one use, no aiming | built |
 | **Flamethrower** | **"they are ALL around me"** | very short range — they must get close | Round Two |
-| **Homing missile** | **"that one, far away, that I cannot line up"** | slow, one target, long lock | Round Two |
+| **Homing missile** | **"that one, far away"** — and the perch weapon | slow, one target, long lock | Round Two |
 
 Flamethrower and homing missile are a good pair precisely because they are
 opposites: panic-close versus patient-far. Between them they cover the two
@@ -120,6 +124,10 @@ to reach the ghost that is hurting you.
   while it burns — it is also the best light source in a dark game.
 - **Homing missile** must be visibly slow. If it is fast it is just a cannon
   with more steps. Its pleasure is watching it turn.
+- The missile is also **the reason perches exist**. It is the weapon that works
+  from a standstill at range, so it earns its slot twice: once on the ground
+  against a ghost you cannot line up, once from above as the sniping tool. A
+  perch without a weapon built for it is just a place to hide.
 - Both obey `CHOMP-SYS-066`: with friendly fire off they may not damage another
   player **by any route**, and a cone weapon is exactly where that rule gets
   forgotten.
@@ -139,8 +147,10 @@ Floating blocks are decks with more edges. So they are only safe under rules:
 - **Falling is harmless.** You drop, you land, you drive on. No damage, no lost
   carry. The moment falling is punished, an unproven camera becomes a fairness
   problem.
-- **Perches are reached by jet pack only**, and are small — a place to stand,
-  not a platform to traverse. No jumping between them.
+- **Perches are reached by charge jump or jet pack**, and are small — a place to
+  stand, not a platform to traverse. No jumping between them, and no new
+  traversal mechanic: if a player cannot already get up there with the moves
+  they have, the perch is in the wrong place.
 - **A perch is a room, not a route.** The guardian chamber already proves a
   separate contained space works; a perch should be as contained.
 - **Nothing required is ever up there.** No pellets, no pads, no bank. A player
@@ -165,7 +175,7 @@ doing one job:
 |---|---|---|
 | **Bait** | holds the guardian's attention, stays alive | the confident driver |
 | **Sweeper** | clears the ghosts it summons | the middle player |
-| **Gunner** | perched, hits the weak point when it opens | the one who keeps crashing |
+| **Gunner** | perched, puts homing missiles into the weak point when it opens | the one who keeps crashing |
 
 The design goal is that a seven-year-old who is *bad at driving* still has
 something she is unambiguously good at.
