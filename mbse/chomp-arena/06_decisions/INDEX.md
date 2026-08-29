@@ -7,7 +7,7 @@ named half was replaced and the rest still rules, `SUPERSEDED` means all
 of it was, `VOID` means the number was never used. Read the ACTIVE
 entries for your topic before writing code that touches it.
 
-73 decisions.
+75 decisions.
 
 ## camera
 
@@ -32,10 +32,11 @@ entries for your topic before writing code that touches it.
 - **D-CHOMP-037** `ACTIVE` 2026-08-25 — A kart with a driver in it — scaled to the corridor, head visible through the glass
 - **D-CHOMP-039** `ACTIVE` 2026-08-25 — The driver reads through clearer glass and a bigger head
 - **D-CHOMP-042** `ACTIVE` 2026-08-25 — Continuous steering, because a bowl has no cardinal directions
+- **D-CHOMP-074** `ACTIVE` 2026-08-29 — Directional contact is server-owned, and action controls return in a failure-contained HUD
 
 ## economy
 
-- **D-CHOMP-048** `ACTIVE` 2026-08-25 — Carried is risky, banked is safe, and banking has no button
+- D-CHOMP-048 `PARTIAL` 2026-08-25 — Carried is risky, banked is safe, and banking has no button — superseded by D-CHOMP-075
 - **D-CHOMP-066** `ACTIVE` 2026-08-27 — Nothing waits forever, and no child is shown a Robux price
 - **D-CHOMP-069** `ACTIVE` 2026-08-27 — Permanent progression is versioned and fails closed for purchases
 
@@ -75,6 +76,7 @@ entries for your topic before writing code that touches it.
 - **D-CHOMP-061** `ACTIVE` 2026-08-25 — The jump is an escape and a firing platform, and ghosts stay on the ground
 - **D-CHOMP-063** `ACTIVE` 2026-08-26 — Electrified rings removed; the maze is masonry again
 - **D-CHOMP-065** `ACTIVE` 2026-08-26 — Garages are sanctuaries, and the line is drawn on the floor
+- **D-CHOMP-075** `ACTIVE` 2026-08-29 — A wave risks one haul, the guardian opens a group gate, and Level Two changes roles
 
 ## process
 
@@ -96,7 +98,7 @@ entries for your topic before writing code that touches it.
 - **D-CHOMP-070** `ACTIVE` 2026-08-27 — Seven visible ladders replace three anonymous stat tracks
 - **D-CHOMP-071** `ACTIVE` 2026-08-27 — Two action buttons, bottom right, and the game locks to landscape
 - D-CHOMP-072 `SUPERSEDED` 2026-08-27 — Optional polish never runs before the thing it decorates — superseded by D-CHOMP-073
-- **D-CHOMP-073** `ACTIVE` 2026-08-27 — The action-button implementation is rolled back; the requirement stands
+- D-CHOMP-073 `SUPERSEDED` 2026-08-27 — The action-button implementation is rolled back; the requirement stands — superseded by D-CHOMP-074
 
 ## vehicle
 

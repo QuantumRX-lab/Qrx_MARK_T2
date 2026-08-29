@@ -259,3 +259,16 @@ over the pure logic in `ChompLogic/` plus a scripted-bot integration harness
 way to drive them headlessly. Worth adding once `Impact` and `Progression` have
 real implementations to regress — the stubs are shaped for it, which is why
 they take plain numbers and return plain tables.
+
+## Directional combat check
+
+With the generated place open and stopped, run this in Studio's command bar:
+
+```lua
+local C = require(game.ServerStorage.ChompTools.CombatConformance)
+C.report(C.checkAll())
+```
+
+That checks the pure angle and economy boundaries. It does not replace the
+network test: use **Test > Clients and Servers > 2 players** for contact,
+feedback, scatter collection, shield and touch-layout acceptance.

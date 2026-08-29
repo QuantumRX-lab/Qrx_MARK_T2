@@ -99,15 +99,14 @@ up must not fall behind one who does.
 And they are built **last**. The camera test has still never run, even on flat
 ground. If it fails, the floating blocks do not happen.
 
-## The one open decision
+## Level-scoped weapons - decided
 
-If Level Two's weapons are permanent, **Level One becomes easy.**
+Level Two weapons are level-scoped. Returning to Level One restores its weapon
+set, including the bomb, so a missile cannot flatten the first maze's balance.
 
-That is either a victory lap — returning to the first maze overpowered is one of
-the great childhood video-game pleasures — or a balance failure, if friends
-routinely join at different progression.
-
-It needs answering before the second maze is designed, not after.
+Chassis ownership, upgrades and the Level Two unlock can persist; the available
+weapon pads depend on the level. This supports friends at mixed progression
+without removing the excitement of earning new equipment.
 
 ## A cheaper idea worth weighing first
 

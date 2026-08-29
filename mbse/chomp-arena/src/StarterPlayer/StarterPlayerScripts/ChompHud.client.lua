@@ -24,13 +24,14 @@
 	Nothing here decides anything. Every value is an attribute the SERVER wrote,
 	read-only on this side (CHOMP-SYS-030). The HUD cannot make you richer.
 
-	The bottom edge and both lower corners stay empty, because that is where
-	thumbs live (CHOMP-SYS-032).
+	The lower corners hold actions only; the read-only values sit above them so
+	thumbs cannot hide information (CHOMP-SYS-032, CHOMP-SYS-070).
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 local TextChatService = game:GetService("TextChatService")
 local StarterGui = game:GetService("StarterGui")
 
@@ -38,6 +39,7 @@ local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local P = Config.Palette
 local ITEMS = Config.Items
+local CONTROLS = Config.Controls
 
 local player = Players.LocalPlayer
 
@@ -46,7 +48,14 @@ gui.Name = "ChompHud"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 50
-gui.Parent = player:WaitForChild("PlayerGui")
+local playerGui = player:WaitForChild("PlayerGui") :: PlayerGui
+gui.Parent = playerGui
+if CONTROLS.LockLandscape then
+	local ok, err = pcall(function()
+		playerGui.ScreenOrientation = Enum.ScreenOrientation.LandscapeSensor
+	end)
+	if not ok then warn("[ChompHud] landscape request failed; HUD remains active: " .. tostring(err)) end
+end
 
 -- Keep Roblox's own chat, but move it away from the attribute panel and jump
 -- control. This configures the platform UI rather than maintaining a second
@@ -108,7 +117,9 @@ end
 -- ── Bottom right: one stack, safest value at the bottom ─────────────────
 -- Banked sits lowest because it is the number you check least often and the
 -- one you most want to end the round looking at.
-local stack = panel("Values", Vector2.new(1, 1), UDim2.new(1, -16, 1, -92), UDim2.new(0, 236, 0, 168))
+local COLUMN_BASE = CONTROLS.ButtonMarginPx * 2 + CONTROLS.JumpButtonPx
+local stack = panel("Values", Vector2.new(1, 1),
+	UDim2.new(1, -16, 1, -(COLUMN_BASE + 76)), UDim2.new(0, 236, 0, 168))
 
 local carriedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 10),
 	"0", P.NeonB, 34, Enum.TextXAlignment.Right)
@@ -140,7 +151,7 @@ end
 local beltStrip = Instance.new("Frame")
 beltStrip.Name = "Belt"
 beltStrip.AnchorPoint = Vector2.new(1, 1)
-beltStrip.Position = UDim2.new(1, -16, 1, -16)
+beltStrip.Position = UDim2.new(1, -16, 1, -COLUMN_BASE)
 beltStrip.Size = UDim2.new(0, BELT_W, 0, SLOT_H)
 beltStrip.BackgroundTransparency = 1
 beltStrip.Parent = gui
@@ -237,7 +248,7 @@ local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 1
 label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 148),
 	"BANKED — SAFE", P.Gold, 12, Enum.TextXAlignment.Right)
 
--- ── Bottom left: the jump control ───────────────────────────────────────
+-- ── Bottom right: jump and belt cycle ──────────────────────────────────
 -- Buttons DO belong in the thumb zone. CHOMP-SYS-032 reserves the lower corners
 -- so that nothing you need to READ sits under a hand — a thing you need to
 -- PRESS wants to be exactly there (D-CHOMP-059).
@@ -247,9 +258,9 @@ label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 148),
 
 local chargeButton = Instance.new("TextButton")
 chargeButton.Name = "ChargeButton"
-chargeButton.AnchorPoint = Vector2.new(0, 1)
-chargeButton.Position = UDim2.new(0, 20, 1, -20)
-chargeButton.Size = UDim2.new(0, 128, 0, 128)
+chargeButton.AnchorPoint = Vector2.new(1, 1)
+chargeButton.Position = UDim2.new(1, -CONTROLS.ButtonMarginPx, 1, -CONTROLS.ButtonMarginPx)
+chargeButton.Size = UDim2.new(0, CONTROLS.JumpButtonPx, 0, CONTROLS.JumpButtonPx)
 chargeButton.BackgroundColor3 = P.BrickDark
 chargeButton.BackgroundTransparency = 0.05
 chargeButton.BorderSizePixel = 0
@@ -314,7 +325,7 @@ chargePercent.Parent = chargeButton
 
 -- Pressing it IS the jump - finger or mouse, one control (D-CHOMP-064).
 -- Activated covers both, and neither the fill nor the two labels can swallow
--- the press: a TextLabel does not consume input, so the whole 150-pixel circle
+-- the press: a TextLabel does not consume input, so the whole circle
 -- is live all the way to its edge.
 local refusedAt = 0
 local function pressCharge()
@@ -333,6 +344,89 @@ local function pressCharge()
 end
 chargeButton.Activated:Connect(pressCharge)
 
+local function beltEntries(): ({ string }, number)
+	local character = player.Character
+	local raw = character and character:GetAttribute("ChompBelt")
+	local ids: { string } = {}
+	if typeof(raw) == "string" and raw ~= "" then
+		for chunk in string.gmatch(raw, "[^,]+") do
+			local id = string.match(chunk, "^(.-):%d+$")
+			table.insert(ids, id or "")
+		end
+	end
+	local active = character and (character:GetAttribute("ChompActiveSlot") :: number?) or 1
+	return ids, active
+end
+
+local cycleRefusedAt = 0
+local function cycleItem()
+	local ids, active = beltEntries()
+	if #ids <= 1 then
+		cycleRefusedAt = os.clock()
+		return
+	end
+	local target = active
+	for _ = 1, #ids do
+		target = (target % #ids) + 1
+		if ids[target] and ids[target] ~= "" then break end
+	end
+	if target ~= active and Remotes and Remotes.SelectItem then
+		Remotes.SelectItem:FireServer(target)
+	end
+end
+
+local cycleButton = Instance.new("TextButton")
+cycleButton.Name = "CycleButton"
+cycleButton.AnchorPoint = Vector2.new(1, 1)
+cycleButton.Position = UDim2.new(1,
+	-(CONTROLS.ButtonMarginPx + CONTROLS.JumpButtonPx + CONTROLS.ButtonGapPx),
+	1, -CONTROLS.ButtonMarginPx)
+cycleButton.Size = UDim2.new(0, CONTROLS.CycleButtonPx, 0, CONTROLS.CycleButtonPx)
+cycleButton.BackgroundColor3 = P.BrickDark
+cycleButton.BackgroundTransparency = 0.1
+cycleButton.BorderSizePixel = 0
+cycleButton.Text = ">>"
+cycleButton.TextColor3 = P.Ghost
+cycleButton.TextSize = 30
+cycleButton.Font = Enum.Font.GothamBlack
+cycleButton.AutoButtonColor = false
+cycleButton.Parent = gui
+local cycleCorner = Instance.new("UICorner")
+cycleCorner.CornerRadius = UDim.new(1, 0)
+cycleCorner.Parent = cycleButton
+local cycleWord = Instance.new("TextLabel")
+cycleWord.Name = "Word"
+cycleWord.BackgroundTransparency = 1
+cycleWord.AnchorPoint = Vector2.new(0.5, 1)
+cycleWord.Position = UDim2.new(0.5, 0, 1, -10)
+cycleWord.Size = UDim2.new(1, -10, 0, 16)
+cycleWord.Text = "SWAP"
+cycleWord.TextColor3 = P.Boundary
+cycleWord.TextSize = 12
+cycleWord.Font = Enum.Font.GothamBold
+cycleWord.Parent = cycleButton
+cycleButton.Activated:Connect(cycleItem)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+	if input.KeyCode == CONTROLS.CycleKey then
+		cycleItem()
+	elseif input.KeyCode == CONTROLS.JumpKey or input.KeyCode == CONTROLS.JumpKeyAlt then
+		pressCharge()
+	end
+end)
+
+local function fitOrientation()
+	local camera = workspace.CurrentCamera
+	local viewport = camera and camera.ViewportSize
+	if not viewport or viewport.Y <= 0 then return end
+	cycleButton.Visible = (viewport.X / viewport.Y) >= CONTROLS.HideCycleBelowAspect
+end
+fitOrientation()
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fitOrientation)
+end
+
 -- ── Top centre: one objective ───────────────────────────────────────────
 local centre = panel("Objective", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 280, 0, 48))
 local objective = label(centre, UDim2.new(1, -20, 1, -12), UDim2.new(0, 10, 0, 6),
@@ -350,6 +444,27 @@ local ROTATING_TIPS = {
 	{ text = "YELLOW ZONES BANK CASH", colour = P.Shield },
 }
 local TIP_SECONDS = 5
+
+-- The battle bar is ammunition for the mouth. It is deliberately separate
+-- from Jump Charge: one funds attacks, the other funds escape.
+local battlePanel = panel("BattleBar", Vector2.zero,
+	UDim2.new(0, 16, 0, 116), UDim2.new(0, 218, 0, 46))
+local battleLabel = label(battlePanel, UDim2.new(1, -20, 0, 18), UDim2.new(0, 10, 0, 4),
+	"BITE  0/100", P.Gold, 13, Enum.TextXAlignment.Left)
+local battleBack = Instance.new("Frame")
+battleBack.Name = "BattleBack"
+battleBack.Position = UDim2.new(0, 10, 0, 27)
+battleBack.Size = UDim2.new(1, -20, 0, 11)
+battleBack.BackgroundColor3 = P.BrickDark
+battleBack.BorderSizePixel = 0
+battleBack.ClipsDescendants = true
+battleBack.Parent = battlePanel
+local battleFill = Instance.new("Frame")
+battleFill.Name = "Fill"
+battleFill.Size = UDim2.new(0, 0, 1, 0)
+battleFill.BackgroundColor3 = P.Gold
+battleFill.BorderSizePixel = 0
+battleFill.Parent = battleBack
 
 -- The module selector used to occupy this space. Progression is the useful
 -- information here: three continuous bars, finely ticked but never fragmented.
@@ -433,7 +548,7 @@ flash.Parent = gui
 local healthBack = Instance.new("Frame")
 healthBack.Name = "HealthBack"
 healthBack.AnchorPoint = Vector2.new(1, 1)
-healthBack.Position = UDim2.new(1, -16, 1, -268)
+healthBack.Position = UDim2.new(1, -16, 1, -(COLUMN_BASE + 252))
 healthBack.Size = UDim2.new(0, 236, 0, 14)
 healthBack.BackgroundColor3 = P.Floor
 healthBack.BackgroundTransparency = 0.25
@@ -471,6 +586,10 @@ RunService.RenderStepped:Connect(function(dt)
 	local banked = attribute("ChompDollars")
 	carriedValue.Text = tostring(carried)
 	bankedValue.Text = "$" .. tostring(banked)
+	local battle = attribute("ChompBattleBar")
+	local battleCapacity = math.max(1, attribute("ChompBarCapacity"))
+	battleLabel.Text = "BITE  " .. tostring(math.floor(battle)) .. "/" .. tostring(math.floor(battleCapacity))
+	battleFill.Size = UDim2.new(math.clamp(battle / battleCapacity, 0, 1), 0, 1, 0)
 
 	-- The belt arrives as one string, "Cannon:10,Shield:1", because an attribute
 	-- cannot hold a list.
@@ -562,6 +681,7 @@ RunService.RenderStepped:Connect(function(dt)
 	chargeButton.Active = true
 	chargeButton.BackgroundTransparency = ready and 0.02 or 0.05
 	chargeStroke.Color = ready and P.Gold or P.NeonA
+	cycleButton.BackgroundColor3 = (os.clock() - cycleRefusedAt) < 0.3 and P.Danger or P.BrickDark
 
 	-- Refusal pulse: 0.35 seconds of red, then back to whatever it was.
 	local sinceRefused = os.clock() - refusedAt

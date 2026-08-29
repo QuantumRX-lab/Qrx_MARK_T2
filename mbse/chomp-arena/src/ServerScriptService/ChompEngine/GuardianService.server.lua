@@ -11,6 +11,7 @@ local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
+local CombatState = require(script.Parent:WaitForChild("CombatState"))
 local G = Config.Guardian
 local P = Config.Palette
 
@@ -295,9 +296,9 @@ RunService.Heartbeat:Connect(function(dt)
 		if player and nearest < G.ContactRadiusStuds
 			and os.clock() - (contactAt[player] or 0) > G.ContactCooldownSeconds then
 			local humanoid = target.Parent and target.Parent:FindFirstChildOfClass("Humanoid")
-			if humanoid then humanoid:TakeDamage(G.ContactDamage) end
-			if target.Parent then target.Parent:SetAttribute("ChompHurtAt", os.clock()) end
-			contactAt[player] = os.clock()
+			local gate = target.Parent and CombatState.beginHit(target.Parent, "Guardian") or "Blocked"
+			if humanoid and gate == "Apply" then humanoid:TakeDamage(G.ContactDamage) end
+			if gate ~= "Blocked" then contactAt[player] = os.clock() end
 		end
 	end
 	local bob = math.sin(os.clock() * 1.8) * 1.2

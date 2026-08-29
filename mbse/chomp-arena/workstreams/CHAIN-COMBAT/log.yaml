@@ -294,3 +294,22 @@ entries:
   handoff: >
     Rebuilt build/ChompArena.rbxlx. In Studio, drop and detonate the final bomb
     charge and confirm the rear-mounted bomb disappears at the same moment.
+- date: '2026-08-29'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-010, CHOMP-SYS-011, CHOMP-SYS-012, CHOMP-SYS-013, CHOMP-SYS-014, CHOMP-SYS-015, CHOMP-SYS-016, CHOMP-SYS-050, CHOMP-SYS-066]
+  summary: >
+    Release 0.4.0-alpha implements server-owned directional contact combat.
+    Forward aimed mouths produce flank attacks, opposed aimed mouths produce
+    head-on contests, and reverse, stationary and scrape contact do no damage.
+    Shared shield/invulnerability gating now covers player contact, ghosts,
+    guardian contact and weapon damage. Combat feedback names the outcome and
+    incoming direction, while pooled scatter makes lost carry collectible.
+  status: OPEN
+  handoff: >
+    Static validation and the generated-place guard pass. In Studio first run
+    require(game.ServerStorage.ChompTools.CombatConformance).report(
+    require(game.ServerStorage.ChompTools.CombatConformance).checkAll()). Then
+    use Test > Clients and Servers > 2 players to verify head-on, side/rear
+    ambush, reverse contact, shield, a 300-Power small-fry gap and an empty-bar
+    chomp. Do not promote verification until the two-client outcomes are seen.

@@ -200,6 +200,9 @@ local function publishProgression(player: Player, character: Model)
 	for _, track in TRACKS do character:SetAttribute("ChompUpgrade" .. track, upgrades[track]) end
 	character:SetAttribute("ChompPower", Progression.computePower(chassisId, upgrades))
 	character:SetAttribute("ChompBarCapacity", Config.Chassis[chassisId].BarCapacity)
+	character:SetAttribute("ChompBattleBar", math.min(
+		(character:GetAttribute("ChompBattleBar") :: number?) or 0,
+		Config.Chassis[chassisId].BarCapacity))
 	character:SetAttribute("ChompMouthArcDegrees", stats.mouthArcDegrees)
 	character:SetAttribute("ChompPelletMultiplier", stats.pelletMultiplier)
 	character:SetAttribute("ChompChargeMultiplier", stats.chargeMultiplier)

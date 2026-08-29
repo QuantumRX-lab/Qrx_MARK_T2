@@ -1190,6 +1190,10 @@ decisions:
 
   - id: D-CHOMP-048
     date: 2026-08-25
+    status: PARTIAL
+    superseded_by:
+      - id: D-CHOMP-075
+        scope: "garage conversion during a wave; carried-versus-safe currency and buttonless banking survive"
     title: Carried is risky, banked is safe, and banking has no button
     decision: >
       Pellets lie along every ring lane, worth more the closer to the middle,
@@ -2115,7 +2119,10 @@ decisions:
 
   - id: D-CHOMP-073
     date: 2026-08-27
-    status: ACTIVE
+    status: SUPERSEDED
+    superseded_by:
+      - id: D-CHOMP-074
+        scope: "the rollback of action-button code; its failure lesson and verification caution remain"
     supersedes:
       - id: D-CHOMP-072
         scope: "the fix is moot; the code it fixed has been reverted"
@@ -2158,3 +2165,69 @@ decisions:
       this is attempted again it should go one change per play session, starting
       with the keyboard bindings, which are the only part that cannot take the
       HUD down.
+
+  - id: D-CHOMP-074
+    date: 2026-08-29
+    status: ACTIVE
+    supersedes:
+      - id: D-CHOMP-073
+        scope: "the rollback of action-button code; its failure lesson and verification caution remain"
+    title: Directional contact is server-owned, and action controls return in a failure-contained HUD
+    decision: >
+      The server classifies vehicle contact from replicated position, velocity
+      and the vehicle PrimaryPart LookVector. Only an aimed, forward-moving mouth
+      can initiate a flank hit; nose-to-nose attacks resolve symmetrically, while
+      reversing, stationary contact and unaimed scrapes do nothing. Jump and
+      Cycle return as bottom-right actions using existing UseCharge and SelectItem
+      intents. The ScreenGui is parented before PlayerGui orientation is requested,
+      and that optional request is isolated in pcall.
+    rationale: >
+      Directional PvP is the game's readable player skill: ambush rather than
+      indiscriminate collision damage. Keeping classification and economy maths
+      pure makes the exact boundaries testable, while a shared server damage gate
+      stops shields and invulnerability behaving differently for players, ghosts,
+      guardians and weapons. D-CHOMP-073 correctly stopped a broken bundled HUD
+      change; the new implementation keeps its lesson by making essential display
+      construction precede optional platform setup and by retaining direct belt
+      selection if Cycle must hide at an unsupported aspect ratio.
+    outcome: >
+      Release 0.4.0-alpha contains directional contact, battle-bar spending,
+      pooled scatter, combat feedback, keyboard C/E/X and the two touch actions.
+      Static guards pass. Runtime acceptance remains open until CombatConformance
+      and a two-client Studio session pass at desktop and target-iPad viewports.
+
+  - id: D-CHOMP-075
+    date: 2026-08-29
+    status: ACTIVE
+    supersedes:
+      - id: D-CHOMP-048
+        scope: "garage conversion during a wave; carried-versus-safe currency and buttonless banking survive"
+    title: A wave risks one haul, the guardian opens a group gate, and Level Two changes roles
+    decision: >
+      Earnings collected during a wave form one at-risk wave haul. Death empties
+      the complete haul into collectible scatter; surviving the wave auto-banks
+      it once at the clear transition. Garages remain safe shops and loadout
+      spaces but do not bank during active play. The guardian gains telegraphed
+      Pounce, Lane Dash and Ghost Hurl modes with visible punish windows. Its
+      first defeat credits participating players permanently and disables a
+      visible electric Level Two grid for the current group. Level Two weapons
+      are level-scoped: its homing missile replaces the bomb there, while Level
+      One keeps the bomb. Floating firing blocks, Aero upgrades and specialist
+      vehicles create Bait, Sweeper and Gunner roles without making height
+      mandatory.
+    rationale: >
+      Banking at any time lets a player erase risk whenever a safe pad is near;
+      banking only on survival gives every wave a beginning, wager and payoff.
+      Full spill makes defeat immediately legible and keeps the value in play
+      rather than silently deleting it. Telegraphs make a faster guardian fair,
+      behavioural ghost types add difficulty through decisions rather than raw
+      speed, and level-scoped weapons let mixed-progression friends play Level
+      One together. The electric grid turns the guardian victory into a visible
+      world change. Vertical sniper positions give a useful co-op job to a player
+      who is less confident at driving.
+    outcome: >
+      BUILDOUT-PLAN-2026-08-29.md is the release sequence from 0.4.0-alpha to
+      Level Two. The immediate implementation slice is round state, complete
+      death spill and wave-end auto-bank. Ghost personalities, guardian modes,
+      the clarity/style pass and Level Two are gated behind acceptance of the
+      preceding milestone.

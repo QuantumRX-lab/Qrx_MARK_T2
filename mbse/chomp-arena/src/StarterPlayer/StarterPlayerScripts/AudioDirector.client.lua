@@ -139,6 +139,17 @@ local function bind(character: Model)
 	character:GetAttributeChangedSignal("ChompHurtAt"):Connect(function()
 		if changed(character, "ChompHurtAt") then play("Hurt", random:NextNumber(0.94, 1.04)) end
 	end)
+	character:GetAttributeChangedSignal("ChompCombatAt"):Connect(function()
+		if not changed(character, "ChompCombatAt") then return end
+		local kind = character:GetAttribute("ChompCombatKind")
+		if kind == "CLANG" or kind == "HEAD-ON" then
+			play("Clang", random:NextNumber(0.96, 1.02))
+		elseif kind == "CHOMPED" then
+			play("Chomped")
+		elseif kind ~= "SHIELDED" then
+			play("Bite", random:NextNumber(0.96, 1.04))
+		end
+	end)
 	character:GetAttributeChangedSignal("ChompShieldBrokeAt"):Connect(function()
 		if changed(character, "ChompShieldBrokeAt") then play("ShieldBreak") end
 	end)

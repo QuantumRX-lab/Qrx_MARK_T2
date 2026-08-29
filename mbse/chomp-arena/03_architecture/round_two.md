@@ -1,14 +1,15 @@
 # Round Two — bosses, the second maze, and what unlocks it
 
-**Status: SPECIFICATION. None of this is built.**
+**Status: BASELINED by `D-CHOMP-075`. None of this is built.**
 
 Written 2026-08-27 from an ideation session with the owner. It describes the
 shape of the game *after* Level 1, and it deliberately starts from what already
 exists rather than from the sketch, because a guardian landed while we were
 talking.
 
-Nothing here is a requirement yet. Requirements come after the open questions in
-§8 are answered, and after `CHOMP-TC-040` has actually run.
+The build sequence and resolved product choices live in
+`BUILDOUT-PLAN-2026-08-29.md`. Atomic implementation requirements are created at
+the start of each milestone, after the preceding milestone passes acceptance.
 
 ---
 
@@ -185,9 +186,11 @@ doing one job:
 The design goal is that a seven-year-old who is *bad at driving* still has
 something she is unambiguously good at.
 
-## 8. The decision the owner has to make
+## 8. Level-scoped weapons - decided
 
-**If Level 2 gives flamethrowers permanently, what happens to Level 1?**
+Level 2 weapons are level-scoped. Returning to Level 1 restores the Level 1
+loadout, and its bomb pads remain bombs. This preserves the first maze for new
+players while still letting chassis ownership and permanent unlocks persist.
 
 The old design doc says permanent rewards stay cosmetic *"so experienced players
 never enter a match with a power advantage."* That rule is **already broken** —
@@ -203,9 +206,8 @@ Two coherent answers:
   stays exactly as tuned, and a friend joining at any level meets the same game
   everyone else does.
 
-**Recommendation: A**, unless friends joining at mixed progression is a common
-case — in which case B, and it must be decided *before* the second maze is
-designed rather than after.
+The choice is **B**. Mixed-progression groups are expected, so the first maze
+cannot assume everyone arrives with long-range missiles.
 
 ## 9. What must be true before any of this starts
 

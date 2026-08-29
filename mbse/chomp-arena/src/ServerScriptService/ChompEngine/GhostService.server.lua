@@ -34,6 +34,8 @@ local Workspace = game:GetService("Workspace")
 local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local CombatState = require(script.Parent:WaitForChild("CombatState"))
+local EconomyService = require(script.Parent:WaitForChild("EconomyService"))
 local G = Config.Ghosts
 local W = Config.Waves
 local L = Config.Level1
@@ -625,16 +627,14 @@ RunService.Heartbeat:Connect(function(dt)
 			-- IS the hit - so a shield that does not stop it does nothing on
 			-- the one run you bought it for. D-CHOMP-051 said "absorbs the
 			-- contact"; this is that.
-			local shieldUntil = (character:GetAttribute("ChompShieldUntil") :: number?) or 0
-			if os.clock() < shieldUntil then
-				character:SetAttribute("ChompShieldUntil", 0)
-				character:SetAttribute("ChompShieldBrokeAt", os.clock())
+			local gate = CombatState.beginHit(character, "Ghost")
+			if gate == "Shielded" then
 				g.model:PivotTo(g.model:GetPivot() * CFrame.new(0, 0, 40))
-			else
+			elseif gate == "Apply" then
 				local held = (character:GetAttribute("ChompCarried") :: number?) or 0
 				if held > 0 then
 					local taken = math.floor(held * G.StealFraction)
-					character:SetAttribute("ChompCarried", held - taken)
+					EconomyService.applyCarryDelta(character, -taken, "ghost")
 					character:SetAttribute("ChompStolenAt", os.clock())
 					character:SetAttribute("ChompStolenAmount", taken)
 				end
@@ -645,11 +645,12 @@ RunService.Heartbeat:Connect(function(dt)
 					local reduction = if armour > 0
 						then Config.Upgrades.Armour.GhostDamageReduction[armour] else 0
 					humanoid:TakeDamage(G.ContactDamage * (1 - reduction))
-					character:SetAttribute("ChompHurtAt", os.clock())
 				end
 			end
-			character:SetAttribute("ChompLastContactAt", os.clock())
-			g.lastSteal = os.clock()
+			if gate ~= "Blocked" then
+				character:SetAttribute("ChompLastContactAt", os.clock())
+				g.lastSteal = os.clock()
+			end
 		end
 	end
 end)

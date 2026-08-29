@@ -32,6 +32,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
+local CombatState = require(script.Parent:WaitForChild("CombatState"))
 
 local ITEMS = Config.Items
 local DEFS = ITEMS.Definitions
@@ -585,7 +586,8 @@ local function detonate(player: Player, bomb: BasePart)
 					and other.Character:FindFirstChildOfClass("Humanoid")
 				if otherRoot and humanoid
 					and (otherRoot.Position - centre).Magnitude < blastRadius then
-					humanoid:TakeDamage(35)
+					local gate = CombatState.beginHit(other.Character :: Model, "Bomb")
+					if gate == "Apply" then humanoid:TakeDamage(35) end
 				end
 			end
 		end
@@ -816,9 +818,10 @@ local function fireCannon(player: Player)
 				if other ~= player then
 					local otherRoot = rootOf(other)
 					if otherRoot and (otherRoot.Position - pellet.Position).Magnitude < 7 then
-						local humanoid = other.Character
-							and other.Character:FindFirstChildOfClass("Humanoid")
-						if humanoid then humanoid:TakeDamage(8) end
+					local humanoid = other.Character
+						and other.Character:FindFirstChildOfClass("Humanoid")
+					local gate = other.Character and CombatState.beginHit(other.Character, "Cannon") or "Blocked"
+					if humanoid and gate == "Apply" then humanoid:TakeDamage(8) end
 						pellet:Destroy()
 						connection:Disconnect()
 						return

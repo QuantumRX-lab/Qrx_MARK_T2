@@ -386,3 +386,20 @@ entries:
     Specific trap that caused the second failure: ScreenOrientation belongs to
     PlayerGui, not ScreenGui, and any throw before gui.Parent kills the whole
     script. Build it, parent it, THEN decorate it, inside a pcall.
+- date: '2026-08-29'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-032, CHOMP-SYS-055, CHOMP-SYS-056, CHOMP-SYS-070, CHOMP-SYS-071]
+  summary: >
+    Release 0.4.0-alpha restores Jump and Cycle as bottom-right actions, adds
+    keyboard C/E/X, moves read-only values and belt above the thumb controls,
+    and displays the gold BITE battle bar separately from jump charge. The HUD
+    is parented before the optional PlayerGui landscape request, so an orientation
+    failure cannot suppress the display. Combat toasts show result, losses and
+    incoming direction.
+  status: OPEN
+  handoff: >
+    Verify at the target iPad landscape viewports that Jump, Cycle, belt, health,
+    carry and bank never overlap or leave the screen. Confirm Jump fires the
+    existing UseCharge intent, Cycle wraps occupied slots through SelectItem,
+    direct slot taps still work, and portrait fallback hides only Cycle.

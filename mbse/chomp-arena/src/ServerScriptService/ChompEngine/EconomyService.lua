@@ -28,6 +28,10 @@ local function capacity(character: Model): number
 	return definition and definition.BarCapacity or 100
 end
 
+function EconomyService.capacity(character: Model): number
+	return capacity(character)
+end
+
 local function deactivate(part: BasePart)
 	part:SetAttribute("Active", false)
 	part:SetAttribute("Value", 0)

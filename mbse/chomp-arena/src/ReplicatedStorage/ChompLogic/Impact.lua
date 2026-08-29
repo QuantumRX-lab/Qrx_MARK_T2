@@ -7,7 +7,8 @@
 	CHOMP-TC-016 and CHOMP-TC-017 writable as unit specs rather than as
 	"load the game and drive into someone".
 
-	STATUS: signatures and specification only. CHAIN-COMBAT implements.
+	STATUS: implemented. CombatService owns DataModel contact detection and
+	applies these results; this module remains deterministic and testable.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -146,9 +147,11 @@ function Impact.resolveHeadOn(barA: number, barB: number, carryA: number, carryB
 end
 
 --[[
-	resolveFlank(attackerBar, defenderBar, defenderCarry, powerGap) -> ImpactResult
+	resolveFlank(attackerBar, defenderBar, defenderCarry, powerGap,
+		attackerCapacity?) -> ImpactResult
 
-	The attacker spends BiteBarCost of their own bar. That amount comes off the
+	The attacker spends BiteBarCost of their full bar capacity, capped by their
+	current bar. That amount comes off the
 	defender's bar first and their carried points second. Scatter is at
 	"Defender".
 
@@ -165,13 +168,14 @@ function Impact.resolveFlank(
 	attackerBar: number,
 	defenderBar: number,
 	defenderCarry: number,
-	powerGap: number
+	powerGap: number,
+	attackerCapacity: number?
 ): ImpactResult
 	attackerBar = math.max(0, attackerBar)
 	defenderBar = math.max(0, defenderBar)
 	if attackerBar <= 0 then return empty() end
 
-	local cost = attackerBar * Config.Combat.BiteBarCost
+	local cost = math.min(attackerBar, math.max(0, attackerCapacity or attackerBar) * Config.Combat.BiteBarCost)
 	local result = empty("Flank")
 	result.attackerBarLoss = cost
 	result.defenderBarLoss = math.min(defenderBar, cost)

@@ -118,3 +118,18 @@ entries:
     Confirm a zero meter reaches jump cost in about 12 seconds in Level 1 and
     about 5 seconds in the guardian chamber, then verify one jump spends only
     the configured cost.
+- date: '2026-08-29'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-005, CHOMP-SYS-007]
+  summary: >
+    Release 0.4.0-alpha makes the server battle bar and combat scatter real.
+    EconomyService is the sole writer for battle-bar and carry deltas, clamps
+    every change, pools scatter pieces rather than cloning without bound, and
+    lets either player collect scattered value before it expires.
+  status: OPEN
+  handoff: >
+    In the two-client combat circuit confirm a head-on loses 40 percent of each
+    current bar, a flank bite spends 30 percent of attacker capacity, scattered
+    carry never exceeds what the defender actually lost, and collected scatter
+    increases carry exactly once.

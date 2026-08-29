@@ -27,7 +27,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.3.9-alpha"
+ChompConfig.ReleaseVersion = "0.4.0-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -363,6 +363,15 @@ ChompConfig.Controls = {
 	-- "use what I am holding" without adding a control to a scheme whose whole
 	-- premise is that there are none.
 	TapFireSeconds = 0.22,
+	JumpKey = Enum.KeyCode.C,
+	JumpKeyAlt = Enum.KeyCode.E,
+	CycleKey = Enum.KeyCode.X,
+	JumpButtonPx = 128,
+	CycleButtonPx = 96,
+	ButtonMarginPx = 16,
+	ButtonGapPx = 12,
+	LockLandscape = true,
+	HideCycleBelowAspect = 1.0,
 	TapFireSlopPixels = 14,  -- two taps this close on the far side = 180 flip
 	ThumbSafeZoneFraction = 0.30, -- bottom corners the HUD must keep clear
 }
@@ -445,6 +454,9 @@ ChompConfig.Audio = {
 		BombBlast = "99326810430842",
 		ShieldOn = "75193599106833",
 		ShieldBreak = "139668926662281",
+		Clang = "71356653036011",
+		Bite = "99326810430842",
+		Chomped = "101291490507949",
 		JetPack = "140526400915279",
 		Hurt = { "99885999815502", "109495522818192" },
 		Death = "101291490507949",
@@ -791,7 +803,8 @@ return ChompConfig
 	CHOMP-TC-016 and CHOMP-TC-017 writable as unit specs rather than as
 	"load the game and drive into someone".
 
-	STATUS: signatures and specification only. CHAIN-COMBAT implements.
+	STATUS: implemented. CombatService owns DataModel contact detection and
+	applies these results; this module remains deterministic and testable.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -930,9 +943,11 @@ function Impact.resolveHeadOn(barA: number, barB: number, carryA: number, carryB
 end
 
 --[[
-	resolveFlank(attackerBar, defenderBar, defenderCarry, powerGap) -> ImpactResult
+	resolveFlank(attackerBar, defenderBar, defenderCarry, powerGap,
+		attackerCapacity?) -> ImpactResult
 
-	The attacker spends BiteBarCost of their own bar. That amount comes off the
+	The attacker spends BiteBarCost of their full bar capacity, capped by their
+	current bar. That amount comes off the
 	defender's bar first and their carried points second. Scatter is at
 	"Defender".
 
@@ -949,13 +964,14 @@ function Impact.resolveFlank(
 	attackerBar: number,
 	defenderBar: number,
 	defenderCarry: number,
-	powerGap: number
+	powerGap: number,
+	attackerCapacity: number?
 ): ImpactResult
 	attackerBar = math.max(0, attackerBar)
 	defenderBar = math.max(0, defenderBar)
 	if attackerBar <= 0 then return empty() end
 
-	local cost = attackerBar * Config.Combat.BiteBarCost
+	local cost = math.min(attackerBar, math.max(0, attackerCapacity or attackerBar) * Config.Combat.BiteBarCost)
 	local result = empty("Flank")
 	result.attackerBarLoss = cost
 	result.defenderBarLoss = math.min(defenderBar, cost)
@@ -6764,6 +6780,328 @@ print(("[ChargeService] jump spends %d charge of %d max, %d per pellet"):format(
       </Item>
       <Item class="Script" referent="147">
         <Properties>
+          <string name="Name">CombatService</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+-- Server-owned directional contact combat.
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local Impact = require(ReplicatedStorage:WaitForChild("ChompLogic"):WaitForChild("Impact"))
+local EconomyService = require(script.Parent:WaitForChild("EconomyService"))
+local CombatState = require(script.Parent:WaitForChild("CombatState"))
+
+local C = Config.Combat
+
+type Driver = {
+	player: Player,
+	character: Model,
+	humanoid: Humanoid,
+	root: BasePart,
+	position: Vector3,
+	facing: Vector3,
+	velocity: Vector3,
+	mouthArc: number,
+}
+
+local previous: { [Player]: Vector3 } = {}
+local touching: { [string]: boolean } = {}
+
+local function pairKey(a: Player, b: Player): string
+	local low = math.min(a.UserId, b.UserId)
+	local high = math.max(a.UserId, b.UserId)
+	return tostring(low) .. ":" .. tostring(high)
+end
+
+local function chassisDefinition(character: Model)
+	local id = character:GetAttribute("ChompChassis")
+	return Config.Chassis[typeof(id) == "string" and id or Config.StartingChassis]
+end
+
+local function driver(player: Player, dt: number): Driver?
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not (character and humanoid and root) or humanoid.Health <= 0 then
+		previous[player] = nil
+		return nil
+	end
+	if character:GetAttribute("ChompSessionState") ~= Config.Launch.ActiveState
+		or character:GetAttribute("ChompSafe") == true
+		or character:GetAttribute("ChompInGuardianArena") == true
+		or os.clock() < ((character:GetAttribute("ChompProtectedUntil") :: number?) or 0) then
+		previous[player] = nil
+		return nil
+	end
+
+	local vehicle = character:FindFirstChild("Vehicle")
+	local primary = vehicle and vehicle:IsA("Model") and vehicle.PrimaryPart
+	if not primary then return nil end
+	local last = previous[player]
+	local observed = last and ((root.Position - last) / math.max(dt, 1 / 240)) or Vector3.zero
+	previous[player] = root.Position
+	local velocity = root.AssemblyLinearVelocity
+	if velocity.Magnitude < 0.5 and observed.Magnitude > velocity.Magnitude then velocity = observed end
+	local chassis = chassisDefinition(character)
+	return {
+		player = player,
+		character = character,
+		humanoid = humanoid,
+		root = root,
+		position = root.Position,
+		facing = primary.CFrame.LookVector,
+		velocity = velocity,
+		mouthArc = chassis and chassis.MouthArcDegrees or 90,
+	}
+end
+
+local function announce(character: Model, kind: string, role: string, barLoss: number, carryLoss: number,
+	otherPosition: Vector3)
+	character:SetAttribute("ChompCombatKind", kind)
+	character:SetAttribute("ChompCombatRole", role)
+	character:SetAttribute("ChompCombatBarLoss", math.floor(barLoss + 0.5))
+	character:SetAttribute("ChompCombatCarryLoss", math.floor(carryLoss + 0.5))
+	character:SetAttribute("ChompHitFromX", otherPosition.X)
+	character:SetAttribute("ChompHitFromZ", otherPosition.Z)
+	character:SetAttribute("ChompCombatAt", os.clock())
+end
+
+local function spend(character: Model, barLoss: number, carryLoss: number, reason: string)
+	if barLoss > 0 then EconomyService.applyBattleBarDelta(character, -barLoss, reason) end
+	if carryLoss > 0 then EconomyService.applyCarryDelta(character, -carryLoss, reason) end
+	character:SetAttribute("ChompPelletMultiplier", 1)
+end
+
+local function knock(driverInfo: Driver, awayFrom: Vector3, speed: number)
+	local direction = (driverInfo.position - awayFrom) * Vector3.new(1, 0, 1)
+	if direction.Magnitude < 0.01 then direction = -driverInfo.facing end
+	direction = direction.Unit
+	driverInfo.character:SetAttribute("ChompStunnedUntil", os.clock() + C.ImpactStunSeconds)
+	driverInfo.root:ApplyImpulse(direction * driverInfo.root.AssemblyMass * speed)
+end
+
+local function chomp(victim: Driver, attacker: Driver, attackerBarLoss: number)
+	local gate = CombatState.beginHit(victim.character, "PlayerChomp")
+	if gate == "Blocked" then return end
+	if attackerBarLoss > 0 then
+		EconomyService.applyBattleBarDelta(attacker.character, -attackerBarLoss, "chomp")
+	end
+	if gate == "Shielded" then
+		announce(attacker.character, "BITE", "ATTACKER", attackerBarLoss, 0, victim.position)
+		return
+	end
+	local result = Impact.resolveChomp(EconomyService.carry(victim.character))
+	spend(victim.character, 0, result.defenderCarryLoss, "chomp")
+	EconomyService.scatter(victim.position, result.scatterAmount, "chomp")
+	announce(attacker.character, "CHOMP", "ATTACKER", attackerBarLoss, 0, victim.position)
+	announce(victim.character, "CHOMPED", "DEFENDER", 0, result.defenderCarryLoss, attacker.position)
+	victim.character:SetAttribute("ChompChompedAt", os.clock())
+	victim.humanoid.Health = 0
+end
+
+local function resolveFlank(attacker: Driver, defender: Driver)
+	local attackerBar = EconomyService.battleBar(attacker.character)
+	if attackerBar <= 0 then return end
+	local powerA = (attacker.character:GetAttribute("ChompPower") :: number?) or 0
+	local powerB = (defender.character:GetAttribute("ChompPower") :: number?) or 0
+	local powerGap = powerA - powerB
+	if EconomyService.battleBar(defender.character) <= 0 then
+		if powerGap >= C.SmallFryPowerGap then
+			local gate = CombatState.beginHit(defender.character, "PlayerBite")
+			if gate == "Blocked" then return end
+			local cost = math.min(attackerBar, EconomyService.capacity(attacker.character) * C.BiteBarCost)
+			spend(attacker.character, cost, 0, "small-fry")
+			if gate == "Apply" then knock(defender, attacker.position, C.FlankKnockbackSpeed) end
+			announce(attacker.character, "NO REWARD", "ATTACKER", cost, 0, defender.position)
+			announce(defender.character, gate == "Shielded" and "SHIELDED" or "PROTECTED", "DEFENDER",
+				0, 0, attacker.position)
+			return
+		end
+		chomp(defender, attacker,
+			math.min(attackerBar, EconomyService.capacity(attacker.character) * C.BiteBarCost))
+		return
+	end
+	local gate = CombatState.beginHit(defender.character, "PlayerBite")
+	if gate == "Blocked" then return end
+	local result = Impact.resolveFlank(attackerBar, EconomyService.battleBar(defender.character),
+		EconomyService.carry(defender.character), powerGap,
+		EconomyService.capacity(attacker.character))
+	spend(attacker.character, result.attackerBarLoss, 0, "bite")
+	if gate == "Apply" then
+		spend(defender.character, result.defenderBarLoss, result.defenderCarryLoss, "ambushed")
+		EconomyService.scatter(defender.position, result.scatterAmount, "ambush")
+		knock(defender, attacker.position, C.FlankKnockbackSpeed)
+	end
+	announce(attacker.character, "BITE", "ATTACKER", result.attackerBarLoss, 0, defender.position)
+	announce(defender.character, gate == "Shielded" and "SHIELDED" or "AMBUSHED", "DEFENDER",
+		gate == "Apply" and result.defenderBarLoss or 0,
+		gate == "Apply" and result.defenderCarryLoss or 0, attacker.position)
+end
+
+local function resolveHeadOn(a: Driver, b: Driver)
+	local barA = EconomyService.battleBar(a.character)
+	local barB = EconomyService.battleBar(b.character)
+	if barA <= 0 then
+		chomp(a, b, math.min(barB, EconomyService.capacity(b.character) * C.BiteBarCost))
+	end
+	if barB <= 0 then
+		chomp(b, a, math.min(barA, EconomyService.capacity(a.character) * C.BiteBarCost))
+	end
+	if barA <= 0 or barB <= 0 then return end
+	if not CombatState.canHit(a.character) or not CombatState.canHit(b.character) then return end
+	local gateA = CombatState.beginHit(a.character, "HeadOn")
+	local gateB = CombatState.beginHit(b.character, "HeadOn")
+	if gateA == "Blocked" or gateB == "Blocked" then return end
+	local result = Impact.resolveHeadOn(barA, barB, EconomyService.carry(a.character), EconomyService.carry(b.character))
+	if gateA == "Apply" then spend(a.character, result.attackerBarLoss, result.attackerCarryLoss, "head-on") end
+	if gateB == "Apply" then spend(b.character, result.defenderBarLoss, result.defenderCarryLoss, "head-on") end
+	local scatterAmount = 0
+	if gateA == "Apply" then scatterAmount += result.attackerCarryLoss end
+	if gateB == "Apply" then scatterAmount += result.defenderCarryLoss end
+	EconomyService.scatter((a.position + b.position) * 0.5, scatterAmount, "head-on")
+	knock(a, b.position, C.BounceSpeed)
+	knock(b, a.position, C.BounceSpeed)
+	local kind = result.kind == "Clang" and "CLANG" or "HEAD-ON"
+	announce(a.character, gateA == "Shielded" and "SHIELDED" or kind, "CONTEST",
+		gateA == "Apply" and result.attackerBarLoss or 0,
+		gateA == "Apply" and result.attackerCarryLoss or 0, b.position)
+	announce(b.character, gateB == "Shielded" and "SHIELDED" or kind, "CONTEST",
+		gateB == "Apply" and result.defenderBarLoss or 0,
+		gateB == "Apply" and result.defenderCarryLoss or 0, a.position)
+end
+
+local function resolve(a: Driver, b: Driver)
+	local classification = Impact.classifyContact({
+		positionA = a.position,
+		positionB = b.position,
+		facingA = a.facing,
+		facingB = b.facing,
+		velocityA = a.velocity,
+		velocityB = b.velocity,
+		mouthArcA = a.mouthArc,
+		mouthArcB = b.mouthArc,
+		aboveThreshold = C.AboveAttackHeightStuds,
+		minimumAttackSpeed = C.MinimumAttackSpeed,
+	})
+	if classification.kind == "HeadOn" then
+		resolveHeadOn(a, b)
+	elseif classification.kind == "Flank" and classification.attacker == "A" then
+		resolveFlank(a, b)
+	elseif classification.kind == "Flank" and classification.attacker == "B" then
+		resolveFlank(b, a)
+	end
+end
+
+local function onCharacter(player: Player, character: Model)
+	previous[player] = nil
+	EconomyService.initialize(character)
+	CombatState.initialize(character)
+	character:SetAttribute("ChompStunnedUntil", 0)
+end
+
+local function bindPlayer(player: Player)
+	player.CharacterAdded:Connect(function(character) onCharacter(player, character) end)
+	if player.Character then onCharacter(player, player.Character) end
+end
+
+for _, player in Players:GetPlayers() do bindPlayer(player) end
+Players.PlayerAdded:Connect(bindPlayer)
+
+Players.PlayerRemoving:Connect(function(player)
+	previous[player] = nil
+	local marker = tostring(player.UserId)
+	for key in touching do
+		if string.find(key, marker, 1, true) then touching[key] = nil end
+	end
+end)
+
+RunService.Heartbeat:Connect(function(dt)
+	local drivers: { Driver } = {}
+	for _, player in Players:GetPlayers() do
+		local info = driver(player, dt)
+		if info then table.insert(drivers, info) end
+	end
+	local seenPairs: { [string]: boolean } = {}
+	for i = 1, #drivers - 1 do
+		for j = i + 1, #drivers do
+			local a, b = drivers[i], drivers[j]
+			local key = pairKey(a.player, b.player)
+			seenPairs[key] = true
+			local distance = (a.position - b.position).Magnitude
+			if distance <= C.ContactRadiusStuds then
+				if not touching[key] then
+					touching[key] = true
+					resolve(a, b)
+				end
+			elseif distance >= C.ContactReleaseRadiusStuds then
+				touching[key] = nil
+			end
+		end
+	end
+	for key in touching do
+		if not seenPairs[key] then touching[key] = nil end
+	end
+end)
+
+print("[CombatService] directional player contact live")
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="148">
+        <Properties>
+          <string name="Name">CombatState</string>
+          <string name="Source"><![CDATA[--!strict
+-- Shared server gate for every source of player damage.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+
+local CombatState = {}
+
+export type HitGate = "Apply" | "Shielded" | "Blocked"
+
+function CombatState.canHit(character: Model, now: number?): boolean
+	now = now or os.clock()
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then return false end
+	if character:GetAttribute("ChompSafe") == true then return false end
+	if character:GetAttribute("ChompInLaunchBay") == true then return false end
+	if now < ((character:GetAttribute("ChompProtectedUntil") :: number?) or 0) then return false end
+	if now < ((character:GetAttribute("ChompInvulnerableUntil") :: number?) or 0) then return false end
+	return true
+end
+
+function CombatState.beginHit(character: Model, source: string, now: number?): HitGate
+	now = now or os.clock()
+	if not CombatState.canHit(character, now) then return "Blocked" end
+	local shieldUntil = (character:GetAttribute("ChompShieldUntil") :: number?) or 0
+	if now < shieldUntil then
+		character:SetAttribute("ChompShieldUntil", 0)
+		character:SetAttribute("ChompShieldBrokeAt", now)
+		character:SetAttribute("ChompCombatKind", "SHIELDED")
+		character:SetAttribute("ChompCombatRole", "DEFENDER")
+		character:SetAttribute("ChompCombatAt", now)
+		return "Shielded"
+	end
+	character:SetAttribute("ChompInvulnerableUntil", now + Config.Combat.InvulnerabilitySeconds)
+	character:SetAttribute("ChompHurtSource", source)
+	character:SetAttribute("ChompHurtAt", now)
+	return "Apply"
+end
+
+function CombatState.initialize(character: Model)
+	character:SetAttribute("ChompInvulnerableUntil", 0)
+end
+
+return CombatState
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="149">
+        <Properties>
           <string name="Name">DeathService</string>
           <token name="RunContext">0</token>
           <string name="Source"><![CDATA[--!strict
@@ -6847,7 +7185,7 @@ print(("[DeathService] respawn %.1fs, announced"):format(Config.Combat.RespawnSe
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="148">
+      <Item class="ModuleScript" referent="150">
         <Properties>
           <string name="Name">EconomyService</string>
           <string name="Source"><![CDATA[--!strict
@@ -6878,6 +7216,10 @@ local function capacity(character: Model): number
 	local chassis = character:GetAttribute("ChompChassis")
 	local definition = Config.Chassis[typeof(chassis) == "string" and chassis or Config.StartingChassis]
 	return definition and definition.BarCapacity or 100
+end
+
+function EconomyService.capacity(character: Model): number
+	return capacity(character)
 end
 
 local function deactivate(part: BasePart)
@@ -7009,7 +7351,7 @@ return EconomyService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="149">
+      <Item class="Script" referent="151">
         <Properties>
           <string name="Name">GarageService</string>
           <token name="RunContext">0</token>
@@ -7215,6 +7557,9 @@ local function publishProgression(player: Player, character: Model)
 	for _, track in TRACKS do character:SetAttribute("ChompUpgrade" .. track, upgrades[track]) end
 	character:SetAttribute("ChompPower", Progression.computePower(chassisId, upgrades))
 	character:SetAttribute("ChompBarCapacity", Config.Chassis[chassisId].BarCapacity)
+	character:SetAttribute("ChompBattleBar", math.min(
+		(character:GetAttribute("ChompBattleBar") :: number?) or 0,
+		Config.Chassis[chassisId].BarCapacity))
 	character:SetAttribute("ChompMouthArcDegrees", stats.mouthArcDegrees)
 	character:SetAttribute("ChompPelletMultiplier", stats.pelletMultiplier)
 	character:SetAttribute("ChompChargeMultiplier", stats.chargeMultiplier)
@@ -7765,7 +8110,7 @@ print(("[GarageService] %d plinths (%d of them weapons), dwell %.1fs to buy, " .
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="150">
+      <Item class="Script" referent="152">
         <Properties>
           <string name="Name">GhostService</string>
           <token name="RunContext">0</token>
@@ -7805,6 +8150,8 @@ local Workspace = game:GetService("Workspace")
 local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local CombatState = require(script.Parent:WaitForChild("CombatState"))
+local EconomyService = require(script.Parent:WaitForChild("EconomyService"))
 local G = Config.Ghosts
 local W = Config.Waves
 local L = Config.Level1
@@ -8396,16 +8743,14 @@ RunService.Heartbeat:Connect(function(dt)
 			-- IS the hit - so a shield that does not stop it does nothing on
 			-- the one run you bought it for. D-CHOMP-051 said "absorbs the
 			-- contact"; this is that.
-			local shieldUntil = (character:GetAttribute("ChompShieldUntil") :: number?) or 0
-			if os.clock() < shieldUntil then
-				character:SetAttribute("ChompShieldUntil", 0)
-				character:SetAttribute("ChompShieldBrokeAt", os.clock())
+			local gate = CombatState.beginHit(character, "Ghost")
+			if gate == "Shielded" then
 				g.model:PivotTo(g.model:GetPivot() * CFrame.new(0, 0, 40))
-			else
+			elseif gate == "Apply" then
 				local held = (character:GetAttribute("ChompCarried") :: number?) or 0
 				if held > 0 then
 					local taken = math.floor(held * G.StealFraction)
-					character:SetAttribute("ChompCarried", held - taken)
+					EconomyService.applyCarryDelta(character, -taken, "ghost")
 					character:SetAttribute("ChompStolenAt", os.clock())
 					character:SetAttribute("ChompStolenAmount", taken)
 				end
@@ -8416,11 +8761,12 @@ RunService.Heartbeat:Connect(function(dt)
 					local reduction = if armour > 0
 						then Config.Upgrades.Armour.GhostDamageReduction[armour] else 0
 					humanoid:TakeDamage(G.ContactDamage * (1 - reduction))
-					character:SetAttribute("ChompHurtAt", os.clock())
 				end
 			end
-			character:SetAttribute("ChompLastContactAt", os.clock())
-			g.lastSteal = os.clock()
+			if gate ~= "Blocked" then
+				character:SetAttribute("ChompLastContactAt", os.clock())
+				g.lastSteal = os.clock()
+			end
 		end
 	end
 end)
@@ -8468,7 +8814,7 @@ print(("[GhostService] waves live: %d walls, %d sanctuaries, %d%% stolen per cat
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="151">
+      <Item class="Script" referent="153">
         <Properties>
           <string name="Name">GuardianService</string>
           <token name="RunContext">0</token>
@@ -8485,6 +8831,7 @@ local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local ItemModels = require(ServerStorage:WaitForChild("ChompTools"):WaitForChild("ItemModels"))
+local CombatState = require(script.Parent:WaitForChild("CombatState"))
 local G = Config.Guardian
 local P = Config.Palette
 
@@ -8769,9 +9116,9 @@ RunService.Heartbeat:Connect(function(dt)
 		if player and nearest < G.ContactRadiusStuds
 			and os.clock() - (contactAt[player] or 0) > G.ContactCooldownSeconds then
 			local humanoid = target.Parent and target.Parent:FindFirstChildOfClass("Humanoid")
-			if humanoid then humanoid:TakeDamage(G.ContactDamage) end
-			if target.Parent then target.Parent:SetAttribute("ChompHurtAt", os.clock()) end
-			contactAt[player] = os.clock()
+			local gate = target.Parent and CombatState.beginHit(target.Parent, "Guardian") or "Blocked"
+			if humanoid and gate == "Apply" then humanoid:TakeDamage(G.ContactDamage) end
+			if gate ~= "Blocked" then contactAt[player] = os.clock() end
 		end
 	end
 	local bob = math.sin(os.clock() * 1.8) * 1.2
@@ -8790,7 +9137,7 @@ print("[GuardianService] infinite chamber guardian live")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="152">
+      <Item class="Script" referent="154">
         <Properties>
           <string name="Name">ItemService</string>
           <token name="RunContext">0</token>
@@ -8828,6 +9175,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
+local CombatState = require(script.Parent:WaitForChild("CombatState"))
 
 local ITEMS = Config.Items
 local DEFS = ITEMS.Definitions
@@ -9381,7 +9729,8 @@ local function detonate(player: Player, bomb: BasePart)
 					and other.Character:FindFirstChildOfClass("Humanoid")
 				if otherRoot and humanoid
 					and (otherRoot.Position - centre).Magnitude < blastRadius then
-					humanoid:TakeDamage(35)
+					local gate = CombatState.beginHit(other.Character :: Model, "Bomb")
+					if gate == "Apply" then humanoid:TakeDamage(35) end
 				end
 			end
 		end
@@ -9612,9 +9961,10 @@ local function fireCannon(player: Player)
 				if other ~= player then
 					local otherRoot = rootOf(other)
 					if otherRoot and (otherRoot.Position - pellet.Position).Magnitude < 7 then
-						local humanoid = other.Character
-							and other.Character:FindFirstChildOfClass("Humanoid")
-						if humanoid then humanoid:TakeDamage(8) end
+					local humanoid = other.Character
+						and other.Character:FindFirstChildOfClass("Humanoid")
+					local gate = other.Character and CombatState.beginHit(other.Character, "Cannon") or "Blocked"
+					if humanoid and gate == "Apply" then humanoid:TakeDamage(8) end
 						pellet:Destroy()
 						connection:Disconnect()
 						return
@@ -9842,7 +10192,7 @@ print(("[ItemService] running - %d pads, %d slots, %d item types, %d/s use limit
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="153">
+      <Item class="Script" referent="155">
         <Properties>
           <string name="Name">Level1Map</string>
           <token name="RunContext">0</token>
@@ -10264,7 +10614,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="154">
+      <Item class="Script" referent="156">
         <Properties>
           <string name="Name">MovementService</string>
           <token name="RunContext">0</token>
@@ -10419,7 +10769,7 @@ print("[MovementService] running — server owns the numbers, the client owns it
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="155">
+      <Item class="Script" referent="157">
         <Properties>
           <string name="Name">PelletService</string>
           <token name="RunContext">0</token>
@@ -10653,7 +11003,7 @@ print(("[PelletService] %d pellets laid, values %s, bank rate %.1f")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="156">
+      <Item class="Script" referent="158">
         <Properties>
           <string name="Name">PlayerSessionService</string>
           <token name="RunContext">0</token>
@@ -10782,7 +11132,7 @@ print("[PlayerSessionService] protected launch bay and deployment live")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="157">
+      <Item class="Script" referent="159">
         <Properties>
           <string name="Name">ProfileService</string>
           <token name="RunContext">0</token>
@@ -10981,7 +11331,7 @@ print("[ProfileService] versioned profiles live; Studio is ephemeral")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="158">
+      <Item class="Script" referent="160">
         <Properties>
           <string name="Name">TestMap</string>
           <token name="RunContext">0</token>
@@ -11154,7 +11504,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="159">
+      <Item class="Script" referent="161">
         <Properties>
           <string name="Name">VehicleService</string>
           <token name="RunContext">0</token>
@@ -11612,7 +11962,7 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="160">
+      <Item class="Script" referent="162">
         <Properties>
           <string name="Name">WorldLook</string>
           <token name="RunContext">0</token>
@@ -11670,15 +12020,107 @@ print("[WorldLook] sharp-edge night rig active")
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="161">
+  <Item class="ServerStorage" referent="163">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="162">
+    <Item class="Folder" referent="164">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="163">
+      <Item class="ModuleScript" referent="165">
+        <Properties>
+          <string name="Name">CombatConformance</string>
+          <string name="Source"><![CDATA[--!strict
+-- Studio-runnable pure combat checks. No characters or map required.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Impact = require(ReplicatedStorage:WaitForChild("ChompLogic"):WaitForChild("Impact"))
+
+local CombatConformance = {}
+
+type Check = { name: string, passed: boolean, detail: string? }
+
+local function facing(degrees: number): Vector3
+	local radians = math.rad(degrees)
+	return Vector3.new(math.sin(radians), 0, -math.cos(radians))
+end
+
+local function near(a: number, b: number): boolean
+	return math.abs(a - b) < 0.001
+end
+
+local function add(results: { Check }, name: string, passed: boolean, detail: string?)
+	table.insert(results, { name = name, passed = passed, detail = detail })
+end
+
+function CombatConformance.checkAll(): { Check }
+	local results: { Check } = {}
+	add(results, "angle.44", Impact.classify(facing(0), facing(136), false) == "HeadOn")
+	add(results, "angle.46", Impact.classify(facing(0), facing(134), false) == "Flank")
+	add(results, "above.flank", Impact.classify(facing(0), facing(180), true) == "Flank")
+
+	local headOn = Impact.resolveHeadOn(100, 40, 200, 200)
+	add(results, "headon.bar-a", near(headOn.attackerBarLoss, 40))
+	add(results, "headon.bar-b", near(headOn.defenderBarLoss, 16))
+	add(results, "headon.carry", headOn.defenderCarryLoss == 60 and headOn.scatterAmount == 60)
+
+	local clang = Impact.resolveHeadOn(100, 95, 100, 100)
+	add(results, "headon.clang", clang.kind == "Clang" and clang.scatterAmount == 0)
+
+	local flank = Impact.resolveFlank(100, 20, 300, 0)
+	add(results, "flank.cost", near(flank.attackerBarLoss, 30))
+	add(results, "flank.overflow", near(flank.defenderBarLoss, 20)
+		and flank.defenderCarryLoss == 10 and flank.scatterAmount == 10)
+	local smallFry = Impact.resolveFlank(100, 20, 300, 300)
+	add(results, "flank.small-fry-inclusive", smallFry.defenderCarryLoss == 0 and smallFry.scatterAmount == 0)
+	add(results, "flank.empty-attacker", Impact.resolveFlank(0, 20, 300, 0).kind == "None")
+	add(results, "chomp.half", Impact.resolveChomp(301).scatterAmount == 151)
+
+	local rear = Impact.classifyContact({
+		positionA = Vector3.new(0, 0, 4), positionB = Vector3.zero,
+		facingA = facing(0), facingB = facing(0),
+		velocityA = facing(0) * 20, velocityB = facing(0) * 10,
+		mouthArcA = 90, mouthArcB = 90, aboveThreshold = 4, minimumAttackSpeed = 4,
+	})
+	add(results, "contact.rear-end", rear.kind == "Flank" and rear.attacker == "A")
+	local reverse = Impact.classifyContact({
+		positionA = Vector3.new(0, 0, 4), positionB = Vector3.zero,
+		facingA = facing(180), facingB = facing(0),
+		velocityA = facing(0) * 20, velocityB = Vector3.zero,
+		mouthArcA = 90, mouthArcB = 90, aboveThreshold = 4, minimumAttackSpeed = 4,
+	})
+	add(results, "contact.reverse", reverse.kind == "None")
+	local still = Impact.classifyContact({
+		positionA = Vector3.new(0, 0, 4), positionB = Vector3.zero,
+		facingA = facing(0), facingB = facing(180),
+		velocityA = Vector3.zero, velocityB = Vector3.zero,
+		mouthArcA = 90, mouthArcB = 90, aboveThreshold = 4, minimumAttackSpeed = 4,
+	})
+	add(results, "contact.stationary", still.kind == "None")
+	return results
+end
+
+function CombatConformance.report(results: { Check }?): boolean
+	results = results or CombatConformance.checkAll()
+	local allPassed = true
+	for _, check in results do
+		if check.passed then
+			print("  PASS  " .. check.name)
+		else
+			allPassed = false
+			warn("  FAIL  " .. check.name .. (check.detail and ("  " .. check.detail) or ""))
+		end
+	end
+	print(allPassed and "COMBAT CONFORMANCE: PASS" or "COMBAT CONFORMANCE: FAIL")
+	return allPassed
+end
+
+return CombatConformance
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="166">
         <Properties>
           <string name="Name">ItemModels</string>
           <string name="Source"><![CDATA[--!strict
@@ -11851,7 +12293,7 @@ return ItemModels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="164">
+      <Item class="ModuleScript" referent="167">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -12136,7 +12578,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="165">
+      <Item class="ModuleScript" referent="168">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -12395,11 +12837,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="166">
+      <Item class="Folder" referent="169">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="167">
+        <Item class="ModuleScript" referent="170">
           <Properties>
             <string name="Name">Apex</string>
             <string name="Source"><![CDATA[--!strict
@@ -12408,7 +12850,7 @@ return variant("Apex", Color3.fromRGB(96, 72, 176), Color3.fromRGB(255, 207, 55)
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="168">
+        <Item class="ModuleScript" referent="171">
           <Properties>
             <string name="Name">HeavyJaw</string>
             <string name="Source"><![CDATA[--!strict
@@ -12417,7 +12859,7 @@ return variant("HeavyJaw", Color3.fromRGB(238, 145, 26), Color3.fromRGB(255, 230
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="169">
+        <Item class="ModuleScript" referent="172">
           <Properties>
             <string name="Name">Ravener</string>
             <string name="Source"><![CDATA[--!strict
@@ -12426,7 +12868,7 @@ return variant("Ravener", Color3.fromRGB(208, 64, 104), Color3.fromRGB(95, 235, 
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="170">
+        <Item class="ModuleScript" referent="173">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -12536,7 +12978,7 @@ return {
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="171">
+        <Item class="ModuleScript" referent="174">
           <Properties>
             <string name="Name">Variant</string>
             <string name="Source"><![CDATA[--!strict
@@ -12580,15 +13022,15 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="172">
+  <Item class="StarterPlayer" referent="175">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="173">
+    <Item class="StarterPlayerScripts" referent="176">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="174">
+      <Item class="LocalScript" referent="177">
         <Properties>
           <string name="Name">AudioDirector</string>
           <string name="Source"><![CDATA[--!strict
@@ -12732,6 +13174,17 @@ local function bind(character: Model)
 	character:GetAttributeChangedSignal("ChompHurtAt"):Connect(function()
 		if changed(character, "ChompHurtAt") then play("Hurt", random:NextNumber(0.94, 1.04)) end
 	end)
+	character:GetAttributeChangedSignal("ChompCombatAt"):Connect(function()
+		if not changed(character, "ChompCombatAt") then return end
+		local kind = character:GetAttribute("ChompCombatKind")
+		if kind == "CLANG" or kind == "HEAD-ON" then
+			play("Clang", random:NextNumber(0.96, 1.02))
+		elseif kind == "CHOMPED" then
+			play("Chomped")
+		elseif kind ~= "SHIELDED" then
+			play("Bite", random:NextNumber(0.96, 1.04))
+		end
+	end)
 	character:GetAttributeChangedSignal("ChompShieldBrokeAt"):Connect(function()
 		if changed(character, "ChompShieldBrokeAt") then play("ShieldBreak") end
 	end)
@@ -12764,7 +13217,7 @@ player.CharacterAdded:Connect(bind)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="175">
+      <Item class="LocalScript" referent="178">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -13021,7 +13474,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="176">
+      <Item class="LocalScript" referent="179">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -13162,7 +13615,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="177">
+      <Item class="LocalScript" referent="180">
         <Properties>
           <string name="Name">ChompHud</string>
           <string name="Source"><![CDATA[--!strict
@@ -13191,13 +13644,14 @@ end)
 	Nothing here decides anything. Every value is an attribute the SERVER wrote,
 	read-only on this side (CHOMP-SYS-030). The HUD cannot make you richer.
 
-	The bottom edge and both lower corners stay empty, because that is where
-	thumbs live (CHOMP-SYS-032).
+	The lower corners hold actions only; the read-only values sit above them so
+	thumbs cannot hide information (CHOMP-SYS-032, CHOMP-SYS-070).
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 local TextChatService = game:GetService("TextChatService")
 local StarterGui = game:GetService("StarterGui")
 
@@ -13205,6 +13659,7 @@ local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
 local P = Config.Palette
 local ITEMS = Config.Items
+local CONTROLS = Config.Controls
 
 local player = Players.LocalPlayer
 
@@ -13213,7 +13668,14 @@ gui.Name = "ChompHud"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 50
-gui.Parent = player:WaitForChild("PlayerGui")
+local playerGui = player:WaitForChild("PlayerGui") :: PlayerGui
+gui.Parent = playerGui
+if CONTROLS.LockLandscape then
+	local ok, err = pcall(function()
+		playerGui.ScreenOrientation = Enum.ScreenOrientation.LandscapeSensor
+	end)
+	if not ok then warn("[ChompHud] landscape request failed; HUD remains active: " .. tostring(err)) end
+end
 
 -- Keep Roblox's own chat, but move it away from the attribute panel and jump
 -- control. This configures the platform UI rather than maintaining a second
@@ -13275,7 +13737,9 @@ end
 -- ── Bottom right: one stack, safest value at the bottom ─────────────────
 -- Banked sits lowest because it is the number you check least often and the
 -- one you most want to end the round looking at.
-local stack = panel("Values", Vector2.new(1, 1), UDim2.new(1, -16, 1, -92), UDim2.new(0, 236, 0, 168))
+local COLUMN_BASE = CONTROLS.ButtonMarginPx * 2 + CONTROLS.JumpButtonPx
+local stack = panel("Values", Vector2.new(1, 1),
+	UDim2.new(1, -16, 1, -(COLUMN_BASE + 76)), UDim2.new(0, 236, 0, 168))
 
 local carriedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 10),
 	"0", P.NeonB, 34, Enum.TextXAlignment.Right)
@@ -13307,7 +13771,7 @@ end
 local beltStrip = Instance.new("Frame")
 beltStrip.Name = "Belt"
 beltStrip.AnchorPoint = Vector2.new(1, 1)
-beltStrip.Position = UDim2.new(1, -16, 1, -16)
+beltStrip.Position = UDim2.new(1, -16, 1, -COLUMN_BASE)
 beltStrip.Size = UDim2.new(0, BELT_W, 0, SLOT_H)
 beltStrip.BackgroundTransparency = 1
 beltStrip.Parent = gui
@@ -13404,7 +13868,7 @@ local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 1
 label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 148),
 	"BANKED — SAFE", P.Gold, 12, Enum.TextXAlignment.Right)
 
--- ── Bottom left: the jump control ───────────────────────────────────────
+-- ── Bottom right: jump and belt cycle ──────────────────────────────────
 -- Buttons DO belong in the thumb zone. CHOMP-SYS-032 reserves the lower corners
 -- so that nothing you need to READ sits under a hand — a thing you need to
 -- PRESS wants to be exactly there (D-CHOMP-059).
@@ -13414,9 +13878,9 @@ label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 148),
 
 local chargeButton = Instance.new("TextButton")
 chargeButton.Name = "ChargeButton"
-chargeButton.AnchorPoint = Vector2.new(0, 1)
-chargeButton.Position = UDim2.new(0, 20, 1, -20)
-chargeButton.Size = UDim2.new(0, 128, 0, 128)
+chargeButton.AnchorPoint = Vector2.new(1, 1)
+chargeButton.Position = UDim2.new(1, -CONTROLS.ButtonMarginPx, 1, -CONTROLS.ButtonMarginPx)
+chargeButton.Size = UDim2.new(0, CONTROLS.JumpButtonPx, 0, CONTROLS.JumpButtonPx)
 chargeButton.BackgroundColor3 = P.BrickDark
 chargeButton.BackgroundTransparency = 0.05
 chargeButton.BorderSizePixel = 0
@@ -13481,7 +13945,7 @@ chargePercent.Parent = chargeButton
 
 -- Pressing it IS the jump - finger or mouse, one control (D-CHOMP-064).
 -- Activated covers both, and neither the fill nor the two labels can swallow
--- the press: a TextLabel does not consume input, so the whole 150-pixel circle
+-- the press: a TextLabel does not consume input, so the whole circle
 -- is live all the way to its edge.
 local refusedAt = 0
 local function pressCharge()
@@ -13500,6 +13964,89 @@ local function pressCharge()
 end
 chargeButton.Activated:Connect(pressCharge)
 
+local function beltEntries(): ({ string }, number)
+	local character = player.Character
+	local raw = character and character:GetAttribute("ChompBelt")
+	local ids: { string } = {}
+	if typeof(raw) == "string" and raw ~= "" then
+		for chunk in string.gmatch(raw, "[^,]+") do
+			local id = string.match(chunk, "^(.-):%d+$")
+			table.insert(ids, id or "")
+		end
+	end
+	local active = character and (character:GetAttribute("ChompActiveSlot") :: number?) or 1
+	return ids, active
+end
+
+local cycleRefusedAt = 0
+local function cycleItem()
+	local ids, active = beltEntries()
+	if #ids <= 1 then
+		cycleRefusedAt = os.clock()
+		return
+	end
+	local target = active
+	for _ = 1, #ids do
+		target = (target % #ids) + 1
+		if ids[target] and ids[target] ~= "" then break end
+	end
+	if target ~= active and Remotes and Remotes.SelectItem then
+		Remotes.SelectItem:FireServer(target)
+	end
+end
+
+local cycleButton = Instance.new("TextButton")
+cycleButton.Name = "CycleButton"
+cycleButton.AnchorPoint = Vector2.new(1, 1)
+cycleButton.Position = UDim2.new(1,
+	-(CONTROLS.ButtonMarginPx + CONTROLS.JumpButtonPx + CONTROLS.ButtonGapPx),
+	1, -CONTROLS.ButtonMarginPx)
+cycleButton.Size = UDim2.new(0, CONTROLS.CycleButtonPx, 0, CONTROLS.CycleButtonPx)
+cycleButton.BackgroundColor3 = P.BrickDark
+cycleButton.BackgroundTransparency = 0.1
+cycleButton.BorderSizePixel = 0
+cycleButton.Text = ">>"
+cycleButton.TextColor3 = P.Ghost
+cycleButton.TextSize = 30
+cycleButton.Font = Enum.Font.GothamBlack
+cycleButton.AutoButtonColor = false
+cycleButton.Parent = gui
+local cycleCorner = Instance.new("UICorner")
+cycleCorner.CornerRadius = UDim.new(1, 0)
+cycleCorner.Parent = cycleButton
+local cycleWord = Instance.new("TextLabel")
+cycleWord.Name = "Word"
+cycleWord.BackgroundTransparency = 1
+cycleWord.AnchorPoint = Vector2.new(0.5, 1)
+cycleWord.Position = UDim2.new(0.5, 0, 1, -10)
+cycleWord.Size = UDim2.new(1, -10, 0, 16)
+cycleWord.Text = "SWAP"
+cycleWord.TextColor3 = P.Boundary
+cycleWord.TextSize = 12
+cycleWord.Font = Enum.Font.GothamBold
+cycleWord.Parent = cycleButton
+cycleButton.Activated:Connect(cycleItem)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+	if input.KeyCode == CONTROLS.CycleKey then
+		cycleItem()
+	elseif input.KeyCode == CONTROLS.JumpKey or input.KeyCode == CONTROLS.JumpKeyAlt then
+		pressCharge()
+	end
+end)
+
+local function fitOrientation()
+	local camera = workspace.CurrentCamera
+	local viewport = camera and camera.ViewportSize
+	if not viewport or viewport.Y <= 0 then return end
+	cycleButton.Visible = (viewport.X / viewport.Y) >= CONTROLS.HideCycleBelowAspect
+end
+fitOrientation()
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fitOrientation)
+end
+
 -- ── Top centre: one objective ───────────────────────────────────────────
 local centre = panel("Objective", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 280, 0, 48))
 local objective = label(centre, UDim2.new(1, -20, 1, -12), UDim2.new(0, 10, 0, 6),
@@ -13517,6 +14064,27 @@ local ROTATING_TIPS = {
 	{ text = "YELLOW ZONES BANK CASH", colour = P.Shield },
 }
 local TIP_SECONDS = 5
+
+-- The battle bar is ammunition for the mouth. It is deliberately separate
+-- from Jump Charge: one funds attacks, the other funds escape.
+local battlePanel = panel("BattleBar", Vector2.zero,
+	UDim2.new(0, 16, 0, 116), UDim2.new(0, 218, 0, 46))
+local battleLabel = label(battlePanel, UDim2.new(1, -20, 0, 18), UDim2.new(0, 10, 0, 4),
+	"BITE  0/100", P.Gold, 13, Enum.TextXAlignment.Left)
+local battleBack = Instance.new("Frame")
+battleBack.Name = "BattleBack"
+battleBack.Position = UDim2.new(0, 10, 0, 27)
+battleBack.Size = UDim2.new(1, -20, 0, 11)
+battleBack.BackgroundColor3 = P.BrickDark
+battleBack.BorderSizePixel = 0
+battleBack.ClipsDescendants = true
+battleBack.Parent = battlePanel
+local battleFill = Instance.new("Frame")
+battleFill.Name = "Fill"
+battleFill.Size = UDim2.new(0, 0, 1, 0)
+battleFill.BackgroundColor3 = P.Gold
+battleFill.BorderSizePixel = 0
+battleFill.Parent = battleBack
 
 -- The module selector used to occupy this space. Progression is the useful
 -- information here: three continuous bars, finely ticked but never fragmented.
@@ -13600,7 +14168,7 @@ flash.Parent = gui
 local healthBack = Instance.new("Frame")
 healthBack.Name = "HealthBack"
 healthBack.AnchorPoint = Vector2.new(1, 1)
-healthBack.Position = UDim2.new(1, -16, 1, -268)
+healthBack.Position = UDim2.new(1, -16, 1, -(COLUMN_BASE + 252))
 healthBack.Size = UDim2.new(0, 236, 0, 14)
 healthBack.BackgroundColor3 = P.Floor
 healthBack.BackgroundTransparency = 0.25
@@ -13638,6 +14206,10 @@ RunService.RenderStepped:Connect(function(dt)
 	local banked = attribute("ChompDollars")
 	carriedValue.Text = tostring(carried)
 	bankedValue.Text = "$" .. tostring(banked)
+	local battle = attribute("ChompBattleBar")
+	local battleCapacity = math.max(1, attribute("ChompBarCapacity"))
+	battleLabel.Text = "BITE  " .. tostring(math.floor(battle)) .. "/" .. tostring(math.floor(battleCapacity))
+	battleFill.Size = UDim2.new(math.clamp(battle / battleCapacity, 0, 1), 0, 1, 0)
 
 	-- The belt arrives as one string, "Cannon:10,Shield:1", because an attribute
 	-- cannot hold a list.
@@ -13729,6 +14301,7 @@ RunService.RenderStepped:Connect(function(dt)
 	chargeButton.Active = true
 	chargeButton.BackgroundTransparency = ready and 0.02 or 0.05
 	chargeStroke.Color = ready and P.Gold or P.NeonA
+	cycleButton.BackgroundColor3 = (os.clock() - cycleRefusedAt) < 0.3 and P.Danger or P.BrickDark
 
 	-- Refusal pulse: 0.35 seconds of red, then back to whatever it was.
 	local sinceRefused = os.clock() - refusedAt
@@ -13800,7 +14373,168 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="178">
+      <Item class="LocalScript" referent="181">
+        <Properties>
+          <string name="Name">CombatFeedback</string>
+          <string name="Source"><![CDATA[--!strict
+-- Local presentation for server-owned combat results.
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local P = Config.Palette
+local localPlayer = Players.LocalPlayer
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "CombatFeedback"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 70
+gui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local toast = Instance.new("TextLabel")
+toast.Name = "CombatToast"
+toast.AnchorPoint = Vector2.new(0.5, 0)
+toast.Position = UDim2.new(0.5, 0, 0, 122)
+toast.Size = UDim2.new(0, 380, 0, 48)
+toast.BackgroundColor3 = P.Floor
+toast.BackgroundTransparency = 1
+toast.TextTransparency = 1
+toast.TextStrokeTransparency = 1
+toast.TextScaled = true
+toast.Font = Enum.Font.GothamBlack
+toast.ZIndex = 20
+toast.Parent = gui
+local limit = Instance.new("UITextSizeConstraint")
+limit.MinTextSize = 14
+limit.MaxTextSize = 28
+limit.Parent = toast
+
+local colours = {
+	["BITE"] = P.Gold,
+	["AMBUSHED"] = P.Danger,
+	["CLANG"] = P.NeonA,
+	["HEAD-ON"] = P.NeonA,
+	["CHOMP"] = P.Gold,
+	["CHOMPED"] = P.Danger,
+	["SHIELDED"] = P.Shield,
+	["NO REWARD"] = P.Ghost,
+	["PROTECTED"] = P.Shield,
+}
+
+local generation = 0
+
+local function directionWord(character: Model): string
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local x = character:GetAttribute("ChompHitFromX")
+	local z = character:GetAttribute("ChompHitFromZ")
+	local camera = workspace.CurrentCamera
+	if not (root and camera and typeof(x) == "number" and typeof(z) == "number") then return "" end
+	local toward = Vector3.new(x, root.Position.Y, z) - root.Position
+	if toward.Magnitude < 0.01 then return "" end
+	toward = toward.Unit
+	local right = camera.CFrame.RightVector * Vector3.new(1, 0, 1)
+	local forward = camera.CFrame.LookVector * Vector3.new(1, 0, 1)
+	if right.Magnitude < 0.01 or forward.Magnitude < 0.01 then return "" end
+	right = right.Unit
+	forward = forward.Unit
+	if math.abs(toward:Dot(right)) > math.abs(toward:Dot(forward)) then
+		return toward:Dot(right) > 0 and "  FROM RIGHT" or "  FROM LEFT"
+	end
+	return toward:Dot(forward) > 0 and "  FROM FRONT" or "  FROM REAR"
+end
+
+local function worldPopup(character: Model, kind: string, colour: Color3)
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then return end
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "CombatPopup"
+	billboard.Adornee = root
+	billboard.Size = UDim2.new(0, 190, 0, 54)
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, 8, 0)
+	billboard.AlwaysOnTop = true
+	billboard.MaxDistance = 220
+	billboard.Parent = root
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.fromScale(1, 1)
+	text.BackgroundTransparency = 1
+	text.Text = kind
+	text.TextColor3 = colour
+	text.TextStrokeColor3 = P.Floor
+	text.TextStrokeTransparency = 0
+	text.TextScaled = true
+	text.Font = Enum.Font.GothamBlack
+	text.Parent = billboard
+	TweenService:Create(billboard, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ StudsOffsetWorldSpace = Vector3.new(0, 13, 0) }):Play()
+	TweenService:Create(text, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 0.45),
+		{ TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+	Debris:AddItem(billboard, 0.85)
+
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "CombatFlash"
+	highlight.Adornee = character:FindFirstChild("Vehicle") or character
+	highlight.FillColor = colour
+	highlight.FillTransparency = 0.35
+	highlight.OutlineColor = P.Ghost
+	highlight.OutlineTransparency = 0.1
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = character
+	TweenService:Create(highlight, TweenInfo.new(0.25), { FillTransparency = 1, OutlineTransparency = 1 }):Play()
+	Debris:AddItem(highlight, 0.3)
+end
+
+local function showLocal(character: Model, kind: string, colour: Color3)
+	generation += 1
+	local mine = generation
+	local barLoss = (character:GetAttribute("ChompCombatBarLoss") :: number?) or 0
+	local carryLoss = (character:GetAttribute("ChompCombatCarryLoss") :: number?) or 0
+	local suffix = ""
+	if barLoss > 0 then suffix ..= "  -" .. tostring(barLoss) .. " BITE" end
+	if carryLoss > 0 then suffix ..= "  -" .. tostring(carryLoss) .. " CARRY" end
+	toast.Text = kind .. suffix .. directionWord(character)
+	toast.TextColor3 = colour
+	toast.BackgroundTransparency = 0.18
+	toast.TextTransparency = 0
+	toast.TextStrokeTransparency = 0.35
+	if _G.ChompCameraShake and character:GetAttribute("ChompCombatRole") ~= "ATTACKER" then
+		_G.ChompCameraShake()
+	end
+	task.delay(0.9, function()
+		if mine ~= generation then return end
+		TweenService:Create(toast, TweenInfo.new(0.2), {
+			BackgroundTransparency = 1, TextTransparency = 1, TextStrokeTransparency = 1,
+		}):Play()
+	end)
+end
+
+local function bind(character: Model, isLocal: boolean)
+	local seen = 0
+	character:GetAttributeChangedSignal("ChompCombatAt"):Connect(function()
+		local stamp = (character:GetAttribute("ChompCombatAt") :: number?) or 0
+		if stamp <= seen then return end
+		seen = stamp
+		local kind = tostring(character:GetAttribute("ChompCombatKind") or "HIT")
+		local colour = colours[kind] or P.Ghost
+		worldPopup(character, kind, colour)
+		if isLocal then showLocal(character, kind, colour) end
+	end)
+end
+
+local function watch(player: Player)
+	player.CharacterAdded:Connect(function(character) bind(character, player == localPlayer) end)
+	if player.Character then bind(player.Character, player == localPlayer) end
+end
+
+for _, player in Players:GetPlayers() do watch(player) end
+Players.PlayerAdded:Connect(watch)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="182">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -14061,7 +14795,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="179">
+      <Item class="LocalScript" referent="183">
         <Properties>
           <string name="Name">LaunchBay</string>
           <string name="Source"><![CDATA[--!strict
@@ -14152,7 +14886,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="180">
+      <Item class="LocalScript" referent="184">
         <Properties>
           <string name="Name">PickupFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -14269,7 +15003,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="181">
+      <Item class="LocalScript" referent="185">
         <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
@@ -14363,7 +15097,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="182">
+      <Item class="LocalScript" referent="186">
         <Properties>
           <string name="Name">ShopFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -14482,7 +15216,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="183">
+      <Item class="LocalScript" referent="187">
         <Properties>
           <string name="Name">TargetReticle</string>
           <string name="Source"><![CDATA[--!strict
@@ -14606,7 +15340,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="184">
+      <Item class="LocalScript" referent="188">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -14764,7 +15498,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="185">
+      <Item class="LocalScript" referent="189">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -14857,6 +15591,11 @@ RunService.RenderStepped:Connect(function(dt)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not (root and humanoid) then return end
 	if humanoid.Health <= 0 then return end
+	if os.clock() < ((character:GetAttribute("ChompStunnedUntil") :: number?) or 0) then
+		currentSpeed = 0
+		humanoid:Move(Vector3.zero, false)
+		return
+	end
 
 	local topSpeed, turnRate = stats()
 
@@ -14911,7 +15650,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="186">
+  <Item class="Workspace" referent="190">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

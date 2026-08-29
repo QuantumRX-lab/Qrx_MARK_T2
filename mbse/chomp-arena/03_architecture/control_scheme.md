@@ -1,20 +1,16 @@
 # Control Scheme
 
-**Current as of `D-CHOMP-073`.**
+**Current as of `D-CHOMP-074`.**
 
-> ### Status: partly SPECIFIED, not built
+> ### Status: built, awaiting device verification
 >
-> The cycle button, the `X` / `C` / `E` keys and the landscape lock are
-> **specification only**. They were implemented on 2026-08-27, broke the HUD
-> twice in play, and the implementation was **rolled back** at the owner's
-> instruction (`D-CHOMP-073`). The requirement stands; the code does not exist.
+> The cycle button, the `X` / `C` / `E` keys and the landscape request are
+> implemented in release `0.4.0-alpha`. The essential HUD is parented before
+> the optional orientation request, which is protected by `pcall`, so a platform
+> property failure cannot make the HUD disappear.
 >
-> What IS built today: proportional steering, the floating stick, held fire, a
-> second finger to fire on touch, and the charge/jump button — which sits
-> **bottom left**, not bottom right as described below.
->
-> Rows and sections below are marked **[BUILT]** or **[SPEC]**. Do not read this
-> document as a description of the running game until they all say BUILT.
+> Desktop Studio and target-iPad checks are still required before this control
+> layout is accepted.
 
 **One thumb drives. One finger fires. Two buttons do what a gesture cannot.**
 
@@ -31,8 +27,8 @@ spec that lags the build is worse than no spec, because it is believed.
 | **Steer** | Proportional. Push the stick, the vehicle turns at a rate set by how far you push. No snapping, no cardinal directions — a ring corridor has no north (`D-CHOMP-042`) |
 | **Throttle** | The same stick. Forward drives, back reverses and swings the nose round. Release and the vehicle coasts to a stop over `Braking` |
 | **Fire** | HELD, not tapped. The cannon is a machine gun and the SERVER paces it at `fireRatePerSecond`; the client only says "still holding" (`D-CHOMP-056`) |
-| **Jump** | **[BUILT]** The charge button. Costs `Charge.JumpCost`, carries you up and forward, and is the only escape the player controls. Currently bottom LEFT |
-| **Swap** | **[SPEC]** Cycle forward through the belt, wrapping. Purely positional — it never helpfully skips. Today an item is chosen by tapping its slot |
+| **Jump** | The charge button. Costs `Charge.JumpCost`, carries you up and forward, and is the only escape the player controls. Bottom right |
+| **Swap** | Cycle forward through occupied belt slots, wrapping. Purely positional; it never chooses for the player. An item can also be chosen by tapping its slot |
 | **Bank** | Automatic on any garage pad. No button, no prompt (`D-CHOMP-048`) |
 | **Buy** | Dwell beside a plinth. No menu, no confirmation dialog (`D-CHOMP-055`) |
 
@@ -48,7 +44,7 @@ entirely, so the machine gun was keyboard-only on the one device this game is
 for, and shooting meant letting go of the wheel. A quick tap of the *stick*
 finger also fires, for one-handed play.
 
-### Where the buttons are, and why — **[SPEC]**
+### Where the buttons are, and why
 
 ```
  +---------------------------------------------+
@@ -82,8 +78,7 @@ They are **sized by urgency**:
 
 ## Keyboard, for building in Studio
 
-**[BUILT]** are the movement keys and `Space`. **[SPEC]** are `C`, `E` and `X` —
-the jump still has no keyboard binding at all, and never has.
+Movement, fire, jump and swap keyboard routes are built.
 
 | Key | Action |
 |---|---|
@@ -97,7 +92,7 @@ platform's universal interact key. `Space` is fire rather than jump because the
 default control script is disabled (`D-CHOMP-023`), so the conventional jump key
 was free and the trigger needed a held key more.
 
-## Orientation — **[SPEC]**
+## Orientation
 
 **Landscape only.** `PlayerGui.ScreenOrientation` is locked at startup.
 
@@ -107,7 +102,7 @@ required both orientations; it was **amended** to require landscape rather than
 left to be silently violated.
 
 If a device reports portrait anyway, the **cycle** button hides. An item can
-still be chosen by tapping its slot; there is no other way to reach the jump.
+still be chosen by tapping its slot; Jump remains visible.
 
 ## Why there are buttons at all
 

@@ -10,11 +10,14 @@
 as_of: 2026-08-29
 build_status: IN_PROGRESS
 note: >
-  Release v0.3.9-alpha is the current rebuilt baseline. It contains the sealed
+  Release v0.4.0-alpha is the current rebuilt baseline. It contains the sealed
   Level 1 arena, garage and deployment flow, persistent progression, vehicle and
   upgrade plinths, ghost waves, the five-slot weapon belt, cannon, bomb, shield
   and jet pack, guardian chamber and fight, guardian exit zone, charge jump,
-  HUD, lighting and audio. Eight implementation chains are IN_PROGRESS;
+  HUD, lighting and audio. It adds server-owned directional vehicle combat,
+  pooled point scatter, shared hit protection, a visible battle bar, combat
+  feedback, and restored Jump/Cycle touch and keyboard actions. Eight
+  implementation chains are IN_PROGRESS;
   CHAIN-MATCH and CHAIN-KIT remain NOT_STARTED.
 
   The atomic requirements, decisions and chain logs now cover the major systems
@@ -24,7 +27,7 @@ note: >
   their verification_status remains NOT_STARTED. No status is promoted until
   the corresponding Studio, device or automated test evidence is recorded.
 
-  The repository and generated place are clean at v0.3.9-alpha. validate.py and
+  The generated place is rebuilt at v0.4.0-alpha. validate.py and
   guard.py pass; validate.py intentionally warns about the 18 delivered but
   unverified requirements.
 
@@ -50,7 +53,7 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 73
+  total: 75
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder - the daughter names it."
@@ -72,14 +75,17 @@ open_questions:
      than an honest hole."
 
 next_actions:
-  - "Run the v0.3.9-alpha Studio acceptance circuit: launch bay, deployment,
+  - "Run the v0.4.0-alpha Studio acceptance circuit: launch bay, deployment,
      ghost wall containment, purchases, persistence, each belt item, jump charge,
      guardian damage and health, guardian escape zone, and right-side chat."
   - "Record per-check evidence against the existing test cases and promote only
      the requirements actually observed to PASS or FAIL."
   - "Run CHOMP-TC-040 and touch-control checks on the target iPad; desktop Studio
      evidence does not close tablet readability, two-finger fire or camera risk."
-  - "Add Luau unit specs for the pure Impact and Progression modules, then connect
-     their results to the automated verification records."
+  - "Run CombatConformance.checkAll(), then run a two-client directional combat
+     session covering head-on, flank, reverse, small-fry and shield outcomes."
   - "Publish privately after the Studio circuit passes and verify collaborator
      access, DataStore persistence, audio permissions and join/respawn behaviour."
+  - "After 0.4.0-alpha acceptance, implement only the 0.5.0 wave-state slice in
+     BUILDOUT-PLAN-2026-08-29.md: full death spill, survivor auto-bank and the
+     intermission spend window."

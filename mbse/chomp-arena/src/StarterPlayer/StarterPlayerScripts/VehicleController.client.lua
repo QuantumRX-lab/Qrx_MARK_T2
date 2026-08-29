@@ -88,6 +88,11 @@ RunService.RenderStepped:Connect(function(dt)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not (root and humanoid) then return end
 	if humanoid.Health <= 0 then return end
+	if os.clock() < ((character:GetAttribute("ChompStunnedUntil") :: number?) or 0) then
+		currentSpeed = 0
+		humanoid:Move(Vector3.zero, false)
+		return
+	end
 
 	local topSpeed, turnRate = stats()
 

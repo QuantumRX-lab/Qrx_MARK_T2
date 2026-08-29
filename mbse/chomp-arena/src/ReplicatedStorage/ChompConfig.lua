@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.3.9-alpha"
+ChompConfig.ReleaseVersion = "0.4.0-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -355,6 +355,15 @@ ChompConfig.Controls = {
 	-- "use what I am holding" without adding a control to a scheme whose whole
 	-- premise is that there are none.
 	TapFireSeconds = 0.22,
+	JumpKey = Enum.KeyCode.C,
+	JumpKeyAlt = Enum.KeyCode.E,
+	CycleKey = Enum.KeyCode.X,
+	JumpButtonPx = 128,
+	CycleButtonPx = 96,
+	ButtonMarginPx = 16,
+	ButtonGapPx = 12,
+	LockLandscape = true,
+	HideCycleBelowAspect = 1.0,
 	TapFireSlopPixels = 14,  -- two taps this close on the far side = 180 flip
 	ThumbSafeZoneFraction = 0.30, -- bottom corners the HUD must keep clear
 }
@@ -437,6 +446,9 @@ ChompConfig.Audio = {
 		BombBlast = "99326810430842",
 		ShieldOn = "75193599106833",
 		ShieldBreak = "139668926662281",
+		Clang = "71356653036011",
+		Bite = "99326810430842",
+		Chomped = "101291490507949",
 		JetPack = "140526400915279",
 		Hurt = { "99885999815502", "109495522818192" },
 		Death = "101291490507949",
