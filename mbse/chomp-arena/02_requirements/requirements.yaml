@@ -443,10 +443,12 @@ requirements:
   - id: CHOMP-SYS-010
     title: Impact angle decides everything
     shall_statement: >
-      On player-to-player contact the server SHALL classify the impact from the
-      two facing vectors as head-on (within ±45°) or side/rear, and SHALL
-      resolve it accordingly; no client input SHALL influence the
-      classification.
+      On player-to-player contact the server SHALL classify the impact from
+      server-observed position, facing and motion. Two forward-moving mouths
+      aimed at one another within ±45° SHALL be head-on; one forward-moving
+      mouth aimed into a side or rear SHALL make that player the attacker;
+      reversing, an unaimed side scrape or a stationary overlap SHALL resolve
+      no hit. No client claim SHALL influence the classification.
     level: L2_system
     status: APPROVED
     priority: CRITICAL
@@ -462,8 +464,8 @@ requirements:
     chain: CHAIN-COMBAT
     phase: v1
     created_date: 2026-08-25
-    last_modified: 2026-08-25
-    author: Claude (requirements session)
+    last_modified: 2026-08-29
+    author: Codex (combat implementation baseline)
 
   - id: CHOMP-SYS-011
     title: Head-on is a contest both players pay for
@@ -1030,7 +1032,8 @@ requirements:
       During play the HUD SHALL place battle charge and risky carried points at
       top-left, one contextual next objective at top-centre, and safe dollars,
       timer and standings at top-right, while keeping the bottom edge and both
-      lower 30% corner zones clear for touch input.
+      lower 30% corner zones clear of read-only values. Only the defined touch
+      controls MAY occupy those thumb zones.
     level: L2_system
     status: DRAFT
     priority: HIGH
@@ -1046,7 +1049,7 @@ requirements:
     chain: CHAIN-UI
     phase: v1
     created_date: 2026-08-25
-    last_modified: 2026-08-25
+    last_modified: 2026-08-29
     author: Codex (HUD/gameplay requirements)
 
   - id: CHOMP-SYS-056
@@ -1997,3 +2000,59 @@ requirements:
     created_date: 2026-08-27
     last_modified: 2026-08-27
     author: Claude (local session)
+
+  - id: CHOMP-SYS-070
+    title: Jump and cycle are explicit actions
+    shall_statement: >
+      Touch SHALL provide a 128-pixel Jump button and a 96-pixel Cycle button,
+      with Jump in the bottom-right corner and Cycle beside it. Cycle SHALL move
+      forward through occupied belt slots and wrap. Keyboard C or E SHALL request
+      Jump, X SHALL request Cycle, and the existing belt slots SHALL remain
+      directly selectable. All requests SHALL reuse the existing server-validated
+      intent paths and SHALL NOT carry charge, item identity or outcome values.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-032, CHOMP-SYS-058, CHOMP-SYS-064]
+    verified_by: [CHOMP-TC-056]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Jump is a panic action and Cycle is a planning action. Giving them stable,
+      conventional controls is easier for a child than overloading steering taps
+      with more hidden gestures. Reusing UseCharge and SelectItem adds no trusted
+      client value and preserves the existing exploit boundary.
+    allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (control recovery baseline)
+
+  - id: CHOMP-SYS-071
+    title: Action controls survive every supported landscape viewport
+    shall_statement: >
+      The experience SHALL request landscape orientation from PlayerGui only
+      after the HUD is parented. Jump, Cycle, belt, health, carried points and
+      banked dollars SHALL remain fully on screen without overlap at every iPad
+      landscape aspect ratio under test. Failure to apply the orientation request
+      SHALL NOT prevent the HUD from appearing.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-032, CHOMP-SYS-055, CHOMP-SYS-070]
+    verified_by: [CHOMP-TC-057]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The first action-button implementation assigned ScreenOrientation to the
+      wrong Roblox class before parenting the HUD, so optional polish erased the
+      entire display. Parenting first and isolating the orientation request makes
+      that failure non-fatal; explicit viewport checks address the fixed-pixel
+      layout defect rather than assuming landscape alone solves it.
+    allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (control recovery baseline)

@@ -278,9 +278,11 @@ test_cases:
     type: INTEGRATION
     method: TEST
     preconditions: ["Two players with controlled bar values"]
-    test_data: {cases: ["100 v 40", "100 v 95", "approach angles 0, 30, 44, 46, 90 degrees"]}
+    test_data: {cases: ["100 v 40", "100 v 95", "approach angles 0, 30, 44, 46, 90 degrees", "rear-end", "reverse contact", "side scrape"]}
     procedure:
       - "Collide mouth to mouth at each approach angle and record the classification"
+      - "Rear-end a forward-moving player and confirm the rear player is the attacker"
+      - "Reverse into a player, hold a stationary overlap and scrape side-to-side"
       - "Run the 100 v 40 case and check both bars and the loser's carry"
       - "Run the 100 v 95 case and check for a clang"
     expected_result: Angles within 45 degrees classify head-on; both lose 40% bar; the lower bar loses the difference from carry; near-equal bars clang without point loss.
@@ -289,6 +291,8 @@ test_cases:
       - "both bars reduced 40%"
       - "overflow equals the bar difference and comes from carry"
       - "clang inside 10% costs no points and bounces both"
+      - "rear-end identifies the mouth-first player as attacker"
+      - "reverse, stationary and unaimed scrape contacts resolve no hit"
     automation: AUTOMATED
     status: NOT_STARTED
     phase: v1
@@ -1086,6 +1090,51 @@ test_cases:
       - "purchases are refused while saving is blocked, with a reason"
       - "out-of-range values are clamped rather than accepted"
       - "shutdown saves without loss"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-056
+    title: Jump and cycle use one stable action map
+    verifies: [CHOMP-SYS-070]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["A belt containing three different items", "Enough charge to jump", "Touch and keyboard input available"]
+    test_data: {keys: ["C", "E", "X"], occupied_slots: [1, 2, 3]}
+    procedure:
+      - "Press C, refill, then press E and confirm each requests exactly one jump"
+      - "Press X repeatedly and confirm selection advances 1-2-3-1"
+      - "Tap Cycle repeatedly and confirm the same order"
+      - "Tap each belt slot directly and confirm direct selection still works"
+      - "Inspect the network calls and confirm only UseCharge intent or SelectItem slot index is sent"
+    expected_result: Keyboard, touch buttons and direct slots agree, wrap predictably and introduce no client-owned outcome.
+    pass_criteria:
+      - "C and E each request one server-approved jump"
+      - "X and Cycle traverse the same occupied-slot order and wrap"
+      - "direct slot selection remains available"
+      - "no new remote and no client-supplied charge, item identity or outcome"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-057
+    title: Action controls cannot take down or cover the HUD
+    verifies: [CHOMP-SYS-071]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Studio device emulator", "HUD source loaded", "Orientation assignment can be forced to fail"]
+    test_data: {viewports: ["1024x768", "1180x820", "1366x1024", "1920x1080"]}
+    procedure:
+      - "Open each landscape viewport and capture the full HUD"
+      - "Confirm Jump, Cycle, belt, health, carry and bank have no overlap and remain on screen"
+      - "Force the orientation request to throw and restart the client"
+      - "Rotate a physical iPad before joining and confirm the experience settles in landscape"
+    expected_result: The HUD is readable across supported landscape sizes and still appears if orientation polish fails.
+    pass_criteria:
+      - "all named controls and values remain inside the viewport"
+      - "no action control overlaps a readable value or Roblox core control"
+      - "forced orientation failure leaves the complete HUD visible"
+      - "physical iPad settles in landscape"
     automation: HYBRID
     status: NOT_STARTED
     phase: v1

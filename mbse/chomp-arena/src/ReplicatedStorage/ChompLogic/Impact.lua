@@ -18,6 +18,28 @@ type ImpactResult = Types.ImpactResult
 
 local Impact = {}
 
+local function flatUnit(value: Vector3): Vector3
+	local flat = value * Vector3.new(1, 0, 1)
+	if flat.Magnitude < 0.001 then return Vector3.zero end
+	return flat.Unit
+end
+
+local function rounded(value: number): number
+	return math.floor(math.max(0, value) + 0.5)
+end
+
+local function empty(kind: Types.ImpactKind?): ImpactResult
+	return {
+		kind = kind or "None",
+		attackerBarLoss = 0,
+		defenderBarLoss = 0,
+		defenderCarryLoss = 0,
+		attackerCarryLoss = 0,
+		scatterAt = "None",
+		scatterAmount = 0,
+	}
+end
+
 --[[
 	classify(facingA, facingB, aboveB) -> ImpactKind
 
@@ -36,7 +58,49 @@ local Impact = {}
 	another) is Flank; a drop attack from above is Flank regardless of facings.
 ]]
 function Impact.classify(facingA: Vector3, facingB: Vector3, aboveB: boolean): Types.ImpactKind
-	error("not implemented — CHAIN-COMBAT")
+	if aboveB then return "Flank" end
+	local a = flatUnit(facingA)
+	local b = flatUnit(facingB)
+	if a == Vector3.zero or b == Vector3.zero then return "None" end
+	local threshold = -math.cos(math.rad(Config.Combat.HeadOnArcDegrees))
+	return a:Dot(b) <= threshold and "HeadOn" or "Flank"
+end
+
+-- Classifies a real contact, including which mouth initiated it. Facing alone
+-- can distinguish nose-to-nose from parallel vehicles, but it cannot tell a
+-- rear-end from a reverse collision or an unaimed scrape.
+function Impact.classifyContact(sample: Types.ContactSample): Types.ContactClassification
+	local aToB = flatUnit(sample.positionB - sample.positionA)
+	if aToB == Vector3.zero then return { kind = "None", attacker = "None" } end
+	local facingA = flatUnit(sample.facingA)
+	local facingB = flatUnit(sample.facingB)
+	if facingA == Vector3.zero or facingB == Vector3.zero then
+		return { kind = "None", attacker = "None" }
+	end
+
+	local vertical = sample.positionA.Y - sample.positionB.Y
+	if vertical >= sample.aboveThreshold then return { kind = "Flank", attacker = "A" } end
+	if vertical <= -sample.aboveThreshold then return { kind = "Flank", attacker = "B" } end
+
+	local speedA = flatUnit(sample.velocityA) == Vector3.zero and 0
+		or sample.velocityA:Dot(facingA)
+	local speedB = flatUnit(sample.velocityB) == Vector3.zero and 0
+		or sample.velocityB:Dot(facingB)
+	local aimedA = facingA:Dot(aToB) >= math.cos(math.rad(sample.mouthArcA * 0.5))
+	local aimedB = facingB:Dot(-aToB) >= math.cos(math.rad(sample.mouthArcB * 0.5))
+	local movingA = speedA >= sample.minimumAttackSpeed
+	local movingB = speedB >= sample.minimumAttackSpeed
+
+	if Impact.classify(facingA, facingB, false) == "HeadOn"
+		and aimedA and aimedB and movingA and movingB then
+		return { kind = "HeadOn", attacker = "None" }
+	end
+
+	local scoreA = aimedA and movingA and (speedA * math.max(0, facingA:Dot(aToB))) or 0
+	local scoreB = aimedB and movingB and (speedB * math.max(0, facingB:Dot(-aToB))) or 0
+	if scoreA <= 0 and scoreB <= 0 then return { kind = "None", attacker = "None" } end
+	if scoreA >= scoreB then return { kind = "Flank", attacker = "A" } end
+	return { kind = "Flank", attacker = "B" }
 end
 
 --[[
@@ -56,7 +120,29 @@ end
 	and scatterAmount equals what was actually taken, never more).
 ]]
 function Impact.resolveHeadOn(barA: number, barB: number, carryA: number, carryB: number): ImpactResult
-	error("not implemented — CHAIN-COMBAT")
+	barA = math.max(0, barA)
+	barB = math.max(0, barB)
+	local result = empty("HeadOn")
+	result.attackerBarLoss = barA * Config.Combat.HeadOnBarLoss
+	result.defenderBarLoss = barB * Config.Combat.HeadOnBarLoss
+
+	local largest = math.max(barA, barB)
+	local difference = math.abs(barA - barB)
+	if largest == 0 or difference <= largest * Config.Combat.ClangToleranceFraction then
+		result.kind = "Clang"
+		return result
+	end
+
+	if barA < barB then
+		result.attackerCarryLoss = math.min(rounded(carryA), rounded(difference))
+		result.scatterAmount = result.attackerCarryLoss
+		result.scatterAt = result.scatterAmount > 0 and "Midpoint" or "None"
+	else
+		result.defenderCarryLoss = math.min(rounded(carryB), rounded(difference))
+		result.scatterAmount = result.defenderCarryLoss
+		result.scatterAt = result.scatterAmount > 0 and "Midpoint" or "None"
+	end
+	return result
 end
 
 --[[
@@ -81,7 +167,22 @@ function Impact.resolveFlank(
 	defenderCarry: number,
 	powerGap: number
 ): ImpactResult
-	error("not implemented — CHAIN-COMBAT")
+	attackerBar = math.max(0, attackerBar)
+	defenderBar = math.max(0, defenderBar)
+	if attackerBar <= 0 then return empty() end
+
+	local cost = attackerBar * Config.Combat.BiteBarCost
+	local result = empty("Flank")
+	result.attackerBarLoss = cost
+	result.defenderBarLoss = math.min(defenderBar, cost)
+
+	if powerGap < Config.Combat.SmallFryPowerGap then
+		local overflow = math.max(0, cost - result.defenderBarLoss)
+		result.defenderCarryLoss = math.min(rounded(defenderCarry), rounded(overflow))
+		result.scatterAmount = result.defenderCarryLoss
+		result.scatterAt = result.scatterAmount > 0 and "Defender" or "None"
+	end
+	return result
 end
 
 --[[
@@ -91,7 +192,11 @@ end
 	alone (CHOMP-SYS-015).
 ]]
 function Impact.resolveChomp(carried: number): ImpactResult
-	error("not implemented — CHAIN-COMBAT")
+	local result = empty("Flank")
+	result.defenderCarryLoss = math.min(rounded(carried), rounded(carried * Config.Combat.ChompScatterFraction))
+	result.scatterAmount = result.defenderCarryLoss
+	result.scatterAt = result.scatterAmount > 0 and "Defender" or "None"
+	return result
 end
 
 --[[
@@ -100,7 +205,11 @@ end
 	never a respawn (CHOMP-SYS-049).
 ]]
 function Impact.resolveFall(carried: number): ImpactResult
-	error("not implemented — CHAIN-COMBAT")
+	local result = empty("Flank")
+	result.defenderCarryLoss = math.min(rounded(carried), rounded(carried * Config.Combat.FallScatterFraction))
+	result.scatterAmount = result.defenderCarryLoss
+	result.scatterAt = result.scatterAmount > 0 and "Defender" or "None"
+	return result
 end
 
 return Impact

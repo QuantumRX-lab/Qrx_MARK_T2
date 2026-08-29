@@ -24,6 +24,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local EconomyService = require(script.Parent:WaitForChild("EconomyService"))
 local L = Config.Level1
 local E = Config.Economy
 local P = Config.Palette
@@ -157,7 +158,8 @@ local function loop()
 					local baseValue = (pellet:GetAttribute("Value") :: number?) or 0
 					local multiplier = (character:GetAttribute("ChompPelletMultiplier") :: number?) or 1
 					local value = math.floor(baseValue * multiplier)
-					character:SetAttribute("ChompCarried", carried(character) + value)
+					EconomyService.applyCarryDelta(character, value, "pellet")
+					EconomyService.applyBattleBarDelta(character, value, "pellet")
 					if pellet:GetAttribute("PowerPellet") == true then
 						character:SetAttribute("ChompFullJawUntil", os.clock() + Config.Ghosts.FullJawSeconds)
 						character:SetAttribute("ChompFullJawStartedAt", os.clock())
@@ -182,6 +184,7 @@ local function loop()
 					end)
 				end
 			end
+			EconomyService.collectScatter(character, root.Position, PELLET_RADIUS)
 
 			-- Banking: drive onto your garage pad and the carry becomes dollars.
 			-- No button, no prompt — it is a consequence of driving somewhere
@@ -190,9 +193,7 @@ local function loop()
 			if carried(character) > 0 and (now - (lastBank[player] or 0)) > E.GarageReentryCooldownSeconds then
 				for _, pad in CollectionService:GetTagged("Chomp_Garage") do
 					if pad:IsA("BasePart") and (pad.Position - root.Position).Magnitude < BANK_RADIUS then
-						local banked = math.floor(carried(character) * E.BankRate)
-						character:SetAttribute("ChompDollars", dollars(character) + banked)
-						character:SetAttribute("ChompCarried", 0)
+						local banked = EconomyService.bank(character, E.BankRate)
 						character:SetAttribute("ChompBankedAmount", banked)
 						character:SetAttribute("ChompBankedAt", now)
 						lastBank[player] = now
@@ -212,6 +213,7 @@ Players.PlayerAdded:Connect(function(player)
 		if typeof(previous) == "number" then keep = previous end
 		character:SetAttribute("ChompCarried", 0)
 		character:SetAttribute("ChompDollars", keep)
+		EconomyService.initialize(character)
 		character:GetAttributeChangedSignal("ChompDollars"):Connect(function()
 			player:SetAttribute("ChompDollarsPersist", dollars(character))
 		end)

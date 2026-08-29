@@ -187,6 +187,15 @@ ChompConfig.Combat = {
 	ScatterLifetimeSeconds = 20,
 	SmallFryPowerGap = 300,    -- above this gap, a hit scatters nothing
 	FallScatterFraction = 0.10,
+	ContactRadiusStuds = 6.5,
+	ContactReleaseRadiusStuds = 8.5,
+	MinimumAttackSpeed = 4.0,
+	AboveAttackHeightStuds = 4.0,
+	ImpactStunSeconds = 0.24,
+	BounceSpeed = 30,
+	FlankKnockbackSpeed = 16,
+	ScatterPoolSize = 96,
+	ScatterMaxPellets = 18,
 }
 
 -- ── Economy ─────────────────────────────────────────────────────────────

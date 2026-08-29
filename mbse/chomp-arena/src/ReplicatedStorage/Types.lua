@@ -81,6 +81,26 @@ export type PublicView = {
 
 export type ImpactKind = "HeadOn" | "Clang" | "Flank" | "None"
 
+export type ContactSide = "A" | "B" | "None"
+
+export type ContactSample = {
+	positionA: Vector3,
+	positionB: Vector3,
+	facingA: Vector3,
+	facingB: Vector3,
+	velocityA: Vector3,
+	velocityB: Vector3,
+	mouthArcA: number,
+	mouthArcB: number,
+	aboveThreshold: number,
+	minimumAttackSpeed: number,
+}
+
+export type ContactClassification = {
+	kind: ImpactKind,
+	attacker: ContactSide,
+}
+
 export type ImpactResult = {
 	kind: ImpactKind,
 	-- Deltas to APPLY, never the resulting values. Positive numbers are

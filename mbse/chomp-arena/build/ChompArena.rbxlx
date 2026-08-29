@@ -195,6 +195,15 @@ ChompConfig.Combat = {
 	ScatterLifetimeSeconds = 20,
 	SmallFryPowerGap = 300,    -- above this gap, a hit scatters nothing
 	FallScatterFraction = 0.10,
+	ContactRadiusStuds = 6.5,
+	ContactReleaseRadiusStuds = 8.5,
+	MinimumAttackSpeed = 4.0,
+	AboveAttackHeightStuds = 4.0,
+	ImpactStunSeconds = 0.24,
+	BounceSpeed = 30,
+	FlankKnockbackSpeed = 16,
+	ScatterPoolSize = 96,
+	ScatterMaxPellets = 18,
 }
 
 -- ── Economy ─────────────────────────────────────────────────────────────
@@ -793,6 +802,28 @@ type ImpactResult = Types.ImpactResult
 
 local Impact = {}
 
+local function flatUnit(value: Vector3): Vector3
+	local flat = value * Vector3.new(1, 0, 1)
+	if flat.Magnitude < 0.001 then return Vector3.zero end
+	return flat.Unit
+end
+
+local function rounded(value: number): number
+	return math.floor(math.max(0, value) + 0.5)
+end
+
+local function empty(kind: Types.ImpactKind?): ImpactResult
+	return {
+		kind = kind or "None",
+		attackerBarLoss = 0,
+		defenderBarLoss = 0,
+		defenderCarryLoss = 0,
+		attackerCarryLoss = 0,
+		scatterAt = "None",
+		scatterAmount = 0,
+	}
+end
+
 --[[
 	classify(facingA, facingB, aboveB) -> ImpactKind
 
@@ -811,7 +842,49 @@ local Impact = {}
 	another) is Flank; a drop attack from above is Flank regardless of facings.
 ]]
 function Impact.classify(facingA: Vector3, facingB: Vector3, aboveB: boolean): Types.ImpactKind
-	error("not implemented — CHAIN-COMBAT")
+	if aboveB then return "Flank" end
+	local a = flatUnit(facingA)
+	local b = flatUnit(facingB)
+	if a == Vector3.zero or b == Vector3.zero then return "None" end
+	local threshold = -math.cos(math.rad(Config.Combat.HeadOnArcDegrees))
+	return a:Dot(b) <= threshold and "HeadOn" or "Flank"
+end
+
+-- Classifies a real contact, including which mouth initiated it. Facing alone
+-- can distinguish nose-to-nose from parallel vehicles, but it cannot tell a
+-- rear-end from a reverse collision or an unaimed scrape.
+function Impact.classifyContact(sample: Types.ContactSample): Types.ContactClassification
+	local aToB = flatUnit(sample.positionB - sample.positionA)
+	if aToB == Vector3.zero then return { kind = "None", attacker = "None" } end
+	local facingA = flatUnit(sample.facingA)
+	local facingB = flatUnit(sample.facingB)
+	if facingA == Vector3.zero or facingB == Vector3.zero then
+		return { kind = "None", attacker = "None" }
+	end
+
+	local vertical = sample.positionA.Y - sample.positionB.Y
+	if vertical >= sample.aboveThreshold then return { kind = "Flank", attacker = "A" } end
+	if vertical <= -sample.aboveThreshold then return { kind = "Flank", attacker = "B" } end
+
+	local speedA = flatUnit(sample.velocityA) == Vector3.zero and 0
+		or sample.velocityA:Dot(facingA)
+	local speedB = flatUnit(sample.velocityB) == Vector3.zero and 0
+		or sample.velocityB:Dot(facingB)
+	local aimedA = facingA:Dot(aToB) >= math.cos(math.rad(sample.mouthArcA * 0.5))
+	local aimedB = facingB:Dot(-aToB) >= math.cos(math.rad(sample.mouthArcB * 0.5))
+	local movingA = speedA >= sample.minimumAttackSpeed
+	local movingB = speedB >= sample.minimumAttackSpeed
+
+	if Impact.classify(facingA, facingB, false) == "HeadOn"
+		and aimedA and aimedB and movingA and movingB then
+		return { kind = "HeadOn", attacker = "None" }
+	end
+
+	local scoreA = aimedA and movingA and (speedA * math.max(0, facingA:Dot(aToB))) or 0
+	local scoreB = aimedB and movingB and (speedB * math.max(0, facingB:Dot(-aToB))) or 0
+	if scoreA <= 0 and scoreB <= 0 then return { kind = "None", attacker = "None" } end
+	if scoreA >= scoreB then return { kind = "Flank", attacker = "A" } end
+	return { kind = "Flank", attacker = "B" }
 end
 
 --[[
@@ -831,7 +904,29 @@ end
 	and scatterAmount equals what was actually taken, never more).
 ]]
 function Impact.resolveHeadOn(barA: number, barB: number, carryA: number, carryB: number): ImpactResult
-	error("not implemented — CHAIN-COMBAT")
+	barA = math.max(0, barA)
+	barB = math.max(0, barB)
+	local result = empty("HeadOn")
+	result.attackerBarLoss = barA * Config.Combat.HeadOnBarLoss
+	result.defenderBarLoss = barB * Config.Combat.HeadOnBarLoss
+
+	local largest = math.max(barA, barB)
+	local difference = math.abs(barA - barB)
+	if largest == 0 or difference <= largest * Config.Combat.ClangToleranceFraction then
+		result.kind = "Clang"
+		return result
+	end
+
+	if barA < barB then
+		result.attackerCarryLoss = math.min(rounded(carryA), rounded(difference))
+		result.scatterAmount = result.attackerCarryLoss
+		result.scatterAt = result.scatterAmount > 0 and "Midpoint" or "None"
+	else
+		result.defenderCarryLoss = math.min(rounded(carryB), rounded(difference))
+		result.scatterAmount = result.defenderCarryLoss
+		result.scatterAt = result.scatterAmount > 0 and "Midpoint" or "None"
+	end
+	return result
 end
 
 --[[
@@ -856,7 +951,22 @@ function Impact.resolveFlank(
 	defenderCarry: number,
 	powerGap: number
 ): ImpactResult
-	error("not implemented — CHAIN-COMBAT")
+	attackerBar = math.max(0, attackerBar)
+	defenderBar = math.max(0, defenderBar)
+	if attackerBar <= 0 then return empty() end
+
+	local cost = attackerBar * Config.Combat.BiteBarCost
+	local result = empty("Flank")
+	result.attackerBarLoss = cost
+	result.defenderBarLoss = math.min(defenderBar, cost)
+
+	if powerGap < Config.Combat.SmallFryPowerGap then
+		local overflow = math.max(0, cost - result.defenderBarLoss)
+		result.defenderCarryLoss = math.min(rounded(defenderCarry), rounded(overflow))
+		result.scatterAmount = result.defenderCarryLoss
+		result.scatterAt = result.scatterAmount > 0 and "Defender" or "None"
+	end
+	return result
 end
 
 --[[
@@ -866,7 +976,11 @@ end
 	alone (CHOMP-SYS-015).
 ]]
 function Impact.resolveChomp(carried: number): ImpactResult
-	error("not implemented — CHAIN-COMBAT")
+	local result = empty("Flank")
+	result.defenderCarryLoss = math.min(rounded(carried), rounded(carried * Config.Combat.ChompScatterFraction))
+	result.scatterAmount = result.defenderCarryLoss
+	result.scatterAt = result.scatterAmount > 0 and "Defender" or "None"
+	return result
 end
 
 --[[
@@ -875,7 +989,11 @@ end
 	never a respawn (CHOMP-SYS-049).
 ]]
 function Impact.resolveFall(carried: number): ImpactResult
-	error("not implemented — CHAIN-COMBAT")
+	local result = empty("Flank")
+	result.defenderCarryLoss = math.min(rounded(carried), rounded(carried * Config.Combat.FallScatterFraction))
+	result.scatterAmount = result.defenderCarryLoss
+	result.scatterAt = result.scatterAmount > 0 and "Defender" or "None"
+	return result
 end
 
 return Impact
@@ -1191,6 +1309,26 @@ export type PublicView = {
 -- ── Combat ──────────────────────────────────────────────────────────────
 
 export type ImpactKind = "HeadOn" | "Clang" | "Flank" | "None"
+
+export type ContactSide = "A" | "B" | "None"
+
+export type ContactSample = {
+	positionA: Vector3,
+	positionB: Vector3,
+	facingA: Vector3,
+	facingB: Vector3,
+	velocityA: Vector3,
+	velocityB: Vector3,
+	mouthArcA: number,
+	mouthArcB: number,
+	aboveThreshold: number,
+	minimumAttackSpeed: number,
+}
+
+export type ContactClassification = {
+	kind: ImpactKind,
+	attacker: ContactSide,
+}
 
 export type ImpactResult = {
 	kind: ImpactKind,
@@ -6709,7 +6847,169 @@ print(("[DeathService] respawn %.1fs, announced"):format(Config.Combat.RespawnSe
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="148">
+      <Item class="ModuleScript" referent="148">
+        <Properties>
+          <string name="Name">EconomyService</string>
+          <string name="Source"><![CDATA[--!strict
+-- Server-owned battle bar, carry deltas, banking and pooled combat scatter.
+
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local C = Config.Combat
+local P = Config.Palette
+
+local EconomyService = {}
+
+local scatterFolder = Workspace:FindFirstChild("CombatScatter") :: Folder?
+if not scatterFolder then
+	scatterFolder = Instance.new("Folder")
+	scatterFolder.Name = "CombatScatter"
+	scatterFolder.Parent = Workspace
+end
+local scatterRoot = scatterFolder :: Folder
+
+local token = 0
+
+local function capacity(character: Model): number
+	local value = character:GetAttribute("ChompBarCapacity")
+	if typeof(value) == "number" then return math.max(0, value) end
+	local chassis = character:GetAttribute("ChompChassis")
+	local definition = Config.Chassis[typeof(chassis) == "string" and chassis or Config.StartingChassis]
+	return definition and definition.BarCapacity or 100
+end
+
+local function deactivate(part: BasePart)
+	part:SetAttribute("Active", false)
+	part:SetAttribute("Value", 0)
+	part.Transparency = 1
+	part.Position = Vector3.new(0, -1000, 0)
+end
+
+local function makeScatterPart(index: number): BasePart
+	local part = Instance.new("Part")
+	part.Name = "ScatterPellet" .. tostring(index)
+	part.Shape = Enum.PartType.Ball
+	part.Size = Vector3.new(1.5, 1.5, 1.5)
+	part.Material = Enum.Material.Neon
+	part.Color = P.Gold
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.Parent = scatterRoot
+	deactivate(part)
+	return part
+end
+
+local function ensurePool()
+	while #scatterRoot:GetChildren() < C.ScatterPoolSize do
+		makeScatterPart(#scatterRoot:GetChildren() + 1)
+	end
+end
+
+local function available(): { BasePart }
+	ensurePool()
+	local result = {}
+	for _, child in scatterRoot:GetChildren() do
+		if child:IsA("BasePart") and child:GetAttribute("Active") ~= true then
+			table.insert(result, child)
+		end
+	end
+	return result
+end
+
+function EconomyService.initialize(character: Model)
+	if character:GetAttribute("ChompBattleBar") == nil then
+		character:SetAttribute("ChompBattleBar", 0)
+	end
+end
+
+function EconomyService.battleBar(character: Model): number
+	return (character:GetAttribute("ChompBattleBar") :: number?) or 0
+end
+
+function EconomyService.carry(character: Model): number
+	return (character:GetAttribute("ChompCarried") :: number?) or 0
+end
+
+function EconomyService.applyBattleBarDelta(character: Model, delta: number, reason: string?): number
+	local before = EconomyService.battleBar(character)
+	local after = math.clamp(before + delta, 0, capacity(character))
+	character:SetAttribute("ChompBattleBar", after)
+	if reason then character:SetAttribute("ChompBattleBarReason", reason) end
+	return after - before
+end
+
+function EconomyService.applyCarryDelta(character: Model, delta: number, reason: string?): number
+	local before = EconomyService.carry(character)
+	local after = math.max(0, before + delta)
+	character:SetAttribute("ChompCarried", after)
+	if reason then character:SetAttribute("ChompCarryReason", reason) end
+	return after - before
+end
+
+function EconomyService.bank(character: Model, rate: number): number
+	local held = EconomyService.carry(character)
+	local converted = math.floor(held * rate)
+	if converted <= 0 then return 0 end
+	local dollars = (character:GetAttribute("ChompDollars") :: number?) or 0
+	character:SetAttribute("ChompDollars", dollars + converted)
+	EconomyService.applyCarryDelta(character, -held, "bank")
+	return converted
+end
+
+function EconomyService.scatter(position: Vector3, amount: number, reason: string): number
+	amount = math.floor(math.max(0, amount) + 0.5)
+	if amount <= 0 then return 0 end
+	local free = available()
+	local count = math.min(#free, C.ScatterMaxPellets, math.max(1, math.ceil(amount / 10)))
+	if count <= 0 then return 0 end
+	local base = math.floor(amount / count)
+	local remainder = amount - base * count
+	token += 1
+	local spawnToken = token
+	for i = 1, count do
+		local part = free[i]
+		local angle = (i / count) * math.pi * 2 + spawnToken * 0.37
+		local radius = 2.5 + (i % 4) * 1.2
+		part.Position = position + Vector3.new(math.cos(angle) * radius, -1.5, math.sin(angle) * radius)
+		part.Transparency = 0
+		part:SetAttribute("Active", true)
+		part:SetAttribute("Value", base + (i <= remainder and 1 or 0))
+		part:SetAttribute("Reason", reason)
+		part:SetAttribute("SpawnToken", spawnToken)
+		task.delay(C.ScatterLifetimeSeconds, function()
+			if part.Parent and part:GetAttribute("SpawnToken") == spawnToken then deactivate(part) end
+		end)
+	end
+	return amount
+end
+
+function EconomyService.collectScatter(character: Model, position: Vector3, radius: number): number
+	local collected = 0
+	for _, child in scatterRoot:GetChildren() do
+		if child:IsA("BasePart") and child:GetAttribute("Active") == true
+			and (child.Position - position).Magnitude <= radius then
+			collected += (child:GetAttribute("Value") :: number?) or 0
+			deactivate(child)
+		end
+	end
+	if collected > 0 then
+		EconomyService.applyCarryDelta(character, collected, "scatter")
+		character:SetAttribute("ChompGainedAmount", collected)
+		character:SetAttribute("ChompGainedAt", os.clock())
+	end
+	return collected
+end
+
+return EconomyService
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="149">
         <Properties>
           <string name="Name">GarageService</string>
           <token name="RunContext">0</token>
@@ -7465,7 +7765,7 @@ print(("[GarageService] %d plinths (%d of them weapons), dwell %.1fs to buy, " .
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="149">
+      <Item class="Script" referent="150">
         <Properties>
           <string name="Name">GhostService</string>
           <token name="RunContext">0</token>
@@ -8168,7 +8468,7 @@ print(("[GhostService] waves live: %d walls, %d sanctuaries, %d%% stolen per cat
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="150">
+      <Item class="Script" referent="151">
         <Properties>
           <string name="Name">GuardianService</string>
           <token name="RunContext">0</token>
@@ -8490,7 +8790,7 @@ print("[GuardianService] infinite chamber guardian live")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="151">
+      <Item class="Script" referent="152">
         <Properties>
           <string name="Name">ItemService</string>
           <token name="RunContext">0</token>
@@ -9542,7 +9842,7 @@ print(("[ItemService] running - %d pads, %d slots, %d item types, %d/s use limit
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="152">
+      <Item class="Script" referent="153">
         <Properties>
           <string name="Name">Level1Map</string>
           <token name="RunContext">0</token>
@@ -9964,7 +10264,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="153">
+      <Item class="Script" referent="154">
         <Properties>
           <string name="Name">MovementService</string>
           <token name="RunContext">0</token>
@@ -10119,7 +10419,7 @@ print("[MovementService] running — server owns the numbers, the client owns it
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="154">
+      <Item class="Script" referent="155">
         <Properties>
           <string name="Name">PelletService</string>
           <token name="RunContext">0</token>
@@ -10149,6 +10449,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local EconomyService = require(script.Parent:WaitForChild("EconomyService"))
 local L = Config.Level1
 local E = Config.Economy
 local P = Config.Palette
@@ -10282,7 +10583,8 @@ local function loop()
 					local baseValue = (pellet:GetAttribute("Value") :: number?) or 0
 					local multiplier = (character:GetAttribute("ChompPelletMultiplier") :: number?) or 1
 					local value = math.floor(baseValue * multiplier)
-					character:SetAttribute("ChompCarried", carried(character) + value)
+					EconomyService.applyCarryDelta(character, value, "pellet")
+					EconomyService.applyBattleBarDelta(character, value, "pellet")
 					if pellet:GetAttribute("PowerPellet") == true then
 						character:SetAttribute("ChompFullJawUntil", os.clock() + Config.Ghosts.FullJawSeconds)
 						character:SetAttribute("ChompFullJawStartedAt", os.clock())
@@ -10307,6 +10609,7 @@ local function loop()
 					end)
 				end
 			end
+			EconomyService.collectScatter(character, root.Position, PELLET_RADIUS)
 
 			-- Banking: drive onto your garage pad and the carry becomes dollars.
 			-- No button, no prompt — it is a consequence of driving somewhere
@@ -10315,9 +10618,7 @@ local function loop()
 			if carried(character) > 0 and (now - (lastBank[player] or 0)) > E.GarageReentryCooldownSeconds then
 				for _, pad in CollectionService:GetTagged("Chomp_Garage") do
 					if pad:IsA("BasePart") and (pad.Position - root.Position).Magnitude < BANK_RADIUS then
-						local banked = math.floor(carried(character) * E.BankRate)
-						character:SetAttribute("ChompDollars", dollars(character) + banked)
-						character:SetAttribute("ChompCarried", 0)
+						local banked = EconomyService.bank(character, E.BankRate)
 						character:SetAttribute("ChompBankedAmount", banked)
 						character:SetAttribute("ChompBankedAt", now)
 						lastBank[player] = now
@@ -10337,6 +10638,7 @@ Players.PlayerAdded:Connect(function(player)
 		if typeof(previous) == "number" then keep = previous end
 		character:SetAttribute("ChompCarried", 0)
 		character:SetAttribute("ChompDollars", keep)
+		EconomyService.initialize(character)
 		character:GetAttributeChangedSignal("ChompDollars"):Connect(function()
 			player:SetAttribute("ChompDollarsPersist", dollars(character))
 		end)
@@ -10351,7 +10653,7 @@ print(("[PelletService] %d pellets laid, values %s, bank rate %.1f")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="155">
+      <Item class="Script" referent="156">
         <Properties>
           <string name="Name">PlayerSessionService</string>
           <token name="RunContext">0</token>
@@ -10480,7 +10782,7 @@ print("[PlayerSessionService] protected launch bay and deployment live")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="156">
+      <Item class="Script" referent="157">
         <Properties>
           <string name="Name">ProfileService</string>
           <token name="RunContext">0</token>
@@ -10679,7 +10981,7 @@ print("[ProfileService] versioned profiles live; Studio is ephemeral")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="157">
+      <Item class="Script" referent="158">
         <Properties>
           <string name="Name">TestMap</string>
           <token name="RunContext">0</token>
@@ -10852,7 +11154,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="158">
+      <Item class="Script" referent="159">
         <Properties>
           <string name="Name">VehicleService</string>
           <token name="RunContext">0</token>
@@ -11310,7 +11612,7 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="159">
+      <Item class="Script" referent="160">
         <Properties>
           <string name="Name">WorldLook</string>
           <token name="RunContext">0</token>
@@ -11368,15 +11670,15 @@ print("[WorldLook] sharp-edge night rig active")
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="160">
+  <Item class="ServerStorage" referent="161">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="161">
+    <Item class="Folder" referent="162">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="162">
+      <Item class="ModuleScript" referent="163">
         <Properties>
           <string name="Name">ItemModels</string>
           <string name="Source"><![CDATA[--!strict
@@ -11549,7 +11851,7 @@ return ItemModels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="163">
+      <Item class="ModuleScript" referent="164">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -11834,7 +12136,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="164">
+      <Item class="ModuleScript" referent="165">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -12093,11 +12395,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="165">
+      <Item class="Folder" referent="166">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="166">
+        <Item class="ModuleScript" referent="167">
           <Properties>
             <string name="Name">Apex</string>
             <string name="Source"><![CDATA[--!strict
@@ -12106,7 +12408,7 @@ return variant("Apex", Color3.fromRGB(96, 72, 176), Color3.fromRGB(255, 207, 55)
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="167">
+        <Item class="ModuleScript" referent="168">
           <Properties>
             <string name="Name">HeavyJaw</string>
             <string name="Source"><![CDATA[--!strict
@@ -12115,7 +12417,7 @@ return variant("HeavyJaw", Color3.fromRGB(238, 145, 26), Color3.fromRGB(255, 230
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="168">
+        <Item class="ModuleScript" referent="169">
           <Properties>
             <string name="Name">Ravener</string>
             <string name="Source"><![CDATA[--!strict
@@ -12124,7 +12426,7 @@ return variant("Ravener", Color3.fromRGB(208, 64, 104), Color3.fromRGB(95, 235, 
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="169">
+        <Item class="ModuleScript" referent="170">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -12234,7 +12536,7 @@ return {
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="170">
+        <Item class="ModuleScript" referent="171">
           <Properties>
             <string name="Name">Variant</string>
             <string name="Source"><![CDATA[--!strict
@@ -12278,15 +12580,15 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="171">
+  <Item class="StarterPlayer" referent="172">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="172">
+    <Item class="StarterPlayerScripts" referent="173">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="173">
+      <Item class="LocalScript" referent="174">
         <Properties>
           <string name="Name">AudioDirector</string>
           <string name="Source"><![CDATA[--!strict
@@ -12462,7 +12764,7 @@ player.CharacterAdded:Connect(bind)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="174">
+      <Item class="LocalScript" referent="175">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -12719,7 +13021,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="175">
+      <Item class="LocalScript" referent="176">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -12860,7 +13162,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="176">
+      <Item class="LocalScript" referent="177">
         <Properties>
           <string name="Name">ChompHud</string>
           <string name="Source"><![CDATA[--!strict
@@ -13498,7 +13800,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="177">
+      <Item class="LocalScript" referent="178">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -13759,7 +14061,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="178">
+      <Item class="LocalScript" referent="179">
         <Properties>
           <string name="Name">LaunchBay</string>
           <string name="Source"><![CDATA[--!strict
@@ -13850,7 +14152,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="179">
+      <Item class="LocalScript" referent="180">
         <Properties>
           <string name="Name">PickupFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -13967,7 +14269,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="180">
+      <Item class="LocalScript" referent="181">
         <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
@@ -14061,7 +14363,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="181">
+      <Item class="LocalScript" referent="182">
         <Properties>
           <string name="Name">ShopFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -14180,7 +14482,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="182">
+      <Item class="LocalScript" referent="183">
         <Properties>
           <string name="Name">TargetReticle</string>
           <string name="Source"><![CDATA[--!strict
@@ -14304,7 +14606,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="183">
+      <Item class="LocalScript" referent="184">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -14462,7 +14764,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="184">
+      <Item class="LocalScript" referent="185">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -14609,7 +14911,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="185">
+  <Item class="Workspace" referent="186">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

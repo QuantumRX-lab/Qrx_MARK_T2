@@ -8,7 +8,7 @@ chain: CHAIN-UI
 owner: Codex (integration)
 scope: The HUD, touch controls on the iPad, colour-coded gate readiness, off-deck
   player markers. Display only — it holds no state.
-requirement_count: 8
+requirement_count: 10
 requirements:
 - CHOMP-STK-001
 - CHOMP-SYS-030
@@ -18,6 +18,8 @@ requirements:
 - CHOMP-SYS-055
 - CHOMP-SYS-056
 - CHOMP-SYS-057
+- CHOMP-SYS-070
+- CHOMP-SYS-071
 phases:
 - v1
 status: IN_PROGRESS
