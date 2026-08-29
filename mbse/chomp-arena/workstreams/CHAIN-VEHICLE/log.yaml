@@ -5,7 +5,7 @@
 # by validate.py — they cannot silently drift.
 
 chain: CHAIN-VEHICLE
-owner: Codex (vehicle design)
+owner: Codex (integration)
 scope: 'The drivable chassis: model contract, movement stats, and the camera that
   has to keep it on screen. Externally owned — models arrive through inbox/ and
   are accepted by conformance scan, never by eye.'
@@ -18,7 +18,7 @@ requirements:
 - CHOMP-SYS-054
 phases:
 - v1
-status: NOT_STARTED
+status: IN_PROGRESS
 entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)

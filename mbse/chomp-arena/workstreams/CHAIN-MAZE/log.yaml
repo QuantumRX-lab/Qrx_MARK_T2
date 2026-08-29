@@ -5,7 +5,7 @@
 # by validate.py — they cannot silently drift.
 
 chain: CHAIN-MAZE
-owner: unassigned
+owner: Codex (integration)
 scope: 'Map geometry: multi-level decks, four-fold symmetry, twelve garages three
   per quadrant, the prefab pieces everything is built from. The daughter''s chain,
   in practice.'
@@ -18,7 +18,7 @@ requirements:
 phases:
 - v1
 - v2
-status: NOT_STARTED
+status: IN_PROGRESS
 entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)

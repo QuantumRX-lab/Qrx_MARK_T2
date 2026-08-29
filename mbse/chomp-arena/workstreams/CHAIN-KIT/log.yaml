@@ -5,7 +5,7 @@
 # by validate.py — they cannot silently drift.
 
 chain: CHAIN-KIT
-owner: unassigned
+owner: Codex (integration)
 scope: 'v3: the authoring kit — tags and attributes, the mirror tool, Check My Maze.
   Deliberately last (D-CHOMP-001).'
 requirement_count: 4

@@ -5,7 +5,7 @@
 # by validate.py — they cannot silently drift.
 
 chain: CHAIN-PLATFORM
-owner: unassigned
+owner: Codex (integration)
 scope: Server authority, the exploit surface, performance on the iPad, publishing
   and safety, ChompConfig, and content discovery by tag.
 requirement_count: 12
@@ -25,7 +25,7 @@ requirements:
 phases:
 - v1
 - v2
-status: NOT_STARTED
+status: IN_PROGRESS
 entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)

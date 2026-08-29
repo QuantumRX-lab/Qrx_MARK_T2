@@ -5,7 +5,7 @@
 # by validate.py — they cannot silently drift.
 
 chain: CHAIN-ECONOMY
-owner: unassigned
+owner: Codex (integration)
 scope: Pellets, eating, the battle bar, carried points, banking at a garage, upgrades
   and Power. The loop the whole game hangs from.
 requirement_count: 8
@@ -21,7 +21,7 @@ requirements:
 phases:
 - v1
 - v2
-status: NOT_STARTED
+status: IN_PROGRESS
 entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)

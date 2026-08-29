@@ -5,7 +5,7 @@
 # by validate.py — they cannot silently drift.
 
 chain: CHAIN-COMBAT
-owner: unassigned
+owner: Codex (integration)
 scope: 'Impact classification and everything downstream of it: head-on contests,
   bites, scatter, invulnerability, being chomped, falls and drop attacks. The signature
   mechanic — nothing here may depend on a client''s word.'
@@ -29,7 +29,7 @@ requirements:
 phases:
 - v1
 - v2
-status: NOT_STARTED
+status: IN_PROGRESS
 entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)

@@ -7,39 +7,26 @@
 # validator (D-INFRA-009): atomic records stay accurate, handwritten totals
 # drift.
 
-as_of: 2026-08-28
+as_of: 2026-08-29
 build_status: IN_PROGRESS
 note: >
-  The game is publishable and the tree is behind it. Both halves of that
-  sentence matter.
+  Release v0.3.9-alpha is the current rebuilt baseline. It contains the sealed
+  Level 1 arena, garage and deployment flow, persistent progression, vehicle and
+  upgrade plinths, ghost waves, the five-slot weapon belt, cannon, bomb, shield
+  and jet pack, guardian chamber and fight, guardian exit zone, charge jump,
+  HUD, lighting and audio. Eight implementation chains are IN_PROGRESS;
+  CHAIN-MATCH and CHAIN-KIT remain NOT_STARTED.
 
-  Release 0.3.6-alpha simplifies the play HUD: development camera controls and
-  the solo/PVP switch are gone, chat is right-aligned, the jump control remains
-  visibly active while charging, and the utility belt sits below the economy
-  panel. The place was rebuilt from the same source before delivery.
+  The atomic requirements, decisions and chain logs now cover the major systems
+  added during the rapid prototype. Integration ownership is assigned to Codex
+  across all ten chains so baseline reconciliation has one accountable owner.
+  Delivery is not verification: 18 requirements have delivered evidence while
+  their verification_status remains NOT_STARTED. No status is promoted until
+  the corresponding Studio, device or automated test evidence is recorded.
 
-  Built and playable since this dashboard last spoke: the sealed single-level
-  Level 1 disc, ghost waves with a speed cap and lobby scaling, the five-slot
-  item belt, cannon and bomb and shield and jet pack, the plinth shop selling
-  chassis, upgrades and weapons, garage sanctuaries, the charge jump, a seven
-  track upgrade ladder with module ports, versioned DataStore persistence, a
-  managed lighting rig, an audio director, and a launch bay with a deployment
-  gate. Roughly seventy commits.
-
-  Written down: almost none of it. Between 2026-08-26 and -27 thirty-three
-  commits landed carrying one decision and two chain entries between them. The
-  tree did not fail a check while that happened, because every check asks
-  whether the records agree with each other and none asked whether they agree
-  with the game. Two now do (D-CHOMP-067): this date is enforced against the
-  newest record anywhere, and a requirement a chain calls DELIVERED while still
-  reading NOT_STARTED raises a warning on every run.
-
-  Requirement verification_status values stay NOT_STARTED, and that is still
-  honest rather than lazy: nothing has been verified. CHOMP-TC-040 has never
-  run, no Luau spec exists, and the seven-year-old has not held the iPad. Code
-  that plays is not a requirement that passed, and this tree does not get to
-  pretend otherwise. The fourteen requirements the new warning names are the
-  backlog that statement creates, not a bug in it.
+  The repository and generated place are clean at v0.3.9-alpha. validate.py and
+  guard.py pass; validate.py intentionally warns about the 18 delivered but
+  unverified requirements.
 
 requirements:
   total: 77
@@ -67,7 +54,6 @@ decisions:
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder - the daughter names it."
-  - "Nine of the ten chains are unassigned; only CHAIN-VEHICLE has an owner (Codex)."
   - "Triangle counts on vehicle models are declared by the designer, not
      measured - Luau cannot read them. Confirm in the mesh tooling."
   - "The control scheme is decided as of D-CHOMP-042 (proportional steering),
@@ -86,28 +72,14 @@ open_questions:
      than an honest hole."
 
 next_actions:
-  - "Publish privately and run CHOMP-TC-040 on the iPad, rewritten for the
-     single-level disc. Read the breach count off the on-screen readout; there
-     is no command bar on a tablet. The same trip is the first time two-finger
-     fire, the launch bay, the shop dwell and DataStore persistence will have
-     been touched by a human - see BUILDING.md, which is now accurate."
-  - "Private means people with EDIT ACCESS, not people with the link. Add the
-     seven-year-old as a collaborator before planning a session around it, or
-     she is refused at the door and it looks like a broken game."
-  - "Write the missing requirements: waves, the charge jump, sanctuaries,
-     friendly fire gating damage, the plinth shop, the launch bay and profile
-     persistence are all BUILT AND UNSPECIFIED. Chain entries currently cite
-     whatever ID is nearest and in-chain, which passes validation while
-     corrupting the trace."
-  - "Amend the six requirements that describe a deleted game: CHOMP-SYS-047
-     (stacked decks), -046 (12 garages), -007 (per-player garages), -017 (grid
-     pathing), -018 (ghosts do not damage), -053 (inverse ghost scaling)."
-  - "No GuardianService exists - chamber geometry and tuning only. It is a
-     LAUNCH-READINESS P0 gate and the only one with no code at all, so there is
-     currently nothing to fight at the end and no end condition after it."
-  - "The Luau unit specs over ChompLogic are still not built. Impact and
-     Progression were written as pure functions precisely so they could be
-     tested; Progression is now implemented, so it is testable today."
-  - "From REVIEW-2026-08-26: ghosts still pass through maze walls, camera shake
-     is implemented and never called, and ghost kills still pay into banking's
-     attribute channel."
+  - "Run the v0.3.9-alpha Studio acceptance circuit: launch bay, deployment,
+     ghost wall containment, purchases, persistence, each belt item, jump charge,
+     guardian damage and health, guardian escape zone, and right-side chat."
+  - "Record per-check evidence against the existing test cases and promote only
+     the requirements actually observed to PASS or FAIL."
+  - "Run CHOMP-TC-040 and touch-control checks on the target iPad; desktop Studio
+     evidence does not close tablet readability, two-finger fire or camera risk."
+  - "Add Luau unit specs for the pure Impact and Progression modules, then connect
+     their results to the automated verification records."
+  - "Publish privately after the Studio circuit passes and verify collaborator
+     access, DataStore persistence, audio permissions and join/respawn behaviour."

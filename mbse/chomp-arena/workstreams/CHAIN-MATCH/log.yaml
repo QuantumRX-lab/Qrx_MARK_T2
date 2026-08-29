@@ -5,7 +5,7 @@
 # by validate.py — they cannot silently drift.
 
 chain: CHAIN-MATCH
-owner: unassigned
+owner: Codex (integration)
 scope: Rounds, intermissions, standings, the winner, per-match reset, and team play.
 requirement_count: 6
 requirements:
