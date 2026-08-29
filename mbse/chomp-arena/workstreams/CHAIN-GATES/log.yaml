@@ -8,13 +8,16 @@ chain: CHAIN-GATES
 owner: Codex (integration)
 scope: Level progression, guardian chambers, Threat versus Power, under-powered
   consequences and qualified guardian fights.
-requirement_count: 5
+requirement_count: 8
 requirements:
 - CHOMP-SYS-022
 - CHOMP-SYS-023
 - CHOMP-SYS-024
 - CHOMP-SYS-025
 - CHOMP-SYS-026
+- CHOMP-SYS-072
+- CHOMP-SYS-073
+- CHOMP-SYS-086
 phases:
 - v1
 - v2
@@ -75,3 +78,15 @@ entries:
     Verify the exit is visible from across the chamber, cannot be triggered by
     the guardian, and returns each player to the arena without separating their
     vehicle model.
+- date: '2026-08-29'
+  agent: Codex
+  action: DECIDED
+  requirements: [CHOMP-SYS-072, CHOMP-SYS-073, CHOMP-SYS-086]
+  summary: >
+    Build 1 makes the guardian face, facing, weak point and telegraphed attacks
+    readable. Build 6 makes first victory disable a visible group electric grid
+    and permanently credit participating players with Level Two access.
+  status: OPEN
+  handoff: >
+    Build 1 is next after 0.4.0 acceptance. Build 6 remains gated behind the
+    full 1-5 sequence and target-iPad camera evidence.

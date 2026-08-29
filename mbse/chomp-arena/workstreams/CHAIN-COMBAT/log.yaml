@@ -9,7 +9,7 @@ owner: Codex (integration)
 scope: 'Impact classification and everything downstream of it: head-on contests,
   bites, scatter, invulnerability, being chomped, falls and drop attacks. The signature
   mechanic — nothing here may depend on a client''s word.'
-requirement_count: 15
+requirement_count: 16
 requirements:
 - CHOMP-STK-003
 - CHOMP-SYS-010
@@ -26,6 +26,7 @@ requirements:
 - CHOMP-SYS-060
 - CHOMP-SYS-061
 - CHOMP-SYS-066
+- CHOMP-SYS-087
 phases:
 - v1
 - v2
@@ -313,3 +314,13 @@ entries:
     use Test > Clients and Servers > 2 players to verify head-on, side/rear
     ambush, reverse contact, shield, a 300-Power small-fry gap and an empty-bar
     chomp. Do not promote verification until the two-client outcomes are seen.
+- date: '2026-08-29'
+  agent: Codex
+  action: DECIDED
+  requirements: [CHOMP-SYS-087]
+  summary: >
+    Build 6 adds a level-scoped Homing Missile that replaces Bomb only in Level
+    Two, obeys server lock and turn limits, and terminates on maze geometry.
+  status: OPEN
+  handoff: >
+    Do not implement until Builds 1-5 pass. CHOMP-TC-070 is the exit case.

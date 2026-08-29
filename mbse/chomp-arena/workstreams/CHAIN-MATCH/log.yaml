@@ -7,7 +7,7 @@
 chain: CHAIN-MATCH
 owner: Codex (integration)
 scope: Rounds, intermissions, standings, the winner, per-match reset, and team play.
-requirement_count: 6
+requirement_count: 7
 requirements:
 - CHOMP-STK-002
 - CHOMP-STK-004
@@ -15,6 +15,7 @@ requirements:
 - CHOMP-SYS-028
 - CHOMP-SYS-029
 - CHOMP-SYS-041
+- CHOMP-SYS-077
 phases:
 - v1
 - v2
@@ -34,3 +35,15 @@ entries:
     02_requirements/requirements.yaml for the shall statements and 04_verification/test_cases.yaml
     for how each is verified.
   status: OPEN
+- date: '2026-08-29'
+  agent: Codex
+  action: DECIDED
+  requirements: [CHOMP-SYS-077]
+  summary: >
+    Build 3 resolves the overlapping terminology: one ghost wave is one scoring
+    round, PREP-WAVE-CLEAR-BANK-INTERMISSION is server-owned, and five clears
+    expose the Level 1 guardian attempt.
+  status: OPEN
+  handoff: >
+    MatchService does not yet exist. Build it only after the reduced HUD passes;
+    TC-061 is the lifecycle exit gate.

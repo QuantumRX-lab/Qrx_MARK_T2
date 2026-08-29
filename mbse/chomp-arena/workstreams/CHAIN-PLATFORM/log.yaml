@@ -8,7 +8,7 @@ chain: CHAIN-PLATFORM
 owner: Codex (integration)
 scope: Server authority, the exploit surface, performance on the iPad, publishing
   and safety, ChompConfig, and content discovery by tag.
-requirement_count: 12
+requirement_count: 13
 requirements:
 - CHOMP-STK-005
 - CHOMP-STK-006
@@ -22,6 +22,7 @@ requirements:
 - CHOMP-SYS-042
 - CHOMP-SYS-068
 - CHOMP-SYS-069
+- CHOMP-SYS-079
 phases:
 - v1
 - v2
@@ -247,3 +248,13 @@ entries:
     upgrade rationale requested by the prior BLOCKED entry. Correction to that
     entry: D-CHOMP-011 is the multi-level maze decision, not a three-track
     upgrade decision, so it has not been superseded.
+- date: '2026-08-29'
+  agent: Codex
+  action: DECIDED
+  requirements: [CHOMP-SYS-079]
+  summary: >
+    Build 3 requires round identity and per-player transition identity so death,
+    leave, respawn and clear cannot scatter, bank or preserve one haul twice.
+  status: OPEN
+  handoff: >
+    Treat CHOMP-TC-062 as a hostile event-order test, not only a happy path.

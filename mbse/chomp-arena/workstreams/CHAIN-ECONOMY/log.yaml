@@ -8,7 +8,7 @@ chain: CHAIN-ECONOMY
 owner: Codex (integration)
 scope: Pellets, eating, the battle bar, carried points, banking at a garage, upgrades
   and Power. The loop the whole game hangs from.
-requirement_count: 8
+requirement_count: 9
 requirements:
 - CHOMP-SYS-004
 - CHOMP-SYS-005
@@ -18,6 +18,7 @@ requirements:
 - CHOMP-SYS-009
 - CHOMP-SYS-064
 - CHOMP-SYS-067
+- CHOMP-SYS-078
 phases:
 - v1
 - v2
@@ -133,3 +134,15 @@ entries:
     current bar, a flank bite spends 30 percent of attacker capacity, scattered
     carry never exceeds what the defender actually lost, and collected scatter
     increases carry exactly once.
+- date: '2026-08-29'
+  agent: Codex
+  action: DECIDED
+  requirements: [CHOMP-SYS-078]
+  summary: >
+    Build 3 replaces active-wave garage banking with full death spill and one
+    automatic survivor bank at the BANK transition. Respawn continues the round
+    at zero haul; there is no elimination state.
+  status: OPEN
+  handoff: >
+    Implement with the Platform idempotency contract in CHOMP-SYS-079 and close
+    only against the two-client race matrix in CHOMP-TC-062.

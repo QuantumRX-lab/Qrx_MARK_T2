@@ -1,5 +1,9 @@
 # Chomp Arena build-out plan
 
+> **Build order superseded by `D-CHOMP-076`.** Product choices in this document
+> remain active; the authoritative 1-6 delivery and requirement tree is
+> [`BUILD-PLAN-1-6-REQUIREMENT-TREE.md`](BUILD-PLAN-1-6-REQUIREMENT-TREE.md).
+
 **Baseline:** `0.4.0-alpha`
 
 **Decision:** `D-CHOMP-075`
@@ -188,6 +192,6 @@ never pass through walls.
 
 ## Immediate next build
 
-Finish the `0.4.0-alpha` Studio circuit, then build only the round-state and
-wave-haul slice of `0.5.0-alpha`. Do not start guardian attacks or Level 2 map
-work until death, spill, clear and auto-bank are deterministic under two clients.
+Finish the `0.4.0-alpha` Studio circuit, then execute Build 1, Guardian and arena
+readability, from the authoritative 1-6 tree. The round-state and wave-haul
+slice follows after the contextual HUD in Build 3.

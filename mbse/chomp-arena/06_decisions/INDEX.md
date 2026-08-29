@@ -7,7 +7,7 @@ named half was replaced and the rest still rules, `SUPERSEDED` means all
 of it was, `VOID` means the number was never used. Read the ACTIVE
 entries for your topic before writing code that touches it.
 
-75 decisions.
+76 decisions.
 
 ## camera
 
@@ -76,7 +76,8 @@ entries for your topic before writing code that touches it.
 - **D-CHOMP-061** `ACTIVE` 2026-08-25 — The jump is an escape and a firing platform, and ghosts stay on the ground
 - **D-CHOMP-063** `ACTIVE` 2026-08-26 — Electrified rings removed; the maze is masonry again
 - **D-CHOMP-065** `ACTIVE` 2026-08-26 — Garages are sanctuaries, and the line is drawn on the floor
-- **D-CHOMP-075** `ACTIVE` 2026-08-29 — A wave risks one haul, the guardian opens a group gate, and Level Two changes roles
+- D-CHOMP-075 `PARTIAL` 2026-08-29 — A wave risks one haul, the guardian opens a group gate, and Level Two changes roles — superseded by D-CHOMP-076
+- **D-CHOMP-076** `ACTIVE` 2026-08-29 — Six gated builds move from readability to a different Level Two
 
 ## process
 

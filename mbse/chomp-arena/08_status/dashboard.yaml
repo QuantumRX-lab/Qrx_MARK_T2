@@ -32,17 +32,17 @@ note: >
   unverified requirements.
 
 requirements:
-  total: 79
-  by_level: {L1_stakeholder: 8, L2_system: 71}
-  by_phase: {v1: 67, v2: 9, v3: 3}
-  by_priority: {CRITICAL: 29, HIGH: 39, MEDIUM: 11}
-  by_chain: {CHAIN-COMBAT: 15, CHAIN-ECONOMY: 8, CHAIN-GATES: 5, CHAIN-GHOSTS: 10, CHAIN-KIT: 4, CHAIN-MATCH: 6, CHAIN-MAZE: 4, CHAIN-PLATFORM: 12, CHAIN-UI: 10, CHAIN-VEHICLE: 5}
+  total: 98
+  by_level: {L1_stakeholder: 8, L2_system: 90}
+  by_phase: {v1: 81, v2: 14, v3: 3}
+  by_priority: {CRITICAL: 39, HIGH: 48, MEDIUM: 11}
+  by_chain: {CHAIN-COMBAT: 16, CHAIN-ECONOMY: 9, CHAIN-GATES: 8, CHAIN-GHOSTS: 13, CHAIN-KIT: 4, CHAIN-MATCH: 7, CHAIN-MAZE: 7, CHAIN-PLATFORM: 13, CHAIN-UI: 13, CHAIN-VEHICLE: 8}
   automation_exempt: 2
 
 test_cases:
-  total: 57
-  by_automation: {AUTOMATED: 35, HYBRID: 19, MANUAL: 3}
-  by_phase: {v1: 49, v2: 5, v3: 3}
+  total: 73
+  by_automation: {AUTOMATED: 41, HYBRID: 29, MANUAL: 3}
+  by_phase: {v1: 60, v2: 10, v3: 3}
 
 risks:
   total: 13
@@ -53,7 +53,7 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 75
+  total: 76
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder - the daughter names it."
@@ -86,6 +86,6 @@ next_actions:
      session covering head-on, flank, reverse, small-fry and shield outcomes."
   - "Publish privately after the Studio circuit passes and verify collaborator
      access, DataStore persistence, audio permissions and join/respawn behaviour."
-  - "After 0.4.0-alpha acceptance, implement only the 0.5.0 wave-state slice in
-     BUILDOUT-PLAN-2026-08-29.md: full death spill, survivor auto-bank and the
-     intermission spend window."
+  - "After 0.4.0-alpha acceptance, execute Build 1 in
+     BUILD-PLAN-1-6-REQUIREMENT-TREE.md and do not begin Build 2 until
+     CHOMP-TC-058 and CHOMP-TC-059 pass."

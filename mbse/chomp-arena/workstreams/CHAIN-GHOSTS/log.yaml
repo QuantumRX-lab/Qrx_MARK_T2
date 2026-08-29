@@ -8,7 +8,7 @@ chain: CHAIN-GHOSTS
 owner: Codex (integration)
 scope: Ghost pathing on the deck graph, the pluggable personality modules, robbery
   on contact, power pellets, and scaling the ghost count to the player count.
-requirement_count: 10
+requirement_count: 13
 requirements:
 - CHOMP-SYS-017
 - CHOMP-SYS-018
@@ -20,6 +20,9 @@ requirements:
 - CHOMP-SYS-053
 - CHOMP-SYS-063
 - CHOMP-SYS-065
+- CHOMP-SYS-080
+- CHOMP-SYS-081
+- CHOMP-SYS-082
 phases:
 - v1
 - v2
@@ -162,3 +165,15 @@ entries:
     This is the highest-value open item in the game: while ghosts cut chords
     through brick, the maze constrains only the player and route planning - the
     entire skill the map teaches - does nothing against the only threat.
+- date: '2026-08-29'
+  agent: Codex
+  action: DECIDED
+  requirements: [CHOMP-SYS-080, CHOMP-SYS-081, CHOMP-SYS-082]
+  summary: >
+    Build 4 defines Chaser, Greedy, Ambusher, Bruiser and Skittish as distinct
+    server strategies over one legal path executor, with unique tells, authored
+    introductions and a living-reachable count invariant.
+  status: OPEN
+  handoff: >
+    Preserve the wall and sanctuary executor for every personality. TC-063 to
+    -065 cover behaviour, teaching and unreachable-wave recovery.

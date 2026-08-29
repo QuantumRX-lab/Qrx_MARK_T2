@@ -2198,7 +2198,10 @@ decisions:
 
   - id: D-CHOMP-075
     date: 2026-08-29
-    status: ACTIVE
+    status: PARTIAL
+    superseded_by:
+      - id: D-CHOMP-076
+        scope: "release order only; wave economy, guardian, Level Two and style product choices survive"
     supersedes:
       - id: D-CHOMP-048
         scope: "garage conversion during a wave; carried-versus-safe currency and buttonless banking survive"
@@ -2231,3 +2234,33 @@ decisions:
       death spill and wave-end auto-bank. Ghost personalities, guardian modes,
       the clarity/style pass and Level Two are gated behind acceptance of the
       preceding milestone.
+
+  - id: D-CHOMP-076
+    date: 2026-08-29
+    status: ACTIVE
+    supersedes:
+      - id: D-CHOMP-075
+        scope: "release order only; wave economy, guardian, Level Two and style product choices survive"
+    title: Six gated builds move from readability to a different Level Two
+    decision: >
+      The next six builds are ordered: Guardian and arena readability; reduced
+      contextual HUD; round haul, death spill and auto-bank; five ghost
+      personalities; visible vehicle transformation; Level Two. Nineteen atomic
+      requirements, CHOMP-SYS-072 through -090, and sixteen verification cases,
+      CHOMP-TC-058 through -073, define the work. A build may not begin until
+      the preceding build's named exit cases pass. One ghost wave is one scoring
+      round, five cleared rounds expose the guardian, and Level Two remains gated
+      behind the target-iPad camera acceptance.
+    rationale: >
+      The screenshot showed that the existing guardian and maze could not be
+      read clearly enough for added attacks to be fair. Reducing the HUD before
+      adding the round economy ensures the new haul is visible without adding
+      another panel. Ghost behaviours depend on a deterministic round end;
+      vehicle desire depends on visible transformations; and vertical Level Two
+      geometry depends on camera, clarity and wall containment already passing.
+      This order reduces the chance that new content hides an unfinished core.
+    outcome: >
+      BUILD-PLAN-1-6-REQUIREMENT-TREE.md is the controlling delivery plan. The
+      older BUILDOUT plan retains its product decisions but not its sequence.
+      Dashboard and workstream headers include the new requirements; verification
+      remains NOT_STARTED until evidence is recorded.

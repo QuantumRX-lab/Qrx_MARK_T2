@@ -1,6 +1,7 @@
 # Chomp Arena — MBSE Tree
 
-Current release sequence: [`BUILDOUT-PLAN-2026-08-29.md`](BUILDOUT-PLAN-2026-08-29.md).
+Current release sequence and atomic trace:
+[`BUILD-PLAN-1-6-REQUIREMENT-TREE.md`](BUILD-PLAN-1-6-REQUIREMENT-TREE.md).
 
 The accepted player lifecycle and Roblox release gates are defined in
 [`LAUNCH-READINESS-2026-08-27.md`](LAUNCH-READINESS-2026-08-27.md). New gameplay

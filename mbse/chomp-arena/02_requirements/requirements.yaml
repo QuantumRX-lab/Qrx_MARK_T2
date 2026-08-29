@@ -2056,3 +2056,470 @@ requirements:
     created_date: 2026-08-29
     last_modified: 2026-08-29
     author: Codex (control recovery baseline)
+
+  # ── L2 system — six-build release tree (D-CHOMP-076) ───────────────────
+
+  - id: CHOMP-SYS-072
+    title: The guardian reads as a character and a direction
+    shall_statement: >
+      The guardian SHALL remain visually separated from every chamber surface,
+      and SHALL expose a readable face, facing direction, tracking eyes, maw and
+      current weak point from every playable chamber route. Absolute black SHALL
+      NOT be used for both the guardian and its background.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-025, CHOMP-SYS-031]
+    verified_by: [CHOMP-TC-058]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A directional boss that reads as a black circle cannot teach facing or
+      reward a flank. Silhouette separation and a visible face are gameplay.
+    allocated_to: ServerScriptService/ChompEngine/GuardianService
+    chain: CHAIN-GATES
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-073
+    title: Guardian attacks are telegraphed and punishable
+    shall_statement: >
+      Every damaging guardian attack SHALL have at least 1.5 seconds of visible
+      and audible telegraph before damage becomes possible. Pounce SHALL mark its
+      landing area, Lane Dash SHALL mark its fixed lane, and Ghost Hurl SHALL show
+      its projectiles. Completing or interrupting an attack SHALL open a visible
+      weak-point window, and no attack SHALL one-shot a full-health Standard.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-025, CHOMP-SYS-014]
+    verified_by: [CHOMP-TC-059]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A child can learn a frightening boss when danger arrives as a promise,
+      not a surprise. Recovery windows turn successful avoidance into offence.
+    allocated_to: ServerScriptService/ChompEngine/GuardianService
+    chain: CHAIN-GATES
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-074
+    title: Guardian chamber has a controlled visual hierarchy
+    shall_statement: >
+      The guardian chamber SHALL distinguish floor, cover, safe navigation,
+      imminent danger, pickups and the guardian by both luminance and form.
+      Permanent fog, depth-of-field and bloom SHALL NOT obscure maze edges,
+      attack markers or the player vehicle at the target iPad camera.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-051]
+    verified_by: [CHOMP-TC-058]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The brightest object must be the current decision, not a decorative rail.
+      Greyscale structure protects readability beyond colour preference.
+    allocated_to: ServerScriptService/ChompEngine/ArenaBuilder
+    chain: CHAIN-MAZE
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-075
+    title: Permanent HUD leaves the arena visible
+    shall_statement: >
+      During ordinary driving the permanent HUD SHALL occupy no more than 30
+      percent of the safe viewport area and SHALL leave at least 70 percent
+      unobstructed. Power, Bite and primary attributes SHALL use one compact
+      region; wave haul and safe dollars SHALL remain distinguishable without
+      colour alone; no permanent panel SHALL duplicate another value.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-031, CHOMP-SYS-055, CHOMP-SYS-071]
+    verified_by: [CHOMP-TC-060]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The maze and threats are the game. A value that hides them costs more
+      information than it provides.
+    allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-076
+    title: HUD context and action readiness are immediate
+    shall_statement: >
+      Guardian health, phase and weak-point prompts SHALL appear only while the
+      local player is engaged in the chamber. Jump, Swap and active belt state
+      SHALL remain readable in ready, charging, empty and refused states, and a
+      refused action SHALL show one short reason. Context prompts SHALL clear
+      when their triggering state ends.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-055, CHOMP-SYS-070]
+    verified_by: [CHOMP-TC-060]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A muted button reads as broken and a permanent boss bar reads as an active
+      threat. The HUD must reflect current verbs, not the whole design document.
+    allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-077
+    title: One ghost wave is one scoring round
+    shall_statement: >
+      Level 1 play SHALL advance through PREP, WAVE, CLEAR, BANK and INTERMISSION
+      states owned by the server. A round SHALL contain one ghost wave; five
+      cleared rounds SHALL make the Level 1 guardian attempt available. The HUD
+      SHALL state the current state, round number and remaining living ghosts.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-027, CHOMP-SYS-063]
+    verified_by: [CHOMP-TC-061]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Wave and round previously named two overlapping clocks. Making them one
+      unit gives each haul a clear start, wager, payoff and route to the boss.
+    allocated_to: ServerScriptService/ChompEngine/MatchService
+    chain: CHAIN-MATCH
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-078
+    title: Death spills the round haul and survival auto-banks it
+    shall_statement: >
+      Each player SHALL begin a round with zero wave haul. Death during WAVE
+      SHALL atomically reduce that haul to zero and scatter its complete value
+      as neutral collectable loot; the player SHALL respawn and continue with
+      zero rather than be eliminated. At BANK, each surviving nonzero haul SHALL
+      convert to safe dollars exactly once. Garage pads SHALL NOT bank during WAVE.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-005, CHOMP-SYS-007, CHOMP-SYS-015, CHOMP-SYS-077]
+    verified_by: [CHOMP-TC-062]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The whole haul appearing in the arena makes loss dramatic and contestable;
+      automatic survivor banking makes the end of every round a payoff.
+    allocated_to: ServerScriptService/ChompEngine/EconomyService
+    chain: CHAIN-ECONOMY
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-079
+    title: Round economy transitions are idempotent
+    shall_statement: >
+      Death, disconnect, respawn and round-clear processing SHALL use server
+      round identity and per-player transition identity so the same wave haul
+      cannot be scattered, banked or preserved more than once under any event
+      order. A client SHALL NOT submit a haul, survival state or bank outcome.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-030, CHOMP-SYS-078]
+    verified_by: [CHOMP-TC-062]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Death and clear can occur in the same frame. Without an idempotency key,
+      the most valuable state transition in the loop becomes a duplication bug.
+    allocated_to: ServerScriptService/ChompEngine
+    chain: CHAIN-PLATFORM
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-080
+    title: Five ghost personalities make different decisions
+    shall_statement: >
+      GhostService SHALL implement Chaser, Greedy, Ambusher, Bruiser and Skittish
+      as server-owned target or next-junction strategies over the shared legal
+      path executor. Their defining differences SHALL NOT be speed alone, and no
+      strategy SHALL bypass walls, sanctuaries or damage authority.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-017, CHOMP-SYS-018, CHOMP-SYS-021]
+    verified_by: [CHOMP-TC-063]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Behavioural variety raises difficulty through recognition and routing,
+      while one shared executor preserves the wall fixes already earned.
+    allocated_to: ServerScriptService/ChompEngine/GhostService
+    chain: CHAIN-GHOSTS
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-081
+    title: Ghost personalities have tells and authored introductions
+    shall_statement: >
+      Each ghost personality SHALL have a unique silhouette accent, movement
+      tell and sound tell that remain distinguishable without reading its name.
+      Wave composition SHALL introduce each new type alone before combining it
+      with previously introduced types, and SHALL announce only its first arrival.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-031, CHOMP-SYS-080]
+    verified_by: [CHOMP-TC-064]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      A new rule is fair when the player can see it, meet it alone and then
+      recognise it under pressure later.
+    allocated_to: ServerScriptService/ChompEngine/GhostService
+    chain: CHAIN-GHOSTS
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-082
+    title: Only living reachable ghosts hold a round open
+    shall_statement: >
+      The authoritative remaining-ghost count SHALL include only living ghosts
+      parented to the active arena with a valid route to at least one active
+      player. A ghost without a valid route for the configured recovery interval
+      SHALL be repaired or removed, and no ghost SHALL cross blocking geometry.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-017, CHOMP-SYS-063, CHOMP-SYS-077]
+    verified_by: [CHOMP-TC-065]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      One invisible or stranded ghost makes the whole session appear broken and
+      prevents banking, progression and the guardian.
+    allocated_to: ServerScriptService/ChompEngine/GhostService
+    chain: CHAIN-GHOSTS
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-083
+    title: Every upgrade level has a deterministic vehicle form
+    shall_statement: >
+      Every purchasable Speed, Armour, Fire Power, Ordnance, Jump or Aero, and
+      Boost level SHALL map deterministically from server-owned equipped state to
+      a visible vehicle transformation. Cosmetic geometry SHALL NOT contain
+      balance values or grant collision, damage, targeting or movement authority.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-002, CHOMP-SYS-009, CHOMP-SYS-054]
+    verified_by: [CHOMP-TC-066]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Progression becomes desirable when the vehicle visibly becomes more
+      capable; server ownership keeps that desire outside the trust boundary.
+    allocated_to: ReplicatedStorage/Vehicles
+    chain: CHAIN-VEHICLE
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-084
+    title: Upgrade geometry preserves vehicle combat conformance
+    shall_statement: >
+      Every transformed chassis SHALL preserve mouth direction and silhouette,
+      visible driver head and shoulders, wheel readability, turret tracking arc,
+      module-port limits, welded assembly, collision simplicity and the accepted
+      vehicle bounds. Three-cannon geometry SHALL NOT obscure the mouth or avatar.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-003, CHOMP-SYS-051, CHOMP-SYS-054, CHOMP-SYS-083]
+    verified_by: [CHOMP-TC-067]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      A cosmetic proof of power cannot be allowed to hide the direction that
+      determines combat or make a conformant vehicle fail the maze.
+    allocated_to: ReplicatedStorage/Vehicles
+    chain: CHAIN-VEHICLE
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-085
+    title: Purchases preview and celebrate the visible change
+    shall_statement: >
+      Every upgrade plinth SHALL preview the exact next visible vehicle form and
+      stat delta before purchase. A successful purchase SHALL show the old form
+      transforming into the new form and identify the upgraded track; a refused
+      purchase SHALL leave the vehicle unchanged and state one reason.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-056, CHOMP-SYS-067, CHOMP-SYS-083]
+    verified_by: [CHOMP-TC-068]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      The shop sells aspiration. Showing the exact next toy and then delivering
+      it makes the price legible and the reward memorable.
+    allocated_to: StarterGui/ChompHud
+    chain: CHAIN-UI
+    phase: v1
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-086
+    title: Guardian victory opens the electric Level Two threshold
+    shall_statement: >
+      The first guardian victory SHALL permanently unlock Level Two for every
+      participating player and SHALL disable the visible electric grid for the
+      current server group. An unlocked player MAY escort a guest through for
+      that session, but the guest SHALL gain permanent access only by participating
+      in a guardian victory. Unlock and grid state SHALL be server-authoritative.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-025, CHOMP-SYS-069]
+    verified_by: [CHOMP-TC-069]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      The grid turns victory into a shared visible world change while participant
+      credit keeps permanent progression earned and compatible with co-op.
+    allocated_to: ServerScriptService/ChompEngine/GuardianService
+    chain: CHAIN-GATES
+    phase: v2
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-087
+    title: Level Two swaps Bomb for a wall-safe Homing Missile
+    shall_statement: >
+      Entering Level Two SHALL apply a server-owned level-scoped loadout in which
+      the Bomb offer is replaced by Homing Missile. The missile SHALL require a
+      valid lock, turn no faster than its configured rate and terminate on maze
+      geometry. Leaving Level Two SHALL remove Level Two weapons and restore the
+      Level One loadout without changing safe dollars or ownership.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-058, CHOMP-SYS-059, CHOMP-SYS-066, CHOMP-SYS-086]
+    verified_by: [CHOMP-TC-070]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Long-range missiles create the elevated Gunner role but cannot be allowed
+      to flatten Level One or repeat the bullet-through-wall defect.
+    allocated_to: ServerScriptService/ChompEngine/ItemService
+    chain: CHAIN-COMBAT
+    phase: v2
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-088
+    title: Floating firing blocks are optional and safe
+    shall_statement: >
+      Level Two floating firing blocks SHALL be reachable by the existing Jump
+      or Jet, provide a stable firing surface and return a falling player to a
+      legal readable route without health, haul or upgrade loss. No required
+      pellet, bank, shop, unlock or route SHALL exist only on a block, and the
+      camera SHALL keep the vehicle visible throughout ascent, landing and fall.
+    level: L2_system
+    status: APPROVED
+    priority: CRITICAL
+    derives_from: [CHOMP-SYS-049, CHOMP-SYS-051, CHOMP-SYS-064]
+    verified_by: [CHOMP-TC-071]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Height creates an accessible ranged role only if failing the jump is
+      harmless and a ground-only player remains fully viable.
+    allocated_to: ServerScriptService/ChompEngine/ArenaBuilder
+    chain: CHAIN-MAZE
+    phase: v2
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-089
+    title: Level Two adds Aero and two specialist vehicles
+    shall_statement: >
+      Level Two SHALL offer Aero I, II and III at plus 15, 30 and 50 percent
+      controlled airtime without infinite hover, plus SkyJaw and GridCrusher.
+      SkyJaw SHALL trade armour for airtime and lock stability; GridCrusher SHALL
+      trade climb and turn for armour and knockback resistance. All SHALL remain
+      server-tuned and visibly distinct before purchase.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-002, CHOMP-SYS-009, CHOMP-SYS-083, CHOMP-SYS-088]
+    verified_by: [CHOMP-TC-072]
+    verification_status: NOT_STARTED
+    verification_method: TEST
+    rationale: >
+      Specialist trade-offs create Gunner and ground-support identities without
+      turning either chassis into a universal tier above the original four.
+    allocated_to: ReplicatedStorage/Vehicles
+    chain: CHAIN-VEHICLE
+    phase: v2
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)
+
+  - id: CHOMP-SYS-090
+    title: Level Two is visually distinct and equally readable
+    shall_statement: >
+      Level Two SHALL use a coherent graphite, cool-white, teal, acid-lime,
+      coral, gold and violet palette in which traversable floor, blocking wall,
+      landing target, danger, reward and enemy technology remain distinguishable
+      in greyscale. Lighting and effects SHALL meet or exceed Level One edge and
+      vehicle visibility at the target iPad camera.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [CHOMP-SYS-031, CHOMP-SYS-074, CHOMP-SYS-088]
+    verified_by: [CHOMP-TC-073]
+    verification_status: NOT_STARTED
+    verification_method: DEMONSTRATION
+    rationale: >
+      A new level should feel new through material, height and hierarchy, not by
+      becoming darker or harder to parse.
+    allocated_to: ServerScriptService/ChompEngine/ArenaBuilder
+    chain: CHAIN-MAZE
+    phase: v2
+    created_date: 2026-08-29
+    last_modified: 2026-08-29
+    author: Codex (build plan 1-6)

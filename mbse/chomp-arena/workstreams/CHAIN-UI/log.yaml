@@ -8,7 +8,7 @@ chain: CHAIN-UI
 owner: Codex (integration)
 scope: The HUD, touch controls on the iPad, colour-coded gate readiness, off-deck
   player markers. Display only — it holds no state.
-requirement_count: 10
+requirement_count: 13
 requirements:
 - CHOMP-STK-001
 - CHOMP-SYS-030
@@ -20,6 +20,9 @@ requirements:
 - CHOMP-SYS-057
 - CHOMP-SYS-070
 - CHOMP-SYS-071
+- CHOMP-SYS-075
+- CHOMP-SYS-076
+- CHOMP-SYS-085
 phases:
 - v1
 status: IN_PROGRESS
@@ -403,3 +406,15 @@ entries:
     carry and bank never overlap or leave the screen. Confirm Jump fires the
     existing UseCharge intent, Cycle wraps occupied slots through SelectItem,
     direct slot taps still work, and portrait fallback hides only Cycle.
+- date: '2026-08-29'
+  agent: Codex
+  action: DECIDED
+  requirements: [CHOMP-SYS-075, CHOMP-SYS-076, CHOMP-SYS-085]
+  summary: >
+    Build 2 caps the permanent HUD at 30 percent of safe viewport area, makes
+    boss and action state contextual, and establishes the purchase preview frame.
+    Build 5 supplies the exact vehicle transformations that frame previews.
+  status: OPEN
+  handoff: >
+    Ordinary driving must retain 70 percent unobstructed area at every target
+    landscape. TC-060 and TC-068 are the exit cases.

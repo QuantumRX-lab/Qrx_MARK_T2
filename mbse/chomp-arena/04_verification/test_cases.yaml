@@ -1138,3 +1138,361 @@ test_cases:
     automation: HYBRID
     status: NOT_STARTED
     phase: v1
+
+  - id: CHOMP-TC-058
+    title: Guardian and chamber remain readable at combat distance
+    verifies: [CHOMP-SYS-072, CHOMP-SYS-074]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Guardian chamber built", "Target iPad device emulator"]
+    test_data: {views: ["entry shaft", "behind each cover row", "arena edge", "point blank"]}
+    procedure:
+      - "Capture colour and greyscale screenshots from every named view"
+      - "Identify guardian face, facing, weak point, player, cover, safe route, danger marker and pickup"
+      - "Repeat with every permanent post-processing effect enabled"
+      - "Ask a seven-year-old to point to the face, weak point and escape route without explanation"
+    expected_result: The guardian and every decision surface remain distinct at every playable view.
+    pass_criteria:
+      - "guardian silhouette never merges with floor or wall"
+      - "face, facing and weak point identified in every capture"
+      - "player and maze edges remain sharp at the target camera"
+      - "child identifies face, weak point and escape route correctly"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-059
+    title: Every guardian attack promises danger before it lands
+    verifies: [CHOMP-SYS-073]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Guardian able to execute every phase", "Full-health Standard"]
+    test_data: {minimum_telegraph_seconds: 1.5, attacks: ["Pounce", "LaneDash", "GhostHurl"]}
+    procedure:
+      - "Record server phase timestamps, client marker appearance, audio start and first damaging frame"
+      - "Avoid each attack using only its displayed marker"
+      - "Attack during and outside the recovery weak-point window"
+      - "Take each attack once from full health"
+    expected_result: Every attack is avoidable from its tell, opens its promised punish window and cannot one-shot.
+    pass_criteria:
+      - "every visible and audible tell begins at least 1.5 s before damage"
+      - "Pounce circle and Dash lane match the server damage volume"
+      - "weak point accepts damage only during its stated window"
+      - "full-health Standard survives every single attack"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-060
+    title: Contextual HUD leaves the playfield visible
+    verifies: [CHOMP-SYS-075, CHOMP-SYS-076]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["All HUD states reachable", "Studio device emulator"]
+    test_data: {viewports: ["1024x768", "1180x820", "1366x1024", "1920x1080"]}
+    procedure:
+      - "Capture ordinary driving, action refused, wave clear and guardian engagement at every viewport"
+      - "Measure permanent panel area inside the safe viewport"
+      - "Confirm guardian state appears on chamber entry and clears on exit"
+      - "Exercise ready, charging, empty and refused Jump and Swap states"
+    expected_result: Only current decisions occupy the HUD and ordinary driving remains at least 70 percent clear.
+    pass_criteria:
+      - "permanent HUD area <= 30% and unobstructed area >= 70%"
+      - "no overlap with Roblox chrome, thumb controls or another panel"
+      - "guardian HUD absent outside the chamber"
+      - "every action state readable and every refusal gives one reason"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-061
+    title: Five server-owned rounds reach the guardian
+    verifies: [CHOMP-SYS-077]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["One active player", "Five authored ghost waves"]
+    test_data: {states: ["PREP", "WAVE", "CLEAR", "BANK", "INTERMISSION"], rounds: 5}
+    procedure:
+      - "Play five waves and log every server state transition and round identity"
+      - "Try to force a transition and remaining count from the client"
+      - "Confirm the HUD count equals living reachable ghosts throughout"
+      - "Observe guardian availability before and after the fifth clear"
+    expected_result: Every wave is one scoring round and only the server advances the session.
+    pass_criteria:
+      - "states occur in the specified order exactly once per round"
+      - "round identity increments exactly five times"
+      - "client attempts cannot alter state or count"
+      - "guardian unavailable before and available after round five"
+    automation: AUTOMATED
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-062
+    title: A round haul can spill or bank exactly once
+    verifies: [CHOMP-SYS-078, CHOMP-SYS-079]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["Two separate Studio clients", "Known wave hauls", "Controllable clear event"]
+    test_data: {haul: 500, races: ["death-before-clear", "clear-before-death", "disconnect-on-clear", "duplicate-respawn"]}
+    procedure:
+      - "Die during WAVE and total the neutral scatter and post-respawn haul"
+      - "Survive CLEAR and compare haul and safe dollars after BANK"
+      - "Drive onto every garage during WAVE"
+      - "Run every named race repeatedly while sending hostile client values"
+    expected_result: Death spills the complete haul, survival banks it once, and no event ordering duplicates value.
+    pass_criteria:
+      - "death produces 500 total scatter and zero retained haul"
+      - "survival produces exactly +500 safe dollars and zero haul"
+      - "garage entry during WAVE banks zero"
+      - "combined scatter plus bank never exceeds the authoritative pre-transition haul"
+      - "client-supplied haul and outcome values have no effect"
+    automation: AUTOMATED
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-063
+    title: Each ghost strategy makes its promised decision
+    verifies: [CHOMP-SYS-080]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["Deterministic maze graph", "Five ghost personalities", "Two players"]
+    test_data: {types: ["Chaser", "Greedy", "Ambusher", "Bruiser", "Skittish"]}
+    procedure:
+      - "Give the players different position, haul and facing conditions"
+      - "Run each personality alone and log target and next-junction decisions"
+      - "Place a wall and sanctuary on the preferred direct route"
+      - "Attempt to select personality or target from a client"
+    expected_result: Each personality follows its unique server strategy through only legal routes.
+    pass_criteria:
+      - "Chaser chooses nearest reachable player"
+      - "Greedy chooses highest authoritative haul"
+      - "Ambusher chooses a valid intercept junction"
+      - "Bruiser blocks without crossing geometry"
+      - "Skittish retreats from facing mouth and later re-engages"
+      - "client requests cannot change personality or target"
+    automation: AUTOMATED
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-064
+    title: Ghost types teach themselves before they mix
+    verifies: [CHOMP-SYS-081]
+    type: ACCEPTANCE
+    method: DEMONSTRATION
+    preconditions: ["Authored introduction waves", "Target audience player"]
+    test_data: {types: ["Chaser", "Greedy", "Ambusher", "Bruiser", "Skittish"]}
+    procedure:
+      - "Play each introduction without explaining the ghost names"
+      - "Capture silhouette, motion and audio tells in colour and greyscale"
+      - "Play a mixed wave and ask the child to identify what three ghosts will do"
+      - "Count repeated announcement panels after first introduction"
+    expected_result: Behaviour and tells teach at least three types without repeated text instruction.
+    pass_criteria:
+      - "every type has a unique non-text visual, motion and audio tell"
+      - "new types appear alone before a mixed wave"
+      - "child predicts at least three behaviours correctly"
+      - "each type is announced no more than once per profile introduction"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-065
+    title: A missing ghost cannot hold the round hostage
+    verifies: [CHOMP-SYS-082]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Active round", "Ability to strand, unparent and kill ghosts"]
+    test_data: {faults: ["sealed pocket", "unparented model", "zero-health model", "destroyed path node"]}
+    procedure:
+      - "Inject each fault and compare authoritative count with living reachable models"
+      - "Wait the configured recovery interval"
+      - "Drive every wall boundary while ghosts pursue"
+      - "Clear all reachable ghosts and observe the round transition"
+    expected_result: Invalid ghosts are repaired or removed and never prevent a legitimate clear.
+    pass_criteria:
+      - "count excludes dead and unparented models immediately"
+      - "stranded ghost repaired or removed within recovery interval"
+      - "no observed wall crossing"
+      - "round reaches CLEAR when the last living reachable ghost dies"
+    automation: AUTOMATED
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-066
+    title: Equipped levels deterministically change the vehicle
+    verifies: [CHOMP-SYS-083]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["All upgrade tracks at levels 0-3", "All Level 1 chassis"]
+    test_data: {}
+    procedure:
+      - "Apply every authoritative chassis, track and level combination twice"
+      - "Compare descendant names, transforms and materials between identical states"
+      - "Delete one cosmetic part locally and inspect server stats"
+      - "Forge cosmetic descendants and inspect movement, damage and collision authority"
+    expected_result: The same server state always builds the same form and cosmetic edits grant no power.
+    pass_criteria:
+      - "identical states produce identical appearance manifests"
+      - "every level produces a visible difference from the preceding level"
+      - "local deletion or addition changes no server-owned stat or outcome"
+      - "geometry contains no tuning attributes"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-067
+    title: Fully upgraded vehicles still conform
+    verifies: [CHOMP-SYS-084]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Every chassis with every maximum visible upgrade", "VehicleConformance available"]
+    test_data: {}
+    procedure:
+      - "Run VehicleConformance on every maximum-upgrade combination in Workspace"
+      - "Drive the narrowest route and turn at every junction"
+      - "Track a target across the full turret arc with one, two and three cannons"
+      - "Inspect mouth silhouette and driver visibility from combat camera"
+    expected_result: Visual progression preserves the vehicle contract and directional combat readability.
+    pass_criteria:
+      - "all conformance checks pass"
+      - "no upgrade catches a wall or changes collision sweep"
+      - "turret reaches every valid lock without intersecting the canopy"
+      - "mouth and driver remain readable at all tested angles"
+    automation: AUTOMATED
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-068
+    title: A plinth sells the exact visible transformation
+    verifies: [CHOMP-SYS-085]
+    type: ACCEPTANCE
+    method: DEMONSTRATION
+    preconditions: ["Upgrade plinths", "Enough and insufficient safe dollars"]
+    test_data: {}
+    procedure:
+      - "Approach every upgrade plinth and compare its preview and delta to the next state"
+      - "Purchase, watch the transformation and compare the delivered form"
+      - "Attempt the same purchase without enough money and with an incompatible port state"
+      - "Ask a child to point to what will change before buying"
+    expected_result: The preview, price, stat delta and delivered vehicle tell one consistent story.
+    pass_criteria:
+      - "preview manifest equals delivered appearance manifest"
+      - "stat delta equals authoritative configuration"
+      - "successful purchase visibly identifies the track and new level"
+      - "refusal changes nothing and states one reason"
+      - "child identifies the changing vehicle feature before purchase"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v1
+
+  - id: CHOMP-TC-069
+    title: Guardian victory changes the grid and credits participants
+    verifies: [CHOMP-SYS-086]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["Three players with mixed unlock state", "Published persistence available"]
+    test_data: {roles: ["participant", "escorted guest", "nonparticipant"]}
+    procedure:
+      - "Defeat the guardian with one participant while another waits outside"
+      - "Observe the electric grid and attempt group passage"
+      - "Leave and rejoin each account"
+      - "Forge unlock and grid attributes from an unqualified client"
+    expected_result: The server opens a group passage and permanently credits only participants.
+    pass_criteria:
+      - "grid visibly disables for the current group after victory"
+      - "participant retains Level Two access after rejoin"
+      - "escorted guest passes this session but does not retain access"
+      - "nonparticipant outside the group remains blocked"
+      - "client-forged state changes nothing"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v2
+
+  - id: CHOMP-TC-070
+    title: Level-scoped missile cannot escape or cross walls
+    verifies: [CHOMP-SYS-087]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Level One and Level Two", "Bomb and Homing Missile offers"]
+    test_data: {obstacles: ["straight wall", "corner", "cover block"]}
+    procedure:
+      - "Enter Level Two and compare offers and belt sanitisation"
+      - "Fire locked missiles around each obstacle and measure turn rate"
+      - "Return to Level One with missile selected and in every belt position"
+      - "Attempt to grant or retain a missile through a hostile client request"
+    expected_result: Level Two has the missile, Level One has the bomb, and every missile obeys lock, turn and wall rules.
+    pass_criteria:
+      - "Bomb offer replaced only inside Level Two"
+      - "missile never exceeds configured turn rate or damages through geometry"
+      - "leaving Level Two removes every missile and restores Level One offers"
+      - "hostile client cannot grant or preserve the missile"
+    automation: AUTOMATED
+    status: NOT_STARTED
+    phase: v2
+
+  - id: CHOMP-TC-071
+    title: Floating firing blocks add a role without adding a penalty
+    verifies: [CHOMP-SYS-088]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Target iPad", "Standard Jump", "Jet", "All firing blocks"]
+    test_data: {}
+    procedure:
+      - "Reach every block using Jump and separately using Jet"
+      - "Record camera occlusion during ascent, landing, stationary fire and fall"
+      - "Drive a complete ground-only progression route"
+      - "Fall while carrying haul and with damaged health"
+    expected_result: Blocks are easy optional firing positions and falling is harmless.
+    pass_criteria:
+      - "every block reachable by Jump or Jet without precision platforming"
+      - "no full vehicle occlusion longer than 0.2 s"
+      - "fall loses no health, haul, safe dollars or upgrade"
+      - "ground-only route reaches every required objective and reward tier"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v2
+
+  - id: CHOMP-TC-072
+    title: Aero and specialist vehicles trade rather than dominate
+    verifies: [CHOMP-SYS-089]
+    type: SYSTEM
+    method: TEST
+    preconditions: ["Aero 0-3", "SkyJaw", "GridCrusher", "Baseline Standard"]
+    test_data: {airtime_gain: [0, 0.15, 0.30, 0.50]}
+    procedure:
+      - "Measure airtime, steering, armour, knockback, climb and lock stability for every state"
+      - "Hold jump or jet input indefinitely at Aero III"
+      - "Run ground, block and guardian routes with all three chassis"
+      - "Compare previewed and authoritative stats"
+    expected_result: Each option has its promised strength and a meaningful weakness, with no infinite hover.
+    pass_criteria:
+      - "measured Aero gains match configured values within tolerance"
+      - "Aero III eventually descends under held input"
+      - "SkyJaw loses armour relative to its aerial benefit"
+      - "GridCrusher loses turn or climb relative to armour and knockback benefit"
+      - "Standard remains capable of completing the level"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v2
+
+  - id: CHOMP-TC-073
+    title: Level Two looks new without becoming harder to see
+    verifies: [CHOMP-SYS-090]
+    type: ACCEPTANCE
+    method: DEMONSTRATION
+    preconditions: ["Complete Level Two art pass", "Target iPad camera"]
+    test_data: {captures: ["ground route", "landing target", "hazard", "reward", "enemy technology", "three-player fight"]}
+    procedure:
+      - "Capture every named scene in colour and greyscale"
+      - "Measure edge and vehicle contrast against equivalent Level One scenes"
+      - "Ask target players to identify route, wall, landing, danger and reward"
+      - "Inspect bloom, fog and particles during the busiest fight"
+    expected_result: Level Two has a distinct identity while meeting or exceeding Level One clarity.
+    pass_criteria:
+      - "all six semantic surfaces remain distinct in greyscale"
+      - "vehicle and blocking edges meet or exceed Level One contrast"
+      - "players correctly identify route, wall, landing, danger and reward"
+      - "effects never obscure a vehicle, wall edge or attack marker"
+    automation: HYBRID
+    status: NOT_STARTED
+    phase: v2

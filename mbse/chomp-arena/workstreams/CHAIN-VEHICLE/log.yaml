@@ -9,13 +9,16 @@ owner: Codex (integration)
 scope: 'The drivable chassis: model contract, movement stats, and the camera that
   has to keep it on screen. Externally owned — models arrive through inbox/ and
   are accepted by conformance scan, never by eye.'
-requirement_count: 5
+requirement_count: 8
 requirements:
 - CHOMP-SYS-001
 - CHOMP-SYS-002
 - CHOMP-SYS-003
 - CHOMP-SYS-051
 - CHOMP-SYS-054
+- CHOMP-SYS-083
+- CHOMP-SYS-084
+- CHOMP-SYS-089
 phases:
 - v1
 status: IN_PROGRESS
@@ -610,3 +613,15 @@ entries:
     meaningfully less threatening without anyone deciding they should.
     If the intent was the RATIO rather than the number, Ghosts.Speed should rise
     to about 23 to hold it. That is CHAIN-GHOSTS' call and has been left alone.
+- date: '2026-08-29'
+  agent: Codex
+  action: DECIDED
+  requirements: [CHOMP-SYS-083, CHOMP-SYS-084, CHOMP-SYS-089]
+  summary: >
+    Build 5 maps every upgrade level to visible cosmetic vehicle geometry while
+    preserving conformance and authority. Build 6 adds Aero I-III, SkyJaw and
+    GridCrusher as specialist trade-offs rather than universal higher tiers.
+  status: OPEN
+  handoff: >
+    Appearance contains no tuning. VehicleConformance must pass every maximum
+    combination before the visual ladder is accepted.

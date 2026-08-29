@@ -9,12 +9,15 @@ owner: Codex (integration)
 scope: 'Map geometry: multi-level decks, four-fold symmetry, twelve garages three
   per quadrant, the prefab pieces everything is built from. The daughter''s chain,
   in practice.'
-requirement_count: 4
+requirement_count: 7
 requirements:
 - CHOMP-SYS-039
 - CHOMP-SYS-046
 - CHOMP-SYS-047
 - CHOMP-SYS-062
+- CHOMP-SYS-074
+- CHOMP-SYS-088
+- CHOMP-SYS-090
 phases:
 - v1
 - v2
@@ -389,3 +392,15 @@ entries:
     GreedyOne and nothing reads it; three requirements point at a Behaviours
     module that does not exist. Ghost variety may be a better second act than a
     second maze, at a fraction of the cost.
+- date: '2026-08-29'
+  agent: Codex
+  action: DECIDED
+  requirements: [CHOMP-SYS-074, CHOMP-SYS-088, CHOMP-SYS-090]
+  summary: >
+    Build 1 revalues the guardian chamber for crisp edge and threat readability.
+    Build 6 adds optional harmless floating firing blocks and a distinct Level
+    Two palette that remains readable in greyscale.
+  status: OPEN
+  handoff: >
+    CHOMP-TC-058 gates chamber styling. Floating geometry cannot start before
+    the target-iPad Level One camera test passes.
