@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.4.2-alpha"
+ChompConfig.ReleaseVersion = "0.4.3-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -317,7 +317,10 @@ ChompConfig.Guardian = {
 ChompConfig.Match = {
 	RoundSeconds = 360,
 	RoundsPerMatch = 5,
-	IntermissionSeconds = 30,
+	PrepSeconds = 3,
+	ClearSeconds = 1.5,
+	BankSeconds = 2,
+	IntermissionSeconds = 11.5,
 	MaxPlayers = 12,
 	GaragesPerQuadrant = 3,
 }

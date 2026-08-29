@@ -206,6 +206,21 @@ overlap. Continue `CHOMP-TC-060` by entering and leaving the guardian chamber,
 approaching and leaving a plinth, and exercising ready, charging, empty and
 refused Jump and Swap states.
 
+## Round Build 3 check
+
+Press Play and run this in the Studio server command bar:
+
+```lua
+local C = require(game.ServerStorage.ChompTools.RoundConformance)
+C.report(C.checkAll())
+```
+
+Then run `CHOMP-TC-061` and `CHOMP-TC-062` with two clients. Confirm the visible
+sequence is `PREP -> WAVE -> CLEAR -> BANK -> INTERMISSION`; a 500 haul either
+creates exactly 500 neutral scatter on a WAVE death or exactly 500 safe dollars
+at BANK, never both; garage entry during WAVE banks zero; respawn continues the
+same round at zero haul; and the guardian hatch opens only after five clears.
+
 ## What is not here yet
 
 Pellets, the bar, banking, combat, ghosts, gates, rounds and the HUD. The v1

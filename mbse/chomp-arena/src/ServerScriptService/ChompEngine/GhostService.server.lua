@@ -36,6 +36,7 @@ local Debris = game:GetService("Debris")
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
 local CombatState = require(script.Parent:WaitForChild("CombatState"))
 local EconomyService = require(script.Parent:WaitForChild("EconomyService"))
+local MatchService = require(script.Parent:WaitForChild("MatchService"))
 local G = Config.Ghosts
 local W = Config.Waves
 local L = Config.Level1
@@ -344,9 +345,16 @@ local function startWave(n: number)
 			character:SetAttribute("ChompWaveAlive", wanted)
 		end
 	end
-	print(("[GhostService] wave %d: %d ghosts, speed %.1f, kill pays $%d")
+	print(("[GhostService] round %d: %d ghosts, speed %.1f, kill adds %d haul")
 		:format(wave, wanted, math.min(W.MaxSpeed, G.Speed + W.SpeedPerWave * (n - 1)),
 			G.KillRewardDollars + W.RewardPerWave * (n - 1)))
+end
+
+local function scheduleWave(n: number)
+	MatchService.prepare(n)
+	task.wait(Config.Match.PrepSeconds)
+	while #activePlayers() == 0 do task.wait(0.5) end
+	if MatchService.beginWave(n) then startWave(n) end
 end
 
 local function aliveCount(): number
@@ -417,6 +425,7 @@ task.spawn(function()
 		previousAlive = alive
 		if waveActive and #ghosts > 0 and alive == 0 then
 			waveActive = false
+			if not MatchService.clearRound() then continue end
 			for _, player in Players:GetPlayers() do
 				local character = player.Character
 				if character then
@@ -430,9 +439,13 @@ task.spawn(function()
 					character:SetAttribute("ChompShopAdviceAt", os.clock())
 				end
 			end
-			task.delay(W.BreakSeconds, function()
-				while #activePlayers() == 0 do task.wait(0.5) end
-				startWave(wave + 1)
+			task.spawn(function()
+				task.wait(Config.Match.ClearSeconds)
+				MatchService.bankRound()
+				task.wait(Config.Match.BankSeconds)
+				MatchService.intermission()
+				task.wait(Config.Match.IntermissionSeconds)
+				scheduleWave(wave + 1)
 			end)
 		end
 	end
@@ -557,18 +570,17 @@ RunService.Heartbeat:Connect(function(dt)
 				Debris:AddItem(shard, 1.6)
 			end
 
-			-- Paid to BANKED, not to the carry. A kill is earned and should not
-			-- then be stealable by the next ghost along.
+			-- Kill value joins the current round haul. It is secured only if the
+			-- player survives the clear; death spills it with every other earning.
 			local killerId = g.model:GetAttribute("KilledBy")
 			if typeof(killerId) == "number" then
 				local killer = Players:GetPlayerByUserId(killerId)
 				local character = killer and killer.Character
 				if character then
-					local now = (character:GetAttribute("ChompDollars") :: number?) or 0
 					local reward = G.KillRewardDollars + W.RewardPerWave * math.max(0, wave - 1)
-					character:SetAttribute("ChompDollars", now + reward)
-					character:SetAttribute("ChompBankedAmount", reward)
-					character:SetAttribute("ChompBankedAt", os.clock())
+					EconomyService.applyCarryDelta(character, reward, "ghost-kill")
+					character:SetAttribute("ChompGainedAmount", reward)
+					character:SetAttribute("ChompGainedAt", os.clock())
 				end
 			end
 			g.model:SetAttribute("KilledBy", nil)
@@ -687,7 +699,7 @@ refreshWallFilter()
 task.spawn(function()
 	while wave == 0 do
 		task.wait(0.2)
-		if #activePlayers() > 0 then startWave(1) end
+		if #activePlayers() > 0 then scheduleWave(1) end
 	end
 end)
 print(("[GhostService] waves live: %d walls, %d sanctuaries, %d%% stolen per catch, " ..

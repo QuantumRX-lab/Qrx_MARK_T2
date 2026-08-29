@@ -10,7 +10,7 @@
 as_of: 2026-08-29
 build_status: IN_PROGRESS
 note: >
-  Release v0.4.2-alpha is the current rebuilt baseline. It contains the sealed
+  Release v0.4.3-alpha is the current rebuilt baseline. It contains the sealed
   Level 1 arena, garage and deployment flow, persistent progression, vehicle and
   upgrade plinths, ghost waves, the five-slot weapon belt, cannon, bomb, shield
   and jet pack, guardian chamber and fight, guardian exit zone, charge jump,
@@ -21,19 +21,20 @@ note: >
   Hurl attacks, punish windows, cover-stopped dashes, and a higher-contrast
   guardian chamber. Build 2 consolidates permanent play information into three
   measured regions and makes guardian, purchase and refusal displays contextual.
-  Eight
-  implementation chains are IN_PROGRESS;
-  CHAIN-MATCH and CHAIN-KIT remain NOT_STARTED.
+  Build 3 adds five server-owned scoring rounds, complete death spill, one
+  survivor auto-bank, round-identity race protection and the five-round guardian
+  hatch. Nine implementation chains are IN_PROGRESS; CHAIN-KIT remains
+  NOT_STARTED.
 
   The atomic requirements, decisions and chain logs now cover the major systems
   added during the rapid prototype. Integration ownership is assigned to Codex
   across all ten chains so baseline reconciliation has one accountable owner.
-  Delivery is not verification: 18 requirements have delivered evidence while
+  Delivery is not verification: requirements may have delivered evidence while
   their verification_status remains NOT_STARTED. No status is promoted until
   the corresponding Studio, device or automated test evidence is recorded.
 
-  The generated place is rebuilt at v0.4.2-alpha. validate.py and
-  guard.py pass; validate.py intentionally warns about the 36 delivered but
+  The generated place is rebuilt at v0.4.3-alpha. validate.py and
+  guard.py pass; validate.py intentionally warns about the 39 delivered but
   unverified requirements.
 
 requirements:
@@ -58,7 +59,7 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 78
+  total: 79
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder - the daughter names it."
@@ -80,11 +81,13 @@ open_questions:
      than an honest hole."
 
 next_actions:
-  - "Run HudConformance and CHOMP-TC-060 at all four target landscapes. Build 3
-     remains blocked until the contextual HUD runtime gate passes."
-  - "Run GuardianConformance, CHOMP-TC-058 and CHOMP-TC-059 in Studio. Build 2
-     remains blocked until both visual and playability cases pass."
-  - "Run the v0.4.2-alpha Studio acceptance circuit: launch bay, deployment,
+  - "Run RoundConformance, CHOMP-TC-061 and CHOMP-TC-062 with two clients. Build
+     4 remains blocked until the five-round lifecycle and race matrix pass."
+  - "Run HudConformance and CHOMP-TC-060 at all four target landscapes; record
+     the still-open Build 2 runtime evidence."
+  - "Run GuardianConformance, CHOMP-TC-058 and CHOMP-TC-059 in Studio; record
+     the still-open Build 1 playability evidence."
+  - "Run the v0.4.3-alpha Studio acceptance circuit: launch bay, deployment,
      ghost wall containment, purchases, persistence, each belt item, jump charge,
      guardian damage and health, guardian escape zone, and right-side chat."
   - "Record per-check evidence against the existing test cases and promote only
@@ -95,6 +98,3 @@ next_actions:
      session covering head-on, flank, reverse, small-fry and shield outcomes."
   - "Publish privately after the Studio circuit passes and verify collaborator
      access, DataStore persistence, audio permissions and join/respawn behaviour."
-  - "After 0.4.0-alpha acceptance, execute Build 1 in
-     BUILD-PLAN-1-6-REQUIREMENT-TREE.md and do not begin Build 2 until
-     CHOMP-TC-058 and CHOMP-TC-059 pass."

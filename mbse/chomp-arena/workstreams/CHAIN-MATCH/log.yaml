@@ -19,7 +19,7 @@ requirements:
 phases:
 - v1
 - v2
-status: NOT_STARTED
+status: IN_PROGRESS
 entries:
 - date: '2026-08-25'
   agent: Claude (requirements session)
@@ -47,3 +47,17 @@ entries:
   handoff: >
     MatchService does not yet exist. Build it only after the reduced HUD passes;
     TC-061 is the lifecycle exit gate.
+- date: '2026-08-29'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-077]
+  summary: >
+    Release 0.4.3-alpha adds a server-owned PREP-WAVE-CLEAR-BANK-INTERMISSION
+    lifecycle with monotonic round identity. One ghost wave is one scoring round;
+    state, round, living count and timing publish read-only to every character.
+    Five clears remove a visible collidable seal from the guardian hatch.
+  status: OPEN
+  handoff: >
+    Run RoundConformance and CHOMP-TC-061 through five solo rounds. Verify the
+    exact transition order, living count, spend interval and guardian seal, then
+    attempt to alter all published values from a client. Build 4 stays gated.

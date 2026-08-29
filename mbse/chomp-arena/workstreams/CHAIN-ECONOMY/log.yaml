@@ -146,3 +146,17 @@ entries:
   handoff: >
     Implement with the Platform idempotency contract in CHOMP-SYS-079 and close
     only against the two-client race matrix in CHOMP-TC-062.
+- date: '2026-08-29'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-078]
+  summary: >
+    Release 0.4.3-alpha moves ghost-kill rewards into the at-risk wave haul,
+    disables garage banking during active rounds, spills the complete haul as
+    neutral collectible value on WAVE death, and auto-banks the exact survivor
+    snapshot at BANK. Respawn continues the round with zero haul.
+  status: OPEN
+  handoff: >
+    Run CHOMP-TC-062 with two clients and a known 500 haul. Total every scatter
+    pellet, repeat death-before-clear and clear-before-death, disconnect during
+    CLEAR, and confirm no route creates more than the authoritative 500.

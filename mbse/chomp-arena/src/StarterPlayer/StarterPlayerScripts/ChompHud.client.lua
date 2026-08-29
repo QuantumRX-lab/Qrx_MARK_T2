@@ -693,6 +693,9 @@ RunService.RenderStepped:Connect(function(dt)
 	local requiredPower = attribute("ChompGuardianRequiredPower")
 	local guardianPhase = tostring(character:GetAttribute("ChompGuardianPhase") or "STALK")
 	local shopOffer = tostring(character:GetAttribute("ChompShopOffer") or "")
+	local roundState = tostring(character:GetAttribute("ChompRoundState") or "PREP")
+	local spilledAt = (player:GetAttribute("ChompLastSpilledAt") :: number?) or 0
+	local recentSpill = os.clock() - spilledAt < Config.Combat.RespawnSeconds + 2
 	local contextVisible = false
 	if inGuardian and power < requiredPower then
 		objective.Text = "POWER " .. tostring(requiredPower) .. " REQUIRED"
@@ -715,6 +718,27 @@ RunService.RenderStepped:Connect(function(dt)
 			objective.Text = "KEEP MOVING"
 			objective.TextColor3 = P.Ghost
 		end
+		contextVisible = true
+	elseif recentSpill then
+		objective.Text = "HAUL SPILLED: "
+			.. tostring((player:GetAttribute("ChompLastSpilledAmount") :: number?) or 0)
+		objective.TextColor3 = P.Danger
+		contextVisible = true
+	elseif roundState == "CLEAR" then
+		objective.Text = "ROUND CLEAR"
+		objective.TextColor3 = P.NeonA
+		contextVisible = true
+	elseif roundState == "BANK" then
+		objective.Text = "SURVIVORS BANKED"
+		objective.TextColor3 = P.Gold
+		contextVisible = true
+	elseif roundState == "PREP" then
+		objective.Text = "GET READY"
+		objective.TextColor3 = P.Ghost
+		contextVisible = true
+	elseif roundState == "INTERMISSION" then
+		objective.Text = "SPEND AND RESTOCK"
+		objective.TextColor3 = P.Gold
 		contextVisible = true
 	elseif character:GetAttribute("ChompSafe") == true and shopOffer == "" then
 		objective.Text = "SAFE: SHOP AND PREPARE"
@@ -762,10 +786,21 @@ RunService.RenderStepped:Connect(function(dt)
 		chargeButton.BackgroundColor3 = P.BrickDark
 	end
 
-	local waveNumber = attribute("ChompWave")
+	local waveNumber = attribute("ChompRound")
 	local waveAlive = attribute("ChompWaveAlive")
-	waveLabel.Text = (waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1")
-		.. "  •  " .. tostring(waveAlive) .. " LEFT"
+	if roundState == "WAVE" then
+		waveLabel.Text = "ROUND " .. tostring(math.max(1, waveNumber))
+			.. "  •  " .. tostring(waveAlive) .. " LEFT"
+	elseif roundState == "PREP" then
+		waveLabel.Text = "ROUND " .. tostring(math.max(1, waveNumber)) .. "  •  READY"
+	elseif roundState == "CLEAR" then
+		waveLabel.Text = "ROUND " .. tostring(math.max(1, waveNumber)) .. "  •  CLEAR"
+	elseif roundState == "BANK" then
+		waveLabel.Text = "ROUND " .. tostring(math.max(1, waveNumber)) .. "  •  BANK"
+	else
+		waveLabel.Text = tostring(attribute("ChompCompletedRounds")) .. "/"
+			.. tostring(Config.Match.RoundsPerMatch) .. " ROUNDS"
+	end
 	wavePanel.Visible = not inGuardian
 
 	local shopResultAt = attribute("ChompShopResultAt")

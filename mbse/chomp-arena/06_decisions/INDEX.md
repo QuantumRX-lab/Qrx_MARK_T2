@@ -7,7 +7,7 @@ named half was replaced and the rest still rules, `SUPERSEDED` means all
 of it was, `VOID` means the number was never used. Read the ACTIVE
 entries for your topic before writing code that touches it.
 
-78 decisions.
+79 decisions.
 
 ## camera
 
@@ -102,6 +102,7 @@ entries for your topic before writing code that touches it.
 - **D-CHOMP-071** `ACTIVE` 2026-08-27 — Two action buttons, bottom right, and the game locks to landscape
 - D-CHOMP-072 `SUPERSEDED` 2026-08-27 — Optional polish never runs before the thing it decorates — superseded by D-CHOMP-073
 - D-CHOMP-073 `SUPERSEDED` 2026-08-27 — The action-button implementation is rolled back; the requirement stands — superseded by D-CHOMP-074
+- **D-CHOMP-079** `ACTIVE` 2026-08-29 — The first outcome owns the complete round haul
 
 ## vehicle
 

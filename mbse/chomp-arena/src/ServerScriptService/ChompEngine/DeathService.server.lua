@@ -30,6 +30,7 @@ local Workspace = game:GetService("Workspace")
 local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("ChompConfig"))
+local MatchService = require(script.Parent:WaitForChild("MatchService"))
 local P = Config.Palette
 
 Players.RespawnTime = Config.Combat.RespawnSeconds
@@ -58,7 +59,7 @@ local function burst(at: Vector3)
 	end
 end
 
-local function watch(character: Model)
+local function watch(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
 	if not humanoid then return end
 	humanoid.Died:Connect(function()
@@ -66,13 +67,15 @@ local function watch(character: Model)
 		-- every other value the HUD reads (CHOMP-SYS-030).
 		character:SetAttribute("ChompDiedAt", os.clock())
 		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if root then burst(root.Position) end
+		local position = root and root.Position or character:GetPivot().Position
+		MatchService.spillDeath(player, character, position)
+		burst(position)
 	end)
 end
 
 Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(watch)
-	if player.Character then watch(player.Character) end
+	player.CharacterAdded:Connect(function(character) watch(player, character) end)
+	if player.Character then watch(player, player.Character) end
 end)
 
 print(("[DeathService] respawn %.1fs, announced"):format(Config.Combat.RespawnSeconds))

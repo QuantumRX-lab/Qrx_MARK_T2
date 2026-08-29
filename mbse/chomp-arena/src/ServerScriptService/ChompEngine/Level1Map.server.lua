@@ -147,6 +147,31 @@ local function build()
 			CFrame.new(x, SLAB / 2 + 0.3, 0), P.Danger, Enum.Material.Neon, map)
 		rim.CanCollide = false
 	end
+	local guardianGate = part("GuardianRoundGate", Vector3.new(hatch * 2, 1, hatch * 2),
+		CFrame.new(0, 0.35, 0), P.Danger, Enum.Material.Neon, map)
+	local guardianAvailable = Workspace:GetAttribute("ChompGuardianAvailable") == true
+	guardianGate.CanCollide = not guardianAvailable
+	guardianGate.CanQuery = not guardianAvailable
+	guardianGate.Transparency = guardianAvailable and 1 or 0.18
+	guardianGate:SetAttribute("RequiredRounds", Config.Match.RoundsPerMatch)
+	CollectionService:AddTag(guardianGate, "Chomp_Wall")
+	local gateGui = Instance.new("SurfaceGui")
+	gateGui.Name = "RoundGateLabel"
+	gateGui.Face = Enum.NormalId.Top
+	gateGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gateGui.PixelsPerStud = 18
+	gateGui.Enabled = not guardianAvailable
+	gateGui.Parent = guardianGate
+	local gateText = Instance.new("TextLabel")
+	gateText.Size = UDim2.fromScale(1, 1)
+	gateText.BackgroundTransparency = 1
+	gateText.Text = "GUARDIAN LOCKED\nCLEAR " .. tostring(Config.Match.RoundsPerMatch) .. " ROUNDS"
+	gateText.TextColor3 = P.Ghost
+	gateText.TextStrokeColor3 = P.Floor
+	gateText.TextStrokeTransparency = 0
+	gateText.TextScaled = true
+	gateText.Font = Enum.Font.GothamBlack
+	gateText.Parent = gateGui
 
 	-- The shaft and chamber are authored as map geometry so bullets, vehicles,
 	-- camera occlusion, and ghosts all agree about what is solid.

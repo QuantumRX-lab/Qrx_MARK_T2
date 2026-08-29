@@ -2,12 +2,12 @@
 --[[
 	PelletService — CHAIN-ECONOMY (D-CHOMP-048)
 
-	Pellets to eat, points to carry, and a garage to bank them at.
+	Pellets to eat and points to risk through one scoring round.
 
 	Carried points are RISKY and banked dollars are SAFE, and that distinction is
 	the whole economy: a ghost can take what you are carrying and can never touch
-	what you banked. Driving back to a garage with a full load is meant to be the
-	tensest thing in the game.
+	what you banked. Surviving the round converts the complete haul; dying spills
+	it into the arena for anyone to collect.
 
 	Value rises with the ring. The middle of the map is open, has nothing to hide
 	behind, and is where the ghosts converge, so it pays more.
@@ -151,9 +151,10 @@ local function loop()
 			local character = player.Character
 			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 			if not (character and root) then continue end
+			local roundState = tostring(Workspace:GetAttribute("ChompRoundState") or "IDLE")
 
 			for _, pellet in folder:GetChildren() do
-				if pellet:IsA("BasePart") and pellet.Transparency < 1
+				if roundState == "WAVE" and pellet:IsA("BasePart") and pellet.Transparency < 1
 					and (pellet.Position - root.Position).Magnitude < PELLET_RADIUS then
 					local baseValue = (pellet:GetAttribute("Value") :: number?) or 0
 					local multiplier = (character:GetAttribute("ChompPelletMultiplier") :: number?) or 1
@@ -184,13 +185,16 @@ local function loop()
 					end)
 				end
 			end
-			EconomyService.collectScatter(character, root.Position, PELLET_RADIUS)
+			if roundState == "WAVE" then
+				EconomyService.collectScatter(character, root.Position, PELLET_RADIUS)
+			end
 
 			-- Banking: drive onto your garage pad and the carry becomes dollars.
 			-- No button, no prompt — it is a consequence of driving somewhere
 			-- (D-CHOMP-015's one surviving principle).
 			local now = os.clock()
-			if carried(character) > 0 and (now - (lastBank[player] or 0)) > E.GarageReentryCooldownSeconds then
+			if roundState == "IDLE" and carried(character) > 0
+				and (now - (lastBank[player] or 0)) > E.GarageReentryCooldownSeconds then
 				for _, pad in CollectionService:GetTagged("Chomp_Garage") do
 					if pad:IsA("BasePart") and (pad.Position - root.Position).Magnitude < BANK_RADIUS then
 						local banked = EconomyService.bank(character, E.BankRate)

@@ -568,6 +568,10 @@ end
 local function buy(player: Player, offer: Offer): (boolean, string)
 	local character = player.Character
 	if not character then return false, "VEHICLE NOT READY" end
+	local roundState = tostring(Workspace:GetAttribute("ChompRoundState") or "IDLE")
+	if roundState ~= "IDLE" and roundState ~= "PREP" and roundState ~= "INTERMISSION" then
+		return false, "SHOP OPENS AFTER ROUND"
+	end
 	local sessionOnly = player:GetAttribute("ChompProfileSaveBlocked") == true
 		and RunService:IsStudio()
 	-- Nothing permanent may be sold into a session that cannot save

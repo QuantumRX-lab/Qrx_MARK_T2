@@ -2311,3 +2311,28 @@ decisions:
       surface. Exact before-and-after upgrade geometry remains Build 5 vehicle
       work, so CHOMP-TC-068 cannot close yet. HudConformance and CHOMP-TC-060
       remain the runtime acceptance gate before Build 3 begins.
+
+  - id: D-CHOMP-079
+    date: 2026-08-29
+    status: ACTIVE
+    title: The first outcome owns the complete round haul
+    decision: >
+      MatchService owns PREP, WAVE, CLEAR, BANK and INTERMISSION plus a monotonic
+      round identity. A death during WAVE resolves once against the exact
+      character life, zeros its haul and scatters the complete value. CLEAR
+      snapshots living players once and secures each haul against disconnect;
+      BANK exposes that value as safe dollars once per player and round. Pellet,
+      scatter and ghost-kill earnings join the haul only during WAVE, and garage
+      pads cannot bank an active round.
+    rationale: >
+      Death and clear can occur in either order, so correctness must follow the
+      first server event rather than timing assumptions. Character identity
+      prevents duplicate death callbacks while round identity prevents repeated
+      banking. Securing the survivor snapshot before the display transition
+      preserves value if a player disconnects during CLEAR without allowing a
+      client to submit an amount or outcome.
+    outcome: >
+      Release 0.4.3-alpha implements Build 3, a visible five-round guardian gate,
+      shared transition rules and RoundConformance. Static guards pass;
+      CHOMP-TC-061 and CHOMP-TC-062 remain open for the two-client lifecycle and
+      hostile event-order matrix.

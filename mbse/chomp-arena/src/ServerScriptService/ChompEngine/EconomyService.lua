@@ -117,8 +117,14 @@ function EconomyService.scatter(position: Vector3, amount: number, reason: strin
 	amount = math.floor(math.max(0, amount) + 0.5)
 	if amount <= 0 then return 0 end
 	local free = available()
-	local count = math.min(#free, C.ScatterMaxPellets, math.max(1, math.ceil(amount / 10)))
-	if count <= 0 then return 0 end
+	local count = math.min(C.ScatterMaxPellets, math.max(1, math.ceil(amount / 10)))
+	-- Death spill is value preservation, not a visual effect that may be skipped.
+	-- Expand the reusable pool under an extreme simultaneous spill rather than
+	-- deleting a haul because every preallocated pellet is temporarily active.
+	while #free < count do
+		local part = makeScatterPart(#scatterRoot:GetChildren() + 1)
+		table.insert(free, part)
+	end
 	local base = math.floor(amount / count)
 	local remainder = amount - base * count
 	token += 1

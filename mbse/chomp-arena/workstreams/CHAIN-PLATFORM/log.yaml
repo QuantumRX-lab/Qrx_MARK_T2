@@ -258,3 +258,17 @@ entries:
   status: OPEN
   handoff: >
     Treat CHOMP-TC-062 as a hostile event-order test, not only a happy path.
+- date: '2026-08-29'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-079]
+  summary: >
+    Release 0.4.3-alpha keys death resolution to the exact character life and
+    survivor banking to player plus round identity. CLEAR secures each eligible
+    haul in server persistence before a disconnect can race the BANK display;
+    duplicate death, respawn, clear or bank callbacks cannot reuse that value.
+  status: OPEN
+  handoff: >
+    Exercise every CHOMP-TC-062 race repeatedly with two clients and hostile
+    attribute changes. Compare spill plus bank against the captured pre-event
+    haul and inspect persistence after disconnect-on-clear and rejoin.
