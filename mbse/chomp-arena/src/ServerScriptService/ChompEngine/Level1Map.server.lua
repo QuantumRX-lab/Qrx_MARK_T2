@@ -184,6 +184,11 @@ local function build()
 				CFrame.new(onCircle(radius, angle, chamberY + 10)) * CFrame.Angles(0, -angle, 0),
 				row == 1 and P.CavernCoverA or P.CavernCoverB, Enum.Material.Concrete, arena)
 			CollectionService:AddTag(block, "Chomp_Wall")
+			local cap = part("ColosseumCap", Vector3.new(18.2, 1.2, 12.2),
+				block.CFrame * CFrame.new(0, 10.4, 0), P.CavernEdge,
+				Enum.Material.SmoothPlastic, arena)
+			cap.CanCollide = false
+			cap.CanQuery = false
 		end
 	end
 
@@ -192,12 +197,12 @@ local function build()
 	for i, angle in { 0, math.pi / 2, math.pi, math.pi * 1.5 } do
 		local position = onCircle(chamberHalf - 28, angle, chamberY + 18)
 		local tower = part("CavernLight", Vector3.new(7, 36, 7), CFrame.new(position),
-			i % 2 == 0 and P.NeonA or P.Gold, Enum.Material.Neon, arena)
+			P.CavernLight, Enum.Material.Neon, arena)
 		tower.CanCollide = false
 		local light = Instance.new("PointLight")
 		light.Color = tower.Color
-		light.Brightness = 6
-		light.Range = 220
+		light.Brightness = 3.5
+		light.Range = 165
 		light.Shadows = true
 		light.Parent = tower
 	end

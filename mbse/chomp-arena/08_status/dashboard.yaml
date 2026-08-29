@@ -10,13 +10,16 @@
 as_of: 2026-08-29
 build_status: IN_PROGRESS
 note: >
-  Release v0.4.0-alpha is the current rebuilt baseline. It contains the sealed
+  Release v0.4.1-alpha is the current rebuilt baseline. It contains the sealed
   Level 1 arena, garage and deployment flow, persistent progression, vehicle and
   upgrade plinths, ghost waves, the five-slot weapon belt, cannon, bomb, shield
   and jet pack, guardian chamber and fight, guardian exit zone, charge jump,
   HUD, lighting and audio. It adds server-owned directional vehicle combat,
   pooled point scatter, shared hit protection, a visible battle bar, combat
-  feedback, and restored Jump/Cycle touch and keyboard actions. Eight
+  feedback, and restored Jump/Cycle touch and keyboard actions. Build 1 adds a
+  readable guardian face and weak point, telegraphed Pounce, Lane Dash and Ghost
+  Hurl attacks, punish windows, cover-stopped dashes, and a higher-contrast
+  guardian chamber. Eight
   implementation chains are IN_PROGRESS;
   CHAIN-MATCH and CHAIN-KIT remain NOT_STARTED.
 
@@ -27,8 +30,8 @@ note: >
   their verification_status remains NOT_STARTED. No status is promoted until
   the corresponding Studio, device or automated test evidence is recorded.
 
-  The generated place is rebuilt at v0.4.0-alpha. validate.py and
-  guard.py pass; validate.py intentionally warns about the 18 delivered but
+  The generated place is rebuilt at v0.4.1-alpha. validate.py and
+  guard.py pass; validate.py intentionally warns about the 33 delivered but
   unverified requirements.
 
 requirements:
@@ -53,7 +56,7 @@ risks:
     MEDIUM: 6
 
 decisions:
-  total: 76
+  total: 77
 
 open_questions:
   - "Name. 'Chomp Arena' is a placeholder - the daughter names it."
@@ -75,7 +78,9 @@ open_questions:
      than an honest hole."
 
 next_actions:
-  - "Run the v0.4.0-alpha Studio acceptance circuit: launch bay, deployment,
+  - "Run GuardianConformance, CHOMP-TC-058 and CHOMP-TC-059 in Studio. Build 2
+     remains blocked until both visual and playability cases pass."
+  - "Run the v0.4.1-alpha Studio acceptance circuit: launch bay, deployment,
      ghost wall containment, purchases, persistence, each belt item, jump charge,
      guardian damage and health, guardian escape zone, and right-side chat."
   - "Record per-check evidence against the existing test cases and promote only

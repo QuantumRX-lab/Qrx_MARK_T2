@@ -7,7 +7,7 @@ named half was replaced and the rest still rules, `SUPERSEDED` means all
 of it was, `VOID` means the number was never used. Read the ACTIVE
 entries for your topic before writing code that touches it.
 
-76 decisions.
+77 decisions.
 
 ## camera
 
@@ -47,6 +47,7 @@ entries for your topic before writing code that touches it.
 - **D-CHOMP-049** `ACTIVE` 2026-08-25 — Ghosts are point thieves, and are frightening without being fast
 - **D-CHOMP-054** `ACTIVE` 2026-08-25 — The cannon locks on, the bomb is a dropped mine, and ghosts die in one hit
 - **D-CHOMP-062** `ACTIVE` 2026-08-25 — A belt of five, spent in order, and a first wave that arrives around you
+- **D-CHOMP-077** `ACTIVE` 2026-08-29 — Guardian attacks commit, telegraph, then expose the maw
 
 ## hud
 

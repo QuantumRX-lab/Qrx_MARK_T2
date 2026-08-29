@@ -2264,3 +2264,26 @@ decisions:
       older BUILDOUT plan retains its product decisions but not its sequence.
       Dashboard and workstream headers include the new requirements; verification
       remains NOT_STARTED until evidence is recorded.
+
+  - id: D-CHOMP-077
+    date: 2026-08-29
+    status: ACTIVE
+    title: Guardian attacks commit, telegraph, then expose the maw
+    decision: >
+      The Level One guardian alternates Pounce, Lane Dash and Ghost Hurl after
+      a non-damaging stalk interval. Every attack publishes a named phase and
+      gives at least 1.5 seconds of world-space warning before damage. Finishing
+      an attack opens the glowing maw for a timed punish window; a dash that
+      strikes chamber cover stops immediately and extends that window. Ordinary
+      stalk contact causes no damage.
+    rationale: >
+      A fast guardian is fair only when the player can read, evade and punish a
+      committed action. World-space landing circles and lanes work in solo and
+      groups without adding another HUD panel, while the visible maw turns the
+      fight into observation and movement rather than continuous damage racing.
+      Making cover stop Dash gives the chamber geometry a clear combat purpose.
+    outcome: >
+      Release 0.4.1-alpha implements the Build 1 guardian state machine, face,
+      weak point, audio cues, HUD prompts and chamber contrast pass. Static
+      guards and GuardianConformance provide repeatable checks; CHOMP-TC-058 and
+      CHOMP-TC-059 remain open for Studio and target-camera evidence.

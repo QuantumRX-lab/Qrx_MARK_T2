@@ -404,3 +404,17 @@ entries:
   handoff: >
     CHOMP-TC-058 gates chamber styling. Floating geometry cannot start before
     the target-iPad Level One camera test passes.
+- date: '2026-08-29'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-074]
+  summary: >
+    Release 0.4.1-alpha separates the guardian chamber floor, pale cover caps,
+    charcoal guardian body, cyan edge lighting and yellow weak point into a
+    deliberate luminance hierarchy. Light range and brightness are reduced so
+    geometry retains hard readable edges instead of dissolving into glow.
+  status: OPEN
+  handoff: >
+    Run CHOMP-TC-058 at the target play camera and in greyscale. Confirm cover,
+    exits, pickups, guardian facing and telegraphs remain readable without
+    bloom or colour alone. Build 2 remains gated on this evidence.

@@ -162,6 +162,15 @@ local function bind(character: Model)
 	character:GetAttributeChangedSignal("ChompWaveCleared"):Connect(function()
 		if changed(character, "ChompWaveCleared") then play("WaveClear") end
 	end)
+	character:GetAttributeChangedSignal("ChompGuardianTellAt"):Connect(function()
+		if changed(character, "ChompGuardianTellAt") then play("GuardianTell") end
+	end)
+	character:GetAttributeChangedSignal("ChompGuardianVulnerableAt"):Connect(function()
+		if changed(character, "ChompGuardianVulnerableAt") then play("GuardianOpen") end
+	end)
+	character:GetAttributeChangedSignal("ChompGuardianBlockedAt"):Connect(function()
+		if changed(character, "ChompGuardianBlockedAt") then play("GuardianBlocked") end
+	end)
 	character:GetAttributeChangedSignal("ChompItemUsedAt"):Connect(function()
 		if not changed(character, "ChompItemUsedAt") then return end
 		local item = character:GetAttribute("ChompItemUsed")

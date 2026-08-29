@@ -173,6 +173,23 @@ experimenting with first; if you change either, **re-derive `Map.WallHeight`**,
 because wall height is a camera constraint rather than an art choice
 (`camera_spec.md`).
 
+## Guardian Build 1 check
+
+Press Play, wait for the guardian to spawn, then run this in the Studio command
+bar:
+
+```lua
+local C = require(game.ServerStorage.ChompTools.GuardianConformance)
+C.report(C.checkAll())
+```
+
+The automated report checks the 1.5-second tell floor, non-one-shot attack
+damage, punish-window duration, chamber contrast, guardian face geometry and
+live phase attributes. It complements rather than replaces `CHOMP-TC-058` and
+`CHOMP-TC-059`: visually confirm the Pounce circle, Dash lane and Ghost Hurl
+landing marks are understandable from the play camera, then confirm cover stops
+the dash and opens the glowing maw.
+
 ## What is not here yet
 
 Pellets, the bar, banking, combat, ghosts, gates, rounds and the HUD. The v1

@@ -19,7 +19,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.4.0-alpha"
+ChompConfig.ReleaseVersion = "0.4.1-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -294,6 +294,22 @@ ChompConfig.Guardian = {
 	CoverRadii = { 82, 142 },
 	PickupRadiusStuds = 112,
 	PickupRespawnSeconds = 8,
+	StalkSeconds = 4,
+	TelegraphSeconds = 1.5,
+	VulnerableSeconds = 2.5,
+	PounceSeconds = 0.55,
+	PounceLeadSeconds = 0.65,
+	PounceRadiusStuds = 24,
+	PounceDamage = 34,
+	DashDistanceStuds = 125,
+	DashWidthStuds = 24,
+	DashSeconds = 0.8,
+	DashDamage = 32,
+	DashStunSeconds = 3,
+	HurlFlightSeconds = 1.1,
+	HurlRadiusStuds = 18,
+	HurlDamage = 24,
+	HurlSpreadStuds = 28,
 }
 
 -- ── Match ───────────────────────────────────────────────────────────────
@@ -453,6 +469,9 @@ ChompConfig.Audio = {
 		Hurt = { "99885999815502", "109495522818192" },
 		Death = "101291490507949",
 		WaveClear = "72416914518123",
+		GuardianTell = "79168431123739",
+		GuardianOpen = "72416914518123",
+		GuardianBlocked = "71356653036011",
 	},
 }
 
@@ -705,8 +724,14 @@ ChompConfig.Palette = {
 	Shield      = Color3.fromRGB(126, 217, 87),
 	CavernFloor = Color3.fromRGB(66, 72, 84),
 	CavernWall  = Color3.fromRGB(158, 166, 180),
-	CavernCoverA = Color3.fromRGB(232, 188, 82),
-	CavernCoverB = Color3.fromRGB(72, 194, 205),
+	CavernCoverA = Color3.fromRGB(188, 196, 208),
+	CavernCoverB = Color3.fromRGB(112, 126, 148),
+	CavernEdge = Color3.fromRGB(210, 224, 238),
+	CavernLight = Color3.fromRGB(188, 226, 238),
+	GuardianBody = Color3.fromRGB(46, 50, 62),
+	GuardianFace = Color3.fromRGB(78, 82, 96),
+	GuardianRim = Color3.fromRGB(168, 210, 226),
+	GuardianWeak = Color3.fromRGB(255, 210, 54),
 }
 
 ChompConfig.Camera = {

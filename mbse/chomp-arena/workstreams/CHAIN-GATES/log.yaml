@@ -90,3 +90,19 @@ entries:
   handoff: >
     Build 1 is next after 0.4.0 acceptance. Build 6 remains gated behind the
     full 1-5 sequence and target-iPad camera evidence.
+- date: '2026-08-29'
+  agent: Codex
+  action: DELIVERED
+  requirements: [CHOMP-SYS-072, CHOMP-SYS-073]
+  summary: >
+    Release 0.4.1-alpha gives the guardian a readable face, tracking pupils and
+    glowing maw weak point. Its server-owned cycle now telegraphs Pounce, Lane
+    Dash and three-projectile Ghost Hurl for at least 1.5 seconds, deals no
+    surprise stalk-contact damage, and opens a punish window after each attack.
+    Dash collides with chamber cover and becomes vulnerable for longer on impact.
+  status: OPEN
+  handoff: >
+    Run GuardianConformance in Studio, then execute CHOMP-TC-058 and
+    CHOMP-TC-059 from the play camera. Confirm each warning predicts its damage
+    area, no attack one-shots a full-health Standard, and the open maw is an
+    obvious invitation to fire. Do not start Build 2 until both cases pass.

@@ -644,12 +644,27 @@ RunService.RenderStepped:Connect(function(dt)
 	local inGuardian = root ~= nil and root.Position.Y < Config.Guardian.RevealY
 	local power = attribute("ChompPower")
 	local requiredPower = attribute("ChompGuardianRequiredPower")
+	local guardianPhase = tostring(character:GetAttribute("ChompGuardianPhase") or "STALK")
 	if inGuardian and power < requiredPower then
 		objective.Text = "POWER " .. tostring(requiredPower) .. " REQUIRED"
 		objective.TextColor3 = P.Danger
 	elseif inGuardian then
-		objective.Text = "DESTROY THE GUARDIAN"
-		objective.TextColor3 = P.Gold
+		if guardianPhase == "POUNCE INCOMING" then
+			objective.Text = "MOVE OUT OF THE CIRCLE"
+			objective.TextColor3 = P.Danger
+		elseif guardianPhase == "DASH LANE" then
+			objective.Text = "LEAVE THE RED LANE"
+			objective.TextColor3 = P.Danger
+		elseif guardianPhase == "GHOST HURL" then
+			objective.Text = "WATCH THE LANDING MARKS"
+			objective.TextColor3 = P.NeonB
+		elseif guardianPhase == "MAW OPEN" then
+			objective.Text = "MAW OPEN - FIRE"
+			objective.TextColor3 = P.Gold
+		else
+			objective.Text = "KEEP MOVING"
+			objective.TextColor3 = P.Ghost
+		end
 	elseif character:GetAttribute("ChompSafe") == true then
 		objective.Text = "SAFE — SHOP OR BANK"
 		objective.TextColor3 = P.Shield
@@ -714,7 +729,7 @@ RunService.RenderStepped:Connect(function(dt)
 		local health = attribute("ChompGuardianHealth")
 		local maxHealth = math.max(1, attribute("ChompGuardianMaxHealth"))
 		guardianLabel.Text = "GUARDIAN " .. tostring(guardianLevel) .. "  •  "
-			.. tostring(math.ceil(health)) .. "/" .. tostring(math.ceil(maxHealth))
+			.. guardianPhase .. "  •  " .. tostring(math.ceil(health)) .. "/" .. tostring(math.ceil(maxHealth))
 		guardianFill.Size = UDim2.new(math.clamp(health / maxHealth, 0, 1), 0, 1, 0)
 		guardianFill.BackgroundColor3 = P.Danger
 	end
