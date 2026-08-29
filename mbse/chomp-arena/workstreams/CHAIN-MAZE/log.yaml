@@ -292,3 +292,100 @@ entries:
     V1Behaviours = Chaser, GreedyOne and nothing reads it; three requirements are
     allocated to a Behaviours module that does not exist. Real ghost variety may
     be a better and far cheaper second act than a whole second maze.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: NOTE
+  requirements: [CHOMP-SYS-062]
+  summary: >
+    REPLACES the Level Two feature list in the entry above, which the owner
+    rejected as unbuildable. Two faults: it called the owner's FLOATING BLOCKS
+    "perches", renaming his idea, and it specified weapons by "what fear does it
+    answer" instead of by range, speed and behaviour. Design writing where an
+    implementer needed numbers. Concrete version follows; the term is FLOATING
+    BLOCKS everywhere.
+  status: OPEN
+  handoff: >
+    LEVEL TWO - concrete spec. Nothing built. Numbers are starting points to
+    tune, not decisions.
+
+    UNLOCK
+    Persist a per-player flag on first guardian victory (suggest
+    profile.level2Unlocked, alongside ownedChassis in ProfileService). Guardian
+    behaviour is otherwise unchanged - it stays the infinite escalating rematch.
+    Open: is Level 2 entry per-player or per-server, i.e. can an unflagged friend
+    join your Level 2?
+
+    FLOATING BLOCKS
+    Raised platforms above the maze floor that a kart drives onto and stops on,
+    then shoots down from.
+      height        24-32 studs above floor. Must be inside the charge jump
+                    (JumpImpulse 110, apex ~53) and the jet pack (impulseStuds
+                    70) with margin. No new traversal move.
+      size          ~24 x 24 studs. Kart is 8.3 x 10, so it lands without
+                    precision and can turn on the spot.
+      count         4-6, over ring corridors, never over the centre arena.
+      falling off    HARMLESS. No damage, no lost carry, no respawn. You land on
+                    the floor and drive on.
+      contents      NOTHING required. No pellets, no item pads, no bank pad. A
+                    player who never goes up must not fall behind.
+      ghosts        cannot reach a block. It is safe ground, like a sanctuary,
+                    which is what makes it a role rather than a gamble.
+
+    HOMING MISSILE - the weapon blocks exist for
+      charges           1
+      projectileSpeed   ~70 (cannon is 360; slow enough to watch it turn)
+      turn rate         ~90 deg/s toward the locked target
+      rangeStuds        ~320 (cannon is 170 - the extra range is the point of
+                        being up high)
+      lockRangeStuds    <= rangeStuds, reuse the cannon lock (lockSeconds 0.45,
+                        red-to-green reticle, ChompLockState/ChompLockTarget)
+      damage            kills a normal ghost in one hit, as everything does
+      stops at walls    yes, same swept raycast as the cannon
+    Reuse the cannon's lock-on wholesale. It is built, tested and the reticle
+    already reads it.
+
+    FLAMETHROWER - the close-range answer
+      trigger       HELD, like the cannon
+      shape         cone ~45 deg, range ~40 studs, from the kart nose
+      targets       EVERY ghost in the cone, unlike every other weapon
+      drain         a fuel bar, not discrete charges. ~2.5s of continuous fire,
+                    no refill mid-life. A cone spent in "shots" reads wrong.
+      light         parent a PointLight to the cone while firing. It is the
+                    brightest thing in a dark game and doubles as illumination.
+      damage        one tick kills a normal ghost; do not stack ticks per frame.
+
+    BOTH WEAPONS
+    Must respect CHOMP-SYS-066: with friendly fire OFF, no damage to another
+    player by any route. The flamethrower cone is exactly where that gets
+    missed - gate the HIT, not the targeting.
+
+    CO-OP ROLES (the reason blocks are worth building)
+    Guardian fight with three jobs instead of three people doing one:
+      bait      keeps the guardian's attention, stays alive
+      sweeper   clears the ghosts it summons
+      gunner    on a floating block, missiles into the weak point when it opens
+    The gunner role suits the weakest driver. Getting up is one button press.
+
+    BOSS PATTERN for future guardians
+      - one weak point that is VISIBLE geometry, not a health bar
+      - >= 1.5s telegraph with sound before anything that damages
+      - phases change what the player DOES, not how big the numbers are
+      - never a one-shot. Current ContactDamage 28 vs 100 health is fine.
+
+    HARD DEPENDENCY
+    Floating blocks are built LAST and only after CHOMP-TC-040 passes on the
+    iPad. D-CHOMP-046 deleted the two-deck map because a drop is a way to fall
+    out of the world and the camera could not follow between heights. That test
+    has still never run on even one FLAT level. If it fails, blocks do not
+    happen and Level 2 is a flat maze with the two new weapons.
+
+    OWNER DECISION OPEN
+    Do Level 2 weapons persist back into Level 1? If yes, Level 1 becomes easy.
+    Affects Level 2 tuning, so settle before designing the maze. Note
+    ProfileService already persists dollars, chassis and upgrades.
+
+    CHEAPER ALTERNATIVE
+    Every ghost runs ONE behaviour. Config names V1Behaviours = Chaser,
+    GreedyOne and nothing reads it; three requirements point at a Behaviours
+    module that does not exist. Ghost variety may be a better second act than a
+    second maze, at a fraction of the cost.

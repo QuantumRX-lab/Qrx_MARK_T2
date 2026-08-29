@@ -42,7 +42,7 @@ Not "the same maze, harder". It asks a different question.
 |---|---|
 | Can you route and bank under pressure? | Can you do it when the floor isn't all one place? |
 
-**Perches.** Raised blocks you reach with the two moves you already have — the
+**Floating blocks.** Raised blocks you reach with the two moves you already have — the
 **charge jump** or the **jet pack**. No climbing, no platforming, no new
 traversal to learn: the same button that saves you from a corner is the one that
 puts you above the maze.
@@ -52,37 +52,34 @@ send it down into the corridors. That is a genuinely different verb from
 drive-and-chomp, and it costs you your mobility while you do it.
 
 Rings, pellets, garages, sanctuaries and waves all carry over unchanged. The new
-maze earns its place through the perches and the new weapons — not through
+maze earns its place through the floating blocks and the new weapons — not through
 novelty.
 
 ## Two new weapons
 
-Each answers a fear the current belt handles badly:
+Two weapons, doing things the current belt cannot:
 
-| Weapon | Answers | Costs you |
+| Weapon | What it does | What it costs |
 |---|---|---|
-| **Flamethrower** | "they are all around me" | very short range — they have to get close |
-| **Homing missile** | "that one, far away, that I can't line up" — and the perch weapon | slow, one target, long lock |
+| **Flamethrower** | a held cone from the nose — hits **every** ghost in it, and lights the corridor while it burns | ~40 studs. They have to be close, and it drains fast |
+| **Homing missile** | one slow shot that turns onto a locked target, at roughly twice the cannon's range | one charge, a long lock, and you are standing still to use it |
 
-They are opposites on purpose: panic-close and patient-far. If two weapons
-answer the same fear, one of them is just a skin.
+The flamethrower is the only weapon that hits more than one ghost. The missile
+is the only one that reaches past the cannon, which is what makes it the weapon
+worth being up on a block for.
 
-The homing missile earns its slot twice over — it is both the answer to a ghost
-you cannot line up from the ground, and the reason to be on a perch at all. A
-perch without a weapon made for it would just be a place to hide.
-
-## Why the perches matter most
+## Why the floating blocks matter most
 
 The game has one verb today, so in co-op everyone does the same thing — and the
 least confident driver simply dies more often.
 
-A perch is a **stationary, ranged, safer** job — jump up, lock on, fire down. It
+A block is a **stationary, ranged, safer** job — jump up, lock on, fire down. It
 is the right role for whoever is worst at driving: the youngest player, or the
 friend who keeps hitting walls. Getting up there needs one button press, not
 skill.
 
 A guardian fought by three people with three jobs — one holding its attention,
-one clearing the ghosts it summons, one perched hitting the weak point — is a
+one clearing the ghosts it summons, one on a block hitting the weak point — is a
 far better game than three people doing the same job badly.
 
 **The goal: a child who is bad at driving still has something she is
@@ -94,13 +91,13 @@ Height is what deleted the last map. The two-deck design was scrapped because a
 drop is a way to fall out of the world and the camera could not follow between
 levels.
 
-So perches come with rules: **falling is harmless**, you get up by jump or jet
-pack rather than by platforming, a perch is a place to stand rather than a route
+So floating blocks come with rules: **falling is harmless**, you get up by jump or jet
+pack rather than by platforming, a block is a place to stand rather than a route
 to traverse, and **nothing you need is ever up there** — a player who never goes
 up must not fall behind one who does.
 
 And they are built **last**. The camera test has still never run, even on flat
-ground. If it fails, the perches do not happen.
+ground. If it fails, the floating blocks do not happen.
 
 ## The one open decision
 

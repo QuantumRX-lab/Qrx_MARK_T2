@@ -85,7 +85,7 @@ Not "the same maze, harder". The maze must ask a different question.
 |---|---|
 | Can you route and bank under pressure? | Can you route and bank when the floor is not all one place? |
 
-Concretely: **perches**. Raised blocks reached with the two moves the player
+Concretely: **floating blocks**. Raised blocks reached with the two moves the player
 already has — the **charge jump** and the **jet pack** — from which a stationary
 player fires **homing missiles** down into the maze.
 
@@ -95,44 +95,49 @@ maze, so there is nothing new to teach and nothing new to fail at. §7 explains
 why this is the most valuable idea in the sketch.
 
 Everything else — ring corridors, pellets, garages, sanctuaries, waves — carries
-over unchanged. The new maze earns its place through the perches and the new
+over unchanged. The new maze earns its place through the floating blocks and the new
 weapons, not through novelty for its own sake.
 
-## 5. Weapons as answers to fears
+## 5. The two new weapons
 
-The test for whether a weapon earns a belt slot: **what fear does it answer?**
-If two weapons answer the same fear, one is a skin.
+Numbers are starting points to tune, not decisions. Both are specified against
+what the cannon already does, because "different from the cannon" is the only
+thing that makes a belt slot worth spending.
 
-| Weapon | The fear | The cost | Status |
-|---|---|---|---|
-| Cannon | "that one, in front of me" | needs a lock, needs facing | built |
-| Bomb | "they are following me" | placed behind, two taps | built |
-| Shield | "I am about to lose the carry" | one hit only | built |
-| Jet pack | "I am cornered" | one use, no aiming | built |
-| **Flamethrower** | **"they are ALL around me"** | very short range — they must get close | Round Two |
-| **Homing missile** | **"that one, far away"** — and the perch weapon | slow, one target, long lock | Round Two |
+### Homing missile — the weapon floating blocks exist for
 
-Flamethrower and homing missile are a good pair precisely because they are
-opposites: panic-close versus patient-far. Between them they cover the two
-situations the current belt handles worst — being surrounded, and being unable
-to reach the ghost that is hurting you.
+| | |
+|---|---|
+| charges | 1 |
+| speed | ~70 studs/s (cannon: 360 — slow enough to watch it turn) |
+| turn rate | ~90°/s toward the locked target |
+| range | ~320 studs (cannon: 170 — the extra reach is the point of height) |
+| lock | reuse the cannon's, unchanged: 0.45s, red-to-green reticle |
+| damage | one normal ghost, like everything else |
+| walls | stops at them, same swept raycast as the cannon |
 
-### Notes that constrain implementation
+It is the only weapon that reaches past the cannon. That is what makes standing
+still on a block worth doing, and it is why the missile and the blocks have to
+ship together or not at all.
 
-- **Flamethrower** is a *cone*, not a projectile, and should be the only weapon
-  that hits several ghosts at once. Held, drains fast, and lights the corridor
-  while it burns — it is also the best light source in a dark game.
-- **Homing missile** must be visibly slow. If it is fast it is just a cannon
-  with more steps. Its pleasure is watching it turn.
-- The missile is also **the reason perches exist**. It is the weapon that works
-  from a standstill at range, so it earns its slot twice: once on the ground
-  against a ghost you cannot line up, once from above as the sniping tool. A
-  perch without a weapon built for it is just a place to hide.
-- Both obey `CHOMP-SYS-066`: with friendly fire off they may not damage another
-  player **by any route**, and a cone weapon is exactly where that rule gets
-  forgotten.
+### Flamethrower — the close answer
 
-## 6. Sniper perches, and the constraint that shapes them
+| | |
+|---|---|
+| trigger | HELD, like the cannon |
+| shape | cone ~45°, ~40 studs, from the kart nose |
+| targets | **every** ghost in the cone — the only weapon that does |
+| fuel | a bar, ~2.5s of continuous fire. Not discrete charges: a cone spent in "shots" reads wrong |
+| light | a PointLight on the cone while firing. Brightest thing in a dark game |
+| damage | one tick kills a normal ghost. Do not stack ticks per frame |
+
+### Both
+
+Must respect `CHOMP-SYS-066`: friendly fire off means **no damage to another
+player by any route**. The cone is exactly where that gets missed — gate the
+HIT, not the targeting.
+
+## 6. Floating blocks, and the constraint that shapes them
 
 This is the part of the sketch most likely to break the game, and it is worth
 being explicit about why.
@@ -147,24 +152,24 @@ Floating blocks are decks with more edges. So they are only safe under rules:
 - **Falling is harmless.** You drop, you land, you drive on. No damage, no lost
   carry. The moment falling is punished, an unproven camera becomes a fairness
   problem.
-- **Perches are reached by charge jump or jet pack**, and are small — a place to
+- **Floating blocks are reached by charge jump or jet pack**, and are small — a place to
   stand, not a platform to traverse. No jumping between them, and no new
   traversal mechanic: if a player cannot already get up there with the moves
-  they have, the perch is in the wrong place.
-- **A perch is a room, not a route.** The guardian chamber already proves a
-  separate contained space works; a perch should be as contained.
+  they have, the block is in the wrong place.
+- **A block is a room, not a route.** The guardian chamber already proves a
+  separate contained space works; a block should be as contained.
 - **Nothing required is ever up there.** No pellets, no pads, no bank. A player
   who never goes up must not be behind one who does.
 
-If `CHOMP-TC-040` fails on Level 1, perches do not get built. That is the
+If `CHOMP-TC-040` fails on Level 1, floating blocks do not get built. That is the
 dependency, and it is not negotiable.
 
 ## 7. Everyone gets a job
 
-The strongest thing in the sketch, and the reason perches are worth the risk.
+The strongest thing in the sketch, and the reason floating blocks are worth the risk.
 
 The game currently has one verb — drive and chomp — so in co-op everyone does
-the same thing, and the least coordinated player simply dies more. A perch is a
+the same thing, and the least coordinated player simply dies more. A block is a
 **stationary, ranged, safe-ish role**, which is exactly the job for whoever is
 worst at driving: the youngest, or the friend who keeps hitting walls.
 
@@ -175,7 +180,7 @@ doing one job:
 |---|---|---|
 | **Bait** | holds the guardian's attention, stays alive | the confident driver |
 | **Sweeper** | clears the ghosts it summons | the middle player |
-| **Gunner** | perched, puts homing missiles into the weak point when it opens | the one who keeps crashing |
+| **Gunner** | on a block, puts homing missiles into the weak point when it opens | the one who keeps crashing |
 
 The design goal is that a seven-year-old who is *bad at driving* still has
 something she is unambiguously good at.
@@ -206,14 +211,14 @@ designed rather than after.
 
 In order. Nothing below the first unchecked line should begin.
 
-1. **`CHOMP-TC-040` passes on the iPad** on flat Level 1. Perches depend on it,
+1. **`CHOMP-TC-040` passes on the iPad** on flat Level 1. Floating blocks depend on it,
    and so does any further vertical design.
 2. **The current guardian is played** by the actual audience, at least twice.
    Everything in §3 is a guess until someone watches a child fight it.
 3. **The §8 decision is made**, because it changes how Level 2 is tuned.
-4. Then: boss phases (§3), then weapons (§5), then the maze, then perches (§6).
+4. Then: boss phases (§3), then weapons (§5), then the maze, then floating blocks (§6).
 
-Perches last, deliberately. They are the most exciting item on the list and the
+Floating blocks last, deliberately. They are the most exciting item on the list and the
 one most likely to reintroduce the problem that deleted the last map.
 
 ## 10. Open questions
