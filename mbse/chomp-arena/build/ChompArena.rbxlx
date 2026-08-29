@@ -27,7 +27,7 @@
 
 local ChompConfig = {}
 
-ChompConfig.ReleaseVersion = "0.4.1-alpha"
+ChompConfig.ReleaseVersion = "0.4.2-alpha"
 
 -- ── Chassis ─────────────────────────────────────────────────────────────
 -- Bigger chassis carry more charge but turn worse, so a tier is a trade
@@ -818,6 +818,81 @@ return ChompConfig
       </Properties>
       <Item class="ModuleScript" referent="3">
         <Properties>
+          <string name="Name">HudConformance</string>
+          <string name="Source"><![CDATA[--!strict
+-- Client-side measurement for the Build 2 permanent HUD budget.
+
+local Players = game:GetService("Players")
+
+local HudConformance = {}
+
+type Check = { name: string, passed: boolean, detail: string? }
+
+local function add(results: { Check }, name: string, passed: boolean, detail: string?)
+	table.insert(results, { name = name, passed = passed, detail = detail })
+end
+
+local function overlap(a: GuiObject, b: GuiObject): boolean
+	local ap, as = a.AbsolutePosition, a.AbsoluteSize
+	local bp, bs = b.AbsolutePosition, b.AbsoluteSize
+	return ap.X < bp.X + bs.X and bp.X < ap.X + as.X
+		and ap.Y < bp.Y + bs.Y and bp.Y < ap.Y + as.Y
+end
+
+function HudConformance.checkAll(): { Check }
+	local results: { Check } = {}
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local gui = playerGui:WaitForChild("ChompHud") :: ScreenGui
+	local camera = workspace.CurrentCamera
+	local viewport = camera and camera.ViewportSize or Vector2.new(1, 1)
+	local permanent: { GuiObject } = {}
+	local summedArea = 0
+
+	for _, child in gui:GetChildren() do
+		if child:IsA("GuiObject") and child.Visible and child:GetAttribute("HudPermanent") == true then
+			table.insert(permanent, child)
+			summedArea += child.AbsoluteSize.X * child.AbsoluteSize.Y
+		end
+	end
+
+	local safeArea = viewport.X * math.max(1, viewport.Y - 68)
+	local fraction = summedArea / safeArea
+	add(results, "area.permanent", fraction <= 0.30,
+		string.format("%.1f%% occupied; maximum 30%%", fraction * 100))
+	add(results, "area.playfield", 1 - fraction >= 0.70,
+		string.format("%.1f%% unobstructed; minimum 70%%", (1 - fraction) * 100))
+
+	for i = 1, #permanent do
+		for j = i + 1, #permanent do
+			add(results, "overlap." .. permanent[i].Name .. "." .. permanent[j].Name,
+				not overlap(permanent[i], permanent[j]))
+		end
+	end
+
+	return results
+end
+
+function HudConformance.report(results: { Check }?): boolean
+	results = results or HudConformance.checkAll()
+	local allPassed = true
+	for _, check in results do
+		if check.passed then
+			print("  PASS  " .. check.name)
+		else
+			allPassed = false
+			warn("  FAIL  " .. check.name .. (check.detail and ("  " .. check.detail) or ""))
+		end
+	end
+	print(allPassed and "HUD CONFORMANCE: PASS" or "HUD CONFORMANCE: FAIL")
+	return allPassed
+end
+
+return HudConformance
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="4">
+        <Properties>
           <string name="Name">Impact</string>
           <string name="Source"><![CDATA[--!strict
 --[[
@@ -1041,7 +1116,7 @@ return Impact
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="4">
+      <Item class="ModuleScript" referent="5">
         <Properties>
           <string name="Name">Progression</string>
           <string name="Source"><![CDATA[--!strict
@@ -1167,7 +1242,7 @@ return Progression
         </Properties>
       </Item>
     </Item>
-    <Item class="ModuleScript" referent="5">
+    <Item class="ModuleScript" referent="6">
       <Properties>
         <string name="Name">Remotes</string>
         <string name="Source"><![CDATA[--!strict
@@ -1265,7 +1340,7 @@ return Remotes
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="6">
+    <Item class="ModuleScript" referent="7">
       <Properties>
         <string name="Name">Types</string>
         <string name="Source"><![CDATA[--!strict
@@ -1425,19 +1500,19 @@ return {}
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Folder" referent="7">
+    <Item class="Folder" referent="8">
       <Properties>
         <string name="Name">Vehicles</string>
       </Properties>
-      <Item class="Model" referent="8">
+      <Item class="Model" referent="9">
         <Properties>
           <string name="Name">Apex</string>
           <BinaryString name="AttributesSerialize">BwAAAAsAAABCYXJDYXBhY2l0eQYAAAAAAAB5QAkAAABCYXNlU3BlZWQGAAAAAAAAPEAIAAAAQmFzZVR1cm4GAAAAAABAekAPAAAATW91dGhBcmNEZWdyZWVzBgAAAAAAgFtABQAAAFBvd2VyBgAAAAAA4IVABAAAAFRpZXIGAAAAAAAAEEANAAAAVHJpYW5nbGVDb3VudAYAAAAAAEBxQA==</BinaryString>
           <bool name="NeedsPivotMigration">false</bool>
-          <Ref name="PrimaryPart">9</Ref>
+          <Ref name="PrimaryPart">10</Ref>
           <BinaryString name="Tags">Q2hvbXBfVmVoaWNsZQ==</BinaryString>
         </Properties>
-        <Item class="Part" referent="9">
+        <Item class="Part" referent="10">
           <Properties>
             <string name="Name">Chassis</string>
             <bool name="Anchored">false</bool>
@@ -1482,7 +1557,7 @@ return {}
             <float name="Transparency">1</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="10">
+        <Item class="Part" referent="11">
           <Properties>
             <string name="Name">BodyShell</string>
             <bool name="Anchored">false</bool>
@@ -1527,7 +1602,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="11">
+        <Item class="WedgePart" referent="12">
           <Properties>
             <string name="Name">MouthUpper</string>
             <bool name="Anchored">false</bool>
@@ -1558,7 +1633,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="12">
+        <Item class="WedgePart" referent="13">
           <Properties>
             <string name="Name">MouthLower</string>
             <bool name="Anchored">false</bool>
@@ -1589,7 +1664,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="13">
+        <Item class="Part" referent="14">
           <Properties>
             <string name="Name">MouthInterior</string>
             <bool name="Anchored">false</bool>
@@ -1634,7 +1709,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="14">
+        <Item class="Part" referent="15">
           <Properties>
             <string name="Name">TeamColour</string>
             <bool name="Anchored">false</bool>
@@ -1679,7 +1754,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="15">
+        <Item class="Part" referent="16">
           <Properties>
             <string name="Name">Canopy</string>
             <bool name="Anchored">false</bool>
@@ -1724,7 +1799,7 @@ return {}
             <float name="Transparency">0.48</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="16">
+        <Item class="Part" referent="17">
           <Properties>
             <string name="Name">EyeLeft</string>
             <bool name="Anchored">false</bool>
@@ -1769,7 +1844,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="17">
+        <Item class="Part" referent="18">
           <Properties>
             <string name="Name">EyeRight</string>
             <bool name="Anchored">false</bool>
@@ -1814,7 +1889,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="18">
+        <Item class="Part" referent="19">
           <Properties>
             <string name="Name">SkidLeft</string>
             <bool name="Anchored">false</bool>
@@ -1859,7 +1934,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="19">
+        <Item class="Part" referent="20">
           <Properties>
             <string name="Name">SkidRight</string>
             <bool name="Anchored">false</bool>
@@ -1904,7 +1979,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="20">
+        <Item class="Part" referent="21">
           <Properties>
             <string name="Name">JawGuardLeft</string>
             <bool name="Anchored">false</bool>
@@ -1949,7 +2024,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="21">
+        <Item class="Part" referent="22">
           <Properties>
             <string name="Name">JawGuardRight</string>
             <bool name="Anchored">false</bool>
@@ -1994,7 +2069,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="22">
+        <Item class="WedgePart" referent="23">
           <Properties>
             <string name="Name">Tooth1</string>
             <bool name="Anchored">false</bool>
@@ -2025,7 +2100,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="23">
+        <Item class="WedgePart" referent="24">
           <Properties>
             <string name="Name">Tooth2</string>
             <bool name="Anchored">false</bool>
@@ -2056,7 +2131,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="24">
+        <Item class="WedgePart" referent="25">
           <Properties>
             <string name="Name">Tooth3</string>
             <bool name="Anchored">false</bool>
@@ -2087,7 +2162,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="25">
+        <Item class="WedgePart" referent="26">
           <Properties>
             <string name="Name">Tooth4</string>
             <bool name="Anchored">false</bool>
@@ -2118,7 +2193,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="26">
+        <Item class="WedgePart" referent="27">
           <Properties>
             <string name="Name">RearFin</string>
             <bool name="Anchored">false</bool>
@@ -2149,7 +2224,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="27">
+        <Item class="Part" referent="28">
           <Properties>
             <string name="Name">CrownLeft</string>
             <bool name="Anchored">false</bool>
@@ -2194,7 +2269,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="28">
+        <Item class="Part" referent="29">
           <Properties>
             <string name="Name">CrownRight</string>
             <bool name="Anchored">false</bool>
@@ -2239,7 +2314,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="29">
+        <Item class="WedgePart" referent="30">
           <Properties>
             <string name="Name">CrownNose</string>
             <bool name="Anchored">false</bool>
@@ -2270,7 +2345,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Weld" referent="30">
+        <Item class="Weld" referent="31">
           <Properties>
             <string name="Name">WeldBodyShell</string>
             <CoordinateFrame name="C0">
@@ -2302,11 +2377,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">10</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">11</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="31">
+        <Item class="Weld" referent="32">
           <Properties>
             <string name="Name">WeldMouthUpper</string>
             <CoordinateFrame name="C0">
@@ -2338,11 +2413,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">11</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">12</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="32">
+        <Item class="Weld" referent="33">
           <Properties>
             <string name="Name">WeldMouthLower</string>
             <CoordinateFrame name="C0">
@@ -2374,11 +2449,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">12</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">13</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="33">
+        <Item class="Weld" referent="34">
           <Properties>
             <string name="Name">WeldMouthInterior</string>
             <CoordinateFrame name="C0">
@@ -2410,11 +2485,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">13</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">14</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="34">
+        <Item class="Weld" referent="35">
           <Properties>
             <string name="Name">WeldTeamColour</string>
             <CoordinateFrame name="C0">
@@ -2446,11 +2521,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">14</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">15</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="35">
+        <Item class="Weld" referent="36">
           <Properties>
             <string name="Name">WeldCanopy</string>
             <CoordinateFrame name="C0">
@@ -2482,11 +2557,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">15</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">16</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="36">
+        <Item class="Weld" referent="37">
           <Properties>
             <string name="Name">WeldEyeLeft</string>
             <CoordinateFrame name="C0">
@@ -2518,11 +2593,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">16</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">17</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="37">
+        <Item class="Weld" referent="38">
           <Properties>
             <string name="Name">WeldEyeRight</string>
             <CoordinateFrame name="C0">
@@ -2554,11 +2629,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">17</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">18</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="38">
+        <Item class="Weld" referent="39">
           <Properties>
             <string name="Name">WeldSkidLeft</string>
             <CoordinateFrame name="C0">
@@ -2590,11 +2665,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">18</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">19</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="39">
+        <Item class="Weld" referent="40">
           <Properties>
             <string name="Name">WeldSkidRight</string>
             <CoordinateFrame name="C0">
@@ -2626,11 +2701,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">19</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">20</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="40">
+        <Item class="Weld" referent="41">
           <Properties>
             <string name="Name">WeldJawGuardLeft</string>
             <CoordinateFrame name="C0">
@@ -2662,11 +2737,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">20</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">21</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="41">
+        <Item class="Weld" referent="42">
           <Properties>
             <string name="Name">WeldJawGuardRight</string>
             <CoordinateFrame name="C0">
@@ -2698,11 +2773,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">21</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">22</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="42">
+        <Item class="Weld" referent="43">
           <Properties>
             <string name="Name">WeldTooth1</string>
             <CoordinateFrame name="C0">
@@ -2734,11 +2809,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">22</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">23</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="43">
+        <Item class="Weld" referent="44">
           <Properties>
             <string name="Name">WeldTooth2</string>
             <CoordinateFrame name="C0">
@@ -2770,11 +2845,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">23</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">24</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="44">
+        <Item class="Weld" referent="45">
           <Properties>
             <string name="Name">WeldTooth3</string>
             <CoordinateFrame name="C0">
@@ -2806,11 +2881,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">24</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">25</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="45">
+        <Item class="Weld" referent="46">
           <Properties>
             <string name="Name">WeldTooth4</string>
             <CoordinateFrame name="C0">
@@ -2842,11 +2917,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">25</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">26</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="46">
+        <Item class="Weld" referent="47">
           <Properties>
             <string name="Name">WeldRearFin</string>
             <CoordinateFrame name="C0">
@@ -2878,11 +2953,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">26</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">27</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="47">
+        <Item class="Weld" referent="48">
           <Properties>
             <string name="Name">WeldCrownLeft</string>
             <CoordinateFrame name="C0">
@@ -2914,11 +2989,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">27</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">28</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="48">
+        <Item class="Weld" referent="49">
           <Properties>
             <string name="Name">WeldCrownRight</string>
             <CoordinateFrame name="C0">
@@ -2950,11 +3025,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">28</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">29</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="49">
+        <Item class="Weld" referent="50">
           <Properties>
             <string name="Name">WeldCrownNose</string>
             <CoordinateFrame name="C0">
@@ -2986,20 +3061,20 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">9</Ref>
-            <Ref name="Part1">29</Ref>
+            <Ref name="Part0">10</Ref>
+            <Ref name="Part1">30</Ref>
           </Properties>
         </Item>
       </Item>
-      <Item class="Model" referent="50">
+      <Item class="Model" referent="51">
         <Properties>
           <string name="Name">HeavyJaw</string>
           <BinaryString name="AttributesSerialize">BwAAAAsAAABCYXJDYXBhY2l0eQYAAAAAAOBlQAkAAABCYXNlU3BlZWQGAAAAAAAAN0AIAAAAQmFzZVR1cm4GAAAAAAAAfkAPAAAATW91dGhBcmNEZWdyZWVzBgAAAAAAgFZABQAAAFBvd2VyBgAAAAAAQG9ABAAAAFRpZXIGAAAAAAAAAEANAAAAVHJpYW5nbGVDb3VudAYAAAAAAABlQA==</BinaryString>
           <bool name="NeedsPivotMigration">false</bool>
-          <Ref name="PrimaryPart">51</Ref>
+          <Ref name="PrimaryPart">52</Ref>
           <BinaryString name="Tags">Q2hvbXBfVmVoaWNsZQ==</BinaryString>
         </Properties>
-        <Item class="Part" referent="51">
+        <Item class="Part" referent="52">
           <Properties>
             <string name="Name">Chassis</string>
             <bool name="Anchored">false</bool>
@@ -3044,7 +3119,7 @@ return {}
             <float name="Transparency">1</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="52">
+        <Item class="Part" referent="53">
           <Properties>
             <string name="Name">BodyShell</string>
             <bool name="Anchored">false</bool>
@@ -3089,7 +3164,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="53">
+        <Item class="WedgePart" referent="54">
           <Properties>
             <string name="Name">MouthUpper</string>
             <bool name="Anchored">false</bool>
@@ -3120,7 +3195,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="54">
+        <Item class="WedgePart" referent="55">
           <Properties>
             <string name="Name">MouthLower</string>
             <bool name="Anchored">false</bool>
@@ -3151,7 +3226,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="55">
+        <Item class="Part" referent="56">
           <Properties>
             <string name="Name">MouthInterior</string>
             <bool name="Anchored">false</bool>
@@ -3196,7 +3271,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="56">
+        <Item class="Part" referent="57">
           <Properties>
             <string name="Name">TeamColour</string>
             <bool name="Anchored">false</bool>
@@ -3241,7 +3316,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="57">
+        <Item class="Part" referent="58">
           <Properties>
             <string name="Name">Canopy</string>
             <bool name="Anchored">false</bool>
@@ -3286,7 +3361,7 @@ return {}
             <float name="Transparency">0.48</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="58">
+        <Item class="Part" referent="59">
           <Properties>
             <string name="Name">EyeLeft</string>
             <bool name="Anchored">false</bool>
@@ -3331,7 +3406,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="59">
+        <Item class="Part" referent="60">
           <Properties>
             <string name="Name">EyeRight</string>
             <bool name="Anchored">false</bool>
@@ -3376,7 +3451,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="60">
+        <Item class="Part" referent="61">
           <Properties>
             <string name="Name">SkidLeft</string>
             <bool name="Anchored">false</bool>
@@ -3421,7 +3496,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="61">
+        <Item class="Part" referent="62">
           <Properties>
             <string name="Name">SkidRight</string>
             <bool name="Anchored">false</bool>
@@ -3466,7 +3541,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="62">
+        <Item class="Part" referent="63">
           <Properties>
             <string name="Name">JawGuardLeft</string>
             <bool name="Anchored">false</bool>
@@ -3511,7 +3586,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="63">
+        <Item class="Part" referent="64">
           <Properties>
             <string name="Name">JawGuardRight</string>
             <bool name="Anchored">false</bool>
@@ -3556,7 +3631,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Weld" referent="64">
+        <Item class="Weld" referent="65">
           <Properties>
             <string name="Name">WeldBodyShell</string>
             <CoordinateFrame name="C0">
@@ -3588,11 +3663,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">51</Ref>
-            <Ref name="Part1">52</Ref>
+            <Ref name="Part0">52</Ref>
+            <Ref name="Part1">53</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="65">
+        <Item class="Weld" referent="66">
           <Properties>
             <string name="Name">WeldMouthUpper</string>
             <CoordinateFrame name="C0">
@@ -3624,11 +3699,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">51</Ref>
-            <Ref name="Part1">53</Ref>
+            <Ref name="Part0">52</Ref>
+            <Ref name="Part1">54</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="66">
+        <Item class="Weld" referent="67">
           <Properties>
             <string name="Name">WeldMouthLower</string>
             <CoordinateFrame name="C0">
@@ -3660,11 +3735,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">51</Ref>
-            <Ref name="Part1">54</Ref>
+            <Ref name="Part0">52</Ref>
+            <Ref name="Part1">55</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="67">
+        <Item class="Weld" referent="68">
           <Properties>
             <string name="Name">WeldMouthInterior</string>
             <CoordinateFrame name="C0">
@@ -3696,11 +3771,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">51</Ref>
-            <Ref name="Part1">55</Ref>
+            <Ref name="Part0">52</Ref>
+            <Ref name="Part1">56</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="68">
+        <Item class="Weld" referent="69">
           <Properties>
             <string name="Name">WeldTeamColour</string>
             <CoordinateFrame name="C0">
@@ -3732,11 +3807,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">51</Ref>
-            <Ref name="Part1">56</Ref>
+            <Ref name="Part0">52</Ref>
+            <Ref name="Part1">57</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="69">
+        <Item class="Weld" referent="70">
           <Properties>
             <string name="Name">WeldCanopy</string>
             <CoordinateFrame name="C0">
@@ -3768,11 +3843,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">51</Ref>
-            <Ref name="Part1">57</Ref>
+            <Ref name="Part0">52</Ref>
+            <Ref name="Part1">58</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="70">
+        <Item class="Weld" referent="71">
           <Properties>
             <string name="Name">WeldEyeLeft</string>
             <CoordinateFrame name="C0">
@@ -3804,11 +3879,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">51</Ref>
-            <Ref name="Part1">58</Ref>
+            <Ref name="Part0">52</Ref>
+            <Ref name="Part1">59</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="71">
+        <Item class="Weld" referent="72">
           <Properties>
             <string name="Name">WeldEyeRight</string>
             <CoordinateFrame name="C0">
@@ -3840,11 +3915,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">51</Ref>
-            <Ref name="Part1">59</Ref>
+            <Ref name="Part0">52</Ref>
+            <Ref name="Part1">60</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="72">
+        <Item class="Weld" referent="73">
           <Properties>
             <string name="Name">WeldSkidLeft</string>
             <CoordinateFrame name="C0">
@@ -3876,11 +3951,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">51</Ref>
-            <Ref name="Part1">60</Ref>
+            <Ref name="Part0">52</Ref>
+            <Ref name="Part1">61</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="73">
+        <Item class="Weld" referent="74">
           <Properties>
             <string name="Name">WeldSkidRight</string>
             <CoordinateFrame name="C0">
@@ -3912,11 +3987,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">51</Ref>
-            <Ref name="Part1">61</Ref>
+            <Ref name="Part0">52</Ref>
+            <Ref name="Part1">62</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="74">
+        <Item class="Weld" referent="75">
           <Properties>
             <string name="Name">WeldJawGuardLeft</string>
             <CoordinateFrame name="C0">
@@ -3948,11 +4023,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">51</Ref>
-            <Ref name="Part1">62</Ref>
+            <Ref name="Part0">52</Ref>
+            <Ref name="Part1">63</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="75">
+        <Item class="Weld" referent="76">
           <Properties>
             <string name="Name">WeldJawGuardRight</string>
             <CoordinateFrame name="C0">
@@ -3984,20 +4059,20 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">51</Ref>
-            <Ref name="Part1">63</Ref>
+            <Ref name="Part0">52</Ref>
+            <Ref name="Part1">64</Ref>
           </Properties>
         </Item>
       </Item>
-      <Item class="Model" referent="76">
+      <Item class="Model" referent="77">
         <Properties>
           <string name="Name">Ravener</string>
           <BinaryString name="AttributesSerialize">BwAAAAsAAABCYXJDYXBhY2l0eQYAAAAAADBxQAkAAABCYXNlU3BlZWQGAAAAAAAAOkAIAAAAQmFzZVR1cm4GAAAAAAAgfEAPAAAATW91dGhBcmNEZWdyZWVzBgAAAAAAAFlABQAAAFBvd2VyBgAAAAAAIHxABAAAAFRpZXIGAAAAAAAACEANAAAAVHJpYW5nbGVDb3VudAYAAAAAAIBsQA==</BinaryString>
           <bool name="NeedsPivotMigration">false</bool>
-          <Ref name="PrimaryPart">77</Ref>
+          <Ref name="PrimaryPart">78</Ref>
           <BinaryString name="Tags">Q2hvbXBfVmVoaWNsZQ==</BinaryString>
         </Properties>
-        <Item class="Part" referent="77">
+        <Item class="Part" referent="78">
           <Properties>
             <string name="Name">Chassis</string>
             <bool name="Anchored">false</bool>
@@ -4042,7 +4117,7 @@ return {}
             <float name="Transparency">1</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="78">
+        <Item class="Part" referent="79">
           <Properties>
             <string name="Name">BodyShell</string>
             <bool name="Anchored">false</bool>
@@ -4087,7 +4162,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="79">
+        <Item class="WedgePart" referent="80">
           <Properties>
             <string name="Name">MouthUpper</string>
             <bool name="Anchored">false</bool>
@@ -4118,7 +4193,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="80">
+        <Item class="WedgePart" referent="81">
           <Properties>
             <string name="Name">MouthLower</string>
             <bool name="Anchored">false</bool>
@@ -4149,7 +4224,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="81">
+        <Item class="Part" referent="82">
           <Properties>
             <string name="Name">MouthInterior</string>
             <bool name="Anchored">false</bool>
@@ -4194,7 +4269,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="82">
+        <Item class="Part" referent="83">
           <Properties>
             <string name="Name">TeamColour</string>
             <bool name="Anchored">false</bool>
@@ -4239,7 +4314,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="83">
+        <Item class="Part" referent="84">
           <Properties>
             <string name="Name">Canopy</string>
             <bool name="Anchored">false</bool>
@@ -4284,7 +4359,7 @@ return {}
             <float name="Transparency">0.48</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="84">
+        <Item class="Part" referent="85">
           <Properties>
             <string name="Name">EyeLeft</string>
             <bool name="Anchored">false</bool>
@@ -4329,7 +4404,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="85">
+        <Item class="Part" referent="86">
           <Properties>
             <string name="Name">EyeRight</string>
             <bool name="Anchored">false</bool>
@@ -4374,7 +4449,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="86">
+        <Item class="Part" referent="87">
           <Properties>
             <string name="Name">SkidLeft</string>
             <bool name="Anchored">false</bool>
@@ -4419,7 +4494,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="87">
+        <Item class="Part" referent="88">
           <Properties>
             <string name="Name">SkidRight</string>
             <bool name="Anchored">false</bool>
@@ -4464,7 +4539,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="88">
+        <Item class="Part" referent="89">
           <Properties>
             <string name="Name">JawGuardLeft</string>
             <bool name="Anchored">false</bool>
@@ -4509,7 +4584,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="89">
+        <Item class="Part" referent="90">
           <Properties>
             <string name="Name">JawGuardRight</string>
             <bool name="Anchored">false</bool>
@@ -4554,7 +4629,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="90">
+        <Item class="WedgePart" referent="91">
           <Properties>
             <string name="Name">Tooth1</string>
             <bool name="Anchored">false</bool>
@@ -4585,7 +4660,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="91">
+        <Item class="WedgePart" referent="92">
           <Properties>
             <string name="Name">Tooth2</string>
             <bool name="Anchored">false</bool>
@@ -4616,7 +4691,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="92">
+        <Item class="WedgePart" referent="93">
           <Properties>
             <string name="Name">Tooth3</string>
             <bool name="Anchored">false</bool>
@@ -4647,7 +4722,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="93">
+        <Item class="WedgePart" referent="94">
           <Properties>
             <string name="Name">Tooth4</string>
             <bool name="Anchored">false</bool>
@@ -4678,7 +4753,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="94">
+        <Item class="WedgePart" referent="95">
           <Properties>
             <string name="Name">RearFin</string>
             <bool name="Anchored">false</bool>
@@ -4709,7 +4784,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Weld" referent="95">
+        <Item class="Weld" referent="96">
           <Properties>
             <string name="Name">WeldBodyShell</string>
             <CoordinateFrame name="C0">
@@ -4741,11 +4816,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">78</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">79</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="96">
+        <Item class="Weld" referent="97">
           <Properties>
             <string name="Name">WeldMouthUpper</string>
             <CoordinateFrame name="C0">
@@ -4777,11 +4852,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">79</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">80</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="97">
+        <Item class="Weld" referent="98">
           <Properties>
             <string name="Name">WeldMouthLower</string>
             <CoordinateFrame name="C0">
@@ -4813,11 +4888,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">80</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">81</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="98">
+        <Item class="Weld" referent="99">
           <Properties>
             <string name="Name">WeldMouthInterior</string>
             <CoordinateFrame name="C0">
@@ -4849,11 +4924,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">81</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">82</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="99">
+        <Item class="Weld" referent="100">
           <Properties>
             <string name="Name">WeldTeamColour</string>
             <CoordinateFrame name="C0">
@@ -4885,11 +4960,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">82</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">83</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="100">
+        <Item class="Weld" referent="101">
           <Properties>
             <string name="Name">WeldCanopy</string>
             <CoordinateFrame name="C0">
@@ -4921,11 +4996,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">83</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">84</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="101">
+        <Item class="Weld" referent="102">
           <Properties>
             <string name="Name">WeldEyeLeft</string>
             <CoordinateFrame name="C0">
@@ -4957,11 +5032,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">84</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">85</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="102">
+        <Item class="Weld" referent="103">
           <Properties>
             <string name="Name">WeldEyeRight</string>
             <CoordinateFrame name="C0">
@@ -4993,11 +5068,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">85</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">86</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="103">
+        <Item class="Weld" referent="104">
           <Properties>
             <string name="Name">WeldSkidLeft</string>
             <CoordinateFrame name="C0">
@@ -5029,11 +5104,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">86</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">87</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="104">
+        <Item class="Weld" referent="105">
           <Properties>
             <string name="Name">WeldSkidRight</string>
             <CoordinateFrame name="C0">
@@ -5065,11 +5140,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">87</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">88</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="105">
+        <Item class="Weld" referent="106">
           <Properties>
             <string name="Name">WeldJawGuardLeft</string>
             <CoordinateFrame name="C0">
@@ -5101,11 +5176,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">88</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">89</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="106">
+        <Item class="Weld" referent="107">
           <Properties>
             <string name="Name">WeldJawGuardRight</string>
             <CoordinateFrame name="C0">
@@ -5137,11 +5212,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">89</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">90</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="107">
+        <Item class="Weld" referent="108">
           <Properties>
             <string name="Name">WeldTooth1</string>
             <CoordinateFrame name="C0">
@@ -5173,11 +5248,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">90</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">91</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="108">
+        <Item class="Weld" referent="109">
           <Properties>
             <string name="Name">WeldTooth2</string>
             <CoordinateFrame name="C0">
@@ -5209,11 +5284,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">91</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">92</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="109">
+        <Item class="Weld" referent="110">
           <Properties>
             <string name="Name">WeldTooth3</string>
             <CoordinateFrame name="C0">
@@ -5245,11 +5320,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">92</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">93</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="110">
+        <Item class="Weld" referent="111">
           <Properties>
             <string name="Name">WeldTooth4</string>
             <CoordinateFrame name="C0">
@@ -5281,11 +5356,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">93</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">94</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="111">
+        <Item class="Weld" referent="112">
           <Properties>
             <string name="Name">WeldRearFin</string>
             <CoordinateFrame name="C0">
@@ -5317,20 +5392,20 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">77</Ref>
-            <Ref name="Part1">94</Ref>
+            <Ref name="Part0">78</Ref>
+            <Ref name="Part1">95</Ref>
           </Properties>
         </Item>
       </Item>
-      <Item class="Model" referent="112">
+      <Item class="Model" referent="113">
         <Properties>
           <string name="Name">Standard</string>
           <BinaryString name="AttributesSerialize">BwAAAAsAAABCYXJDYXBhY2l0eQYAAAAAAABZQAkAAABCYXNlU3BlZWQGAAAAAAAAOEAIAAAAQmFzZVR1cm4GAAAAAADggEAPAAAATW91dGhBcmNEZWdyZWVzBgAAAAAAgFZABQAAAFBvd2VyBgAAAAAAAFlABAAAAFRpZXIGAAAAAAAA8D8NAAAAVHJpYW5nbGVDb3VudAYAAAAAAIBgQA==</BinaryString>
           <bool name="NeedsPivotMigration">false</bool>
-          <Ref name="PrimaryPart">113</Ref>
+          <Ref name="PrimaryPart">114</Ref>
           <BinaryString name="Tags">Q2hvbXBfVmVoaWNsZQ==</BinaryString>
         </Properties>
-        <Item class="Part" referent="113">
+        <Item class="Part" referent="114">
           <Properties>
             <string name="Name">Chassis</string>
             <bool name="Anchored">false</bool>
@@ -5375,7 +5450,7 @@ return {}
             <float name="Transparency">1</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="114">
+        <Item class="Part" referent="115">
           <Properties>
             <string name="Name">BodyShell</string>
             <bool name="Anchored">false</bool>
@@ -5420,7 +5495,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="115">
+        <Item class="WedgePart" referent="116">
           <Properties>
             <string name="Name">MouthUpper</string>
             <bool name="Anchored">false</bool>
@@ -5465,7 +5540,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="WedgePart" referent="116">
+        <Item class="WedgePart" referent="117">
           <Properties>
             <string name="Name">MouthLower</string>
             <bool name="Anchored">false</bool>
@@ -5510,7 +5585,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="117">
+        <Item class="Part" referent="118">
           <Properties>
             <string name="Name">MouthInterior</string>
             <bool name="Anchored">false</bool>
@@ -5555,7 +5630,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="118">
+        <Item class="Part" referent="119">
           <Properties>
             <string name="Name">TeamColour</string>
             <bool name="Anchored">false</bool>
@@ -5600,7 +5675,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="119">
+        <Item class="Part" referent="120">
           <Properties>
             <string name="Name">EyeLeft</string>
             <bool name="Anchored">false</bool>
@@ -5645,7 +5720,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="120">
+        <Item class="Part" referent="121">
           <Properties>
             <string name="Name">EyeRight</string>
             <bool name="Anchored">false</bool>
@@ -5690,7 +5765,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="121">
+        <Item class="Part" referent="122">
           <Properties>
             <string name="Name">Canopy</string>
             <bool name="Anchored">false</bool>
@@ -5735,7 +5810,7 @@ return {}
             <float name="Transparency">0.48</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="122">
+        <Item class="Part" referent="123">
           <Properties>
             <string name="Name">SkidLeft</string>
             <bool name="Anchored">false</bool>
@@ -5780,7 +5855,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Part" referent="123">
+        <Item class="Part" referent="124">
           <Properties>
             <string name="Name">SkidRight</string>
             <bool name="Anchored">false</bool>
@@ -5825,7 +5900,7 @@ return {}
             <float name="Transparency">0</float>
           </Properties>
         </Item>
-        <Item class="Weld" referent="124">
+        <Item class="Weld" referent="125">
           <Properties>
             <string name="Name">WeldBody</string>
             <CoordinateFrame name="C0">
@@ -5857,11 +5932,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">113</Ref>
-            <Ref name="Part1">114</Ref>
+            <Ref name="Part0">114</Ref>
+            <Ref name="Part1">115</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="125">
+        <Item class="Weld" referent="126">
           <Properties>
             <string name="Name">WeldMouthUpper</string>
             <CoordinateFrame name="C0">
@@ -5893,11 +5968,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">113</Ref>
-            <Ref name="Part1">115</Ref>
+            <Ref name="Part0">114</Ref>
+            <Ref name="Part1">116</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="126">
+        <Item class="Weld" referent="127">
           <Properties>
             <string name="Name">WeldMouthLower</string>
             <CoordinateFrame name="C0">
@@ -5929,11 +6004,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">113</Ref>
-            <Ref name="Part1">116</Ref>
+            <Ref name="Part0">114</Ref>
+            <Ref name="Part1">117</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="127">
+        <Item class="Weld" referent="128">
           <Properties>
             <string name="Name">WeldMouthInterior</string>
             <CoordinateFrame name="C0">
@@ -5965,11 +6040,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">113</Ref>
-            <Ref name="Part1">117</Ref>
+            <Ref name="Part0">114</Ref>
+            <Ref name="Part1">118</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="128">
+        <Item class="Weld" referent="129">
           <Properties>
             <string name="Name">WeldTeamColour</string>
             <CoordinateFrame name="C0">
@@ -6001,11 +6076,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">113</Ref>
-            <Ref name="Part1">118</Ref>
+            <Ref name="Part0">114</Ref>
+            <Ref name="Part1">119</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="129">
+        <Item class="Weld" referent="130">
           <Properties>
             <string name="Name">WeldEyeLeft</string>
             <CoordinateFrame name="C0">
@@ -6037,11 +6112,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">113</Ref>
-            <Ref name="Part1">119</Ref>
+            <Ref name="Part0">114</Ref>
+            <Ref name="Part1">120</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="130">
+        <Item class="Weld" referent="131">
           <Properties>
             <string name="Name">WeldEyeRight</string>
             <CoordinateFrame name="C0">
@@ -6073,11 +6148,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">113</Ref>
-            <Ref name="Part1">120</Ref>
+            <Ref name="Part0">114</Ref>
+            <Ref name="Part1">121</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="131">
+        <Item class="Weld" referent="132">
           <Properties>
             <string name="Name">WeldCanopy</string>
             <CoordinateFrame name="C0">
@@ -6109,11 +6184,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">113</Ref>
-            <Ref name="Part1">121</Ref>
+            <Ref name="Part0">114</Ref>
+            <Ref name="Part1">122</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="132">
+        <Item class="Weld" referent="133">
           <Properties>
             <string name="Name">WeldSkidLeft</string>
             <CoordinateFrame name="C0">
@@ -6145,11 +6220,11 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">113</Ref>
-            <Ref name="Part1">122</Ref>
+            <Ref name="Part0">114</Ref>
+            <Ref name="Part1">123</Ref>
           </Properties>
         </Item>
-        <Item class="Weld" referent="133">
+        <Item class="Weld" referent="134">
           <Properties>
             <string name="Name">WeldSkidRight</string>
             <CoordinateFrame name="C0">
@@ -6181,67 +6256,67 @@ return {}
               <R22>1</R22>
             </CoordinateFrame>
             <bool name="Enabled">true</bool>
-            <Ref name="Part0">113</Ref>
-            <Ref name="Part1">123</Ref>
+            <Ref name="Part0">114</Ref>
+            <Ref name="Part1">124</Ref>
           </Properties>
         </Item>
       </Item>
     </Item>
-    <Item class="Folder" referent="134">
+    <Item class="Folder" referent="135">
       <Properties>
         <string name="Name">RemoteEvents</string>
       </Properties>
-      <Item class="RemoteEvent" referent="135">
+      <Item class="RemoteEvent" referent="136">
         <Properties>
           <string name="Name">RequestBank</string>
         </Properties>
       </Item>
-      <Item class="RemoteEvent" referent="136">
+      <Item class="RemoteEvent" referent="137">
         <Properties>
           <string name="Name">RequestPurchase</string>
         </Properties>
       </Item>
-      <Item class="RemoteEvent" referent="137">
+      <Item class="RemoteEvent" referent="138">
         <Properties>
           <string name="Name">SelectItem</string>
         </Properties>
       </Item>
-      <Item class="RemoteEvent" referent="138">
+      <Item class="RemoteEvent" referent="139">
         <Properties>
           <string name="Name">SetInputDirection</string>
         </Properties>
       </Item>
-      <Item class="RemoteEvent" referent="139">
+      <Item class="RemoteEvent" referent="140">
         <Properties>
           <string name="Name">ToggleFriendlyFire</string>
         </Properties>
       </Item>
-      <Item class="RemoteEvent" referent="140">
+      <Item class="RemoteEvent" referent="141">
         <Properties>
           <string name="Name">ToggleModule</string>
         </Properties>
       </Item>
-      <Item class="RemoteEvent" referent="141">
+      <Item class="RemoteEvent" referent="142">
         <Properties>
           <string name="Name">UseCharge</string>
         </Properties>
       </Item>
-      <Item class="RemoteEvent" referent="142">
+      <Item class="RemoteEvent" referent="143">
         <Properties>
           <string name="Name">UseItem</string>
         </Properties>
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="143">
+  <Item class="ServerScriptService" referent="144">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="144">
+    <Item class="Folder" referent="145">
       <Properties>
         <string name="Name">ChompEngine</string>
       </Properties>
-      <Item class="Script" referent="145">
+      <Item class="Script" referent="146">
         <Properties>
           <string name="Name">ArenaMap</string>
           <token name="RunContext">0</token>
@@ -6691,7 +6766,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="146">
+      <Item class="Script" referent="147">
         <Properties>
           <string name="Name">ChargeService</string>
           <token name="RunContext">0</token>
@@ -6803,7 +6878,7 @@ print(("[ChargeService] jump spends %d charge of %d max, %d per pellet"):format(
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="147">
+      <Item class="Script" referent="148">
         <Properties>
           <string name="Name">CombatService</string>
           <token name="RunContext">0</token>
@@ -7075,7 +7150,7 @@ print("[CombatService] directional player contact live")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="148">
+      <Item class="ModuleScript" referent="149">
         <Properties>
           <string name="Name">CombatState</string>
           <string name="Source"><![CDATA[--!strict
@@ -7125,7 +7200,7 @@ return CombatState
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="149">
+      <Item class="Script" referent="150">
         <Properties>
           <string name="Name">DeathService</string>
           <token name="RunContext">0</token>
@@ -7210,7 +7285,7 @@ print(("[DeathService] respawn %.1fs, announced"):format(Config.Combat.RespawnSe
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="150">
+      <Item class="ModuleScript" referent="151">
         <Properties>
           <string name="Name">EconomyService</string>
           <string name="Source"><![CDATA[--!strict
@@ -7376,7 +7451,7 @@ return EconomyService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="151">
+      <Item class="Script" referent="152">
         <Properties>
           <string name="Name">GarageService</string>
           <token name="RunContext">0</token>
@@ -7925,6 +8000,28 @@ local function currentOffer(player: Player, offer: Offer): (string, number)
 		.. " LV " .. tostring(level + 1), price
 end
 
+local function offerDelta(player: Player, offer: Offer): string
+	if offer.kind == "chassis" then
+		local chassis = Config.Chassis[offer.id]
+		return chassis and ("TIER " .. tostring(chassis.Tier) .. "  |  "
+			.. tostring(chassis.ModulePorts) .. " MODULE PORTS") or "VEHICLE FORM"
+	end
+	if offer.kind == "item" then return "ADDS TO YOUR WEAPON BELT" end
+	local level = math.clamp(((player:GetAttribute("ChompUpgrade" .. offer.id) :: number?) or 0) + 1,
+		1, UP.MaxLevel)
+	if offer.id == "Engine" then return "+" .. tostring(math.floor(UP.Engine.SpeedFraction[level] * 100)) .. "% TOP SPEED" end
+	if offer.id == "Handling" then return "+" .. tostring(math.floor(UP.Handling.TurnFraction[level] * 100)) .. "% TURN RATE" end
+	if offer.id == "Armour" then return tostring(UP.Armour.MaxHealth[level]) .. " MAX ARMOUR" end
+	if offer.id == "Cannon" then return tostring(UP.Cannon.Barrels[level]) .. " CANNON"
+		.. (UP.Cannon.Barrels[level] == 1 and "" or "S") .. "  |  "
+		.. tostring(UP.Cannon.Magazine[level]) .. " SHOTS" end
+	if offer.id == "Ordnance" then return tostring(UP.Ordnance.Charges[level]) .. " BOMB CHARGE"
+		.. (UP.Ordnance.Charges[level] == 1 and "" or "S") end
+	if offer.id == "Jump" then return "+" .. tostring(math.floor(UP.Jump.ImpulseFraction[level] * 100)) .. "% JUMP LIFT" end
+	if offer.id == "Boost" then return "+" .. tostring(math.floor(UP.Boost.ChargeRateFraction[level] * 100)) .. "% CHARGE SPEED" end
+	return "NEXT VEHICLE FORM"
+end
+
 local function buy(player: Player, offer: Offer): (boolean, string)
 	local character = player.Character
 	if not character then return false, "VEHICLE NOT READY" end
@@ -8020,8 +8117,14 @@ local function dwellLoop()
 				local title, price = currentOffer(player, nearOffer)
 				character:SetAttribute("ChompShopOffer", title)
 				character:SetAttribute("ChompShopPrice", price)
+				character:SetAttribute("ChompShopKind", nearOffer.kind)
+				character:SetAttribute("ChompShopId", nearOffer.id)
+				character:SetAttribute("ChompShopDelta", offerDelta(player, nearOffer))
 			else
 				character:SetAttribute("ChompShopOffer", "")
+				character:SetAttribute("ChompShopKind", "")
+				character:SetAttribute("ChompShopId", "")
+				character:SetAttribute("ChompShopDelta", "")
 				character:SetAttribute("ChompShopProgress", 0)
 			end
 
@@ -8135,7 +8238,7 @@ print(("[GarageService] %d plinths (%d of them weapons), dwell %.1fs to buy, " .
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="152">
+      <Item class="Script" referent="153">
         <Properties>
           <string name="Name">GhostService</string>
           <token name="RunContext">0</token>
@@ -8839,7 +8942,7 @@ print(("[GhostService] waves live: %d walls, %d sanctuaries, %d%% stolen per cat
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="153">
+      <Item class="Script" referent="154">
         <Properties>
           <string name="Name">GuardianService</string>
           <token name="RunContext">0</token>
@@ -9440,7 +9543,7 @@ print("[GuardianService] infinite chamber guardian live")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="154">
+      <Item class="Script" referent="155">
         <Properties>
           <string name="Name">ItemService</string>
           <token name="RunContext">0</token>
@@ -10495,7 +10598,7 @@ print(("[ItemService] running - %d pads, %d slots, %d item types, %d/s use limit
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="155">
+      <Item class="Script" referent="156">
         <Properties>
           <string name="Name">Level1Map</string>
           <token name="RunContext">0</token>
@@ -10922,7 +11025,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="156">
+      <Item class="Script" referent="157">
         <Properties>
           <string name="Name">MovementService</string>
           <token name="RunContext">0</token>
@@ -11077,7 +11180,7 @@ print("[MovementService] running — server owns the numbers, the client owns it
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="157">
+      <Item class="Script" referent="158">
         <Properties>
           <string name="Name">PelletService</string>
           <token name="RunContext">0</token>
@@ -11311,7 +11414,7 @@ print(("[PelletService] %d pellets laid, values %s, bank rate %.1f")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="158">
+      <Item class="Script" referent="159">
         <Properties>
           <string name="Name">PlayerSessionService</string>
           <token name="RunContext">0</token>
@@ -11440,7 +11543,7 @@ print("[PlayerSessionService] protected launch bay and deployment live")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="159">
+      <Item class="Script" referent="160">
         <Properties>
           <string name="Name">ProfileService</string>
           <token name="RunContext">0</token>
@@ -11639,7 +11742,7 @@ print("[ProfileService] versioned profiles live; Studio is ephemeral")
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="160">
+      <Item class="Script" referent="161">
         <Properties>
           <string name="Name">TestMap</string>
           <token name="RunContext">0</token>
@@ -11812,7 +11915,7 @@ build()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="161">
+      <Item class="Script" referent="162">
         <Properties>
           <string name="Name">VehicleService</string>
           <token name="RunContext">0</token>
@@ -12270,7 +12373,7 @@ print(("[VehicleService] running - chassis models are worn, collision is still t
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="162">
+      <Item class="Script" referent="163">
         <Properties>
           <string name="Name">WorldLook</string>
           <token name="RunContext">0</token>
@@ -12328,15 +12431,15 @@ print("[WorldLook] sharp-edge night rig active")
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="163">
+  <Item class="ServerStorage" referent="164">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="164">
+    <Item class="Folder" referent="165">
       <Properties>
         <string name="Name">ChompTools</string>
       </Properties>
-      <Item class="ModuleScript" referent="165">
+      <Item class="ModuleScript" referent="166">
         <Properties>
           <string name="Name">CombatConformance</string>
           <string name="Source"><![CDATA[--!strict
@@ -12428,7 +12531,7 @@ return CombatConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="166">
+      <Item class="ModuleScript" referent="167">
         <Properties>
           <string name="Name">GuardianConformance</string>
           <string name="Source"><![CDATA[--!strict
@@ -12507,7 +12610,7 @@ return GuardianConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="167">
+      <Item class="ModuleScript" referent="168">
         <Properties>
           <string name="Name">ItemModels</string>
           <string name="Source"><![CDATA[--!strict
@@ -12680,7 +12783,7 @@ return ItemModels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="168">
+      <Item class="ModuleScript" referent="169">
         <Properties>
           <string name="Name">VehicleConformance</string>
           <string name="Source"><![CDATA[--[[
@@ -12965,7 +13068,7 @@ return VehicleConformance
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="169">
+      <Item class="ModuleScript" referent="170">
         <Properties>
           <string name="Name">VehicleFactory</string>
           <string name="Source"><![CDATA[--!strict
@@ -13224,11 +13327,11 @@ return VehicleFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="170">
+      <Item class="Folder" referent="171">
         <Properties>
           <string name="Name">VehicleSpecs</string>
         </Properties>
-        <Item class="ModuleScript" referent="171">
+        <Item class="ModuleScript" referent="172">
           <Properties>
             <string name="Name">Apex</string>
             <string name="Source"><![CDATA[--!strict
@@ -13237,7 +13340,7 @@ return variant("Apex", Color3.fromRGB(96, 72, 176), Color3.fromRGB(255, 207, 55)
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="172">
+        <Item class="ModuleScript" referent="173">
           <Properties>
             <string name="Name">HeavyJaw</string>
             <string name="Source"><![CDATA[--!strict
@@ -13246,7 +13349,7 @@ return variant("HeavyJaw", Color3.fromRGB(238, 145, 26), Color3.fromRGB(255, 230
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="173">
+        <Item class="ModuleScript" referent="174">
           <Properties>
             <string name="Name">Ravener</string>
             <string name="Source"><![CDATA[--!strict
@@ -13255,7 +13358,7 @@ return variant("Ravener", Color3.fromRGB(208, 64, 104), Color3.fromRGB(95, 235, 
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="174">
+        <Item class="ModuleScript" referent="175">
           <Properties>
             <string name="Name">Standard</string>
             <string name="Source"><![CDATA[--!strict
@@ -13365,7 +13468,7 @@ return {
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="175">
+        <Item class="ModuleScript" referent="176">
           <Properties>
             <string name="Name">Variant</string>
             <string name="Source"><![CDATA[--!strict
@@ -13409,15 +13512,15 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="176">
+  <Item class="StarterPlayer" referent="177">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="177">
+    <Item class="StarterPlayerScripts" referent="178">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="178">
+      <Item class="LocalScript" referent="179">
         <Properties>
           <string name="Name">AudioDirector</string>
           <string name="Source"><![CDATA[--!strict
@@ -13613,7 +13716,7 @@ player.CharacterAdded:Connect(bind)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="179">
+      <Item class="LocalScript" referent="180">
         <Properties>
           <string name="Name">CameraController</string>
           <string name="Source"><![CDATA[--!strict
@@ -13870,7 +13973,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="180">
+      <Item class="LocalScript" referent="181">
         <Properties>
           <string name="Name">CameraReadout</string>
           <string name="Source"><![CDATA[--!strict
@@ -14011,7 +14114,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="181">
+      <Item class="LocalScript" referent="182">
         <Properties>
           <string name="Name">ChompHud</string>
           <string name="Source"><![CDATA[--!strict
@@ -14135,12 +14238,13 @@ end
 -- one you most want to end the round looking at.
 local COLUMN_BASE = CONTROLS.ButtonMarginPx * 2 + CONTROLS.JumpButtonPx
 local stack = panel("Values", Vector2.new(1, 1),
-	UDim2.new(1, -16, 1, -(COLUMN_BASE + 76)), UDim2.new(0, 236, 0, 168))
+	UDim2.new(1, -16, 1, -(COLUMN_BASE + 76)), UDim2.new(0, 252, 0, 96))
+stack:SetAttribute("HudPermanent", true)
 
-local carriedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 10),
-	"0", P.NeonB, 34, Enum.TextXAlignment.Right)
-label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 48),
-	"CARRYING — AT RISK", P.NeonB, 12, Enum.TextXAlignment.Right)
+local carriedValue = label(stack, UDim2.new(0.5, -16, 0, 34), UDim2.new(0, 12, 0, 8),
+	"0", P.NeonB, 28, Enum.TextXAlignment.Left)
+label(stack, UDim2.new(0.5, -16, 0, 16), UDim2.new(0, 12, 0, 40),
+	"AT RISK", P.NeonB, 11, Enum.TextXAlignment.Left)
 
 -- ── The belt: five slots, spent left to right ───────────────────────────
 -- Order is the whole point (D-CHOMP-062), so the slots are laid out in the
@@ -14171,6 +14275,7 @@ beltStrip.Position = UDim2.new(1, -16, 1, -COLUMN_BASE)
 beltStrip.Size = UDim2.new(0, BELT_W, 0, SLOT_H)
 beltStrip.BackgroundTransparency = 1
 beltStrip.Parent = gui
+beltStrip:SetAttribute("HudPermanent", true)
 
 local slotButtons: { TextButton } = {}
 local slotCharges: { TextLabel } = {}
@@ -14259,10 +14364,10 @@ for i = 1, SLOTS do
 	table.insert(slotBars, bar)
 end
 
-local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 112),
-	"$0", P.Gold, 34, Enum.TextXAlignment.Right)
-label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 148),
-	"BANKED — SAFE", P.Gold, 12, Enum.TextXAlignment.Right)
+local bankedValue = label(stack, UDim2.new(0.5, -16, 0, 34), UDim2.new(0.5, 4, 0, 8),
+	"$0", P.Gold, 28, Enum.TextXAlignment.Right)
+label(stack, UDim2.new(0.5, -16, 0, 16), UDim2.new(0.5, 4, 0, 40),
+	"BANKED SAFE", P.Gold, 11, Enum.TextXAlignment.Right)
 
 -- ── Bottom right: jump and belt cycle ──────────────────────────────────
 -- Buttons DO belong in the thumb zone. CHOMP-SYS-032 reserves the lower corners
@@ -14284,6 +14389,7 @@ chargeButton.Text = ""
 chargeButton.AutoButtonColor = false
 chargeButton.ClipsDescendants = true
 chargeButton.Parent = gui
+chargeButton:SetAttribute("HudPermanent", true)
 local cbCorner = Instance.new("UICorner")
 cbCorner.CornerRadius = UDim.new(1, 0)
 cbCorner.Parent = chargeButton
@@ -14344,6 +14450,8 @@ chargePercent.Parent = chargeButton
 -- the press: a TextLabel does not consume input, so the whole circle
 -- is live all the way to its edge.
 local refusedAt = 0
+local refusedReason = ""
+local refusedUntil = 0
 local function pressCharge()
 	if Remotes and Remotes.UseCharge then
 		-- Intent only. The server decides whether there is charge to spend, and
@@ -14356,6 +14464,8 @@ local function pressCharge()
 	local level = character and (character:GetAttribute("ChompCharge") :: number?) or 0
 	if level < Config.Charge.JumpCost then
 		refusedAt = os.clock()
+		refusedReason = "JUMP NEEDS MORE CHARGE"
+		refusedUntil = os.clock() + 1.6
 	end
 end
 chargeButton.Activated:Connect(pressCharge)
@@ -14379,6 +14489,8 @@ local function cycleItem()
 	local ids, active = beltEntries()
 	if #ids <= 1 then
 		cycleRefusedAt = os.clock()
+		refusedReason = "PICK UP A SECOND ITEM"
+		refusedUntil = os.clock() + 1.6
 		return
 	end
 	local target = active
@@ -14407,9 +14519,15 @@ cycleButton.TextSize = 30
 cycleButton.Font = Enum.Font.GothamBlack
 cycleButton.AutoButtonColor = false
 cycleButton.Parent = gui
+cycleButton:SetAttribute("HudPermanent", true)
 local cycleCorner = Instance.new("UICorner")
 cycleCorner.CornerRadius = UDim.new(1, 0)
 cycleCorner.Parent = cycleButton
+local cycleStroke = Instance.new("UIStroke")
+cycleStroke.Color = P.NeonA
+cycleStroke.Thickness = 3
+cycleStroke.Transparency = 0.45
+cycleStroke.Parent = cycleButton
 local cycleWord = Instance.new("TextLabel")
 cycleWord.Name = "Word"
 cycleWord.BackgroundTransparency = 1
@@ -14449,32 +14567,33 @@ local objective = label(centre, UDim2.new(1, -20, 1, -12), UDim2.new(0, 10, 0, 6
 	"COLLECT", P.NeonA, 22, Enum.TextXAlignment.Center)
 
 local wavePanel = panel("Wave", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 72), UDim2.new(0, 200, 0, 38))
+wavePanel:SetAttribute("HudPermanent", true)
 local waveLabel = label(wavePanel, UDim2.new(1, -20, 1, -10), UDim2.new(0, 10, 0, 5),
 	"WAVE 1", P.Ghost, 18, Enum.TextXAlignment.Center)
 
-local ROTATING_TIPS = {
-	{ text = "CHOMP GHOSTS FOR POINTS", colour = P.NeonA },
-	{ text = "AMBUSH FROM THE SIDE", colour = P.Gold },
-	{ text = "TAP BOMB TWICE", colour = P.NeonB },
-	{ text = "JUMP TO ESCAPE", colour = P.NeonA },
-	{ text = "YELLOW ZONES BANK CASH", colour = P.Shield },
-}
-local TIP_SECONDS = 5
-
--- The battle bar is ammunition for the mouth. It is deliberately separate
--- from Jump Charge: one funds attacks, the other funds escape.
-local battlePanel = panel("BattleBar", Vector2.zero,
-	UDim2.new(0, 16, 0, 116), UDim2.new(0, 218, 0, 46))
-local battleLabel = label(battlePanel, UDim2.new(1, -20, 0, 18), UDim2.new(0, 10, 0, 4),
-	"BITE  0/100", P.Gold, 13, Enum.TextXAlignment.Left)
+-- One compact status strip replaces the old Power, Bite and attribute cards.
+-- It is deliberately shallow: the maze remains the largest thing on screen.
+local statusPanel = panel("Status", Vector2.zero,
+	UDim2.new(0, 16, 0, 118), UDim2.new(0, 430, 0, 78))
+statusPanel:SetAttribute("HudPermanent", true)
+wavePanel.Parent = statusPanel
+wavePanel.AnchorPoint = Vector2.zero
+wavePanel.Position = UDim2.new(0, 270, 0, 4)
+wavePanel.Size = UDim2.new(0, 148, 0, 34)
+wavePanel.BackgroundTransparency = 1
+wavePanel:SetAttribute("HudPermanent", false)
+local powerLabel = label(statusPanel, UDim2.new(0, 100, 0, 22), UDim2.new(0, 12, 0, 7),
+	"POWER 100", P.Gold, 14, Enum.TextXAlignment.Left)
+local battleLabel = label(statusPanel, UDim2.new(0, 150, 0, 18), UDim2.new(0, 112, 0, 8),
+	"BITE  0/100", P.Gold, 12, Enum.TextXAlignment.Left)
 local battleBack = Instance.new("Frame")
 battleBack.Name = "BattleBack"
-battleBack.Position = UDim2.new(0, 10, 0, 27)
-battleBack.Size = UDim2.new(1, -20, 0, 11)
+battleBack.Position = UDim2.new(0, 112, 0, 28)
+battleBack.Size = UDim2.new(0, 150, 0, 8)
 battleBack.BackgroundColor3 = P.BrickDark
 battleBack.BorderSizePixel = 0
 battleBack.ClipsDescendants = true
-battleBack.Parent = battlePanel
+battleBack.Parent = statusPanel
 local battleFill = Instance.new("Frame")
 battleFill.Name = "Fill"
 battleFill.Size = UDim2.new(0, 0, 1, 0)
@@ -14482,12 +14601,6 @@ battleFill.BackgroundColor3 = P.Gold
 battleFill.BorderSizePixel = 0
 battleFill.Parent = battleBack
 
--- The module selector used to occupy this space. Progression is the useful
--- information here: three continuous bars, finely ticked but never fragmented.
-local levelPanel = panel("Attributes", Vector2.zero,
-	UDim2.new(0, 16, 0, 170), UDim2.new(0, 218, 0, 150))
-local powerLabel = label(levelPanel, UDim2.new(1, -20, 0, 24), UDim2.new(0, 10, 0, 6),
-	"POWER 100", P.Gold, 16, Enum.TextXAlignment.Center)
 local primaryAttributes = {
 	{ track = "Engine", name = "SPEED" },
 	{ track = "Armour", name = "ARMOUR" },
@@ -14496,28 +14609,28 @@ local primaryAttributes = {
 local attributeLabels: { [string]: TextLabel } = {}
 local attributeBars: { [string]: Frame } = {}
 for index, spec in primaryAttributes do
-	local y = 34 + (index - 1) * 37
-	attributeLabels[spec.track] = label(levelPanel, UDim2.new(1, -24, 0, 16),
-		UDim2.new(0, 12, 0, y), spec.name .. "  LV 0", P.Ghost, 12,
+	local x = 12 + (index - 1) * 138
+	attributeLabels[spec.track] = label(statusPanel, UDim2.new(0, 128, 0, 14),
+		UDim2.new(0, x, 0, 45), spec.name .. "  LV 0", P.Ghost, 10,
 		Enum.TextXAlignment.Left)
 	local back = Instance.new("Frame")
 	back.Name = spec.track .. "Bar"
-	back.Position = UDim2.new(0, 12, 0, y + 18)
-	back.Size = UDim2.new(1, -24, 0, 12)
+	back.Position = UDim2.new(0, x, 0, 62)
+	back.Size = UDim2.new(0, 128, 0, 8)
 	back.BackgroundColor3 = P.BrickDark
 	back.BorderSizePixel = 0
 	back.ClipsDescendants = true
-	back.Parent = levelPanel
+	back.Parent = statusPanel
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
 	fill.Size = UDim2.new(0, 0, 1, 0)
 	fill.BackgroundColor3 = P.Gold
 	fill.BorderSizePixel = 0
 	fill.Parent = back
-	for tick = 1, 11 do
+	for tick = 1, 5 do
 		local mark = Instance.new("Frame")
 		mark.Name = "Tick"
-		mark.Position = UDim2.new(tick / 12, 0, 0, 0)
+		mark.Position = UDim2.new(tick / 6, 0, 0, 0)
 		mark.Size = UDim2.new(0, 1, 1, 0)
 		mark.BackgroundColor3 = P.Ghost
 		mark.BackgroundTransparency = 0.55
@@ -14529,7 +14642,7 @@ for index, spec in primaryAttributes do
 end
 
 local guardianPanel = panel("Guardian", Vector2.new(0.5, 0),
-	UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 520, 0, 66))
+	UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 460, 0, 66))
 local guardianLabel = label(guardianPanel, UDim2.new(1, -20, 0, 26), UDim2.new(0, 10, 0, 3),
 	"GUARDIAN", P.Ghost, 19, Enum.TextXAlignment.Center)
 local guardianBack = Instance.new("Frame")
@@ -14550,6 +14663,41 @@ guardianFill.BorderSizePixel = 0
 guardianFill.Parent = guardianBack
 guardianPanel.Visible = false
 
+-- Purchase information exists only while the vehicle is beside a plinth.
+-- The world model remains the visual preview; this frame explains the next
+-- level, stat change, price and automatic hold-to-buy progress.
+local shopPanel = panel("ShopPreview", Vector2.new(0.5, 0),
+	UDim2.new(0.5, 0, 0, 210), UDim2.new(0, 380, 0, 104))
+local shopTitle = label(shopPanel, UDim2.new(1, -148, 0, 25), UDim2.new(0, 12, 0, 7),
+	"NEXT FORM", P.Ghost, 18, Enum.TextXAlignment.Left)
+local shopPrice = label(shopPanel, UDim2.new(0, 112, 0, 25), UDim2.new(1, -124, 0, 7),
+	"$0", P.Gold, 18, Enum.TextXAlignment.Right)
+local shopDelta = label(shopPanel, UDim2.new(1, -24, 0, 20), UDim2.new(0, 12, 0, 37),
+	"", P.NeonA, 13, Enum.TextXAlignment.Left)
+local shopHint = label(shopPanel, UDim2.new(1, -24, 0, 18), UDim2.new(0, 12, 0, 60),
+	"HOLD STILL TO BUY", P.Ghost, 11, Enum.TextXAlignment.Left)
+local shopProgressBack = Instance.new("Frame")
+shopProgressBack.Position = UDim2.new(0, 12, 1, -17)
+shopProgressBack.Size = UDim2.new(1, -24, 0, 8)
+shopProgressBack.BackgroundColor3 = P.BrickDark
+shopProgressBack.BorderSizePixel = 0
+shopProgressBack.ClipsDescendants = true
+shopProgressBack.Parent = shopPanel
+local shopProgress = Instance.new("Frame")
+shopProgress.Size = UDim2.new(0, 0, 1, 0)
+shopProgress.BackgroundColor3 = P.Gold
+shopProgress.BorderSizePixel = 0
+shopProgress.Parent = shopProgressBack
+shopPanel.Visible = false
+
+local actionReason = label(gui, UDim2.new(0, 330, 0, 30),
+	UDim2.new(1, -(BELT_W + 20), 1, -(COLUMN_BASE + 112)), "", P.Danger, 14,
+	Enum.TextXAlignment.Right)
+actionReason.AnchorPoint = Vector2.new(1, 1)
+actionReason.TextStrokeColor3 = P.Floor
+actionReason.TextStrokeTransparency = 0.2
+actionReason.Visible = false
+
 -- ── A flash when something is taken ─────────────────────────────────────
 local flash = Instance.new("Frame")
 flash.Name = "StolenFlash"
@@ -14563,13 +14711,12 @@ flash.Parent = gui
 -- Health sits under the carry, because both answer "how much trouble am I in".
 local healthBack = Instance.new("Frame")
 healthBack.Name = "HealthBack"
-healthBack.AnchorPoint = Vector2.new(1, 1)
-healthBack.Position = UDim2.new(1, -16, 1, -(COLUMN_BASE + 252))
-healthBack.Size = UDim2.new(0, 236, 0, 14)
+healthBack.Position = UDim2.new(0, 10, 1, -19)
+healthBack.Size = UDim2.new(1, -20, 0, 9)
 healthBack.BackgroundColor3 = P.Floor
 healthBack.BackgroundTransparency = 0.25
 healthBack.BorderSizePixel = 0
-healthBack.Parent = gui
+healthBack.Parent = stack
 local hbCorner = Instance.new("UICorner")
 hbCorner.CornerRadius = UDim.new(0, 7)
 hbCorner.Parent = healthBack
@@ -14587,6 +14734,9 @@ hfCorner.Parent = healthFill
 
 local lastStolenAt = 0
 local lastHurtAt = 0
+local lastShopResultAt = 0
+local shopResult = ""
+local shopResultUntil = 0
 
 local function attribute(name: string): number
 	local character = player.Character
@@ -14661,9 +14811,12 @@ RunService.RenderStepped:Connect(function(dt)
 	local power = attribute("ChompPower")
 	local requiredPower = attribute("ChompGuardianRequiredPower")
 	local guardianPhase = tostring(character:GetAttribute("ChompGuardianPhase") or "STALK")
+	local shopOffer = tostring(character:GetAttribute("ChompShopOffer") or "")
+	local contextVisible = false
 	if inGuardian and power < requiredPower then
 		objective.Text = "POWER " .. tostring(requiredPower) .. " REQUIRED"
 		objective.TextColor3 = P.Danger
+		contextVisible = true
 	elseif inGuardian then
 		if guardianPhase == "POUNCE INCOMING" then
 			objective.Text = "MOVE OUT OF THE CIRCLE"
@@ -14681,15 +14834,13 @@ RunService.RenderStepped:Connect(function(dt)
 			objective.Text = "KEEP MOVING"
 			objective.TextColor3 = P.Ghost
 		end
-	elseif character:GetAttribute("ChompSafe") == true then
-		objective.Text = "SAFE — SHOP OR BANK"
+		contextVisible = true
+	elseif character:GetAttribute("ChompSafe") == true and shopOffer == "" then
+		objective.Text = "SAFE: SHOP AND PREPARE"
 		objective.TextColor3 = P.Shield
-	else
-		local tipIndex = math.floor(os.clock() / TIP_SECONDS) % #ROTATING_TIPS + 1
-		local tip = ROTATING_TIPS[tipIndex]
-		objective.Text = tip.text
-		objective.TextColor3 = tip.colour
+		contextVisible = true
 	end
+	centre.Visible = contextVisible
 
 	-- Charge. Full is the only state that matters, so full is the only state
 	-- that changes the words: below it the button says CHARGE and does nothing,
@@ -14712,7 +14863,14 @@ RunService.RenderStepped:Connect(function(dt)
 	chargeButton.Active = true
 	chargeButton.BackgroundTransparency = ready and 0.02 or 0.05
 	chargeStroke.Color = ready and P.Gold or P.NeonA
+	local canCycle = #entries > 1
+	cycleWord.Text = canCycle and "SWAP" or "EMPTY"
+	cycleWord.TextColor3 = canCycle and P.NeonA or P.Boundary
+	cycleStroke.Color = canCycle and P.NeonA or P.Boundary
+	cycleStroke.Transparency = canCycle and 0.05 or 0.65
 	cycleButton.BackgroundColor3 = (os.clock() - cycleRefusedAt) < 0.3 and P.Danger or P.BrickDark
+	actionReason.Text = refusedReason
+	actionReason.Visible = os.clock() < refusedUntil
 
 	-- Refusal pulse: 0.35 seconds of red, then back to whatever it was.
 	local sinceRefused = os.clock() - refusedAt
@@ -14728,7 +14886,29 @@ RunService.RenderStepped:Connect(function(dt)
 	waveLabel.Text = (waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1")
 		.. "  •  " .. tostring(waveAlive) .. " LEFT"
 	wavePanel.Visible = not inGuardian
-	centre.Visible = not inGuardian
+
+	local shopResultAt = attribute("ChompShopResultAt")
+	if shopResultAt > lastShopResultAt then
+		lastShopResultAt = shopResultAt
+		shopResult = tostring(character:GetAttribute("ChompShopResult") or "")
+		shopResultUntil = os.clock() + 2
+	end
+	shopPanel.Visible = shopOffer ~= ""
+	if shopPanel.Visible then
+		local shopCost = attribute("ChompShopPrice")
+		shopTitle.Text = shopOffer
+		shopPrice.Text = shopCost < 0 and "MAX" or ("$" .. tostring(math.floor(shopCost)))
+		shopDelta.Text = tostring(character:GetAttribute("ChompShopDelta") or "NEXT VEHICLE FORM")
+		shopProgress.Size = UDim2.new(math.clamp(attribute("ChompShopProgress"), 0, 1), 0, 1, 0)
+		if os.clock() < shopResultUntil then
+			shopHint.Text = shopResult
+			local success = string.find(shopResult, "PURCHASE") or string.find(shopResult, "EQUIPPED")
+			shopHint.TextColor3 = success and P.Gold or P.Danger
+		else
+			shopHint.Text = tostring(character:GetAttribute("ChompShopHint") or "HOLD STILL TO BUY")
+			shopHint.TextColor3 = P.Ghost
+		end
+	end
 
 	powerLabel.Text = "POWER " .. tostring(math.floor(power))
 	for _, spec in primaryAttributes do
@@ -14740,6 +14920,8 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 
 	guardianPanel.Visible = inGuardian
+	statusPanel.Visible = not inGuardian
+	centre.Position = inGuardian and UDim2.new(0.5, 0, 0, 90) or UDim2.new(0.5, 0, 0, 16)
 	if inGuardian then
 		local guardianLevel = attribute("ChompGuardianLevel")
 		local health = attribute("ChompGuardianHealth")
@@ -14784,7 +14966,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="182">
+      <Item class="LocalScript" referent="183">
         <Properties>
           <string name="Name">CombatFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -14945,7 +15127,7 @@ Players.PlayerAdded:Connect(watch)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="183">
+      <Item class="LocalScript" referent="184">
         <Properties>
           <string name="Name">InputController</string>
           <string name="Source"><![CDATA[--!strict
@@ -15206,7 +15388,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="184">
+      <Item class="LocalScript" referent="185">
         <Properties>
           <string name="Name">LaunchBay</string>
           <string name="Source"><![CDATA[--!strict
@@ -15297,7 +15479,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="185">
+      <Item class="LocalScript" referent="186">
         <Properties>
           <string name="Name">PickupFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -15414,7 +15596,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="186">
+      <Item class="LocalScript" referent="187">
         <Properties>
           <string name="Name">ShieldEffect</string>
           <string name="Source"><![CDATA[--!strict
@@ -15508,7 +15690,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="187">
+      <Item class="LocalScript" referent="188">
         <Properties>
           <string name="Name">ShopFeedback</string>
           <string name="Source"><![CDATA[--!strict
@@ -15627,7 +15809,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="188">
+      <Item class="LocalScript" referent="189">
         <Properties>
           <string name="Name">TargetReticle</string>
           <string name="Source"><![CDATA[--!strict
@@ -15751,7 +15933,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="189">
+      <Item class="LocalScript" referent="190">
         <Properties>
           <string name="Name">VehicleAppearance</string>
           <string name="Source"><![CDATA[--!strict
@@ -15909,7 +16091,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="190">
+      <Item class="LocalScript" referent="191">
         <Properties>
           <string name="Name">VehicleController</string>
           <string name="Source"><![CDATA[--!strict
@@ -16061,7 +16243,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="191">
+  <Item class="Workspace" referent="192">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>

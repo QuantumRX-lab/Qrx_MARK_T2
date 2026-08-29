@@ -7,7 +7,7 @@ named half was replaced and the rest still rules, `SUPERSEDED` means all
 of it was, `VOID` means the number was never used. Read the ACTIVE
 entries for your topic before writing code that touches it.
 
-77 decisions.
+78 decisions.
 
 ## camera
 
@@ -79,6 +79,7 @@ entries for your topic before writing code that touches it.
 - **D-CHOMP-065** `ACTIVE` 2026-08-26 — Garages are sanctuaries, and the line is drawn on the floor
 - D-CHOMP-075 `PARTIAL` 2026-08-29 — A wave risks one haul, the guardian opens a group gate, and Level Two changes roles — superseded by D-CHOMP-076
 - **D-CHOMP-076** `ACTIVE` 2026-08-29 — Six gated builds move from readability to a different Level Two
+- **D-CHOMP-078** `ACTIVE` 2026-08-29 — Three stable HUD regions leave the arena in charge
 
 ## process
 

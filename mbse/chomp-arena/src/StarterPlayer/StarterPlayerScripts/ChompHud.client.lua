@@ -119,12 +119,13 @@ end
 -- one you most want to end the round looking at.
 local COLUMN_BASE = CONTROLS.ButtonMarginPx * 2 + CONTROLS.JumpButtonPx
 local stack = panel("Values", Vector2.new(1, 1),
-	UDim2.new(1, -16, 1, -(COLUMN_BASE + 76)), UDim2.new(0, 236, 0, 168))
+	UDim2.new(1, -16, 1, -(COLUMN_BASE + 76)), UDim2.new(0, 252, 0, 96))
+stack:SetAttribute("HudPermanent", true)
 
-local carriedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 10),
-	"0", P.NeonB, 34, Enum.TextXAlignment.Right)
-label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 48),
-	"CARRYING — AT RISK", P.NeonB, 12, Enum.TextXAlignment.Right)
+local carriedValue = label(stack, UDim2.new(0.5, -16, 0, 34), UDim2.new(0, 12, 0, 8),
+	"0", P.NeonB, 28, Enum.TextXAlignment.Left)
+label(stack, UDim2.new(0.5, -16, 0, 16), UDim2.new(0, 12, 0, 40),
+	"AT RISK", P.NeonB, 11, Enum.TextXAlignment.Left)
 
 -- ── The belt: five slots, spent left to right ───────────────────────────
 -- Order is the whole point (D-CHOMP-062), so the slots are laid out in the
@@ -155,6 +156,7 @@ beltStrip.Position = UDim2.new(1, -16, 1, -COLUMN_BASE)
 beltStrip.Size = UDim2.new(0, BELT_W, 0, SLOT_H)
 beltStrip.BackgroundTransparency = 1
 beltStrip.Parent = gui
+beltStrip:SetAttribute("HudPermanent", true)
 
 local slotButtons: { TextButton } = {}
 local slotCharges: { TextLabel } = {}
@@ -243,10 +245,10 @@ for i = 1, SLOTS do
 	table.insert(slotBars, bar)
 end
 
-local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 112),
-	"$0", P.Gold, 34, Enum.TextXAlignment.Right)
-label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 148),
-	"BANKED — SAFE", P.Gold, 12, Enum.TextXAlignment.Right)
+local bankedValue = label(stack, UDim2.new(0.5, -16, 0, 34), UDim2.new(0.5, 4, 0, 8),
+	"$0", P.Gold, 28, Enum.TextXAlignment.Right)
+label(stack, UDim2.new(0.5, -16, 0, 16), UDim2.new(0.5, 4, 0, 40),
+	"BANKED SAFE", P.Gold, 11, Enum.TextXAlignment.Right)
 
 -- ── Bottom right: jump and belt cycle ──────────────────────────────────
 -- Buttons DO belong in the thumb zone. CHOMP-SYS-032 reserves the lower corners
@@ -268,6 +270,7 @@ chargeButton.Text = ""
 chargeButton.AutoButtonColor = false
 chargeButton.ClipsDescendants = true
 chargeButton.Parent = gui
+chargeButton:SetAttribute("HudPermanent", true)
 local cbCorner = Instance.new("UICorner")
 cbCorner.CornerRadius = UDim.new(1, 0)
 cbCorner.Parent = chargeButton
@@ -328,6 +331,8 @@ chargePercent.Parent = chargeButton
 -- the press: a TextLabel does not consume input, so the whole circle
 -- is live all the way to its edge.
 local refusedAt = 0
+local refusedReason = ""
+local refusedUntil = 0
 local function pressCharge()
 	if Remotes and Remotes.UseCharge then
 		-- Intent only. The server decides whether there is charge to spend, and
@@ -340,6 +345,8 @@ local function pressCharge()
 	local level = character and (character:GetAttribute("ChompCharge") :: number?) or 0
 	if level < Config.Charge.JumpCost then
 		refusedAt = os.clock()
+		refusedReason = "JUMP NEEDS MORE CHARGE"
+		refusedUntil = os.clock() + 1.6
 	end
 end
 chargeButton.Activated:Connect(pressCharge)
@@ -363,6 +370,8 @@ local function cycleItem()
 	local ids, active = beltEntries()
 	if #ids <= 1 then
 		cycleRefusedAt = os.clock()
+		refusedReason = "PICK UP A SECOND ITEM"
+		refusedUntil = os.clock() + 1.6
 		return
 	end
 	local target = active
@@ -391,9 +400,15 @@ cycleButton.TextSize = 30
 cycleButton.Font = Enum.Font.GothamBlack
 cycleButton.AutoButtonColor = false
 cycleButton.Parent = gui
+cycleButton:SetAttribute("HudPermanent", true)
 local cycleCorner = Instance.new("UICorner")
 cycleCorner.CornerRadius = UDim.new(1, 0)
 cycleCorner.Parent = cycleButton
+local cycleStroke = Instance.new("UIStroke")
+cycleStroke.Color = P.NeonA
+cycleStroke.Thickness = 3
+cycleStroke.Transparency = 0.45
+cycleStroke.Parent = cycleButton
 local cycleWord = Instance.new("TextLabel")
 cycleWord.Name = "Word"
 cycleWord.BackgroundTransparency = 1
@@ -433,32 +448,33 @@ local objective = label(centre, UDim2.new(1, -20, 1, -12), UDim2.new(0, 10, 0, 6
 	"COLLECT", P.NeonA, 22, Enum.TextXAlignment.Center)
 
 local wavePanel = panel("Wave", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 72), UDim2.new(0, 200, 0, 38))
+wavePanel:SetAttribute("HudPermanent", true)
 local waveLabel = label(wavePanel, UDim2.new(1, -20, 1, -10), UDim2.new(0, 10, 0, 5),
 	"WAVE 1", P.Ghost, 18, Enum.TextXAlignment.Center)
 
-local ROTATING_TIPS = {
-	{ text = "CHOMP GHOSTS FOR POINTS", colour = P.NeonA },
-	{ text = "AMBUSH FROM THE SIDE", colour = P.Gold },
-	{ text = "TAP BOMB TWICE", colour = P.NeonB },
-	{ text = "JUMP TO ESCAPE", colour = P.NeonA },
-	{ text = "YELLOW ZONES BANK CASH", colour = P.Shield },
-}
-local TIP_SECONDS = 5
-
--- The battle bar is ammunition for the mouth. It is deliberately separate
--- from Jump Charge: one funds attacks, the other funds escape.
-local battlePanel = panel("BattleBar", Vector2.zero,
-	UDim2.new(0, 16, 0, 116), UDim2.new(0, 218, 0, 46))
-local battleLabel = label(battlePanel, UDim2.new(1, -20, 0, 18), UDim2.new(0, 10, 0, 4),
-	"BITE  0/100", P.Gold, 13, Enum.TextXAlignment.Left)
+-- One compact status strip replaces the old Power, Bite and attribute cards.
+-- It is deliberately shallow: the maze remains the largest thing on screen.
+local statusPanel = panel("Status", Vector2.zero,
+	UDim2.new(0, 16, 0, 118), UDim2.new(0, 430, 0, 78))
+statusPanel:SetAttribute("HudPermanent", true)
+wavePanel.Parent = statusPanel
+wavePanel.AnchorPoint = Vector2.zero
+wavePanel.Position = UDim2.new(0, 270, 0, 4)
+wavePanel.Size = UDim2.new(0, 148, 0, 34)
+wavePanel.BackgroundTransparency = 1
+wavePanel:SetAttribute("HudPermanent", false)
+local powerLabel = label(statusPanel, UDim2.new(0, 100, 0, 22), UDim2.new(0, 12, 0, 7),
+	"POWER 100", P.Gold, 14, Enum.TextXAlignment.Left)
+local battleLabel = label(statusPanel, UDim2.new(0, 150, 0, 18), UDim2.new(0, 112, 0, 8),
+	"BITE  0/100", P.Gold, 12, Enum.TextXAlignment.Left)
 local battleBack = Instance.new("Frame")
 battleBack.Name = "BattleBack"
-battleBack.Position = UDim2.new(0, 10, 0, 27)
-battleBack.Size = UDim2.new(1, -20, 0, 11)
+battleBack.Position = UDim2.new(0, 112, 0, 28)
+battleBack.Size = UDim2.new(0, 150, 0, 8)
 battleBack.BackgroundColor3 = P.BrickDark
 battleBack.BorderSizePixel = 0
 battleBack.ClipsDescendants = true
-battleBack.Parent = battlePanel
+battleBack.Parent = statusPanel
 local battleFill = Instance.new("Frame")
 battleFill.Name = "Fill"
 battleFill.Size = UDim2.new(0, 0, 1, 0)
@@ -466,12 +482,6 @@ battleFill.BackgroundColor3 = P.Gold
 battleFill.BorderSizePixel = 0
 battleFill.Parent = battleBack
 
--- The module selector used to occupy this space. Progression is the useful
--- information here: three continuous bars, finely ticked but never fragmented.
-local levelPanel = panel("Attributes", Vector2.zero,
-	UDim2.new(0, 16, 0, 170), UDim2.new(0, 218, 0, 150))
-local powerLabel = label(levelPanel, UDim2.new(1, -20, 0, 24), UDim2.new(0, 10, 0, 6),
-	"POWER 100", P.Gold, 16, Enum.TextXAlignment.Center)
 local primaryAttributes = {
 	{ track = "Engine", name = "SPEED" },
 	{ track = "Armour", name = "ARMOUR" },
@@ -480,28 +490,28 @@ local primaryAttributes = {
 local attributeLabels: { [string]: TextLabel } = {}
 local attributeBars: { [string]: Frame } = {}
 for index, spec in primaryAttributes do
-	local y = 34 + (index - 1) * 37
-	attributeLabels[spec.track] = label(levelPanel, UDim2.new(1, -24, 0, 16),
-		UDim2.new(0, 12, 0, y), spec.name .. "  LV 0", P.Ghost, 12,
+	local x = 12 + (index - 1) * 138
+	attributeLabels[spec.track] = label(statusPanel, UDim2.new(0, 128, 0, 14),
+		UDim2.new(0, x, 0, 45), spec.name .. "  LV 0", P.Ghost, 10,
 		Enum.TextXAlignment.Left)
 	local back = Instance.new("Frame")
 	back.Name = spec.track .. "Bar"
-	back.Position = UDim2.new(0, 12, 0, y + 18)
-	back.Size = UDim2.new(1, -24, 0, 12)
+	back.Position = UDim2.new(0, x, 0, 62)
+	back.Size = UDim2.new(0, 128, 0, 8)
 	back.BackgroundColor3 = P.BrickDark
 	back.BorderSizePixel = 0
 	back.ClipsDescendants = true
-	back.Parent = levelPanel
+	back.Parent = statusPanel
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
 	fill.Size = UDim2.new(0, 0, 1, 0)
 	fill.BackgroundColor3 = P.Gold
 	fill.BorderSizePixel = 0
 	fill.Parent = back
-	for tick = 1, 11 do
+	for tick = 1, 5 do
 		local mark = Instance.new("Frame")
 		mark.Name = "Tick"
-		mark.Position = UDim2.new(tick / 12, 0, 0, 0)
+		mark.Position = UDim2.new(tick / 6, 0, 0, 0)
 		mark.Size = UDim2.new(0, 1, 1, 0)
 		mark.BackgroundColor3 = P.Ghost
 		mark.BackgroundTransparency = 0.55
@@ -513,7 +523,7 @@ for index, spec in primaryAttributes do
 end
 
 local guardianPanel = panel("Guardian", Vector2.new(0.5, 0),
-	UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 520, 0, 66))
+	UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 460, 0, 66))
 local guardianLabel = label(guardianPanel, UDim2.new(1, -20, 0, 26), UDim2.new(0, 10, 0, 3),
 	"GUARDIAN", P.Ghost, 19, Enum.TextXAlignment.Center)
 local guardianBack = Instance.new("Frame")
@@ -534,6 +544,41 @@ guardianFill.BorderSizePixel = 0
 guardianFill.Parent = guardianBack
 guardianPanel.Visible = false
 
+-- Purchase information exists only while the vehicle is beside a plinth.
+-- The world model remains the visual preview; this frame explains the next
+-- level, stat change, price and automatic hold-to-buy progress.
+local shopPanel = panel("ShopPreview", Vector2.new(0.5, 0),
+	UDim2.new(0.5, 0, 0, 210), UDim2.new(0, 380, 0, 104))
+local shopTitle = label(shopPanel, UDim2.new(1, -148, 0, 25), UDim2.new(0, 12, 0, 7),
+	"NEXT FORM", P.Ghost, 18, Enum.TextXAlignment.Left)
+local shopPrice = label(shopPanel, UDim2.new(0, 112, 0, 25), UDim2.new(1, -124, 0, 7),
+	"$0", P.Gold, 18, Enum.TextXAlignment.Right)
+local shopDelta = label(shopPanel, UDim2.new(1, -24, 0, 20), UDim2.new(0, 12, 0, 37),
+	"", P.NeonA, 13, Enum.TextXAlignment.Left)
+local shopHint = label(shopPanel, UDim2.new(1, -24, 0, 18), UDim2.new(0, 12, 0, 60),
+	"HOLD STILL TO BUY", P.Ghost, 11, Enum.TextXAlignment.Left)
+local shopProgressBack = Instance.new("Frame")
+shopProgressBack.Position = UDim2.new(0, 12, 1, -17)
+shopProgressBack.Size = UDim2.new(1, -24, 0, 8)
+shopProgressBack.BackgroundColor3 = P.BrickDark
+shopProgressBack.BorderSizePixel = 0
+shopProgressBack.ClipsDescendants = true
+shopProgressBack.Parent = shopPanel
+local shopProgress = Instance.new("Frame")
+shopProgress.Size = UDim2.new(0, 0, 1, 0)
+shopProgress.BackgroundColor3 = P.Gold
+shopProgress.BorderSizePixel = 0
+shopProgress.Parent = shopProgressBack
+shopPanel.Visible = false
+
+local actionReason = label(gui, UDim2.new(0, 330, 0, 30),
+	UDim2.new(1, -(BELT_W + 20), 1, -(COLUMN_BASE + 112)), "", P.Danger, 14,
+	Enum.TextXAlignment.Right)
+actionReason.AnchorPoint = Vector2.new(1, 1)
+actionReason.TextStrokeColor3 = P.Floor
+actionReason.TextStrokeTransparency = 0.2
+actionReason.Visible = false
+
 -- ── A flash when something is taken ─────────────────────────────────────
 local flash = Instance.new("Frame")
 flash.Name = "StolenFlash"
@@ -547,13 +592,12 @@ flash.Parent = gui
 -- Health sits under the carry, because both answer "how much trouble am I in".
 local healthBack = Instance.new("Frame")
 healthBack.Name = "HealthBack"
-healthBack.AnchorPoint = Vector2.new(1, 1)
-healthBack.Position = UDim2.new(1, -16, 1, -(COLUMN_BASE + 252))
-healthBack.Size = UDim2.new(0, 236, 0, 14)
+healthBack.Position = UDim2.new(0, 10, 1, -19)
+healthBack.Size = UDim2.new(1, -20, 0, 9)
 healthBack.BackgroundColor3 = P.Floor
 healthBack.BackgroundTransparency = 0.25
 healthBack.BorderSizePixel = 0
-healthBack.Parent = gui
+healthBack.Parent = stack
 local hbCorner = Instance.new("UICorner")
 hbCorner.CornerRadius = UDim.new(0, 7)
 hbCorner.Parent = healthBack
@@ -571,6 +615,9 @@ hfCorner.Parent = healthFill
 
 local lastStolenAt = 0
 local lastHurtAt = 0
+local lastShopResultAt = 0
+local shopResult = ""
+local shopResultUntil = 0
 
 local function attribute(name: string): number
 	local character = player.Character
@@ -645,9 +692,12 @@ RunService.RenderStepped:Connect(function(dt)
 	local power = attribute("ChompPower")
 	local requiredPower = attribute("ChompGuardianRequiredPower")
 	local guardianPhase = tostring(character:GetAttribute("ChompGuardianPhase") or "STALK")
+	local shopOffer = tostring(character:GetAttribute("ChompShopOffer") or "")
+	local contextVisible = false
 	if inGuardian and power < requiredPower then
 		objective.Text = "POWER " .. tostring(requiredPower) .. " REQUIRED"
 		objective.TextColor3 = P.Danger
+		contextVisible = true
 	elseif inGuardian then
 		if guardianPhase == "POUNCE INCOMING" then
 			objective.Text = "MOVE OUT OF THE CIRCLE"
@@ -665,15 +715,13 @@ RunService.RenderStepped:Connect(function(dt)
 			objective.Text = "KEEP MOVING"
 			objective.TextColor3 = P.Ghost
 		end
-	elseif character:GetAttribute("ChompSafe") == true then
-		objective.Text = "SAFE — SHOP OR BANK"
+		contextVisible = true
+	elseif character:GetAttribute("ChompSafe") == true and shopOffer == "" then
+		objective.Text = "SAFE: SHOP AND PREPARE"
 		objective.TextColor3 = P.Shield
-	else
-		local tipIndex = math.floor(os.clock() / TIP_SECONDS) % #ROTATING_TIPS + 1
-		local tip = ROTATING_TIPS[tipIndex]
-		objective.Text = tip.text
-		objective.TextColor3 = tip.colour
+		contextVisible = true
 	end
+	centre.Visible = contextVisible
 
 	-- Charge. Full is the only state that matters, so full is the only state
 	-- that changes the words: below it the button says CHARGE and does nothing,
@@ -696,7 +744,14 @@ RunService.RenderStepped:Connect(function(dt)
 	chargeButton.Active = true
 	chargeButton.BackgroundTransparency = ready and 0.02 or 0.05
 	chargeStroke.Color = ready and P.Gold or P.NeonA
+	local canCycle = #entries > 1
+	cycleWord.Text = canCycle and "SWAP" or "EMPTY"
+	cycleWord.TextColor3 = canCycle and P.NeonA or P.Boundary
+	cycleStroke.Color = canCycle and P.NeonA or P.Boundary
+	cycleStroke.Transparency = canCycle and 0.05 or 0.65
 	cycleButton.BackgroundColor3 = (os.clock() - cycleRefusedAt) < 0.3 and P.Danger or P.BrickDark
+	actionReason.Text = refusedReason
+	actionReason.Visible = os.clock() < refusedUntil
 
 	-- Refusal pulse: 0.35 seconds of red, then back to whatever it was.
 	local sinceRefused = os.clock() - refusedAt
@@ -712,7 +767,29 @@ RunService.RenderStepped:Connect(function(dt)
 	waveLabel.Text = (waveNumber > 0 and ("WAVE " .. tostring(waveNumber)) or "WAVE 1")
 		.. "  •  " .. tostring(waveAlive) .. " LEFT"
 	wavePanel.Visible = not inGuardian
-	centre.Visible = not inGuardian
+
+	local shopResultAt = attribute("ChompShopResultAt")
+	if shopResultAt > lastShopResultAt then
+		lastShopResultAt = shopResultAt
+		shopResult = tostring(character:GetAttribute("ChompShopResult") or "")
+		shopResultUntil = os.clock() + 2
+	end
+	shopPanel.Visible = shopOffer ~= ""
+	if shopPanel.Visible then
+		local shopCost = attribute("ChompShopPrice")
+		shopTitle.Text = shopOffer
+		shopPrice.Text = shopCost < 0 and "MAX" or ("$" .. tostring(math.floor(shopCost)))
+		shopDelta.Text = tostring(character:GetAttribute("ChompShopDelta") or "NEXT VEHICLE FORM")
+		shopProgress.Size = UDim2.new(math.clamp(attribute("ChompShopProgress"), 0, 1), 0, 1, 0)
+		if os.clock() < shopResultUntil then
+			shopHint.Text = shopResult
+			local success = string.find(shopResult, "PURCHASE") or string.find(shopResult, "EQUIPPED")
+			shopHint.TextColor3 = success and P.Gold or P.Danger
+		else
+			shopHint.Text = tostring(character:GetAttribute("ChompShopHint") or "HOLD STILL TO BUY")
+			shopHint.TextColor3 = P.Ghost
+		end
+	end
 
 	powerLabel.Text = "POWER " .. tostring(math.floor(power))
 	for _, spec in primaryAttributes do
@@ -724,6 +801,8 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 
 	guardianPanel.Visible = inGuardian
+	statusPanel.Visible = not inGuardian
+	centre.Position = inGuardian and UDim2.new(0.5, 0, 0, 90) or UDim2.new(0.5, 0, 0, 16)
 	if inGuardian then
 		local guardianLevel = attribute("ChompGuardianLevel")
 		local health = attribute("ChompGuardianHealth")

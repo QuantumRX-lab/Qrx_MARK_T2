@@ -2287,3 +2287,27 @@ decisions:
       weak point, audio cues, HUD prompts and chamber contrast pass. Static
       guards and GuardianConformance provide repeatable checks; CHOMP-TC-058 and
       CHOMP-TC-059 remain open for Studio and target-camera evidence.
+
+  - id: D-CHOMP-078
+    date: 2026-08-29
+    status: ACTIVE
+    title: Three stable HUD regions leave the arena in charge
+    decision: >
+      Ordinary driving uses one shallow status strip for Power, Bite, wave and
+      the three primary attributes; one compact block for at-risk haul, safe
+      dollars and health; and one belt directly above Jump and Swap. Rotating
+      teaching tips are removed. Guardian, shop and refusal information appears
+      only while its triggering context is active, then clears automatically.
+      Permanent top-level regions identify themselves for client-side area and
+      overlap measurement.
+    rationale: >
+      The world is where steering, threats and rewards are read. Consolidating
+      stable values preserves that view, while temporary prompts can be larger
+      because they answer an immediate decision. Explicit empty and refusal
+      words prevent muted controls from reading as broken. A measured 30 percent
+      ceiling makes the layout portable across the target landscape viewports.
+    outcome: >
+      Release 0.4.2-alpha delivers the Build 2 HUD and the purchase-preview
+      surface. Exact before-and-after upgrade geometry remains Build 5 vehicle
+      work, so CHOMP-TC-068 cannot close yet. HudConformance and CHOMP-TC-060
+      remain the runtime acceptance gate before Build 3 begins.

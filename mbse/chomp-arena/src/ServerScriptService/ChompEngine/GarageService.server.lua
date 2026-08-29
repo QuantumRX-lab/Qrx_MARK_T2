@@ -543,6 +543,28 @@ local function currentOffer(player: Player, offer: Offer): (string, number)
 		.. " LV " .. tostring(level + 1), price
 end
 
+local function offerDelta(player: Player, offer: Offer): string
+	if offer.kind == "chassis" then
+		local chassis = Config.Chassis[offer.id]
+		return chassis and ("TIER " .. tostring(chassis.Tier) .. "  |  "
+			.. tostring(chassis.ModulePorts) .. " MODULE PORTS") or "VEHICLE FORM"
+	end
+	if offer.kind == "item" then return "ADDS TO YOUR WEAPON BELT" end
+	local level = math.clamp(((player:GetAttribute("ChompUpgrade" .. offer.id) :: number?) or 0) + 1,
+		1, UP.MaxLevel)
+	if offer.id == "Engine" then return "+" .. tostring(math.floor(UP.Engine.SpeedFraction[level] * 100)) .. "% TOP SPEED" end
+	if offer.id == "Handling" then return "+" .. tostring(math.floor(UP.Handling.TurnFraction[level] * 100)) .. "% TURN RATE" end
+	if offer.id == "Armour" then return tostring(UP.Armour.MaxHealth[level]) .. " MAX ARMOUR" end
+	if offer.id == "Cannon" then return tostring(UP.Cannon.Barrels[level]) .. " CANNON"
+		.. (UP.Cannon.Barrels[level] == 1 and "" or "S") .. "  |  "
+		.. tostring(UP.Cannon.Magazine[level]) .. " SHOTS" end
+	if offer.id == "Ordnance" then return tostring(UP.Ordnance.Charges[level]) .. " BOMB CHARGE"
+		.. (UP.Ordnance.Charges[level] == 1 and "" or "S") end
+	if offer.id == "Jump" then return "+" .. tostring(math.floor(UP.Jump.ImpulseFraction[level] * 100)) .. "% JUMP LIFT" end
+	if offer.id == "Boost" then return "+" .. tostring(math.floor(UP.Boost.ChargeRateFraction[level] * 100)) .. "% CHARGE SPEED" end
+	return "NEXT VEHICLE FORM"
+end
+
 local function buy(player: Player, offer: Offer): (boolean, string)
 	local character = player.Character
 	if not character then return false, "VEHICLE NOT READY" end
@@ -638,8 +660,14 @@ local function dwellLoop()
 				local title, price = currentOffer(player, nearOffer)
 				character:SetAttribute("ChompShopOffer", title)
 				character:SetAttribute("ChompShopPrice", price)
+				character:SetAttribute("ChompShopKind", nearOffer.kind)
+				character:SetAttribute("ChompShopId", nearOffer.id)
+				character:SetAttribute("ChompShopDelta", offerDelta(player, nearOffer))
 			else
 				character:SetAttribute("ChompShopOffer", "")
+				character:SetAttribute("ChompShopKind", "")
+				character:SetAttribute("ChompShopId", "")
+				character:SetAttribute("ChompShopDelta", "")
 				character:SetAttribute("ChompShopProgress", 0)
 			end
 

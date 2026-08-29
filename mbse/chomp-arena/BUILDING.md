@@ -190,6 +190,22 @@ live phase attributes. It complements rather than replaces `CHOMP-TC-058` and
 landing marks are understandable from the play camera, then confirm cover stops
 the dash and opens the glowing maw.
 
+## HUD Build 2 check
+
+In a running client, use the client command bar:
+
+```lua
+local C = require(game.ReplicatedStorage.ChompLogic.HudConformance)
+C.report(C.checkAll())
+```
+
+Run it at `1024x768`, `1180x820`, `1366x1024` and `1920x1080`. The report
+conservatively sums every visible permanent surface and fails above 30 percent,
+below 70 percent clear playfield, or when two permanent top-level regions
+overlap. Continue `CHOMP-TC-060` by entering and leaving the guardian chamber,
+approaching and leaving a plinth, and exercising ready, charging, empty and
+refused Jump and Swap states.
+
 ## What is not here yet
 
 Pellets, the bar, banking, combat, ghosts, gates, rounds and the HUD. The v1
