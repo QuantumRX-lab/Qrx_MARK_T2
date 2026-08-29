@@ -339,3 +339,23 @@ entries:
     HUD works on a phone or a different iPad.
     Cycle deliberately does NOT skip to the item with most charges. The belt is
     spent in order (D-CHOMP-062) and predictable beats optimal for a child.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: NOTE
+  requirements: [CHOMP-SYS-032]
+  summary: >
+    REGRESSION, mine, found by the owner in play: the entire HUD disappeared.
+    D-CHOMP-071 set ScreenOrientation on the ScreenGui, but that property belongs
+    to PlayerGui, so the assignment threw - and it sat before gui.Parent, so the
+    whole ChompHud script died on the way in. Fixed in D-CHOMP-072: right object,
+    after parenting, inside a pcall.
+  status: OPEN
+  handoff: >
+    The rule this cost: build it, parent it, THEN decorate it. Optional or
+    platform-dependent setup goes after the object is live and inside a pcall,
+    so polish can fail without taking the display down.
+    Neither checker can catch it. guard.py checks names and load order, not
+    whether a property exists on a Roblox class - that would need an API dump,
+    and an incomplete property list would produce false positives, which is how
+    a guard becomes noise. This one needed a human pressing Play, and that is the
+    honest reason to test on the device early rather than late.

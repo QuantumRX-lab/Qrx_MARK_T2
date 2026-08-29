@@ -2079,3 +2079,33 @@ decisions:
       Still knowingly unmet in CHOMP-SYS-032: the HUD is laid out in pixel
       offsets rather than scale terms, with no size constraints anywhere. A real
       defect, and why the layout has never been checked at a second aspect ratio.
+
+  - id: D-CHOMP-072
+    date: 2026-08-27
+    status: ACTIVE
+    title: Optional polish never runs before the thing it decorates
+    decision: >
+      ScreenOrientation is set on PLAYERGUI, not on the ScreenGui, after the HUD
+      has been parented, and inside a pcall that warns rather than throws.
+    rationale: >
+      D-CHOMP-071 set gui.ScreenOrientation on a ScreenGui. That property lives
+      on PlayerGui; assigning it to a ScreenGui throws. Because the line sat
+      BEFORE gui.Parent was assigned, the error killed the whole ChompHud script
+      on the way in - so the entire HUD vanished. Not the new buttons: the carry,
+      the bank, the health, the belt, the charge meter, everything.
+      The property was the mistake. The reason it cost the whole display was the
+      ORDER: a line of optional polish ran before the essential parenting it was
+      decorating, so a failure in the least important thing took down the most
+      important one.
+      Reported by the owner from a play session, which is the only place it could
+      have been found. Neither checker can see it: validate.py reads the tree,
+      and guard.py checks names and load order, not whether a property exists on
+      a Roblox class. Catching this statically would need a Roblox API dump, and
+      a guard with an incomplete property list produces false positives - which
+      is how a guard becomes something people scroll past.
+    outcome: >
+      The rule, worth more than the fix: build it, parent it, THEN decorate it.
+      Anything cosmetic, optional or platform-dependent goes after the object is
+      live and inside a pcall, so it can fail without taking the display with it.
+      Three lines in this file already followed that shape by luck; now it is
+      deliberate.

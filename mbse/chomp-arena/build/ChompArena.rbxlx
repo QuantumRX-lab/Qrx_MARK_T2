@@ -12936,18 +12936,33 @@ local player = Players.LocalPlayer
 
 local CONTROLS = Config.Controls
 
+local playerGui = player:WaitForChild("PlayerGui")
+
 local gui = Instance.new("ScreenGui")
 gui.Name = "ChompHud"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 50
--- Landscape only (D-CHOMP-071). CHOMP-SYS-032 asked for both orientations; the
+gui.Parent = playerGui
+
+-- Landscape only (D-CHOMP-072). CHOMP-SYS-032 asked for both orientations; the
 -- action buttons make the right column too tall for a portrait iPad, so the
 -- requirement was amended to name landscape rather than quietly broken.
+--
+-- ScreenOrientation lives on PLAYERGUI, not on a ScreenGui. Setting it on the
+-- ScreenGui threw, and because that line ran BEFORE gui.Parent was assigned it
+-- killed the whole script on the way in - so the entire HUD disappeared, not
+-- just the new buttons. Hence both fixes: it is set on the right object, and it
+-- is set AFTER the HUD is parented and inside a pcall, so no piece of optional
+-- polish can ever again take the whole display down with it.
 if CONTROLS.LockLandscape then
-	gui.ScreenOrientation = Enum.ScreenOrientation.LandscapeSensor
+	local ok, err = pcall(function()
+		playerGui.ScreenOrientation = Enum.ScreenOrientation.LandscapeSensor
+	end)
+	if not ok then
+		warn("[ChompHud] could not lock orientation: " .. tostring(err))
+	end
 end
-gui.Parent = player:WaitForChild("PlayerGui")
 
 -- Keep Roblox's own chat, but move it away from the attribute panel and jump
 -- control. This configures the platform UI rather than maintaining a second
