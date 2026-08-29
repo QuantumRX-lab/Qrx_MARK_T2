@@ -7,7 +7,7 @@ named half was replaced and the rest still rules, `SUPERSEDED` means all
 of it was, `VOID` means the number was never used. Read the ACTIVE
 entries for your topic before writing code that touches it.
 
-70 decisions.
+71 decisions.
 
 ## camera
 
@@ -20,7 +20,7 @@ entries for your topic before writing code that touches it.
 ## controls
 
 - **D-CHOMP-002** `ACTIVE` 2026-08-25 — The vehicle is the character controller, not a physics vehicle
-- D-CHOMP-015 `PARTIAL` 2026-08-25 — Hold to turn, always driving forward, no action buttons — superseded by D-CHOMP-026, D-CHOMP-027
+- D-CHOMP-015 `PARTIAL` 2026-08-25 — Hold to turn, always driving forward, no action buttons — superseded by D-CHOMP-026, D-CHOMP-027, D-CHOMP-071
 - **D-CHOMP-021** `ACTIVE` 2026-08-25 — Remotes are declared in the project file, and input never blocks on them
 - **D-CHOMP-023** `ACTIVE` 2026-08-25 — The default control script is disabled; this client is the only mover
 - D-CHOMP-026 `PARTIAL` 2026-08-25 — Hold to drive — the steering hold is the throttle — superseded by D-CHOMP-027
@@ -94,6 +94,7 @@ entries for your topic before writing code that touches it.
 - **D-CHOMP-067** `ACTIVE` 2026-08-27 — The tree is made to notice when it stops being true
 - **D-CHOMP-068** `ACTIVE` 2026-08-27 — The requirements are made to describe the game that exists
 - **D-CHOMP-070** `ACTIVE` 2026-08-27 — Seven visible ladders replace three anonymous stat tracks
+- **D-CHOMP-071** `ACTIVE` 2026-08-27 — Two action buttons, bottom right, and the game locks to landscape
 
 ## vehicle
 

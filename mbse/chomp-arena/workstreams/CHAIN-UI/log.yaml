@@ -313,3 +313,29 @@ entries:
   handoff: >
     Verify the button remains a comfortable touch target on iPad and that both
     modern TextChatService and the current Studio chat open at the upper right.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: DECIDED
+  requirements: [CHOMP-SYS-032, CHOMP-SYS-055]
+  summary: >
+    Action buttons moved to the bottom-right corner and a cycle button added
+    (D-CHOMP-071). Jump 128px in the corner matching Roblox's own touch default,
+    cycle 96px beside it, left half left entirely to the floating stick. Keyboard
+    X cycles and C or E jumps - the jump had no keyboard binding at all before
+    today. Locked to landscape; CHOMP-SYS-032 amended to say so. control_scheme.md
+    rewritten from the D-CHOMP-033 grid scheme it had been describing since
+    D-CHOMP-042 replaced it.
+  status: OPEN
+  handoff: >
+    The rule that replaced "no action buttons": a button must be a verb the
+    player already knows they have. Jump and swap qualify; banking and buying do
+    not, because driving somewhere already expresses them. Anything modal or
+    context-dependent fails it.
+    KNOWN DEFECT against CHOMP-SYS-032, recorded rather than hidden: 24 of the
+    HUD's 65 UDim2 calls are pure pixel offsets and there is not one
+    UISizeConstraint or aspect check in the file. The layout has therefore never
+    been verified at any aspect ratio but the one it was authored on. Landscape
+    lock reduces the exposure; it does not remove it. Fix before assuming the
+    HUD works on a phone or a different iPad.
+    Cycle deliberately does NOT skip to the item with most charges. The belt is
+    spent in order (D-CHOMP-062) and predictable beats optimal for a child.

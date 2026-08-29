@@ -1,104 +1,122 @@
 # Control Scheme
 
-**Four directions. Push one and you go that way. Stopped, you snap to it.**
+**Current as of `D-CHOMP-071`.**
 
-That is the entire control scheme, and the absence of buttons is the design,
-not a gap in it.
+**One thumb drives. One finger fires. Two buttons do what a gesture cannot.**
+
+This document was wrong for two days, and it is worth saying why, because the
+failure is instructive: it described the grid driving of `D-CHOMP-033` after
+`D-CHOMP-042` had replaced it, and it declared "the absence of buttons is the
+design, not a gap in it" after the game had already grown three. An architecture
+spec that lags the build is worse than no spec, because it is believed.
 
 ## The scheme
 
 | | |
 |---|---|
-| **Go** | Hold a direction. That direction IS the throttle; there is no separate one. Release and the vehicle coasts to a stop over `Braking` |
-| **Turn** | Push a different direction. Stopped, the vehicle snaps to face it instantly. Moving, it turns at the chassis `BaseTurn`, so a direction is a commitment rather than a teleport |
-| **Turn rate** | Proportional to how far from centre you hold — near the dead zone edge is a gentle curve, near the screen edge is full lock |
-| **Turn around** | Push the opposite direction. There is no separate reverse and no flip gesture: a 180 is just the other way, and it costs what the turn rate says it costs |
-| **Bank** | Automatic on entering your garage. No button, no prompt |
-| **Buy** | Big tap targets, at your garage and during intermission. The only menu in the game |
+| **Steer** | Proportional. Push the stick, the vehicle turns at a rate set by how far you push. No snapping, no cardinal directions — a ring corridor has no north (`D-CHOMP-042`) |
+| **Throttle** | The same stick. Forward drives, back reverses and swings the nose round. Release and the vehicle coasts to a stop over `Braking` |
+| **Fire** | HELD, not tapped. The cannon is a machine gun and the SERVER paces it at `fireRatePerSecond`; the client only says "still holding" (`D-CHOMP-056`) |
+| **Jump** | The charge button. Costs `Charge.JumpCost`, carries you up and forward, and is the only escape the player controls |
+| **Swap** | Cycle forward through the belt, wrapping. Purely positional — it never helpfully skips |
+| **Bank** | Automatic on any garage pad. No button, no prompt (`D-CHOMP-048`) |
+| **Buy** | Dwell beside a plinth. No menu, no confirmation dialog (`D-CHOMP-055`) |
 
-Keyboard equivalent, for building in Studio: `W` `A` `S` `D` or the arrow keys
-are north, west, south and east. Opposed keys cancel to neutral. The most recent
-press wins, so rolling a thumb from one key to the next takes the corner rather
-than averaging into a diagonal no corridor can accept.
+## Touch — the reference platform
 
-## Why this one
+The stick **floats**: it anchors wherever the thumb lands, so there is nothing to
+find and nothing to lose if the thumb drifts (`D-CHOMP-027`, whose floating
+anchor survived every later revision).
 
-**No stick to lose — still true, differently.** A *fixed* thumbstick has an
-origin that drifts, gets dropped mid-corner, and needs a visual to find. A
-floating stick re-anchors on every touch, so any touch anywhere is a valid grip:
-a seven-year-old cannot miss it and a panicking adult cannot fumble it. Only one
-finger drives; a second touch is ignored rather than averaged in, because
-averaging two touches is how a panicking player ends up going straight.
+**A second finger anywhere holds fire.** This was the single biggest gap between
+the designed game and the played one: a second touch used to be discarded
+entirely, so the machine gun was keyboard-only on the one device this game is
+for, and shooting meant letting go of the wheel. A quick tap of the *stick*
+finger also fires, for one-handed play.
 
-**Turning is the whole skill, so turning gets the whole input.** Agility is
-what converts a flank hit into a head-on. Giving steering the entire screen —
-rather than a 120-pixel puck — is what makes that defensive move actually
-performable under a thumb.
-
-**Grid driving, after playing three alternatives.** The tree specified constant
-motion (`D-CHOMP-015`), then gated movement on the steering hold
-(`D-CHOMP-026`), then split direction from throttle on a floating stick
-(`D-CHOMP-027`). Each was played and each failed differently: the second could
-only ever travel in arcs, because holding left was the only way to move; the
-third made reorienting in a dead end a three-point turn, and lining a corridor
-up before committing to it impossible.
-
-On an 8-stud grid, direction is the only steering input that means anything, so
-the fourth scheme stops pretending otherwise (`D-CHOMP-033`). A direction IS the
-drive command. Stopped you snap to it; moving you turn at the chassis rate. That
-is Pac-Man, which is what this game is, and it is the easiest thing to put in a
-seven-year-old's hands. Releasing coasts rather than stopping dead, so letting go
-mid-corner is a decision, not a punishment.
-
-The floating anchor from `D-CHOMP-027` survives: the stick still anchors wherever
-the finger lands, because that was never the part that was wrong.
-
-**Zero action buttons means zero occlusion problems.** Banking, eating, Full
-Jaw and gate passage are all consequences of driving somewhere. The only thing
-the screen has to hold is the HUD, which can then sit clear of both thumbs.
-
-## Proportional turning, with a dead zone
+### Where the buttons are, and why
 
 ```
-   screen x:  0.0        0.29    0.40  0.50  0.60    0.71        1.0
-              |‹— full ——|‹ ramp ›|‹— dead ——›|‹ ramp ›|—— full —›|
-                  left                straight              right
+ +---------------------------------------------+
+ |                                             |
+ |   steering: the whole left half,            |
+ |   the stick anchors where you touch         |
+ |                              carried/banked |
+ |                                      health |
+ |                                    belt x5  |
+ |                            ( SWAP )( JUMP ) |
+ +---------------------------------------------+
 ```
 
-- Middle **20%** is a dead zone — a resting thumb does not steer.
-- From the dead zone edge to **42%** out, turn rate ramps linearly from zero to
-  full. Adults get fine control, and a child who just jams the screen edge gets
-  full lock without needing precision.
-- **Both sides held at once cancels to straight.** Predictable, and it is what
-  a panicking player does.
+Both action buttons are **bottom right**, and neither is on the left. The reason
+is the floating stick: every button on the left shrinks the area you can start
+steering in, and worse, it means letting go of the wheel to press the one
+control that exists to save you. **The escape move must never cost you the
+steering.**
 
-## Thumb-safe zones
+Bottom-right is also where **Roblox's own touch jump button** lives, so a child
+who plays other Roblox games already reaches there. Convention beats our
+preference when the audience has muscle memory.
 
-The bottom-left and bottom-right corners — 30% of screen width by 30% of
-height — are where thumbs live. The HUD must place nothing there
-(`CHOMP-SYS-032`). Bar, carry and gate readiness go top-left and top-centre;
-standings top-right; nothing along the bottom edge.
+They are **sized by urgency**:
 
-## Considered and rejected
+- **Jump, 128px, in the corner.** A panic button, pressed without looking, while
+  something is chasing you. The largest control on screen, and the one a thumb
+  finds by feel.
+- **Cycle, 96px, beside it.** A planning action done between fights. Smaller,
+  because getting it wrong costs a wrong weapon rather than a wall.
 
-**A separate brake, and a separate accelerator.** Both were rejected for the
-same reason and both stay rejected: they are a second thing to hold on a tablet
-with no buttons. Under `D-CHOMP-026` releasing the steering hold already brakes,
-so the capability exists without the control. The original objection — that a
-child's default state becomes "stopped and confused" — is answered by the fact
-that the only thing she can do wrong is let go, and letting go is visibly what
-stopped her.
+## Keyboard, for building in Studio
 
-**A fixed-origin thumbstick.** Still rejected, and for the original reason: a
-puck drawn at a fixed spot has to be found by eye and is lost the moment the
-thumb drifts off it. The stick in `D-CHOMP-027` is floating, which is a different
-control that happens to share a name.
+| Key | Action |
+|---|---|
+| `W` `A` `S` `D` / arrows | steer and throttle; opposed keys cancel to neutral |
+| `Space` | fire, held |
+| `C` or `E` | jump |
+| `X` | cycle the belt |
 
-**Swipe-to-turn (one flick per junction).** Cleaner in theory, and it is how
-some mobile Pac-Man ports work. Rejected because it decouples input from
-timing: this game's combat is about *when* you bring your mouth to bear, and a
-gesture that resolves at the next junction takes that away.
+`E` is an alias for jump because it is the key a Roblox player tries first — the
+platform's universal interact key. `Space` is fire rather than jump because the
+default control script is disabled (`D-CHOMP-023`), so the conventional jump key
+was free and the trigger needed a held key more.
 
-**A virtual thumbstick.** See above — the drifting origin is the killer.
+## Orientation
 
-Logged as `D-CHOMP-015`.
+**Landscape only.** `PlayerGui.ScreenOrientation` is locked at startup.
+
+This is a driving game in a wide arena, and the right-hand column does not fit a
+portrait iPad once the action buttons are on it. `CHOMP-SYS-032` originally
+required both orientations; it was **amended** to require landscape rather than
+left to be silently violated.
+
+If a device reports portrait anyway, the **cycle** button hides. An item can
+still be chosen by tapping its slot; there is no other way to reach the jump.
+
+## Why there are buttons at all
+
+The original scheme had none and was right to be proud of it. But it was the
+scheme for a game whose only verbs were **drive** and **eat**.
+
+The game acquired three more — **spend an item**, **choose an item**, **jump** —
+and no gesture carries those. Every gestural alternative turns into a memory
+test: a double-tap meaning one thing while driving and another while stopped is
+exactly the kind of hidden rule a seven-year-old cannot learn by playing.
+
+So the rule is not "no buttons". The rule is:
+
+> **A button must be a verb the player already knows they have.**
+
+Jump, swap. Nothing modal, nothing that changes meaning by context, nothing that
+needs teaching. Banking and buying stay buttonless because *driving somewhere*
+already expresses them.
+
+## What is not decided
+
+- Whether reversing should mirror the steering axis. It currently does not, so
+  holding back-and-left swings the nose the same way as forward-and-left. That
+  reads as turn-around rather than as reversing a car, and **nobody has felt it
+  on a device**.
+- Whether the belt should also answer number keys `1`–`5`, matching Roblox's
+  Backpack convention. Cheap to add; unclear whether a child would use it.
+- Every handling number — speed, turn rate, braking, reverse fraction — is a
+  first guess. Tuning is deferred rather than done blind.

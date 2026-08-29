@@ -244,6 +244,8 @@ decisions:
         scope: "the always-forward half; the rest of that decision stands"
       - id: D-CHOMP-027
         scope: "the always-forward rule"
+      - id: D-CHOMP-071
+        scope: "the no-action-buttons principle"
     status: PARTIAL
     title: Hold to turn, always driving forward, no action buttons
     decision: >
@@ -2017,3 +2019,63 @@ decisions:
       movement, health, charge, jump, cannon and bomb services derive their
       values from it. The exterior service-ring garage and richer module-picker
       UI remain a separate geometry/interface delivery.
+
+  - id: D-CHOMP-071
+    date: 2026-08-27
+    status: ACTIVE
+    supersedes:
+      - id: D-CHOMP-015
+        scope: "the no-action-buttons principle; the driving half was already superseded by D-CHOMP-026 and -027"
+    title: Two action buttons, bottom right, and the game locks to landscape
+    decision: >
+      A cycle button and the jump button both sit in the BOTTOM RIGHT corner -
+      jump at 128px in the corner, cycle at 96px beside it - and the left half of
+      the screen is left entirely to the floating steering stick. Keyboard gains
+      X to cycle and C or E to jump, which is the first keyboard binding the jump
+      has ever had. Cycling is forward-only, wrapping, skips empty slots, and is
+      purely positional. The experience locks to landscape; if a device reports
+      portrait anyway the cycle button hides and the jump does not.
+    rationale: >
+      Owner direction, then owner correction: the buttons were asked for on the
+      LEFT and moved right once the platform conventions were laid out. That was
+      the right call twice over.
+      Roblox puts its own touch jump button in the bottom-right corner, so a
+      child who plays other Roblox games already reaches there. Convention beats
+      our preference when the audience has muscle memory.
+      More importantly the stick FLOATS - it anchors wherever a thumb lands - so
+      every button on the left shrinks the area you can start steering in, and
+      forces you to let go of the wheel to press the one control that exists to
+      save you. The escape move must never cost the steering.
+      On buttons existing at all: D-CHOMP-015 declared "no action buttons" and
+      control_scheme.md still repeated it this morning, but that was the scheme
+      for a game whose only verbs were drive and eat. It has since gained three
+      more - spend an item, choose an item, jump - and no gesture carries those
+      without becoming a memory test. The replacement rule is narrower and keeps
+      the original intent: a button must be a verb the player already knows they
+      have. Banking and buying stay buttonless because driving somewhere already
+      expresses them.
+    outcome: >
+      Sized by urgency, which is the part worth keeping if the layout changes
+      again: the jump is a panic button pressed without looking while something
+      chases you, so it is the largest control on screen; cycling is a planning
+      action between fights, so it is smaller. Getting cycle wrong costs a wrong
+      weapon, getting jump wrong costs a wall.
+      Cycling reuses the SelectItem remote and its slot index, which the server
+      already validates against the belt it holds - no new network surface and
+      nothing for the exploit suite to learn.
+      The landscape lock amends CHOMP-SYS-032, which required both orientations.
+      The right column does not fit portrait once the buttons are on it, and
+      naming landscape is honest where quietly breaking the clause was not. The
+      same amendment settles the older conflict D-CHOMP-053 left open: the lower
+      corners are FOR controls, and it is the values that had to move out.
+      control_scheme.md is rewritten. It had been describing the grid driving of
+      D-CHOMP-033 since D-CHOMP-042 replaced it, while also asserting the game
+      had no buttons - a binding architecture spec wrong in two directions at
+      once, which is how an agent ends up implementing the wrong controls.
+      Numbered 071 after a collision: D-CHOMP-069 and -070 were taken by the
+      other agent's progression work between this being drafted and written. The
+      supersession check caught it, which is the first time that check has earned
+      its keep.
+      Still knowingly unmet in CHOMP-SYS-032: the HUD is laid out in pixel
+      offsets rather than scale terms, with no size constraints anywhere. A real
+      defect, and why the layout has never been checked at a second aspect ratio.

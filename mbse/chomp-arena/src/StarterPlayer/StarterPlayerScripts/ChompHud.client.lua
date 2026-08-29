@@ -31,6 +31,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 local TextChatService = game:GetService("TextChatService")
 local StarterGui = game:GetService("StarterGui")
 
@@ -41,11 +42,19 @@ local ITEMS = Config.Items
 
 local player = Players.LocalPlayer
 
+local CONTROLS = Config.Controls
+
 local gui = Instance.new("ScreenGui")
 gui.Name = "ChompHud"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 50
+-- Landscape only (D-CHOMP-071). CHOMP-SYS-032 asked for both orientations; the
+-- action buttons make the right column too tall for a portrait iPad, so the
+-- requirement was amended to name landscape rather than quietly broken.
+if CONTROLS.LockLandscape then
+	gui.ScreenOrientation = Enum.ScreenOrientation.LandscapeSensor
+end
 gui.Parent = player:WaitForChild("PlayerGui")
 
 -- Keep Roblox's own chat, but move it away from the attribute panel and jump
@@ -108,7 +117,14 @@ end
 -- ── Bottom right: one stack, safest value at the bottom ─────────────────
 -- Banked sits lowest because it is the number you check least often and the
 -- one you most want to end the round looking at.
-local stack = panel("Values", Vector2.new(1, 1), UDim2.new(1, -16, 1, -92), UDim2.new(0, 236, 0, 168))
+-- The right column now sits ABOVE the action buttons. CHOMP-SYS-055 wants the
+-- lower corners kept "clear for touch input", and buttons ARE touch input - it
+-- is the numbers that should not be under a thumb, which is what moving them up
+-- finally fixes (D-CHOMP-071).
+local COLUMN_BASE = CONTROLS.ButtonMarginPx * 2 + CONTROLS.JumpButtonPx  -- 160
+
+local stack = panel("Values", Vector2.new(1, 1),
+	UDim2.new(1, -16, 1, -(COLUMN_BASE + 236)), UDim2.new(0, 236, 0, 168))
 
 local carriedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 10),
 	"0", P.NeonB, 34, Enum.TextXAlignment.Right)
@@ -140,7 +156,7 @@ end
 local beltStrip = Instance.new("Frame")
 beltStrip.Name = "Belt"
 beltStrip.AnchorPoint = Vector2.new(1, 1)
-beltStrip.Position = UDim2.new(1, -16, 1, -16)
+beltStrip.Position = UDim2.new(1, -16, 1, -COLUMN_BASE)
 beltStrip.Size = UDim2.new(0, BELT_W, 0, SLOT_H)
 beltStrip.BackgroundTransparency = 1
 beltStrip.Parent = gui
@@ -237,19 +253,27 @@ local bankedValue = label(stack, UDim2.new(1, -24, 0, 40), UDim2.new(0, 14, 0, 1
 label(stack, UDim2.new(1, -24, 0, 16), UDim2.new(0, 14, 0, 148),
 	"BANKED — SAFE", P.Gold, 12, Enum.TextXAlignment.Right)
 
--- ── Bottom left: the jump control ───────────────────────────────────────
--- Buttons DO belong in the thumb zone. CHOMP-SYS-032 reserves the lower corners
--- so that nothing you need to READ sits under a hand — a thing you need to
--- PRESS wants to be exactly there (D-CHOMP-059).
+-- ── Bottom RIGHT: the action buttons (D-CHOMP-071) ──────────────────────
+-- Moved from the bottom left, where they were stealing the steering thumb.
 --
--- Both are deliberately oversized. They are pressed while driving, by a child,
--- on a tablet, and the cost of a missed press is a wall.
+-- The stick FLOATS: it anchors wherever a finger lands, so every button on the
+-- left shrinks the area you can start steering in, and worse, you had to let go
+-- of the wheel to press the one control that exists to save you. The escape
+-- move must never cost you the steering.
+--
+-- Bottom-right is also where Roblox's own touch jump button lives, so it is
+-- where a child who plays other Roblox games already reaches. Convention beats
+-- our preference when the audience already has muscle memory.
+--
+-- Sized by urgency: the jump is a panic button pressed without looking, so it
+-- is the largest thing on screen. Cycling is a planning action done between
+-- fights, so it is smaller and sits beside rather than under the thumb.
 
 local chargeButton = Instance.new("TextButton")
 chargeButton.Name = "ChargeButton"
-chargeButton.AnchorPoint = Vector2.new(0, 1)
-chargeButton.Position = UDim2.new(0, 20, 1, -20)
-chargeButton.Size = UDim2.new(0, 128, 0, 128)
+chargeButton.AnchorPoint = Vector2.new(1, 1)
+chargeButton.Position = UDim2.new(1, -CONTROLS.ButtonMarginPx, 1, -CONTROLS.ButtonMarginPx)
+chargeButton.Size = UDim2.new(0, CONTROLS.JumpButtonPx, 0, CONTROLS.JumpButtonPx)
 chargeButton.BackgroundColor3 = P.BrickDark
 chargeButton.BackgroundTransparency = 0.05
 chargeButton.BorderSizePixel = 0
@@ -332,6 +356,123 @@ local function pressCharge()
 	end
 end
 chargeButton.Activated:Connect(pressCharge)
+
+-- ── The cycle button ────────────────────────────────────────────────────
+-- One button, one direction, wrapping. A back-cycle would double the controls
+-- to save half a second, and the belt is spent in ORDER (D-CHOMP-062) - the
+-- whole design depends on that order staying predictable, so cycling is purely
+-- positional and never helpfully skips to something with more charges.
+--
+-- It sends a slot INDEX through the existing SelectItem remote, which the
+-- server already validates against the belt it holds. No new network surface
+-- and nothing for the exploit suite to learn (D-CHOMP-071).
+
+local function beltEntries(): ({ string }, number)
+	local character = player.Character
+	local raw = character and character:GetAttribute("ChompBelt")
+	local ids: { string } = {}
+	if typeof(raw) == "string" and raw ~= "" then
+		for chunk in string.gmatch(raw, "[^,]+") do
+			local id = string.match(chunk, "^(.-):%d+$")
+			table.insert(ids, id or "")
+		end
+	end
+	local active = character and (character:GetAttribute("ChompActiveSlot") :: number?) or 1
+	return ids, active
+end
+
+local cycleRefusedAt = 0
+local function cycleItem()
+	local ids, active = beltEntries()
+	if #ids <= 1 then
+		-- Nothing to cycle to. Say so with a pulse rather than doing nothing,
+		-- because silence is what a child reads as broken.
+		cycleRefusedAt = os.clock()
+		return
+	end
+	-- Not named `next`: that is a Lua builtin, and shadowing it inside a loop
+	-- is the kind of thing that reads fine and confuses whoever edits it later.
+	local target = active
+	for _ = 1, #ids do
+		target = (target % #ids) + 1
+		if ids[target] and ids[target] ~= "" then break end
+	end
+	if target ~= active and Remotes and Remotes.SelectItem then
+		Remotes.SelectItem:FireServer(target)
+	end
+end
+
+local cycleButton = Instance.new("TextButton")
+cycleButton.Name = "CycleButton"
+cycleButton.AnchorPoint = Vector2.new(1, 1)
+cycleButton.Position = UDim2.new(1, -(CONTROLS.ButtonMarginPx * 2 + CONTROLS.JumpButtonPx),
+	1, -CONTROLS.ButtonMarginPx)
+cycleButton.Size = UDim2.new(0, CONTROLS.CycleButtonPx, 0, CONTROLS.CycleButtonPx)
+cycleButton.BackgroundColor3 = P.BrickDark
+cycleButton.BackgroundTransparency = 0.1
+cycleButton.BorderSizePixel = 0
+cycleButton.Text = ""
+cycleButton.AutoButtonColor = false
+cycleButton.Parent = gui
+local cyCorner = Instance.new("UICorner")
+cyCorner.CornerRadius = UDim.new(1, 0)
+cyCorner.Parent = cycleButton
+
+local cycleGlyph = Instance.new("TextLabel")
+cycleGlyph.Name = "Glyph"
+cycleGlyph.BackgroundTransparency = 1
+cycleGlyph.Size = UDim2.new(1, 0, 0, 40)
+cycleGlyph.Position = UDim2.new(0, 0, 0, 14)
+-- An arrow going round, not a word. This button is pressed by someone who is
+-- driving and cannot read it.
+cycleGlyph.Text = "\u{27F3}"
+cycleGlyph.TextColor3 = P.Ghost
+cycleGlyph.TextSize = 34
+cycleGlyph.Font = Enum.Font.GothamBlack
+cycleGlyph.Parent = cycleButton
+
+local cycleWord = Instance.new("TextLabel")
+cycleWord.Name = "Word"
+cycleWord.BackgroundTransparency = 1
+cycleWord.Size = UDim2.new(1, -10, 0, 16)
+cycleWord.Position = UDim2.new(0, 5, 1, -28)
+cycleWord.Text = "SWAP"
+cycleWord.TextColor3 = P.Boundary
+cycleWord.TextSize = 12
+cycleWord.Font = Enum.Font.GothamBold
+cycleWord.Parent = cycleButton
+
+cycleButton.Activated:Connect(cycleItem)
+
+-- ── Keys ────────────────────────────────────────────────────────────────
+-- Bound here rather than in InputController because the button and its keyboard
+-- equivalent are the same control, and cycling needs the belt state this file
+-- already reads every frame. InputController still owns steering and firing.
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+	if input.KeyCode == CONTROLS.CycleKey then
+		cycleItem()
+	elseif input.KeyCode == CONTROLS.JumpKey or input.KeyCode == CONTROLS.JumpKeyAlt then
+		pressCharge()
+	end
+end)
+
+-- ── Portrait fallback ───────────────────────────────────────────────────
+-- The orientation is locked to landscape, so this should never fire. If a
+-- device reports portrait anyway, the CYCLE button is the one that goes: you
+-- can still choose an item by tapping its slot, but the jump is an escape and
+-- there is no other way to reach it.
+local function fitOrientation()
+	local camera = workspace.CurrentCamera
+	local viewport = camera and camera.ViewportSize
+	if not viewport or viewport.Y <= 0 then return end
+	cycleButton.Visible = (viewport.X / viewport.Y) >= CONTROLS.HideCycleBelowAspect
+end
+fitOrientation()
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fitOrientation)
+end
+
 
 -- ── Top centre: one objective ───────────────────────────────────────────
 local centre = panel("Objective", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 16), UDim2.new(0, 280, 0, 48))
@@ -433,7 +574,7 @@ flash.Parent = gui
 local healthBack = Instance.new("Frame")
 healthBack.Name = "HealthBack"
 healthBack.AnchorPoint = Vector2.new(1, 1)
-healthBack.Position = UDim2.new(1, -16, 1, -268)
+healthBack.Position = UDim2.new(1, -16, 1, -(COLUMN_BASE + 252))
 healthBack.Size = UDim2.new(0, 236, 0, 14)
 healthBack.BackgroundColor3 = P.Floor
 healthBack.BackgroundTransparency = 0.25
@@ -562,6 +703,11 @@ RunService.RenderStepped:Connect(function(dt)
 	chargeButton.Active = true
 	chargeButton.BackgroundTransparency = ready and 0.02 or 0.05
 	chargeStroke.Color = ready and P.Gold or P.NeonA
+
+	-- Cycle refusal: the same language the charge button speaks, so a press
+	-- that cannot do anything still answers.
+	local sinceCycle = os.clock() - cycleRefusedAt
+	cycleButton.BackgroundColor3 = sinceCycle < 0.3 and P.Danger or P.BrickDark
 
 	-- Refusal pulse: 0.35 seconds of red, then back to whatever it was.
 	local sinceRefused = os.clock() - refusedAt

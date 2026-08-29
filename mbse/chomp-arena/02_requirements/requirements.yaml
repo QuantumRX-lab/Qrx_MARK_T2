@@ -990,10 +990,10 @@ requirements:
   - id: CHOMP-SYS-032
     title: Touch controls are the primary control scheme
     shall_statement: >
-      Driving and turning SHALL be operable by touch alone, with controls
-      positioned so that neither thumb occludes the HUD or the vehicle, and all
-      GUI SHALL be laid out in UDim2 scale terms and remain fully on screen on
-      an iPad in both orientations.
+      Driving and turning SHALL be operable by touch alone. Action buttons SHALL sit
+      in the lower corners within thumb reach, and nothing the player must READ
+      SHALL sit under a thumb. The experience SHALL lock to landscape, and all GUI
+      SHALL remain fully on screen at any landscape aspect ratio an iPad reports.
     level: L2_system
     status: APPROVED
     priority: CRITICAL
@@ -1002,15 +1002,26 @@ requirements:
     verification_status: NOT_STARTED
     verification_method: TEST
     rationale: >
-      The game is played on an iPad. Turning is the skill in this game —
-      agility converts a flank hit into a head-on — so a turn control that is
-      imprecise under a thumb removes the defensive half of the combat system
-      for the player who actually plays it.
+      Amended 2026-08-27 (D-CHOMP-071). Two changes.
+      The original required both orientations. The right-hand column does not fit a
+      portrait iPad once the action buttons are on it, so the experience locks to
+      landscape - which is correct for a driving game in a wide arena, and is an
+      honest amendment rather than a clause quietly broken. A portrait fallback
+      still hides the cycle button, because the jump is an escape and has no other
+      route.
+      The original also said controls must not occlude the HUD. That was written for
+      a scheme with no buttons at all. Inverted here: the lower corners are FOR
+      controls, and it is the values that must move out of them - which is the
+      conflict CHOMP-SYS-055 and D-CHOMP-053 left open and this finally settles.
+      Still knowingly unmet: the GUI is laid out largely in pixel offsets rather
+      than scale, with no size constraints. That is a defect against this
+      requirement, tracked in CHAIN-UI, and it is why the layout has never been
+      checked at a second aspect ratio.
     allocated_to: StarterGui/ChompHud
     chain: CHAIN-UI
     phase: v1
     created_date: 2026-08-25
-    last_modified: 2026-08-25
+    last_modified: 2026-08-27
     author: Claude (requirements session)
 
   - id: CHOMP-SYS-055
