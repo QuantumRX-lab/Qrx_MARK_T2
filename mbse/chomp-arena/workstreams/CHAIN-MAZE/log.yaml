@@ -215,3 +215,80 @@ entries:
     derive from something shipping later, which validate.py refuses. If the
     decks ever return, they arrive through CHOMP-SYS-062 and CHOMP-TC-048, and
     the camera acceptance run has to pass on ONE level first.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: NOTE
+  requirements: [CHOMP-SYS-062]
+  summary: >
+    FOR CODEX - Level Two concept handover, design only, nothing built. Full
+    documents: 00_need/level_two_concept.md (one page) and
+    03_architecture/round_two.md (detail, build order, open questions). This
+    entry is the feature list.
+  status: OPEN
+  handoff: >
+    KEY FEATURES
+
+    1. UNLOCK. The first guardian victory opens Level 2 permanently; every
+    victory after stays the escalating rematch you already built. One persisted
+    flag. It also gives the game an ending - today waves escalate until you die,
+    so every session finishes on a loss.
+
+    2. HEIGHT IS THE POINT. Level 2 asks a different question from Level 1, not
+    a harder version of the same one: can you route and bank when the floor is
+    not all one place? Rings, pellets, garages, sanctuaries and waves carry over
+    unchanged.
+
+    3. PERCHES. Raised blocks reached with the two moves the player ALREADY has -
+    the charge jump and the jet pack. No climbing, no platforming, no new
+    traversal mechanic. If a player cannot get up there with what they have, the
+    perch is in the wrong place.
+
+    4. HOMING MISSILE IS THE PERCH WEAPON. Not a new sniping tool. Slow, one
+    target, long lock. It earns its slot twice: on the ground against a ghost you
+    cannot line up, and from above as the reason to be on a perch at all. A perch
+    without a weapon built for it is just a place to hide.
+
+    5. FLAMETHROWER. Cone, not projectile. The only weapon that hits several
+    ghosts at once, and the best light source in a dark game. Answers "they are
+    all around me" where the missile answers "that one, far away" - opposites on
+    purpose. The test for any new weapon: what FEAR does it answer? Two weapons
+    answering the same fear means one is a skin.
+
+    6. CO-OP ROLES are the reason perches are worth the risk. Today the game has
+    one verb, so everyone does the same thing and the least confident driver just
+    dies more. Guardian fight with three jobs: BAIT holds its attention, SWEEPER
+    clears summoned ghosts, GUNNER perches and puts missiles into the weak point.
+    The gunner job suits whoever is worst at driving, and getting up there is one
+    button press rather than a skill.
+
+    7. BOSS PATTERN for any future guardian: one VISIBLE weak point (a thing you
+    hit, not a bar you erode), telegraphs of 1.5s+ with sound, phases that change
+    the VERB not the numbers, and never a one-shot. The current guardian's
+    ContactDamage 28 vs 100 health already satisfies the last one.
+
+    CONSTRAINTS, not suggestions
+
+    Perches are built LAST and depend on CHOMP-TC-040 passing on the iPad.
+    D-CHOMP-046 deleted the two-deck map because a drop is a way to fall out of
+    the world and the camera could not follow; the camera test has still never
+    run on even one flat level. If it fails, perches do not happen.
+    Perch rules: falling is HARMLESS (no damage, no lost carry), a perch is a
+    room and not a route, and NOTHING REQUIRED is ever up there - no pellets, no
+    pads, no bank. A player who never goes up must not fall behind one who does.
+    Both new weapons obey CHOMP-SYS-066: friendly fire off means no damage to
+    another player by ANY route. A cone weapon is exactly where that gets missed.
+
+    OWNER DECISION STILL OPEN
+
+    If Level 2 weapons persist, Level 1 becomes easy. Either a victory lap
+    (recommended) or a balance problem if friends routinely join at mixed
+    progression. It changes how Level 2 is tuned, so it needs settling BEFORE the
+    maze is designed. Note ProfileService already persists dollars, chassis and
+    upgrades, so the old cosmetic-only rule is already broken.
+
+    CHEAPER ALTERNATIVE WORTH WEIGHING FIRST
+
+    Every ghost in the game runs ONE identical behaviour. Config names
+    V1Behaviours = Chaser, GreedyOne and nothing reads it; three requirements are
+    allocated to a Behaviours module that does not exist. Real ghost variety may
+    be a better and far cheaper second act than a whole second maze.
