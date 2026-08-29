@@ -359,3 +359,28 @@ entries:
     and an incomplete property list would produce false positives, which is how
     a guard becomes noise. This one needed a human pressing Play, and that is the
     honest reason to test on the device early rather than late.
+- date: '2026-08-27'
+  agent: Claude (local session)
+  action: REJECTED
+  requirements: [CHOMP-SYS-032]
+  summary: >
+    Action-button implementation ROLLED BACK at owner instruction after breaking
+    the HUD twice in one sitting (D-CHOMP-073). ChompConfig.lua and
+    ChompHud.client.lua restored byte-for-byte to 338fd1b; the built place matches
+    the known-good build. CHOMP-SYS-032 keeps its amendment, so landscape lock and
+    the thumb-zone rule stay requirements the build does not meet.
+  status: OPEN
+  handoff: >
+    Read this before re-attempting: the reasoning is good and the execution was
+    not. Bottom-right matches Roblox's own touch jump position, a left-hand
+    button costs the steering thumb because the stick floats, and the jump still
+    has NO keyboard binding at all. All still true.
+    What went wrong was scope in one commit. Layout move, new control, new key
+    bindings and an orientation lock all landed together on a client script that
+    cannot be tested outside Studio, so when it broke there were four suspects
+    and the owner did the searching. One change per play session next time, and
+    start with the keyboard bindings: they are the only part that cannot take the
+    HUD down.
+    Specific trap that caused the second failure: ScreenOrientation belongs to
+    PlayerGui, not ScreenGui, and any throw before gui.Parent kills the whole
+    script. Build it, parent it, THEN decorate it, inside a pcall.

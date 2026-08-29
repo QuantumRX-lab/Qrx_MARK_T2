@@ -7,7 +7,7 @@ named half was replaced and the rest still rules, `SUPERSEDED` means all
 of it was, `VOID` means the number was never used. Read the ACTIVE
 entries for your topic before writing code that touches it.
 
-72 decisions.
+73 decisions.
 
 ## camera
 
@@ -95,7 +95,8 @@ entries for your topic before writing code that touches it.
 - **D-CHOMP-068** `ACTIVE` 2026-08-27 — The requirements are made to describe the game that exists
 - **D-CHOMP-070** `ACTIVE` 2026-08-27 — Seven visible ladders replace three anonymous stat tracks
 - **D-CHOMP-071** `ACTIVE` 2026-08-27 — Two action buttons, bottom right, and the game locks to landscape
-- **D-CHOMP-072** `ACTIVE` 2026-08-27 — Optional polish never runs before the thing it decorates
+- D-CHOMP-072 `SUPERSEDED` 2026-08-27 — Optional polish never runs before the thing it decorates — superseded by D-CHOMP-073
+- **D-CHOMP-073** `ACTIVE` 2026-08-27 — The action-button implementation is rolled back; the requirement stands
 
 ## vehicle
 

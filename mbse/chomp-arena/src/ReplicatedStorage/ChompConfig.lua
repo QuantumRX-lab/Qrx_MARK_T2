@@ -346,33 +346,6 @@ ChompConfig.Controls = {
 	-- "use what I am holding" without adding a control to a scheme whose whole
 	-- premise is that there are none.
 	TapFireSeconds = 0.22,
-
-	-- ── Action buttons (D-CHOMP-071) ────────────────────────────────────
-	-- The original scheme had NONE, and said so proudly: "the absence of
-	-- buttons is the design, not a gap in it" (D-CHOMP-015, control_scheme.md).
-	-- That was true of a game whose only verbs were drive and eat. It acquired
-	-- three more - spend an item, choose an item, jump - and no gesture carries
-	-- those without becoming a memory test for a seven-year-old.
-	--
-	-- Positions follow ROBLOX's own defaults rather than ours: the platform
-	-- puts jump in the bottom-right corner on touch, and that is where a child
-	-- who plays other Roblox games already reaches. The left half stays clear
-	-- for the floating stick, so the steering thumb never has to leave the
-	-- wheel to escape.
-	JumpKey = Enum.KeyCode.C,
-	JumpKeyAlt = Enum.KeyCode.E,     -- E is the key a Roblox player tries first
-	CycleKey = Enum.KeyCode.X,
-	JumpButtonPx = 128,              -- the panic button: largest control on screen
-	CycleButtonPx = 96,              -- a planning action, so deliberately smaller
-	ButtonMarginPx = 16,
-	-- Landscape only (D-CHOMP-071). This is a driving game in a wide arena and
-	-- the right-hand column does not fit a portrait iPad once the action
-	-- buttons are on it. Locking the orientation is honest; letting it break in
-	-- portrait and hoping nobody turns the tablet is not.
-	LockLandscape = true,
-	-- Belt and braces: if a device ever reports portrait anyway, the cycle
-	-- button is the one that goes. Jump is an escape and must always be there.
-	HideCycleBelowAspect = 1.0,
 	TapFireSlopPixels = 14,  -- two taps this close on the far side = 180 flip
 	ThumbSafeZoneFraction = 0.30, -- bottom corners the HUD must keep clear
 }

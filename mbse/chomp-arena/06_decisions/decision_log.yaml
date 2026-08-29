@@ -2082,7 +2082,10 @@ decisions:
 
   - id: D-CHOMP-072
     date: 2026-08-27
-    status: ACTIVE
+    status: SUPERSEDED
+    superseded_by:
+      - id: D-CHOMP-073
+        scope: "the fix is moot; the code it fixed has been reverted"
     title: Optional polish never runs before the thing it decorates
     decision: >
       ScreenOrientation is set on PLAYERGUI, not on the ScreenGui, after the HUD
@@ -2109,3 +2112,49 @@ decisions:
       live and inside a pcall, so it can fail without taking the display with it.
       Three lines in this file already followed that shape by luck; now it is
       deliberate.
+
+  - id: D-CHOMP-073
+    date: 2026-08-27
+    status: ACTIVE
+    supersedes:
+      - id: D-CHOMP-072
+        scope: "the fix is moot; the code it fixed has been reverted"
+    title: The action-button implementation is rolled back; the requirement stands
+    decision: >
+      The D-CHOMP-071 implementation is reverted in full. ChompConfig.lua and
+      ChompHud.client.lua are restored byte-for-byte to their state at 338fd1b:
+      no cycle button, no X/C/E keys, no landscape lock, and the charge button
+      back at bottom left. CHOMP-SYS-032 KEEPS its amendment, so the landscape
+      lock and the thumb-zone rule remain requirements that the build does not
+      yet meet. control_scheme.md is kept but every unbuilt section is now marked
+      [SPEC] against the [BUILT] ones.
+    rationale: >
+      Owner instruction after the HUD broke twice in play in one sitting.
+      That is the whole reason. Two failures in two attempts on a control scheme
+      the owner cannot inspect except by playing it means the change was costing
+      more to verify than it was worth, and the right move is to stop rather than
+      to try a third fix on top of two.
+      Reverting the SOURCE and keeping the REQUIREMENT is deliberate. The
+      thinking that produced the layout is sound and was hard won - Roblox puts
+      its own touch jump bottom-right, the floating stick means a left-hand
+      button costs you the steering, and a jump with no keyboard binding is a
+      real gap. None of that stopped being true because my implementation was
+      bad. Throwing the requirement away with the code would lose the reasoning
+      and invite someone to rediscover it.
+      So this joins CHOMP-SYS-017's wall clause as a requirement written ahead of
+      the build: stated intent, honest gap, no pretending.
+    outcome: >
+      What survives: control_scheme.md no longer describes the grid driving of
+      D-CHOMP-033 (wrong since D-CHOMP-042) and no longer claims the game has no
+      action buttons (wrong since the charge button). That document was wrong in
+      two directions before today and is now merely incomplete, which is better.
+      D-CHOMP-071's rule survives too and is the part worth keeping: a button
+      must be a verb the player already knows they have.
+      What I would do differently, recorded because it is the actual lesson: I
+      changed layout, added a control, added key bindings and changed the
+      orientation in ONE commit, on a client script that cannot be tested here.
+      Every one of those is independently verifiable and I bundled them, so when
+      it broke there were four candidates and the owner paid for the search. If
+      this is attempted again it should go one change per play session, starting
+      with the keyboard bindings, which are the only part that cannot take the
+      HUD down.
