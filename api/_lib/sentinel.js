@@ -78,7 +78,7 @@ export async function blockThreat(req, endpoint, reason) {
   await raiseAlert(req, endpoint, reason, { blocked: true });
 }
 
-async function raiseAlert(req, endpoint, reason, meta = {}) {
+export async function raiseAlert(req, endpoint, reason, meta = {}) {
   try {
     const alert = {
       ts: Date.now(),

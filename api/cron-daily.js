@@ -15,7 +15,7 @@
 export const config = { maxDuration: 300 };
 
 const PHASE1 = ['news-refresh', 'draw-refresh', 'mainstream-refresh', 'cartoon-refresh', 'meme-refresh', 'exploit-watch-refresh'];
-const PHASE2 = ['generate-chat-chips'];
+const PHASE2 = ['generate-chat-chips', 'comments-moderate'];
 
 function baseUrl(req) {
   const proto = (req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
