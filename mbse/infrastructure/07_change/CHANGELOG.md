@@ -3,6 +3,12 @@
 Dated log of infrastructure-level changes (not product/content changes —
 those belong to their own history). Newest first.
 
+## 2026-09-18
+- Signals hub consolidation (D-INFRA-010): new `api/signals-hub-feed.js` (one aggregate read, ICD-INFRA-006); `api/comments.js` rebuilt with JWKS-verified Ghost member identity, Gemini moderation, per-IP/per-member limits (ICD-INFRA-007, INFRA-SYS-014); `api/comments-admin.js` and `api/comments-moderate.js` added, the latter wired into `cron-daily` PHASE2; `sentinel.js` now exports `raiseAlert`. Commits `2f94aef`, `171afc8`.
+- `scripts/ghost-page.mjs` added — env-var-only Ghost Admin helper (get/put page HTML with automatic backup, set canonical_url). Confirmed integration tokens cannot manage redirects (403) — true 301s for `/the-draw/` and `/mainstream/` need a manual upload of `ghost-current/redirects.yaml` in Ghost Admin.
+- Found and flagged: video feed empty (RISK-INFRA-010); comment data/moderation risk logged (RISK-INFRA-009).
+- Note: a `vercel env ls` run from this machine triggered a fresh Vercel CLI device login (credentials now cached locally for the CLI) — no Ghost-related vars were found there.
+
 ## 2026-07-20
 - Built this MBSE tree (`mbse/infrastructure/`) and `crawler.py` following a full audit of both stacks.
 - Confirmed `CRON.txt` has zero git history (RISK-INFRA-005).

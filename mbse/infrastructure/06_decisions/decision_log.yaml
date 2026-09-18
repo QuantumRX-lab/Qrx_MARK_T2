@@ -161,3 +161,29 @@ decisions:
       infrastructure (and cross-references the .co.uk VPS) keeps the
       boundary clean: RSI's own MBSE tree still only covers RSI's pipeline,
       not the infra it runs on.
+
+  - id: D-INFRA-010
+    date: 2026-09-18
+    title: Consolidate Signals + The Draw + Mainstream into one hub at /signals/
+    decision: >
+      One Ghost page (/signals/) fed by one aggregate endpoint
+      (api/signals-hub-feed) replaces three pages with two drifting copies of
+      the summary-drawer pattern. /the-draw/ and /mainstream/ become
+      redirects (client-side card + canonical_url via API; true 301s need a
+      one-time upload in Ghost Admin > Labs > Redirects because integration
+      tokens get 403 on the redirects endpoints). Member comments are added
+      to the drawer with cryptographically verified Ghost identity
+      (ICD-INFRA-007), Gemini moderation, and admin delete.
+    rationale: >
+      Owner brief: "minimum number of pages that reflects the best
+      categorisation", "big, clear and easy to read and comment". Review of
+      the real data showed the three pages overlapped heavily, the curated
+      "hot" picks would have been lost by a naive merge (7/8 unique), and a
+      first-cut comments endpoint trusted client-asserted identity — fixed
+      before anything went live. /signals/ kept as the URL: strongest
+      existing page, brand name, existing deep links (?tab= legacy keys are
+      still accepted and mapped).
+    alternatives_rejected: >
+      New /news/ URL with three redirects (more churn, weaker SEO carry-over);
+      third-party comment embed (separate identity from Ghost members);
+      per-tab re-fetch model of the old pages (13 reads per view).

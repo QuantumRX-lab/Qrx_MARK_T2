@@ -221,3 +221,22 @@ test_cases:
     last_run_date: 2026-07-20
     last_run_result: "Confirmed both — ignored by .gitignore:5, zero commits in full history."
     phase: v1
+
+  - id: INFRA-TC-013
+    title: comments endpoint rejects unauthenticated and forged identity
+    verifies: [INFRA-SYS-014]
+    type: INTEGRATION
+    method: TEST
+    preconditions: ["api/comments.js deployed to forge.quantumrx.eu"]
+    test_data: {}
+    procedure:
+      - "POST /api/comments with a valid body and no Authorization header"
+      - "POST /api/comments with Authorization: Bearer <RS512 JWT with unknown kid and junk signature>"
+      - "GET /api/comments-admin and /api/comments-moderate with no x-cron-secret"
+      - "grep api/comments.js api/_lib/ghost-member.js for any storage of raw email"
+    expected_result: All three writes/reads are refused (401); no raw email is persisted.
+    pass_criteria: ["401 for missing token", "401 for forged token", "401 for admin/moderate without secret", "only sha256-derived memberId is stored"]
+    status: PASSED
+    last_run_date: 2026-09-18
+    last_run_result: "All 401 as expected against commit 171afc8; memberId = sha256(email)[:20], no email field in stored comment objects."
+    phase: v1

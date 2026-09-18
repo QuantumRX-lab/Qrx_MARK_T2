@@ -389,3 +389,29 @@ requirements:
     created_date: 2026-07-20
     last_modified: 2026-07-20
     author: Claude (session audit)
+
+  - id: INFRA-SYS-014
+    title: Member-attributed writes require verified Ghost identity
+    shall_statement: >
+      Any Vercel endpoint that stores or displays content attributed to a
+      Ghost member (currently api/comments.js) SHALL verify a Ghost-issued
+      identity token against the site's published JWKS before accepting the
+      write, SHALL rate-limit on server-derived keys only, and SHALL NOT
+      store or expose raw member email addresses.
+    level: L2_system
+    status: APPROVED
+    priority: HIGH
+    derives_from: [INFRA-STK-002, INFRA-STK-003]
+    satisfied_by: [api/_lib/ghost-member.js, api/comments.js]
+    verified_by: [INFRA-TC-013]
+    verification_status: PASSED
+    verification_method: TEST
+    rationale: >
+      The first cut of comments.js trusted a client-supplied {uuid, name}
+      and rate-limited on that uuid — spoofable and bypassable. Caught in
+      the pre-launch review (D-INFRA-010) and replaced before the page went
+      live. See ICD-INFRA-007.
+    phase: v1
+    created_date: 2026-09-18
+    last_modified: 2026-09-18
+    author: Claude (Signals hub build)

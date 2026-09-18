@@ -58,3 +58,47 @@ Lightweight ICDs for the cross-platform interfaces that matter for reliability.
 - **No TTL observed** — blocks persist until manually cleared; a stale
   false-positive block (e.g. this session's own `curl` testing traffic
   without a browser User-Agent) will sit indefinitely otherwise
+
+## ICD-INFRA-006 — Signals hub page → `api/signals-hub-feed`
+
+- **Caller**: the `/signals/` Ghost page (HTML card, `ghost-current/signals-hub.txt`)
+- **Callee**: `GET https://forge.quantumrx.eu/api/signals-hub-feed` — one read
+  that merges `qrx_feed_*` (all Signals categories + hot + video),
+  `qrx_draw_main`, `qrx_draw_finance`, `qrx_mainstream` into one list with a
+  unified category taxonomy (hot picks first, dedupe by link)
+- **Auth**: none (public read); Sentinel `isBlocked()` + `logRequest()` as
+  every other feed endpoint; CORS limited to `quantumrx.eu` origins
+- **Caching**: `s-maxage=300, stale-while-revalidate=600` at Vercel's edge —
+  feeds refresh once daily, so a burst of page views costs one KV read
+- **Replaces**: 13 per-category/per-page reads the pre-2026-09-18 Signals,
+  The Draw and Mainstream pages made between them on every view
+- **Failure mode**: 500 → page shows "No stories here yet"; category tabs
+  are built from the response's `counts`, so an empty feed shows only "All"
+
+## ICD-INFRA-007 — Ghost member identity token → `api/comments`
+
+- **Caller**: the `/signals/` page, on behalf of a signed-in Ghost member
+- **Identity source**: Ghost's own same-origin `GET /members/api/session`
+  returns a short-lived RS512 JWT (`sub` = member email) — 204 when signed
+  out. The page forwards it as `Authorization: Bearer <jwt>`.
+- **Verification**: `api/_lib/ghost-member.js` fetches
+  `https://www.quantumrx.eu/members/.well-known/jwks.json` (cached 6h,
+  refetched once on unknown `kid`) and verifies the signature with WebCrypto.
+  No client-asserted identity is trusted; a forged/expired token → 401.
+- **Display name**: authoritative lookup via Ghost Admin API
+  (`GET /ghost/api/admin/members/?filter=email:'…'`) **only if**
+  `GHOST_ADMIN_API_KEY` is set on Vercel (it is not, as of 2026-09-18);
+  otherwise the client-supplied name is used (cosmetic only — identity stays
+  bound to the verified email). Raw emails are never stored: members are
+  keyed by `sha256(email)[:20]`.
+- **Abuse controls**: per-IP (10s) and per-member (20s) cooldowns using
+  server-side keys, 60/day per member, 1200-char cap, Gemini moderation on
+  every post (`GEMINI_API_KEY_Forge`; held comments hidden + Sentinel alert
+  `comment-held-for-review`), daily re-check sweep (`comments-moderate`,
+  cron-daily PHASE2). Admin list/approve/hold/delete: `comments-admin`
+  (`x-cron-secret`).
+- **Storage**: `comments:<sha256(link)>` (Redis list of ids),
+  `comment:<id>` (JSON), `comments:recent`, `comments:held`,
+  `comments:moderation:digest`. No TTL — comments outlive the 25h feed
+  entries they hang off; they simply stop being displayed once the story
+  ages out of the feed.

@@ -1,5 +1,5 @@
 # Infrastructure — Risk Register
-# open: 3, closed: 5 (as of 2026-07-20 — corrected by validate.py, which
+# open: 5, closed: 5 (as of 2026-09-18; was 3/5 on 2026-07-20 — corrected then by validate.py, which
 # caught this comment/total under-counting RISK-INFRA-002 as a live bug in
 # this very file, the exact failure mode this validator exists to catch)
 
@@ -161,5 +161,45 @@ risks:
     detected: 2026-07-18
     linked_requirements: [INFRA-SYS-010]
 
-open_count: 3
+  - id: RISK-INFRA-009
+    title: Member comments store personal data and lean on Gemini for moderation
+    description: >
+      api/comments.js keeps member display names and a sha256-derived member
+      id in Upstash indefinitely (no TTL), and the only automated moderation
+      is a Gemini classifier that fails OPEN (comment published, flagged
+      unchecked) if the API is unavailable. A moderation gap is bounded by
+      the daily comments-moderate sweep, but an offensive comment could be
+      visible for up to ~24h in that window. There is no member-facing
+      delete/edit of their own comments yet.
+    severity: MEDIUM
+    likelihood: MEDIUM
+    status: OPEN
+    owner: unassigned
+    detected: 2026-09-18
+    detected_by: Pre-launch review of the Signals hub build (D-INFRA-010)
+    mitigation: >
+      Sentinel alert on every hold; comments-admin delete is a one-line
+      PowerShell call; consider a member "report" button and a self-delete
+      path as a follow-up. Setting GHOST_ADMIN_API_KEY on Vercel would make
+      display names authoritative rather than client-supplied.
+    linked_requirements: [INFRA-STK-002, INFRA-SYS-014]
+
+  - id: RISK-INFRA-010
+    title: Watch video feed empty — YouTube RSS refresh silently returning nothing
+    description: >
+      qrx_feed_video held zero items on 2026-09-18 (updated stamp fresh, so
+      the refresh ran but selected nothing). The hub weaves videos into the
+      story stream, so this shows as "no videos" rather than an error.
+      Likely YouTube feed fetch/parse failure in news-refresh.js's Watch
+      section; not investigated in this session.
+    severity: LOW
+    likelihood: CONFIRMED
+    status: OPEN
+    owner: unassigned
+    detected: 2026-09-18
+    detected_by: signals-hub-feed response inspection during hub build
+    mitigation: "Check news-refresh.js Watch selection against the YouTube channel feeds; crawler.py's feed check could assert videos.length > 0."
+    linked_requirements: [INFRA-SYS-010]
+
+open_count: 5
 closed_count: 5

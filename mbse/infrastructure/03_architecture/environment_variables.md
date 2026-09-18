@@ -19,7 +19,9 @@ configured on each platform, not just grepping source.
 | `BLOB_STORE_ID` / `BLOB_WEBHOOK_PUBLIC_KEY` | Vercel's native Blob integration (`@vercel/blob`) | ✅ set — `BLOB_READ_WRITE_TOKEN` is not listed separately, consistent with the newer Vercel Blob integration injecting it at runtime without a visible top-level var |
 | `GEMINI_API_KEY` | fallback/shared key, some older endpoints | ✅ set |
 | `GEMINI_API_KEY_Chat` | `api/chat.js` — the "QRx Signal Analyst" widget | ✅ set |
-| `GEMINI_API_KEY_Forge` | `api/cartoon-refresh.js`, `api/meme-refresh.js` | ✅ set |
+| `GEMINI_API_KEY_Forge` | `api/cartoon-refresh.js`, `api/meme-refresh.js`, `api/comments.js` + `api/comments-moderate.js` (comment moderation, since 2026-09-18) | ✅ set |
+| `GHOST_URL` | `api/_lib/ghost-member.js` — site origin for JWKS fetch | ➖ not set; code defaults to `https://www.quantumrx.eu` (correct) |
+| `GHOST_ADMIN_URL` / `GHOST_ADMIN_API_KEY` | `api/_lib/ghost-member.js` — optional authoritative member display-name lookup for comments | ➖ **not set** (2026-09-18) — comments fall back to the client-supplied display name; identity itself is still JWKS-verified. Add `GHOST_ADMIN_API_KEY` (id:secret) to make names authoritative. |
 | `GEMINI_API_KEY_Game` | `api/game.js` — Break the Sentinel | ✅ set |
 | `GEMINI_API_KEY_Kernel` | Kernel Generator tool | ✅ set |
 | `ANTHROPIC_API_KEY` | — | ⚠️ **set but referenced by zero lines in `api/*.js`** — confirmed via `grep -rn ANTHROPIC_API_KEY api/*.js` returning nothing. Every page's "Claude writes the script" copy (the-strip.html, chat widget branding) is marketing language; the actual *deployed* generation is 100% Gemini on this stack. **Owner-confirmed 2026-07-20: intentional** — used occasionally for manual/ad hoc work outside the committed codebase, not dead config. |
