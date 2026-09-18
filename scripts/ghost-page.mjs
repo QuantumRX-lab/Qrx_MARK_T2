@@ -76,13 +76,18 @@ try {
     const page = await getPage(a);
     const file = backup(a, page);
     console.log(`backed up ${a} (${(page.html || "").length} chars) -> ${file}`);
-    // source=html makes Ghost convert the HTML into a Lexical document
-    // (script/style-bearing markup becomes an HTML card). updated_at is
-    // Ghost's collision check — it must match the current value.
-    const data = await api(`/pages/${page.id}/?source=html`, {
+    // Send a Lexical document containing ONE html card. Do NOT use
+    // ?source=html: Ghost's HTML->Lexical converter silently drops <style>
+    // and <script>, leaving an empty page (learned the hard way 2026-09-18).
+    // updated_at is Ghost's collision check — must match the current value.
+    const existingCard = (() => { try { return JSON.parse(page.lexical).root.children.find((c) => c.type === "html"); } catch { return null; } })();
+    const card = { type: "html", version: 1, html };
+    if (existingCard?.visibility) card.visibility = existingCard.visibility;
+    const lexical = JSON.stringify({ root: { children: [card], direction: null, format: "", indent: 0, type: "root", version: 1 } });
+    const data = await api(`/pages/${page.id}/?formats=html,lexical`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pages: [{ html, updated_at: page.updated_at }] }),
+      body: JSON.stringify({ pages: [{ lexical, updated_at: page.updated_at }] }),
     });
     const p = data.pages?.[0];
     console.log(JSON.stringify({ id: p.id, slug: p.slug, status: p.status, url: p.url, updated_at: p.updated_at, html_chars: (p.html || "").length }, null, 2));
