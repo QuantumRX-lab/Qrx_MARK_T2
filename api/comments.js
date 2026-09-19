@@ -61,7 +61,7 @@ function stripControl(s) {
 }
 
 function publicView(c) {
-  return { id: c.id, name: c.name, text: c.text, createdAt: c.createdAt, bot: !!c.bot, persona: c.persona || null };
+  return { id: c.id, name: c.name, text: c.text, createdAt: c.createdAt, bot: !!c.bot, persona: c.persona || null, replyTo: c.replyTo ? { name: c.replyTo.name } : null };
 }
 
 export async function loadThread(storyId, { includeHeld = false } = {}) {

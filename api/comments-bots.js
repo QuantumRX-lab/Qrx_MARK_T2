@@ -136,11 +136,64 @@ STORY TITLE: ${story.title}`;
   return String(out?.[0]?.comment || "").trim();
 }
 
-async function store(story, name, personaId, text, verdict, extra = {}) {
+// Replies: regulars return to threads from the last few days and answer a
+// specific earlier comment — agreeing, pushing back, or following up after
+// "thinking about it more". Stored with replyTo so the drawer can show it.
+const REPLY_WINDOW_MS = 4 * 24 * 60 * 60 * 1000;
+const REPLY_THREADS_PER_RUN = 6;
+
+async function recentSimThreads(feedByLink) {
+  const ids = (await kv.lrange("comments:recent", 0, 499)) || [];
+  if (!ids.length) return [];
+  const rows = (await kv.mget(...ids.map((id) => `comment:${id}`))).filter(Boolean)
+    .map((r) => (typeof r === "string" ? JSON.parse(r) : r));
+  const cutoff = Date.now() - REPLY_WINDOW_MS;
+  const links = [...new Set(rows.filter((c) => c.sim && c.status === "approved" && c.createdAt >= cutoff && feedByLink[c.storyId]).map((c) => c.storyId))];
+  const threads = [];
+  for (const link of shuffle(links).slice(0, REPLY_THREADS_PER_RUN * 2)) {
+    const thread = (await loadThread(link)).filter((c) => c.sim);
+    if (!thread.length) continue;
+    const last = thread[thread.length - 1];
+    const story = feedByLink[link];
+    const fans = REGULARS.filter((r) => r.id !== last.persona && (r.interests.includes(story.category) || Math.random() < 0.25));
+    if (!fans.length) continue;
+    // Reply to someone else in the thread, usually the most recent comment.
+    const others = thread.filter((c) => c.persona !== undefined);
+    const target = Math.random() < 0.7 ? last : others[Math.floor(Math.random() * others.length)];
+    const replier = shuffle(fans.filter((r) => r.id !== target.persona))[0];
+    if (!replier) continue;
+    threads.push({ story, thread, target, replier });
+    if (threads.length >= REPLY_THREADS_PER_RUN) break;
+  }
+  return threads;
+}
+
+async function writeReplies(threads, apiKey) {
+  const cast = REGULARS.map((r) => `- ${r.name}: ${r.voice}`).join("\n");
+  const blocks = threads.map((t, i) => `[${i}] STORY: ${t.story.title}
+SUMMARY: ${(t.story.article_summary || t.story.what_is_it || "").slice(0, 500)}
+THREAD SO FAR:
+${t.thread.slice(-6).map((c) => `    ${c.name}: "${c.text.slice(0, 260)}"`).join("\n")}
+REPLIER: ${t.replier.name}
+REPLYING TO: ${t.target.name} — "${t.target.text.slice(0, 260)}"`).join("\n\n");
+  const prompt = `Write replies in a technology news comment section, for an internal test of the comment system. The commenters are a fixed group of regular readers:
+
+${cast}
+
+For each thread, write ONE reply from REPLIER, directly responding to the REPLYING TO comment, in the replier's own voice. Mix it up across threads: some agree and add a point, some push back, some are a short follow-up ("coming back to this —", "fair point, although..."), some are one line. Start by addressing the person (e.g. "@quietquant ...") about half the time. Stay on the story; only use facts from the SUMMARY or the thread. No greetings, sign-offs, hashtags or emoji. Do not repeat what the other person said.
+
+Return ONLY a JSON array: [{"thread": <index>, "reply": "..."}]
+
+THREADS
+${blocks}`;
+  return gemini(prompt, apiKey, 0.9);
+}
+
+async function store(story, name, personaId, text, verdict, createdAt, extra = {}) {
   const comment = {
     id: randomUUID(), storyId: story.link, memberId: `sim:${personaId}`,
     name, bot: true, sim: true, persona: personaId, text,
-    createdAt: Date.now() - Math.floor(Math.random() * 3 * 60 * 60 * 1000),
+    createdAt: Math.min(createdAt, Date.now()),
     status: verdict.verdict === "hold" ? "held" : "approved",
     moderation: { checked: verdict.checked, reason: verdict.reason, at: Date.now() },
     ...extra,
@@ -153,6 +206,13 @@ async function store(story, name, personaId, text, verdict, extra = {}) {
   return comment;
 }
 
+// Timestamps rise through a thread so "@name" replies never predate the
+// comment they answer.
+function nextStamp(prev) {
+  const base = prev || Date.now() - (60 + Math.floor(Math.random() * 180)) * 60 * 1000;
+  return Math.min(Date.now(), base + (4 + Math.floor(Math.random() * 40)) * 60 * 1000);
+}
+
 export default async function handler(req, res) {
   await logRequest(req, "comments-bots");
   const expected = process.env.CRON_SECRET;
@@ -163,48 +223,71 @@ export default async function handler(req, res) {
   const apiKey = process.env.GEMINI_API_KEY_Forge;
   if (!apiKey) return res.status(500).json({ error: "Missing Gemini API key" });
   const t0 = Date.now();
+  // ?mode=replies runs only the reply pass (for extra check-ins during the day).
+  const mode = String(req.query?.mode || "all");
 
   try {
     const feed = await (await fetch(`https://${req.headers.host}/api/signals-hub-feed?sim=${t0}`, { signal: AbortSignal.timeout(20000) })).json();
-    const stories = pickStories(feed.items || []);
+    const feedByLink = Object.fromEntries((feed.items || []).filter((it) => !isSensitive(it)).map((it) => [it.link, it]));
+    let posted = 0, held = 0, replies = 0, stress = null, storiesTouched = 0;
 
-    const plan = [];
-    for (const story of stories) {
-      const existing = (await loadThread(story.link)).filter((c) => c.sim);
-      const already = new Set(existing.map((c) => c.persona));
-      const writers = interestedRegulars(story).filter((w) => !already.has(w.id) || Math.random() < 0.3);
-      if (writers.length) plan.push({ story, existing, writers });
-    }
-
-    let posted = 0, held = 0;
-    const drafts = plan.length ? await writeRegularComments(plan, apiKey) : [];
-    for (const d of drafts) {
-      if (posted + held >= MAX_COMMENTS_PER_RUN) break;
-      const p = plan[d.story];
-      const writer = p && REGULARS.find((r) => r.name === d.writer);
-      const text = String(d.comment || "").trim().slice(0, 1200);
-      if (!p || !writer || text.length < 8) continue;
-      const verdict = await moderate(text);
-      const c = await store(p.story, writer.name, writer.id, text, verdict);
-      c.status === "held" ? held++ : posted++;
-    }
-
-    // ~Half of runs, one stress-test account posts something the filter should catch.
-    let stress = null;
-    if (stories.length && Math.random() < 0.5) {
-      const account = STRESS[Math.floor(Math.random() * STRESS.length)];
-      const story = stories[Math.floor(Math.random() * stories.length)];
-      const text = (await writeStressComment(story, account, apiKey)).slice(0, 1200);
-      if (text) {
+    // 1. Replies to earlier threads first, so today's new comments aren't
+    //    immediately answered in the same breath.
+    const threads = await recentSimThreads(feedByLink);
+    if (threads.length) {
+      const drafts = await writeReplies(threads, apiKey);
+      for (const d of drafts) {
+        const t = threads[d.thread];
+        const text = String(d.reply || "").trim().slice(0, 1200);
+        if (!t || text.length < 4) continue;
         const verdict = await moderate(text);
-        const c = await store(story, account.name, account.id, text, verdict, { stressTest: account.kind });
-        stress = { account: account.name, kind: account.kind, caughtByFilter: c.status === "held", reason: verdict.reason };
+        const lastAt = t.thread[t.thread.length - 1].createdAt;
+        const c = await store(t.story, t.replier.name, t.replier.id, text, verdict, nextStamp(Math.max(lastAt, Date.now() - 30 * 60 * 1000)),
+          { replyTo: { id: t.target.id, name: t.target.name } });
+        c.status === "held" ? held++ : replies++;
+      }
+    }
+
+    if (mode !== "replies") {
+      // 2. New comments on today's stories.
+      const stories = pickStories(feed.items || []);
+      storiesTouched = stories.length;
+      const plan = [];
+      for (const story of stories) {
+        const existing = (await loadThread(story.link)).filter((c) => c.sim);
+        const already = new Set(existing.map((c) => c.persona));
+        const writers = interestedRegulars(story).filter((w) => !already.has(w.id) || Math.random() < 0.3);
+        if (writers.length) plan.push({ story, existing, writers, lastAt: existing.length ? existing[existing.length - 1].createdAt : 0 });
+      }
+      const drafts = plan.length ? await writeRegularComments(plan, apiKey) : [];
+      for (const d of drafts) {
+        if (posted + held >= MAX_COMMENTS_PER_RUN) break;
+        const p = plan[d.story];
+        const writer = p && REGULARS.find((r) => r.name === d.writer);
+        const text = String(d.comment || "").trim().slice(0, 1200);
+        if (!p || !writer || text.length < 8) continue;
+        const verdict = await moderate(text);
+        p.lastAt = nextStamp(p.lastAt);
+        const c = await store(p.story, writer.name, writer.id, text, verdict, p.lastAt);
+        c.status === "held" ? held++ : posted++;
+      }
+
+      // 3. ~Half of runs, one stress-test account posts something the filter should catch.
+      if (stories.length && Math.random() < 0.5) {
+        const account = STRESS[Math.floor(Math.random() * STRESS.length)];
+        const story = stories[Math.floor(Math.random() * stories.length)];
+        const text = (await writeStressComment(story, account, apiKey)).slice(0, 1200);
+        if (text) {
+          const verdict = await moderate(text);
+          const c = await store(story, account.name, account.id, text, verdict, nextStamp(0), { stressTest: account.kind });
+          stress = { account: account.name, kind: account.kind, caughtByFilter: c.status === "held", reason: verdict.reason };
+        }
       }
     }
 
     return res.status(200).json({
-      ok: true, elapsedMs: Date.now() - t0, stories: stories.length,
-      regularComments: { approved: posted, heldByFilter: held }, stressTest: stress
+      ok: true, mode, elapsedMs: Date.now() - t0, stories: storiesTouched,
+      replies, regularComments: { approved: posted, heldByFilter: held }, stressTest: stress,
     });
   } catch (err) {
     return res.status(500).json({ error: "sim run failed", detail: String(err?.message || err).slice(0, 200) });
