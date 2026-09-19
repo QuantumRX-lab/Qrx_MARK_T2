@@ -194,7 +194,7 @@ async function geminiSelectOutlet(items, source, tab, apiKey) {
 
   const pool = (recent.length ? recent : items).slice(0, 10);
   const list = pool.map((it, i) =>
-    `[${i}] TITLE: ${it.title}\nEXCERPT: ${it.description.slice(0, 200)}`
+    `[${i}] TITLE: ${it.title}\nEXCERPT: ${it.description.slice(0, 400)}`
   ).join("\n\n");
 
   const isFinance = tab === "finance";
@@ -204,7 +204,11 @@ async function geminiSelectOutlet(items, source, tab, apiKey) {
 
   const prompt = `You are a senior editor at a world news briefing. From these ${source} stories select the 3 most significant for a globally informed audience. Prioritise ${criteria}
 
-For each story write three short sections in plain, direct language:
+For each story write these sections in plain, direct language:
+
+ARTICLE SUMMARY (field article_summary): ONE flowing paragraph of 80-120 words that tells the whole story to someone who has not read it: what happened, the key specifics (who, what, how much, when), and why it is significant. Plain, direct prose. No bullet points, no headings, no "this article".
+
+BACKGROUND (field background): 2-4 sentences introducing the main company, organisation or people involved for a reader who has never heard of them: who they are, what they actually do, where they sit in their industry, and what makes them interesting or worth watching. Use only facts you are confident of. If you do not know an organisation, describe it from what the story itself says and do not invent figures, dates, funding amounts or names.
 
 WHAT IS IT: one sentence explaining what actually happened, no jargon, no assumed knowledge.
 
@@ -215,7 +219,7 @@ WHAT COULD HAPPEN NEXT: one sharp, checkable sentence on the signal to watch.
 Also assign a single category: World, Business, Policy, Energy, Conflict, Climate, or Science.
 
 Return ONLY a JSON array, no markdown. "title" must be copied EXACTLY from the TITLE of the story at that index, not paraphrased — it's used to verify the index is correct:
-[{"index": <number>, "title": "<exact story title>", "category": "<one of the list above>", "what_is_it": "...", "why_it_matters": "...", "what_next": "..."}]
+[{"index": <number>, "title": "<exact story title>", "category": "<one of the list above>", "article_summary": "...", "background": "...", "what_is_it": "...", "why_it_matters": "...", "what_next": "..."}]
 
 STORIES:
 ${list}`;
@@ -226,9 +230,9 @@ ${list}`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 1200, thinkingConfig: { thinkingBudget: 0 } },
+        generationConfig: { temperature: 0.3, maxOutputTokens: 4000, thinkingConfig: { thinkingBudget: 0 } },
       }),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(40000),
     });
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
@@ -238,6 +242,8 @@ ${list}`;
       .map(p => ({
         ...pool[p.index],
         category: p.category || "World",
+        article_summary: p.article_summary || "",
+        background: p.background || "",
         what_is_it: p.what_is_it,
         why_it_matters: p.why_it_matters || "",
         what_next: p.what_next || "",

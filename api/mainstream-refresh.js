@@ -191,12 +191,16 @@ async function geminiSelectOutlet(items, source, apiKey) {
   // Take up to 8 most recent from this outlet for Gemini to pick from
   const pool = (recent.length ? recent : items).slice(0, 8);
   const list = pool
-    .map((it, i) => `[${i}] TITLE: ${it.title}\nEXCERPT: ${it.description.slice(0, 200)}`)
+    .map((it, i) => `[${i}] TITLE: ${it.title}\nEXCERPT: ${it.description.slice(0, 400)}`)
     .join("\n\n");
 
   const prompt = `You are the editor of QuantumRx. From these ${source} stories, select the 2 most significant for a technically literate audience. Prioritise genuine news impact, policy implications, infrastructure shifts, and major company moves. Avoid opinion pieces, listicles, consumer how-to content, promo codes, discount offers, coupon articles, affiliate marketing content, and anything that is not genuine tech news.
 
-For each selected story write three short sections in plain, direct language that any intelligent reader can follow without a technical background:
+For each selected story write these sections in plain, direct language that any intelligent reader can follow without a technical background:
+
+ARTICLE SUMMARY (field article_summary): ONE flowing paragraph of 80-120 words that tells the whole story to someone who has not read it: what happened, the key specifics (who, what, how much, when), and why it is significant. Plain, direct prose. No bullet points, no headings, no "this article".
+
+BACKGROUND (field background): 2-4 sentences introducing the main company, organisation or people involved for a reader who has never heard of them: who they are, what they actually do, where they sit in their industry, and what makes them interesting or worth watching. Use only facts you are confident of. If you do not know an organisation, describe it from what the story itself says and do not invent figures, dates, funding amounts or names.
 
 WHAT IS IT: one sentence explaining what actually happened, no jargon, no assumed knowledge.
 
@@ -209,7 +213,7 @@ Also assign a single category: AI, Connectivity, Energy, Policy, Space, Crypto, 
 Do not use: it is worth noting, this underscores, in conclusion, it remains to be seen, the landscape, game changer, revolutionary, unpacked, delve, or exciting developments. Do not sound like an AI.
 
 Return ONLY a JSON array, no markdown, no preamble. "title" must be copied EXACTLY from the TITLE of the story at that index, not paraphrased — it's used to verify the index is correct:
-[{"index": <number>, "title": "<exact story title>", "category": "<one of the list above>", "what_is_it": "...", "why_it_matters": "...", "what_next": "..."}]
+[{"index": <number>, "title": "<exact story title>", "category": "<one of the list above>", "article_summary": "...", "background": "...", "what_is_it": "...", "why_it_matters": "...", "what_next": "..."}]
 
 STORIES:
 ${list}`;
@@ -222,11 +226,11 @@ ${list}`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 1500,
+          maxOutputTokens: 4000,
           thinkingConfig: { thinkingBudget: 0 },
         },
       }),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(40000),
     });
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
@@ -237,6 +241,8 @@ ${list}`;
       .map((p) => ({
         ...pool[p.index],
         category: p.category || "World",
+        article_summary: p.article_summary || "",
+        background: p.background || "",
         what_is_it: p.what_is_it,
         why_it_matters: p.why_it_matters || "",
         what_next: p.what_next || "",

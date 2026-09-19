@@ -66,6 +66,8 @@ function shape(it, category, subcategory, feed) {
     link: it.link || it.url || "",
     description: it.description || "",
     summary: it.summary || "",
+    article_summary: it.article_summary || "",
+    background: it.background || "",
     what_is_it: it.what_is_it || "",
     why_it_matters: it.why_it_matters || "",
     what_next: it.what_next || it.what_to_watch || "",

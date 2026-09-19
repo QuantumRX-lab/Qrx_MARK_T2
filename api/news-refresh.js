@@ -546,19 +546,21 @@ async function geminiEditorialCards(stories, apiKey) {
   if (!stories.length) return stories;
 
   const list = stories
-    .map((s, i) => `[${i}] TITLE: ${s.title}\nSUMMARY: ${s.summary || s.description || ''}`)
+    .map((s, i) => `[${i}] TITLE: ${s.title}\nSOURCE: ${s.source || ''}\nEXCERPT: ${(s.description || s.summary || '').slice(0, 600)}`)
     .join('\n\n');
 
   const prompt = `You are the editor of QuantumRx Signals. For each story below, write an editorial card in the voice of a sharp technical analyst. No hype, no filler. Direct and concrete.
 
 For each story return:
+- article_summary: ONE flowing paragraph of 80-120 words that tells the whole story to someone who has not read it: what happened, the key specifics (who, what, how much, when), and why it is significant. Plain, direct prose. No bullet points, no headings, no "this article".
+- background: 2-4 sentences introducing the main company, organisation or people involved for a reader who has never heard of them: who they are, what they actually do, where they sit in their industry, and what makes them interesting or worth watching. Use only facts you are confident of. If you do not know an organisation, describe it from what the story itself says and do not invent figures, dates, funding amounts or names.
 - what_is_it: One sentence. What happened or what is this. State the fact.
 - why_it_matters: One to two sentences. Why this is significant for engineers, founders, or operators in this space.
 - what_to_watch: One sentence. The specific thing to watch next. Make it a concrete, checkable signal.
 - hot_take: One sentence of genuine editorial opinion on this story. This is QuantumRx's own take, not a summary of the news. Let the tone fit the story itself — skeptical of hype, bullish on something underrated, dismissive of a non-event, or a sharp prediction. Vary the angle story to story rather than repeating the same posture. Never hedge with phrases like "some say", "it remains to be seen", or "only time will tell".
 
 Return ONLY a JSON array, no markdown, no preamble:
-[{"index": <number>, "what_is_it": "...", "why_it_matters": "...", "what_to_watch": "...", "hot_take": "..."}]
+[{"index": <number>, "article_summary": "...", "background": "...", "what_is_it": "...", "why_it_matters": "...", "what_to_watch": "...", "hot_take": "..."}]
 
 STORIES:
 ${list}`;
@@ -571,11 +573,11 @@ ${list}`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.5,
-          maxOutputTokens: 2400,
+          maxOutputTokens: 7000,
           thinkingConfig: { thinkingBudget: 0 },
         },
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(45000),
     });
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
@@ -586,6 +588,8 @@ ${list}`;
       if (!card) return s;
       return {
         ...s,
+        article_summary: card.article_summary || '',
+        background: card.background || '',
         what_is_it: card.what_is_it || '',
         why_it_matters: card.why_it_matters || '',
         what_to_watch: card.what_to_watch || '',
