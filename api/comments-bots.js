@@ -31,8 +31,19 @@ export const PERSONAS = [
     brief: "You place the story in a longer pattern: where a similar move has been seen before in technology or industry, how it played out, and what that suggests here. Only cite precedents you are confident are real." },
 ];
 
+// Personas stay out of stories about human suffering: an AI adding "takes"
+// on outbreaks, war or deaths reads as glib however carefully it's written.
+// Whole categories are skipped, plus a keyword screen for anything sensitive
+// that lands in an otherwise-fine category (owner decision 2026-09-19).
+const SKIP_CATEGORIES = new Set(["Conflict", "World"]);
+const SENSITIVE = /\b(kill(ed|s|ing)?|dead|deaths?|dies|died|casualt|massacre|murder|shooting|bomb(ing|ed)?|air ?strikes?|missile|war\b|invasion|genocide|terror|hostage|outbreak|ebola|epidemic|pandemic|famine|earthquake|flood(s|ing)?|wildfire|hurricane|cyclone|tsunami|crash(ed)?\b|victims?|suicide|abuse|assault|rape|refugee|funeral|mourning)/i;
+export function isSensitive(it) {
+  if (SKIP_CATEGORIES.has(it.category) || SKIP_CATEGORIES.has(it.subcategory)) return true;
+  return SENSITIVE.test(`${it.title} ${it.article_summary || ""} ${it.what_is_it || ""}`);
+}
+
 function pickStories(items) {
-  const usable = items.filter((it) => it.link && (it.article_summary || it.what_is_it));
+  const usable = items.filter((it) => it.link && (it.article_summary || it.what_is_it) && !isSensitive(it));
   const picked = [], seen = new Set();
   const take = (it) => { if (it && !seen.has(it.link) && picked.length < MAX_PER_RUN) { seen.add(it.link); picked.push(it); } };
   usable.filter((it) => it.hot).forEach(take);
