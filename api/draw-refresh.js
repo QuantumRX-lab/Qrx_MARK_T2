@@ -208,7 +208,7 @@ For each story write these sections in plain, direct language:
 
 ARTICLE SUMMARY (field article_summary): ONE flowing paragraph of 80-120 words that tells the whole story to someone who has not read it: what happened, the key specifics (who, what, how much, when), and why it is significant. Plain, direct prose. No bullet points, no headings, no "this article".
 
-BACKGROUND (field background): 2-4 sentences introducing the main company, organisation or people involved for a reader who has never heard of them: who they are, what they actually do, where they sit in their industry, and what makes them interesting or worth watching. Use only facts you are confident of. If you do not know an organisation, describe it from what the story itself says and do not invent figures, dates, funding amounts or names.
+BACKGROUND (field background): 2-4 sentences introducing the main company, organisation or people involved for a reader who has never heard of them: who they are, what they actually do, where they sit in their industry, and what makes them interesting or worth watching. Use only facts you are confident of. If you do not know an organisation, describe it from what the story itself says and do not invent figures, dates, funding amounts or names. NEVER expand or spell out an acronym or abbreviated company name (write "SEOPS", not what you think it stands for) unless the expansion appears word-for-word in the story text provided.
 
 WHAT IS IT: one sentence explaining what actually happened, no jargon, no assumed knowledge.
 
