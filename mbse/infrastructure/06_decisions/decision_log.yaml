@@ -187,3 +187,20 @@ decisions:
       New /news/ URL with three redirects (more churn, weaker SEO carry-over);
       third-party comment embed (separate identity from Ghost members);
       per-tab re-fetch model of the old pages (13 reads per view).
+
+  - id: D-INFRA-011
+    date: 2026-09-19
+    title: AI comment personas are always disclosed, never posed as members
+    decision: >
+      api/comments-bots.js posts as three named personas (The Skeptic, The
+      Operator, The Historian), stored with bot:true and rendered with an
+      "AI analyst" badge plus an explanatory note in the drawer. Max 12
+      stories/day, one bot comment per story, same moderation as members,
+      excluded from member-activity counts in the moderation digest.
+    rationale: >
+      Owner asked for bots to seed discussion. Undisclosed synthetic
+      engagement would poison trust in real members' comments and carries
+      platform/consumer-law exposure; labelled analyst personas deliver the
+      same cold-start benefit as an honest feature. Owner agreed 2026-09-19.
+    alternatives_rejected: >
+      Bots presented as ordinary members (deceptive — declined).
