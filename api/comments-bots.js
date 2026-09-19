@@ -1,57 +1,75 @@
 // api/comments-bots.js
-// QuantumRx's AI analyst personas — openly labelled bots that seed discussion
-// on the day's top stories. Runs in cron-daily PHASE2 (after the refreshes).
+// Simulated regular readers for testing live comments + moderation while the
+// site is in Ghost private mode (owner decision 2026-09-19, D-INFRA-012).
+// Comments are stored with sim:true as an INTERNAL marker only (digest
+// separation, bulk cleanup) — they are not labelled on the page. If the site
+// ever goes public again, disable this job or reinstate disclosure first.
 //
-// Disclosure is the design constraint: every comment is stored with
-// bot:true + persona and the drawer renders an "AI analyst" badge. These
-// never pose as members (D-INFRA-011) — a reader must always be able to tell
-// a persona from a person.
-//
-// Per run: up to MAX_PER_RUN stories (hot picks first, then one per category
-// round-robin), at most ONE bot comment per story ever (nx key, 7d), personas
-// rotated by day so threads don't look templated. Comments are grounded only
-// in the story's own article_summary/background, go through the same Gemini
-// moderation as member comments, and anything held is simply dropped.
-// Remove any of them with comments-admin {action:"delete"}.
+// A fixed cast of regulars with stable usernames, interests and voices come
+// back each day to stories that suit them, sometimes replying to each other.
+// Two stress-test accounts post deliberately bad comments now and then so the
+// moderation filter has something to catch; those land in the held queue
+// exactly as a real bad comment would.
+// Runs in cron-daily PHASE2. Admin: comments-admin (view=held / recent).
 
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { kv } from "@vercel/kv";
 import { logRequest, blockThreat } from "./_lib/sentinel.js";
-import { storyKey, moderate } from "./comments.js";
+import { storyKey, moderate, loadThread } from "./comments.js";
 
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
-const MAX_PER_RUN = 12;
+const STORIES_PER_RUN = 8;
+const MAX_COMMENTS_PER_RUN = 16;
 
-export const PERSONAS = [
-  { id: "skeptic", name: "The Skeptic",
-    brief: "You probe hype. You ask what is unproven, missing, or conveniently left out of the story, and what evidence would change your mind. Dry, fair, never sneering." },
-  { id: "operator", name: "The Operator",
-    brief: "You think like someone who has to build, buy, or deploy this. You care about cost, timelines, integration pain, supply and who actually signs the cheque. Practical and concrete." },
-  { id: "historian", name: "The Historian",
-    brief: "You place the story in a longer pattern: where a similar move has been seen before in technology or industry, how it played out, and what that suggests here. Only cite precedents you are confident are real." },
+export const REGULARS = [
+  { id: "tomas_builds", name: "tomas_builds", interests: ["Robotics", "Chips & Quantum", "AI"],
+    voice: "Hardware tinkerer in Rotterdam, builds robots in his garage. Short, practical sentences. Asks how things actually get built and what they cost. Occasionally mentions his own projects in passing." },
+  { id: "quietquant", name: "quietquant", interests: ["Markets", "AI", "Chips & Quantum"],
+    voice: "Ex-trader, now does independent research. Dry, sceptical of valuations and hype cycles, thinks in terms of margins and who pays. Never uses exclamation marks." },
+  { id: "dr_elin", name: "Elin M.", interests: ["AI", "Chips & Quantum", "Science"],
+    voice: "Postdoc in applied physics. Careful and precise, separates what is demonstrated from what is claimed. Warm but will politely correct a sloppy take." },
+  { id: "gridwatcher", name: "gridwatcher", interests: ["Energy & Climate", "Policy", "Markets"],
+    voice: "Grid engineer at a UK distribution network operator. Pragmatic, a bit weary. Always comes back to connection queues, transmission capacity and planning timelines." },
+  { id: "orbit_nerd", name: "orbit_nerd", interests: ["Space", "Robotics", "Science"],
+    voice: "Space enthusiast, watches every launch. Writes casually, mostly lowercase, genuinely excited, the occasional 'honestly' or 'ngl'. Knows launch vehicles well." },
+  { id: "policy_kat", name: "Kat R.", interests: ["Policy", "AI", "Social"],
+    voice: "Works in EU tech policy in Brussels. Measured, pays attention to regulation, enforcement and who writes the rules. Occasionally wry." },
+  { id: "mira_dev", name: "mira.dev", interests: ["AI", "Social", "Connectivity"],
+    voice: "Backend developer who uses AI coding tools daily. Cynical humour, impatient with marketing speak, but will say when something is genuinely useful." },
 ];
 
-// Personas stay out of stories about human suffering: an AI adding "takes"
-// on outbreaks, war or deaths reads as glib however carefully it's written.
-// Whole categories are skipped, plus a keyword screen for anything sensitive
-// that lands in an otherwise-fine category (owner decision 2026-09-19).
+// Deliberately bad accounts for exercising the filter. Their comments are
+// expected to be HELD by moderation; if one ever gets through, that's a
+// moderation gap worth seeing.
+const STRESS = [
+  { id: "cheap_gpu_deals", name: "cheap_gpu_deals", kind: "spam",
+    brief: "An obvious spam comment advertising discounted GPUs or a crypto giveaway, with a made-up link such as example-deals.biz. Nothing to do with the story." },
+  { id: "rant_mode", name: "rant_mode", kind: "abuse",
+    brief: "A hostile, insulting comment attacking the other commenters as idiots. Rude but NOT hateful toward any protected group, no slurs, no threats." },
+];
+
+// Same sensitivity screen as before: no simulated chatter under stories about
+// human suffering.
 const SKIP_CATEGORIES = new Set(["Conflict", "World"]);
 const SENSITIVE = /\b(kill(ed|s|ing)?|dead|deaths?|dies|died|casualt|massacre|murder|shooting|bomb(ing|ed)?|air ?strikes?|missile|war\b|invasion|genocide|terror|hostage|outbreak|ebola|epidemic|pandemic|famine|earthquake|flood(s|ing)?|wildfire|hurricane|cyclone|tsunami|crash(ed)?\b|victims?|suicide|abuse|assault|rape|refugee|funeral|mourning)/i;
-export function isSensitive(it) {
+function isSensitive(it) {
   if (SKIP_CATEGORIES.has(it.category) || SKIP_CATEGORIES.has(it.subcategory)) return true;
   return SENSITIVE.test(`${it.title} ${it.article_summary || ""} ${it.what_is_it || ""}`);
 }
 
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
 function pickStories(items) {
   const usable = items.filter((it) => it.link && (it.article_summary || it.what_is_it) && !isSensitive(it));
-  const picked = [], seen = new Set();
-  const take = (it) => { if (it && !seen.has(it.link) && picked.length < MAX_PER_RUN) { seen.add(it.link); picked.push(it); } };
-  usable.filter((it) => it.hot).forEach(take);
-  const byCat = {};
-  usable.filter((it) => !it.hot && it.category).forEach((it) => { (byCat[it.category] = byCat[it.category] || []).push(it); });
-  const cats = Object.keys(byCat);
-  for (let round = 0; picked.length < MAX_PER_RUN && round < 3; round++) cats.forEach((c) => take(byCat[c][round]));
-  return picked;
+  const hot = usable.filter((it) => it.hot);
+  const rest = shuffle(usable.filter((it) => !it.hot));
+  return [...hot.slice(0, 3), ...rest].slice(0, STORIES_PER_RUN);
+}
+
+function interestedRegulars(story) {
+  const fans = REGULARS.filter((r) => r.interests.includes(story.category));
+  const pool = fans.length ? fans : REGULARS;
+  return shuffle([...pool]).slice(0, 1 + Math.floor(Math.random() * Math.min(3, pool.length)));
 }
 
 function extractJSON(text) {
@@ -61,41 +79,78 @@ function extractJSON(text) {
   return bracket ? bracket[1].trim() : text.trim();
 }
 
-async function writeComments(jobs, apiKey) {
-  const list = jobs.map((j, i) =>
-    `[${i}] PERSONA: ${j.persona.name}\nTITLE: ${j.story.title}\nSTORY: ${(j.story.article_summary || [j.story.what_is_it, j.story.why_it_matters].join(" ")).slice(0, 900)}\nBACKGROUND: ${(j.story.background || "").slice(0, 500)}`
-  ).join("\n\n");
-  const personas = PERSONAS.map((p) => `${p.name}: ${p.brief}`).join("\n");
-  const prompt = `You write short reader-style comments for QuantumRx, a technology intelligence site. Each comment is posted under a clearly labelled AI analyst persona.
-
-PERSONAS
-${personas}
-
-For each story below, write ONE comment in the voice of the persona named for that story.
-Rules:
-- 2 to 4 sentences, conversational, no greeting, no sign-off, no hashtags, no emoji.
-- Ground every claim in the STORY and BACKGROUND text given. Do not add facts, figures, names or dates that are not there. Never expand an acronym unless the expansion appears in the text.
-- Offer a genuine angle, not a recap of the story.
-- End with a real question that invites other readers to reply.
-- Do not mention being an AI; the label is shown separately.
-- Banned phrases: game changer, it remains to be seen, only time will tell, delve, landscape.
-
-Return ONLY a JSON array: [{"index": <number>, "comment": "..."}]
-
-STORIES
-${list}`;
+async function gemini(prompt, apiKey, temperature) {
   const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.8, maxOutputTokens: 4000, thinkingConfig: { thinkingBudget: 0 } },
+      generationConfig: { temperature, maxOutputTokens: 6000, thinkingConfig: { thinkingBudget: 0 } },
     }),
-    signal: AbortSignal.timeout(40000),
+    signal: AbortSignal.timeout(45000),
   });
   const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-  return JSON.parse(extractJSON(text));
+  return JSON.parse(extractJSON(data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]"));
+}
+
+async function writeRegularComments(plan, apiKey) {
+  const cast = REGULARS.map((r) => `- ${r.name}: ${r.voice}`).join("\n");
+  const blocks = plan.map((p, i) => {
+    const existing = p.existing.length
+      ? p.existing.slice(-4).map((c) => `    ${c.name}: "${c.text.slice(0, 220)}"`).join("\n")
+      : "    (no comments yet)";
+    return `[${i}] TITLE: ${p.story.title}
+STORY: ${(p.story.article_summary || [p.story.what_is_it, p.story.why_it_matters].join(" ")).slice(0, 800)}
+EXISTING COMMENTS:
+${existing}
+WRITERS (in order): ${p.writers.map((w) => w.name).join(", ")}`;
+  }).join("\n\n");
+
+  const prompt = `Write realistic reader comments for a technology news site's comment section, for an internal test of the comment system. The commenters are a fixed group of regular readers:
+
+${cast}
+
+For each story, write one comment per listed writer, in order, each in that person's own voice. Make it read like a real comment section:
+- Vary length a lot: some are one short line, some are 3-4 sentences.
+- React to the story with an actual opinion; do not summarise it.
+- Later writers may respond to earlier comments (address them by name, e.g. "@quietquant fair, but...") and they do not always agree.
+- Do not end every comment with a question. No greetings, sign-offs, hashtags or emoji.
+- Only reference facts that are in the STORY text. Do not invent figures, names or dates. Never expand an acronym unless the text does.
+- Avoid: game changer, it remains to be seen, only time will tell, delve, landscape.
+
+Return ONLY a JSON array: [{"story": <index>, "writer": "<name>", "comment": "..."}]
+
+STORIES
+${blocks}`;
+  return gemini(prompt, apiKey, 0.9);
+}
+
+async function writeStressComment(story, account, apiKey) {
+  const prompt = `This is a test fixture for a comment moderation filter. Write ONE comment for the story below as described, so we can confirm the filter catches it.
+Description: ${account.brief}
+Keep it under 50 words.
+Return ONLY a JSON array: [{"comment": "..."}]
+
+STORY TITLE: ${story.title}`;
+  const out = await gemini(prompt, apiKey, 0.9);
+  return String(out?.[0]?.comment || "").trim();
+}
+
+async function store(story, name, personaId, text, verdict, extra = {}) {
+  const comment = {
+    id: randomUUID(), storyId: story.link, memberId: `sim:${personaId}`,
+    name, bot: true, sim: true, persona: personaId, text,
+    createdAt: Date.now() - Math.floor(Math.random() * 3 * 60 * 60 * 1000),
+    status: verdict.verdict === "hold" ? "held" : "approved",
+    moderation: { checked: verdict.checked, reason: verdict.reason, at: Date.now() },
+    ...extra,
+  };
+  await kv.set(`comment:${comment.id}`, JSON.stringify(comment));
+  await kv.rpush(storyKey(story.link), comment.id);
+  await kv.lpush("comments:recent", comment.id);
+  await kv.ltrim("comments:recent", 0, 999);
+  if (comment.status === "held") await kv.lpush("comments:held", comment.id);
+  return comment;
 }
 
 export default async function handler(req, res) {
@@ -110,46 +165,48 @@ export default async function handler(req, res) {
   const t0 = Date.now();
 
   try {
-    const feedRes = await fetch(`https://${req.headers.host}/api/signals-hub-feed?bots=${t0}`, { signal: AbortSignal.timeout(20000) });
-    const feed = await feedRes.json();
-    const candidates = pickStories(feed.items || []);
+    const feed = await (await fetch(`https://${req.headers.host}/api/signals-hub-feed?sim=${t0}`, { signal: AbortSignal.timeout(20000) })).json();
+    const stories = pickStories(feed.items || []);
 
-    // Claim each story first (nx) so a re-run the same week never double-posts.
-    const dayOffset = Math.floor(t0 / 86400000);
-    const jobs = [];
-    for (const story of candidates) {
-      const claim = `botcomment:${createHash("sha256").update(story.link).digest("hex")}`;
-      const ok = await kv.set(claim, "1", { nx: true, ex: 7 * 24 * 60 * 60 });
-      if (ok) jobs.push({ story, claim, persona: PERSONAS[(jobs.length + dayOffset) % PERSONAS.length] });
+    const plan = [];
+    for (const story of stories) {
+      const existing = (await loadThread(story.link)).filter((c) => c.sim);
+      const already = new Set(existing.map((c) => c.persona));
+      const writers = interestedRegulars(story).filter((w) => !already.has(w.id) || Math.random() < 0.3);
+      if (writers.length) plan.push({ story, existing, writers });
     }
-    if (!jobs.length) return res.status(200).json({ ok: true, posted: 0, note: "all candidate stories already have a bot comment" });
 
-    const drafts = await writeComments(jobs, apiKey);
-    let posted = 0, dropped = 0;
+    let posted = 0, held = 0;
+    const drafts = plan.length ? await writeRegularComments(plan, apiKey) : [];
     for (const d of drafts) {
-      const job = jobs[d.index];
+      if (posted + held >= MAX_COMMENTS_PER_RUN) break;
+      const p = plan[d.story];
+      const writer = p && REGULARS.find((r) => r.name === d.writer);
       const text = String(d.comment || "").trim().slice(0, 1200);
-      if (!job || text.length < 40) { dropped++; continue; }
+      if (!p || !writer || text.length < 8) continue;
       const verdict = await moderate(text);
-      if (verdict.verdict === "hold") { dropped++; continue; }
-      const comment = {
-        id: randomUUID(), storyId: job.story.link, memberId: `bot:${job.persona.id}`,
-        name: job.persona.name, bot: true, persona: job.persona.id, text,
-        createdAt: Date.now(), status: "approved",
-        moderation: { checked: verdict.checked, reason: verdict.reason, at: Date.now() },
-      };
-      await kv.set(`comment:${comment.id}`, JSON.stringify(comment));
-      await kv.rpush(storyKey(job.story.link), comment.id);
-      await kv.lpush("comments:recent", comment.id);
-      await kv.ltrim("comments:recent", 0, 999);
-      posted++;
-      job.done = true;
+      const c = await store(p.story, writer.name, writer.id, text, verdict);
+      c.status === "held" ? held++ : posted++;
     }
-    // Release claims for stories that ended up with nothing, so tomorrow can retry.
-    await Promise.all(jobs.filter((j) => !j.done).map((j) => kv.del(j.claim).catch(() => {})));
 
-    return res.status(200).json({ ok: true, elapsedMs: Date.now() - t0, candidates: candidates.length, attempted: jobs.length, posted, dropped });
+    // ~Half of runs, one stress-test account posts something the filter should catch.
+    let stress = null;
+    if (stories.length && Math.random() < 0.5) {
+      const account = STRESS[Math.floor(Math.random() * STRESS.length)];
+      const story = stories[Math.floor(Math.random() * stories.length)];
+      const text = (await writeStressComment(story, account, apiKey)).slice(0, 1200);
+      if (text) {
+        const verdict = await moderate(text);
+        const c = await store(story, account.name, account.id, text, verdict, { stressTest: account.kind });
+        stress = { account: account.name, kind: account.kind, caughtByFilter: c.status === "held", reason: verdict.reason };
+      }
+    }
+
+    return res.status(200).json({
+      ok: true, elapsedMs: Date.now() - t0, stories: stories.length,
+      regularComments: { approved: posted, heldByFilter: held }, stressTest: stress
+    });
   } catch (err) {
-    return res.status(500).json({ error: "bot run failed", detail: String(err?.message || err).slice(0, 200) });
+    return res.status(500).json({ error: "sim run failed", detail: String(err?.message || err).slice(0, 200) });
   }
 }
