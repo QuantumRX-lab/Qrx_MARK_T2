@@ -204,3 +204,29 @@ decisions:
       same cold-start benefit as an honest feature. Owner agreed 2026-09-19.
     alternatives_rejected: >
       Bots presented as ordinary members (deceptive — declined).
+
+  - id: D-INFRA-012
+    date: 2026-09-19
+    title: Simulated regular readers for comment testing, only while the site is private
+    decision: >
+      comments-bots.js now runs a fixed cast of seven simulated regulars
+      (stable usernames/voices/interests) who comment and reply to each other
+      across days, plus two stress-test accounts (spam, abuse) that exercise
+      the moderation filter. Comments carry sim:true as an internal marker
+      and, once the owner switches Ghost to private mode, are shown without
+      a label. Supersedes the disclosure requirement of D-INFRA-011 ONLY for
+      the private-mode period.
+    rationale: >
+      Owner wants to test live commenting and filtering on a site no one else
+      uses. Unlabelled simulated users are acceptable only while no real
+      member of the public can see them; the badge-free drawer is therefore
+      held back until private mode is confirmed live.
+    constraints: >
+      If the site returns to public, disable comments-bots in cron-daily or
+      reinstate the AI label before doing so. sim comments can be bulk-removed
+      via comments-admin using the sim marker.
+    finding: >
+      First stress run exposed a real filter gap — personal insults at other
+      commenters were allowed as "strong opinion". Both moderation prompts
+      tightened (commit c6a87b8); re-test held the insult and still passed
+      sharp-but-fair criticism.

@@ -5,7 +5,9 @@ those belong to their own history). Newest first.
 
 ## 2026-09-19
 - Story cards now carry an AI-written `article_summary` paragraph and `background` ("Who’s involved") from all three refresh jobs; prompts forbid expanding acronyms unless the source text does (commits `7281be5`, `883ee91`).
-- `api/comments-bots.js` added to cron-daily PHASE2 — disclosed AI analyst personas (D-INFRA-011), commit `7f90185`.
+- `api/comments-bots.js` added to cron-daily PHASE2 — disclosed AI analyst personas (D-INFRA-011), commit `7f90185`; later the same day replaced by simulated regulars with cross-day replies and filter stress tests for private-mode testing (D-INFRA-012, commits `bc54c10`, `07e2355`).
+- Moderation prompts now hold personal attacks on commenters; `comments-admin` gains `remoderate` (commit `c6a87b8`).
+- Ghost `/products/` page set to draft (owner intent; earlier unpublish had not saved).
 
 ## 2026-09-18
 - Signals hub consolidation (D-INFRA-010): new `api/signals-hub-feed.js` (one aggregate read, ICD-INFRA-006); `api/comments.js` rebuilt with JWKS-verified Ghost member identity, Gemini moderation, per-IP/per-member limits (ICD-INFRA-007, INFRA-SYS-014); `api/comments-admin.js` and `api/comments-moderate.js` added, the latter wired into `cron-daily` PHASE2; `sentinel.js` now exports `raiseAlert`. Commits `2f94aef`, `171afc8`.
