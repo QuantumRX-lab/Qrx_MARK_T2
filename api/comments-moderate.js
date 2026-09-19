@@ -49,7 +49,10 @@ export default async function handler(req, res) {
 
   const recentIds = (await kv.lrange("comments:recent", 0, 499)) || [];
   const rows = recentIds.length ? await kv.mget(...recentIds.map((id) => `comment:${id}`)) : [];
-  const comments = rows.filter(Boolean).map((r) => (typeof r === "string" ? JSON.parse(r) : r));
+  const all = rows.filter(Boolean).map((r) => (typeof r === "string" ? JSON.parse(r) : r));
+  // AI analyst personas are excluded from member activity counts and re-checks.
+  const comments = all.filter((c) => !c.bot);
+  const botsLast24h = all.filter((c) => c.bot && c.createdAt >= since).length;
 
   let rechecked = 0, newlyHeld = 0;
   for (const c of comments) {
@@ -82,6 +85,7 @@ export default async function handler(req, res) {
       held: comments.filter((c) => c.createdAt >= since && c.status === "held").length,
       uniqueMembers: new Set(comments.filter((c) => c.createdAt >= since).map((c) => c.memberId)).size,
     },
+    aiAnalystComments24h: botsLast24h,
     sweep: { rechecked, newlyHeld },
     awaitingReview: held,
   };
