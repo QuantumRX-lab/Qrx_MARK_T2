@@ -4,7 +4,9 @@
 //   GET  ?view=held            -> comments awaiting review (default)
 //   GET  ?view=recent&limit=50 -> newest comments, any status
 //   GET  ?view=story&storyId=  -> full thread incl. held
-//   POST {action:"delete"|"approve"|"hold", id}
+//   POST {action:"delete"|"approve"|"hold"|"remoderate", id}
+//   remoderate re-runs the current Gemini filter and applies its verdict —
+//   handy after changing the moderation prompt.
 //
 // Quick delete from PowerShell:
 //   Invoke-RestMethod -Method Post -Uri "https://forge.quantumrx.eu/api/comments-admin" `
@@ -13,7 +15,7 @@
 
 import { kv } from "@vercel/kv";
 import { logRequest, blockThreat } from "./_lib/sentinel.js";
-import { storyKey, loadThread } from "./comments.js";
+import { storyKey, loadThread, moderate } from "./comments.js";
 
 async function getComment(id) {
   const raw = await kv.get(`comment:${id}`);
@@ -60,8 +62,8 @@ export default async function handler(req, res) {
     let body = req.body;
     if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
     const { action, id } = body || {};
-    if (!id || !["delete", "approve", "hold"].includes(action)) {
-      return res.status(400).json({ error: "action (delete|approve|hold) and id required" });
+    if (!id || !["delete", "approve", "hold", "remoderate"].includes(action)) {
+      return res.status(400).json({ error: "action (delete|approve|hold|remoderate) and id required" });
     }
     const comment = await getComment(id);
     if (!comment) return res.status(404).json({ error: "Comment not found" });
@@ -72,6 +74,16 @@ export default async function handler(req, res) {
       await kv.lrem("comments:recent", 0, id);
       await kv.lrem("comments:held", 0, id);
       return res.status(200).json({ ok: true, action, id });
+    }
+
+    if (action === "remoderate") {
+      const verdict = await moderate(comment.text);
+      comment.status = verdict.verdict === "hold" ? "held" : "approved";
+      comment.moderation = { checked: verdict.checked, reason: verdict.reason, at: Date.now(), remoderated: true };
+      await kv.set(`comment:${id}`, JSON.stringify(comment));
+      await kv.lrem("comments:held", 0, id);
+      if (comment.status === "held") await kv.lpush("comments:held", id);
+      return res.status(200).json({ ok: true, action, id, status: comment.status, reason: verdict.reason });
     }
 
     comment.status = action === "approve" ? "approved" : "held";
