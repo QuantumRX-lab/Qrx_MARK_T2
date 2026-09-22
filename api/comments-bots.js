@@ -57,6 +57,46 @@ function isSensitive(it) {
   return SENSITIVE.test(`${it.title} ${it.article_summary || ""} ${it.what_is_it || ""}`);
 }
 
+// Recent Ghost articles ("Featured Articles" on the homepage). Only posts from
+// the last ARTICLE_WINDOW_DAYS; read-only Content API key (GHOST_CONTENT_API_KEY).
+// Articles have no tags, so interests are matched by keyword.
+const ARTICLE_WINDOW_DAYS = 7;
+const CONTENT_URL = (process.env.GHOST_CONTENT_URL || "https://quantumrx.ghost.io").replace(/\/$/, "");
+const TOPIC_WORDS = [
+  ["Space", /\b(space|spacex|starship|starlink|rocket|launch|orbit|satellite|nasa|esa)\b/i],
+  ["Chips & Quantum", /\b(chip|chips|semiconductor|gpu|nvidia|tsmc|quantum|qubit)\b/i],
+  ["Robotics", /\b(robot|robots|robotics|humanoid|drone|autonomous)\b/i],
+  ["Energy & Climate", /\b(energy|grid|solar|wind|battery|nuclear|climate|power)\b/i],
+  ["Markets", /\b(ipo|invest|investor|valuation|market|stock|funding|revenue)\b/i],
+  ["Policy", /\b(regulat\w*|policy|law|government|safety|treaty|agree\w*|oversight)\b/i],
+  ["AI", /\b(ai|model|models|llm|agent|agents|openai|anthropic|deepmind|lab|labs)\b/i],
+];
+function guessCategory(text) {
+  let best = "AI", bestN = 0;
+  for (const [cat, re] of TOPIC_WORDS) {
+    const n = (String(text).match(new RegExp(re.source, "gi")) || []).length;
+    if (n > bestN) { best = cat; bestN = n; }
+  }
+  return best;
+}
+async function fetchRecentArticles() {
+  const key = process.env.GHOST_CONTENT_API_KEY;
+  if (!key) return [];
+  const since = new Date(Date.now() - ARTICLE_WINDOW_DAYS * 864e5).toISOString().slice(0, 19).replace("T", " ");
+  const url = `${CONTENT_URL}/ghost/api/content/posts/?key=${key}&limit=10&formats=plaintext` +
+    `&fields=title,url,plaintext,custom_excerpt,excerpt,published_at,visibility` +
+    `&filter=${encodeURIComponent(`published_at:>'${since}'+visibility:public`)}`;
+  try {
+    const d = await (await fetch(url, { signal: AbortSignal.timeout(10000) })).json();
+    return (d.posts || []).map((p) => ({
+      title: p.title, link: p.url, article: true, hot: false,
+      article_summary: String(p.plaintext || p.custom_excerpt || p.excerpt || "").replace(/\s+/g, " ").slice(0, 1500),
+      category: guessCategory(`${p.title} ${p.plaintext || ""}`), subcategory: "Article",
+      published: Date.parse(p.published_at) || Date.now(),
+    }));
+  } catch { return []; }
+}
+
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
 function pickStories(items) {
@@ -100,7 +140,7 @@ async function writeRegularComments(plan, apiKey) {
       ? p.existing.slice(-4).map((c) => `    ${c.name}: "${c.text.slice(0, 220)}"`).join("\n")
       : "    (no comments yet)";
     return `[${i}] TITLE: ${p.story.title}
-STORY: ${(p.story.article_summary || [p.story.what_is_it, p.story.why_it_matters].join(" ")).slice(0, 800)}
+${p.story.article ? "QUANTUMRX ARTICLE (the site's own piece — readers may agree or argue with the author)" : "STORY"}: ${(p.story.article_summary || [p.story.what_is_it, p.story.why_it_matters].join(" ")).slice(0, p.story.article ? 1500 : 800)}
 EXISTING COMMENTS:
 ${existing}
 WRITERS (in order): ${p.writers.map((w) => w.name).join(", ")}`;
@@ -228,7 +268,8 @@ export default async function handler(req, res) {
 
   try {
     const feed = await (await fetch(`https://${req.headers.host}/api/signals-hub-feed?sim=${t0}`, { signal: AbortSignal.timeout(20000) })).json();
-    const feedByLink = Object.fromEntries((feed.items || []).filter((it) => !isSensitive(it)).map((it) => [it.link, it]));
+    const articles = await fetchRecentArticles();
+    const feedByLink = Object.fromEntries([...(feed.items || []), ...articles].filter((it) => !isSensitive(it)).map((it) => [it.link, it]));
     let posted = 0, held = 0, replies = 0, stress = null, storiesTouched = 0;
 
     // 1. Replies to earlier threads first, so today's new comments aren't
@@ -250,13 +291,14 @@ export default async function handler(req, res) {
 
     if (mode !== "replies") {
       // 2. New comments on today's stories.
-      const stories = pickStories(feed.items || []);
+      const stories = [...articles.filter((a) => !isSensitive(a)), ...pickStories(feed.items || [])].slice(0, STORIES_PER_RUN + articles.length);
       storiesTouched = stories.length;
       const plan = [];
       for (const story of stories) {
         const existing = (await loadThread(story.link)).filter((c) => c.sim);
         const already = new Set(existing.map((c) => c.persona));
-        const writers = interestedRegulars(story).filter((w) => !already.has(w.id) || Math.random() < 0.3);
+        const base = story.article ? shuffle([...REGULARS]).sort((a, b) => b.interests.includes(story.category) - a.interests.includes(story.category)).slice(0, 2 + Math.floor(Math.random() * 3)) : interestedRegulars(story);
+        const writers = base.filter((w) => !already.has(w.id) || Math.random() < 0.3);
         if (writers.length) plan.push({ story, existing, writers, lastAt: existing.length ? existing[existing.length - 1].createdAt : 0 });
       }
       const drafts = plan.length ? await writeRegularComments(plan, apiKey) : [];
@@ -286,7 +328,7 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({
-      ok: true, mode, elapsedMs: Date.now() - t0, stories: storiesTouched,
+      ok: true, mode, elapsedMs: Date.now() - t0, stories: storiesTouched, articles: articles.map((a) => a.title),
       replies, regularComments: { approved: posted, heldByFilter: held }, stressTest: stress,
     });
   } catch (err) {
