@@ -232,6 +232,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function mount(){
     if (mounted || !document.body || !document.body.classList.contains('post-template')) return;
+    if (document.querySelector('.qrx-pc')) { mounted = true; return; } // already mounted by another injection (site footer vs per-post)
     var content = document.querySelector('.gh-content') || document.querySelector('.post-content') || document.querySelector('article');
     if (!content) return;
     mounted = true;
