@@ -60,7 +60,7 @@ Lead with a position, not a recap. Assume the visitor can read the story themsel
 
 CORE CONSTRAINTS — always apply, regardless of question type
 
-Never use em dashes. Keep every section tight, no filler sentences, no restating the question back. Do not invent specific numbers, names, dates, or facts that are not present in the data provided below; if the data does not support a confident answer, say so directly rather than guessing or hedging vaguely. Do not pitch, recommend, or price products or services; if a visitor asks what QuantumRx sells, tell them to check the site and move on.`;
+Never use em dashes. Keep every section tight, no filler sentences, no restating the question back. Do not invent specific numbers, names, dates, or facts that are not present in the data provided below; if the data does not support a confident answer, say so directly rather than guessing or hedging vaguely. Do not pitch, recommend, or price products or services. If a visitor asks what QuantumRx sells, say only that products and pricing are listed on the site and you cover stories and technology direction rather than sales. Never claim QuantumRx has nothing for sale, and never quote a price.`;
 
 /**
  * Classifies the visitor's latest question into one of five response
@@ -235,15 +235,24 @@ function parseSingleStory(rawTextWithTitle) {
   const modelTitle = extractTitle(rawTextWithTitle);
   const text = stripTitle(rawTextWithTitle);
 
+  // Opinion-led shape (current): TAKE / WHERE IT IS HEADING / WHAT TO WATCH.
+  // Anchored to line start so it never swallows a legacy "HOT TAKE:" line.
+  const take = text.match(/(?:^|\n)\s*TAKE:\s*([\s\S]*?)(?=WHERE IT IS HEADING:|WHAT TO WATCH:|HOT TAKE:|$)/i);
+  const heading = text.match(/WHERE IT IS HEADING:\s*([\s\S]*?)(?=WHAT TO WATCH:|$)/i);
+
+  // Legacy four-part shape, still produced when a visitor taps a story from
+  // the feed (SPECIFIC STORY CONTEXT supplies pre-written WHAT IS IT fields).
   const whatIs = text.match(/WHAT IS IT:\s*([\s\S]*?)(?=WHY IT MATTERS:|$)/i);
   const why = text.match(/WHY IT MATTERS:\s*([\s\S]*?)(?=WHAT TO WATCH:|$)/i);
   const watch = text.match(/WHAT TO WATCH:\s*([\s\S]*?)(?=HOT TAKE:|$)/i);
   const hot = text.match(/HOT TAKE:\s*([\s\S]*?)$/i);
 
-  if (!whatIs) return ensureTitle({ title: modelTitle, ...fallbackSection(text) }, text);
+  if (!take && !whatIs) return ensureTitle({ title: modelTitle, ...fallbackSection(text) }, text);
 
   const sections = [];
-  sections.push({ label: 'What is it', text: whatIs[1].trim(), style: 'normal' });
+  if (take) sections.push({ label: 'QRx Take', text: take[1].trim(), style: 'hottake' });
+  if (heading) sections.push({ label: 'Where it is heading', text: heading[1].trim(), style: 'normal' });
+  if (whatIs) sections.push({ label: 'What is it', text: whatIs[1].trim(), style: 'normal' });
   if (why) sections.push({ label: 'Why it matters', text: why[1].trim(), style: 'normal' });
   if (watch) sections.push({ label: 'What to watch', text: watch[1].trim(), style: 'dim' });
   if (hot) sections.push({ label: 'QRx Take', text: hot[1].trim(), style: 'hottake' });
@@ -309,6 +318,25 @@ function parseSpeculative(rawTextWithTitle) {
   return ensureTitle({ title: modelTitle, sections }, text);
 }
 
+function parseTrajectory(rawTextWithTitle) {
+  const modelTitle = extractTitle(rawTextWithTitle);
+  const text = stripTitle(rawTextWithTitle);
+
+  const position = text.match(/POSITION:\s*([\s\S]*?)(?=WHY:|WHAT BREAKS IT:|WATCH:|$)/i);
+  const why = text.match(/WHY:\s*([\s\S]*?)(?=WHAT BREAKS IT:|WATCH:|$)/i);
+  const breaks = text.match(/WHAT BREAKS IT:\s*([\s\S]*?)(?=WATCH:|$)/i);
+  const watch = text.match(/\bWATCH:\s*([\s\S]*?)$/i);
+
+  if (!position) return ensureTitle({ title: modelTitle, ...fallbackSection(text) }, text);
+
+  const sections = [{ label: 'Position', text: position[1].trim(), style: 'verdict' }];
+  if (why) sections.push({ label: 'Why', text: why[1].trim(), style: 'normal' });
+  if (breaks) sections.push({ label: 'What breaks it', text: breaks[1].trim(), style: 'normal' });
+  if (watch) sections.push({ label: 'Watch', text: watch[1].trim(), style: 'dim' });
+
+  return ensureTitle({ title: modelTitle, sections }, text);
+}
+
 function parseSynthesis(rawTextWithTitle) {
   const modelTitle = extractTitle(rawTextWithTitle);
   const text = stripTitle(rawTextWithTitle);
@@ -343,6 +371,7 @@ function parseResponseByType(rawText, questionType) {
     case 'weekly_recap': return parseWeeklyRecap(rawText);
     case 'comparative': return parseComparative(rawText);
     case 'speculative': return parseSpeculative(rawText);
+    case 'trajectory': return parseTrajectory(rawText);
     case 'synthesis': return parseSynthesis(rawText);
     default: return parseGeneral(rawText);
   }
