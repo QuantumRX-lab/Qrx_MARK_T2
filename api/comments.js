@@ -132,7 +132,13 @@ export default async function handler(req, res) {
     if (!storyId) return res.status(400).json({ error: "storyId required" });
     try {
       const thread = await loadThread(storyId);
-      return res.status(200).json({ comments: thread.map(publicView) });
+      // Simulated regulars (sim:true) exist only for private-mode testing.
+      // They are withheld from public responses so no real visitor is shown
+      // AI-written comments as if they were other readers (D-INFRA-012).
+      // Set SHOW_SIM_COMMENTS=1 on Vercel while the site is private again.
+      const showSim = process.env.SHOW_SIM_COMMENTS === "1";
+      const visible = showSim ? thread : thread.filter((c) => !c.sim);
+      return res.status(200).json({ comments: visible.map(publicView) });
     } catch {
       return res.status(500).json({ error: "Comments temporarily unavailable" });
     }

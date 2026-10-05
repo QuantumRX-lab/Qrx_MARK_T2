@@ -15,7 +15,9 @@
 export const config = { maxDuration: 300 };
 
 const PHASE1 = ['news-refresh', 'draw-refresh', 'mainstream-refresh', 'cartoon-refresh', 'meme-refresh', 'exploit-watch-refresh'];
-const PHASE2 = ['generate-chat-chips', 'comments-moderate', 'comments-bots'];
+// comments-bots paused 2026-10-05: the site went public again, and the
+// simulated regulars are only acceptable while it is private (D-INFRA-012).
+const PHASE2 = ['generate-chat-chips', 'comments-moderate'];
 
 function baseUrl(req) {
   const proto = (req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
