@@ -82,6 +82,7 @@ CRITICAL RULES:
 - Each question must reference which story index numbers ground it (1 to 3 stories per question).
 - Each question must be tagged with exactly one response format: comparative (who's winning/losing/ahead), speculative (what could go wrong / what happens if / biggest obstacle or risk), synthesis (connecting multiple stories, what's getting outsized attention), single_story (about one specific story in depth), or weekly_recap (a broad overview question).
 - Prefer variety: do not generate 8 questions all in the same format or all about the same vertical.
+- Ask for opinion or direction, not description. Favour questions like "is X overhyped", "who actually wins if Y ships", "where does Z end up in two years". Never generate a question that asks for a summary of a story or article, and never generate a question about QuantumRx products, pricing, kits, or services.
 - This must parse as valid JSON. Do not use straight double quotes ("") inside any question or label text — rephrase to avoid quoting a name or term, or use single quotes instead. Do not include literal newlines inside a string value.
 
 Return ONLY a JSON array, no other text, no markdown code fences, in exactly this shape:
